@@ -1,0 +1,71 @@
+<app-page-title title="Pages" subtitle="FAQs" />
+
+<div class="row">
+  <div class="col">
+    <div class="card">
+      <div class="card-body p-4">
+        <div class="row g-xl-4">
+          @for (data of faqList; track $index; let first = $first) {
+            <div class="col-xl-6" [class]="{ 'mt-0': !first }">
+              <h4 class="mb-3 fw-semibold fs-16" [class]="{ 'mt-4': !first }">
+                {{ data.title }}
+              </h4>
+
+              <div ngbAccordion [closeOthers]="true" class="accordion">
+                @for (item of data.faqs; track $index) {
+                  <div
+                    ngbAccordionItem
+                    [collapsed]="$index == 0 ? false : true"
+                    class="accordion-item"
+                  >
+                    <h2 ngbAccordionHeader class="accordion-header">
+                      <button
+                        ngbAccordionButton
+                        class="accordion-button fw-medium"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#faq1"
+                        aria-expanded="true"
+                        aria-controls="faq1"
+                      >
+                        {{ item.question }}
+                      </button>
+                    </h2>
+                    <div
+                      ngbAccordionCollapse
+                      id="faq1"
+                      class="accordion-collapse collapse show"
+                      aria-labelledby="faq1"
+                    >
+                      <div ngbAccordionBody class="accordion-body">
+                        {{ item.answer }}
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+        <!-- end row-->
+
+        <div class="row my-5">
+          <div class="col-12 text-center">
+            <h4>Can't find a questions?</h4>
+            <button type="button" class="btn btn-success mt-2 me-1">
+              <i class="bx bx-envelope me-1"></i>
+              Email us your question
+            </button>
+            <button type="button" class="btn btn-info mt-2 ms-1">
+              <i class="bx bxl-twitter me-1"></i>
+              Send us a tweet
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- end card-body-->
+    </div>
+    <!-- end card-->
+  </div>
+  <!-- end col-->
+</div>

@@ -1,0 +1,229 @@
+<div
+  class="tab-pane fade active show"
+  id="social-groups"
+  role="tabpanel"
+  aria-labelledby="social-groups-tab"
+>
+  <div class="card">
+    <div class="card-body px-0">
+      <div class="px-3 mb-3">
+        <div ngbDropdown [autoClose]="false" class="dropdown float-end">
+          <a
+            ngbDropdownToggle
+            href="javascript:void(0);"
+            class="dropdown-toggle arrow-none text-dark"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+          >
+            <i class="bx bx-cog fs-18"></i>
+          </a>
+          <div ngbDropdownMenu class="dropdown-menu dropdown-menu-end">
+            <a
+              href="javascript:void(0);"
+              class="dropdown-header fs-14 fw-medium"
+            >
+              Notification Setting</a
+            >
+            <a
+              href="javascript:void(0);"
+              class="dropdown-item d-flex align-items-center"
+            >
+              <div class="flex-shrink-0">
+                <i class="bx bx-notification me-2"></i>
+              </div>
+              <div class="flex-grow-1">
+                <div class="form-check form-switch mb-0 float-end">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    role="switch"
+                    id="notification"
+                    checked
+                  />
+                </div>
+                <p class="mb-0">Show Notification Dots</p>
+              </div>
+            </a>
+            <div class="dropdown-divider"></div>
+            <a
+              href="javascript:void(0);"
+              class="dropdown-header fs-14 fw-medium"
+              >Manage Groups</a
+            >
+            <a
+              href="javascript:void(0);"
+              class="dropdown-item d-flex align-items-center"
+            >
+              <div class="flex-shrink-0">
+                <i class="bx bx-pin me-2 fs-18"></i>
+              </div>
+              <div class="flex-grow-1">
+                <p class="mb-0">Pins</p>
+                <small class="text-muted"
+                  >Pins your favorite groups for quick access.</small
+                >
+              </div>
+            </a>
+            <a
+              href="javascript:void(0);"
+              class="dropdown-item d-flex align-items-center"
+            >
+              <div class="flex-shrink-0">
+                <i class="bx bx-user-plus me-2 fs-18"></i>
+              </div>
+              <div class="flex-grow-1">
+                <p class="mb-0">Following</p>
+                <small class="text-muted"
+                  >Follow or unfollow groups to control what you see in
+                  Newsfeed</small
+                >
+              </div>
+            </a>
+          </div>
+        </div>
+        <h5 class="card-title">Groups</h5>
+      </div>
+
+      <form class="chat-search px-3">
+        <div class="chat-search-box">
+          <input
+            class="form-control"
+            type="text"
+            name="search"
+            placeholder="Search ..."
+          />
+          <i class="bx bx-search-alt search-icon"></i>
+        </div>
+      </form>
+      <h5 class="px-3 mb-3">Groups you have joined</h5>
+      <ngx-simplebar class="px-3 mb-2" data-simplebar style="max-height: 215px">
+        @for (join of joinedGroup; track $index) {
+          <div class="d-flex align-items-center position-relative mb-3">
+            <div class="flex-shrink-0">
+              <img
+                [src]="join.image"
+                class="img-fluid avatar-md rounded-circle me-2"
+                alt="group-6"
+              />
+            </div>
+            <div class="flex-grow-1">
+              <p class="mb-0 fw-medium">
+                <a href="javascript:void(0);" class="stretched-link">{{
+                  join.title
+                }}</a>
+              </p>
+              <small>{{ join.member }}</small
+              ><br />
+            </div>
+          </div>
+        }
+      </ngx-simplebar>
+      <div class="d-grid">
+        <button class="btn btn-soft-primary mx-3">
+          <i class="bx bx-plus me-1"></i>Create New Group
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    @for (group of groupList; track $index) {
+      <div class="col-lg-6">
+        <div class="card group">
+          <a href="javascript:void(0);" class="group-action">
+            <div class="avatar-sm fw-bold">
+              <span
+                class="avatar-title rounded-circle text-bg-primary text-center fs-18"
+              >
+                <i class="bx bx-x"></i>
+              </span>
+            </div>
+          </a>
+          <img
+            class="card-img-top img-fluid"
+            [src]="group.image"
+            alt="group-7"
+          />
+          <div class="card-body">
+            <h5 class="card-title fs-16 mb-2">
+              {{ group.title }}
+            </h5>
+            <p class="card-text text-muted text-justify">
+              {{ group.caption }}
+            </p>
+            <a href="javascript:void(0);" class="btn btn-primary w-100"
+              >Join Group</a
+            >
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+  <h5 class="card-title mb-3">Friends Group</h5>
+  <div class="row">
+    @for (friend of friendsGroup; track $index) {
+      <div class="col-lg-6">
+        <div class="card group">
+          <a href="javascript:void(0);" class="group-action">
+            <div class="avatar-sm fw-bold">
+              <span
+                class="avatar-title rounded-circle text-bg-primary text-center fs-18"
+              >
+                <i class="bx bx-x"></i>
+              </span>
+            </div>
+          </a>
+          <img
+            class="card-img-top img-fluid"
+            [src]="friend.image"
+            alt="group-1"
+          />
+          <div class="card-body">
+            <h5 class="card-title fs-16 mb-2">
+              {{ friend.title }}
+            </h5>
+            <p class="card-text text-muted text-justify">
+              {{ friend.caption }}
+            </p>
+            <a href="javascript:void(0);" class="btn btn-primary w-100"
+              >Join Group</a
+            >
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+  <h5 class="card-title mb-3">Suggested For You</h5>
+  <div class="row">
+    @for (data of suggestedGroup; track $index) {
+      <div class="col-lg-6">
+        <div class="card group">
+          <a href="javascript:void(0);" class="group-action">
+            <div class="avatar-sm fw-bold">
+              <span
+                class="avatar-title rounded-circle text-bg-primary text-center fs-18"
+              >
+                <i class="bx bx-x"></i>
+              </span>
+            </div>
+          </a>
+          <img
+            class="card-img-top img-fluid"
+            [src]="data.image"
+            alt="group-3"
+          />
+          <div class="card-body">
+            <h5 class="card-title fs-16 mb-2">
+              {{ data.title }}
+            </h5>
+            <p class="card-text text-muted text-justify">
+              {{ data.caption }}
+            </p>
+            <a href="javascript:void(0);" class="btn btn-primary w-100"
+              >Join Group</a
+            >
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</div>

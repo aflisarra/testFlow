@@ -1,0 +1,75 @@
+<app-page-title title="Pages" subtitle="Our Team" />
+
+<div class="row">
+  <div class="col-lg-12">
+    <div class="card">
+      <div class="card-header">
+        <div class="row g-2">
+          <div class="col-sm-4">
+            <div class="search-bar">
+              <span><i class="bx bx-search-alt"></i></span>
+              <input
+                type="search"
+                class="form-control"
+                id="search"
+                placeholder="Search ..."
+              />
+            </div>
+          </div>
+          <!--end col-->
+          <div class="col-sm-auto ms-auto">
+            <div class="d-flex gap-1">
+              <button class="btn btn-danger">
+                <i class="bx bx-plus me-1 align-middle"></i>
+                Add Members
+              </button>
+              <button type="button" class="btn btn-soft-primary fs-14">
+                <i class="bx bxs-grid"></i>
+              </button>
+              <button type="button" class="btn btn-soft-primary fs-14">
+                <i class="bx bx-list-ul"></i>
+              </button>
+              <div ngbDropdown class="dropdown">
+                <button
+                  ngbDropdownToggle
+                  type="button"
+                  id="dropdownMenuLink1"
+                  aria-expanded="false"
+                  class="btn btn-soft-secondary fs-14 arrow-none"
+                >
+                  <i class="bx bx-dots-vertical-rounded"></i>
+                </button>
+                <ul
+                  ngbDropdownMenu
+                  class="dropdown-menu dropdown-menu-end"
+                  aria-labelledby="dropdownMenuLink1"
+                >
+                  <li>
+                    <a class="dropdown-item" href="javascript:void(0);">All</a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="javascript:void(0);"
+                      >Last Week</a
+                    >
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="javascript:void(0);"
+                      >Last Month</a
+                    >
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="javascript:void(0);"
+                      >Last Year</a
+                    >
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <!--end col-->
+        </div>
+      </div>
+    </div>
+    <team-list />
+  </div>
+</div>

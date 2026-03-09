@@ -1,0 +1,52 @@
+<div class="card">
+  <div class="card-header d-flex align-items-center">
+    <h5 class="card-title">Messages</h5>
+    <div class="ms-auto">
+      <a href="javascript:void(0);" class="text-primary"
+        >Export
+        <i class="bx bx-export ms-1"></i>
+      </a>
+    </div>
+  </div>
+  <div class="card-body">
+    <ul class="list-unstyled mb-0">
+      @for (
+        msg of messageList;
+        track $index;
+        let first = $first;
+        let last = $last
+      ) {
+        <li
+          class=""
+          [ngClass]="{
+            'border-bottom': !last,
+            'pt-3': last,
+            'pb-3': first,
+            'py-3': !first && !last,
+          }"
+        >
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <img
+              [src]="msg.profile"
+              alt="avatar-2"
+              class="avatar-md rounded-circle"
+            />
+            <div class="d-block">
+              <h5 class="fs-15 mt-0 mb-1">
+                {{ msg.name }}
+              </h5>
+              <p class="text-muted fs-13 text-break mb-0">
+                {{ msg.content }}
+              </p>
+            </div>
+            <div class="ms-auto text-end">
+              <p class="text-muted mb-0">
+                {{ msg.time }}
+              </p>
+            </div>
+          </div>
+        </li>
+      }
+    </ul>
+  </div>
+</div>

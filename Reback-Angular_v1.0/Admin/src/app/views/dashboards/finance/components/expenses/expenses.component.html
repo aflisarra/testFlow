@@ -1,0 +1,37 @@
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h4 class="card-title">Expenses</h4>
+    <div>
+      <button type="button" class="btn btn-sm btn-outline-light me-1">
+        ALL
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-light me-1">
+        1M
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-light me-1">
+        6M
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-light active">
+        1Y
+      </button>
+    </div>
+  </div>
+  <!-- end card-header-->
+  <div class="card-body">
+    <div dir="ltr">
+      <div id="daily-expenses" class="apex-charts">
+        <apx-chart
+          [chart]="expenseChart.chart!"
+          [series]="expenseChart.series!"
+          [colors]="expenseChart.colors!"
+          [plotOptions]="expenseChart.plotOptions!"
+          [dataLabels]="expenseChart.dataLabels!"
+          [legend]="expenseChart.legend!"
+          [grid]="expenseChart.grid!"
+          [yaxis]="expenseChart.yaxis!"
+          [xaxis]="expenseChart.xaxis!"
+        ></apx-chart>
+      </div>
+    </div>
+  </div>
+</div>

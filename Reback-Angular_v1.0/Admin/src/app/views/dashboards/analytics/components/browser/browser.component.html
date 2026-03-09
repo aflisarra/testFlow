@@ -1,0 +1,39 @@
+<div class="card">
+  <div
+    class="d-flex card-header justify-content-between align-items-center border-bottom border-dashed"
+  >
+    <h4 class="card-title">Session By Browser</h4>
+    <div ngbDropdown class="dropdown">
+      <a
+        ngbDropdownToggle
+        class="dropdown-toggle arrow-none card-drop"
+        data-bs-toggle="dropdown"
+        aria-expanded="false"
+      >
+        <iconify-icon
+          icon="iconamoon:menu-kebab-vertical-circle-duotone"
+          class="fs-20 align-middle text-muted"
+        ></iconify-icon>
+      </a>
+      <div ngbDropdownMenu class="dropdown-menu dropdown-menu-end">
+        <!-- item-->
+        <a href="javascript:void(0);" class="dropdown-item">Download</a>
+        <!-- item-->
+        <a href="javascript:void(0);" class="dropdown-item">Export</a>
+        <!-- item-->
+        <a href="javascript:void(0);" class="dropdown-item">Import</a>
+      </div>
+    </div>
+  </div>
+  <div class="card-body py-2 px-0">
+    <ngx-simplebar class="px-2" style="height: 270px">
+      @for (data of browserData; track $index) {
+        <div class="d-flex justify-content-between align-items-center p-2">
+          <span class="align-middle fw-medium">{{ data.name }}</span>
+          <span class="fw-semibold text-muted">{{ data.percentage }}%</span>
+          <span class="fw-semibold text-muted">{{ data.amount }}k</span>
+        </div>
+      }
+    </ngx-simplebar>
+  </div>
+</div>

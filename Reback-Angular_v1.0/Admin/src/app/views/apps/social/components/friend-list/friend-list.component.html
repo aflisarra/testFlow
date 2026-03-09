@@ -1,0 +1,93 @@
+<ngx-simplebar class="card h-100" data-simplebar>
+  <div class="card-body">
+    <h5 class="card-title mb-3">Friends</h5>
+
+    <form class="chat-search">
+      <div class="chat-search-box">
+        <input
+          class="form-control"
+          type="text"
+          name="search"
+          placeholder="Search ..."
+        />
+        <i class="bx bx-search-alt search-icon"></i>
+      </div>
+    </form>
+
+    <h5 class="mb-3">Pending Request (2)</h5>
+
+    @for (request of pendingRequestList; track $index; let last = $last) {
+      <div class="d-flex position-relative" [ngClass]="{ 'mb-3': !last }">
+        <div class="flex-shrink-0">
+          <img
+            [src]="request.profile"
+            class="img-fluid avatar-sm rounded me-2"
+            alt="avatar-2"
+          />
+        </div>
+        <div class="flex-grow-1 text-truncate">
+          <p class="mb-0">
+            <a href="javascript:void(0);" class="text-dark stretched-link"
+              ><b>{{ request.name }}</b> sent you a request</a
+            >
+          </p>
+          <small>
+            {{ request.mutual > 0 ? request.mutual : 'no' }} mutual friends </small
+          ><br />
+        </div>
+      </div>
+      @if (!last) {
+        <hr class="mb-3" />
+      }
+    }
+  </div>
+  <div class="card-body border-top">
+    <h5 class="card-title mb-3">Friends Request</h5>
+
+    @for (request of friendRequestList; track $index; let last = $last) {
+      <div class="d-flex align-items-center" [ngClass]="{ 'mb-3': !last }">
+        <div class="flex-shrink-0">
+          <img
+            [src]="request.profile"
+            class="img-fluid avatar-sm rounded me-2"
+            alt="avatar-5"
+          />
+        </div>
+        <div class="flex-grow-1">
+          <div ngbDropdown class="dropdown float-end">
+            <a
+              ngbDropdownToggle
+              href="javascript:void(0);"
+              class="dropdown-toggle arrow-none text-dark"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
+              <i class="bx bx-dots-vertical-rounded fs-18"></i>
+            </a>
+            <div ngbDropdownMenu class="dropdown-menu dropdown-menu-end">
+              <a href="javascript:void(0);" class="dropdown-item">
+                <i class="bx bxs-user-detail me-1"></i>See Profile
+              </a>
+              <a href="javascript:void(0);" class="dropdown-item">
+                <i class="bx bxl-telegram me-1"></i>Message to Victoria
+              </a>
+              <a href="javascript:void(0);" class="dropdown-item">
+                <i class="bx bx-user-x me-1"></i>Unfriend Victoria
+              </a>
+              <a href="javascript:void(0);" class="dropdown-item">
+                <i class="bx bx-block me-1"></i>Block Victoria
+              </a>
+            </div>
+          </div>
+          <h5 class="mb-1 fs-14">
+            <a href="javascript:void(0);">{{ request.name }}</a>
+          </h5>
+          <p class="mb-0">
+            {{ request.mutual > 0 ? request.mutual : 'no' }} mutual friends
+          </p>
+        </div>
+      </div>
+    }
+  </div>
+</ngx-simplebar>
+<!--end sticky bar -->

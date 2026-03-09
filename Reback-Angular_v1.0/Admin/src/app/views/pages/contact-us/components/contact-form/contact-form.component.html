@@ -1,0 +1,173 @@
+<div class="card mb-0 shadow-none border-0">
+  <div class="card-header bg-light-subtle border-0">
+    <h4 class="mb-0">Ask your different questions</h4>
+  </div>
+  <div class="card-body">
+    <form class="authentication-form">
+      <div class="row mb-3">
+        <div class="col-lg-6">
+          <label class="form-label" for="example-name">First Name</label>
+          <input
+            type="name"
+            id="example-name"
+            name="example-name"
+            class="form-control"
+            placeholder="First name"
+            required
+          />
+        </div>
+        <div class="col-lg-6">
+          <label class="form-label" for="last-name">Last Name</label>
+          <input
+            type="name"
+            id="last-name"
+            name="last-name"
+            class="form-control"
+            placeholder="Last name"
+            required
+          />
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="example-email">Email</label>
+        <input
+          type="email"
+          id="example-email"
+          name="example-email"
+          class="form-control"
+          placeholder="Enter your email"
+          required
+        />
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="contactnumber">Contact Number</label>
+        <div ngbDropdown class="dropdown form-group input-group">
+          <button
+            ngbDropdownToggle
+            class="btn btn-light dropdown-toggle rounded-end-0 border"
+            type="button"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+          >
+            U.S.A
+          </button>
+          <ul ngbDropdownMenu class="dropdown-menu">
+            <li>
+              <a class="dropdown-item" href="javascript:void(0);"> U.S.A </a>
+            </li>
+            <li>
+              <a class="dropdown-item" href="javascript:void(0);"> India </a>
+            </li>
+            <li>
+              <a class="dropdown-item" href="javascript:void(0);"> Iraq </a>
+            </li>
+            <li>
+              <a class="dropdown-item" href="javascript:void(0);">
+                South Africa
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item" href="javascript:void(0);"> France </a>
+            </li>
+          </ul>
+          <input
+            type="number"
+            class="form-control"
+            id="contactnumber"
+            placeholder="+0(222)000-0000"
+            required
+          />
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="exampleFormControlTextarea1"
+          >Message</label
+        >
+        <textarea
+          class="form-control"
+          id="exampleFormControlTextarea1"
+          rows="5"
+          placeholder="Max 150 words"
+        ></textarea>
+      </div>
+      <div class="mb-3">
+        <h5 class="my-3">Services</h5>
+        <div class="row">
+          <div class="col-xxl-6">
+            <div class="mb-2">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                value=""
+                id="defaultCheck1"
+              />
+              <label class="form-check-label ms-1" for="defaultCheck1">
+                Website Design
+              </label>
+            </div>
+            <div class="mb-2">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                value=""
+                id="defaultCheck2"
+              />
+              <label class="form-check-label ms-1" for="defaultCheck2">
+                UX Design
+              </label>
+            </div>
+            <div class="mb-2">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                value=""
+                id="defaultCheck3"
+              />
+              <label class="form-check-label ms-1" for="defaultCheck3">
+                User Research
+              </label>
+            </div>
+          </div>
+          <div class="col-xxl-6">
+            <div class="mb-2">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                value=""
+                id="defaultCheck4"
+              />
+              <label class="form-check-label ms-1" for="defaultCheck4">
+                Content Creation
+              </label>
+            </div>
+            <div class="mb-2">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                value=""
+                id="defaultCheck5"
+              />
+              <label class="form-check-label ms-1" for="defaultCheck5">
+                Strategy & Consulting
+              </label>
+            </div>
+            <div class="mb-2">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                value=""
+                id="defaultCheck6"
+              />
+              <label class="form-check-label ms-1" for="defaultCheck6">
+                Other
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="text-center d-grid">
+        <button class="btn btn-primary" type="submit">Send Message</button>
+      </div>
+    </form>
+  </div>
+</div>

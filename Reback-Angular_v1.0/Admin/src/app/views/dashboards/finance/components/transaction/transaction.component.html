@@ -1,0 +1,108 @@
+<div class="card">
+  <div class="d-flex card-header justify-content-between align-items-center">
+    <h4 class="card-title">Transactions</h4>
+    <div class="flex-shrink-0">
+      <div class="d-flex gap-2">
+        <select class="form-select form-select-sm">
+          <option selected="">All</option>
+          <option value="0">Paid</option>
+          <option value="1">Cancelled</option>
+          <option value="2">Failed</option>
+          <option value="2">Onhold</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive table-card">
+      <table
+        class="table table-borderless table-hover table-nowrap align-middle mb-0"
+      >
+        <thead class="bg-light bg-opacity-50 thead-sm">
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Description</th>
+            <th scope="col">Amount</th>
+            <th scope="col">Timestamp</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          @for (data of transaction$ | async; track $index) {
+            <tr>
+              <td>
+                <img
+                  [src]="data.image"
+                  alt=""
+                  class="avatar-xs rounded-circle me-1"
+                />
+                <a href="javascript:void(0);" class="text-reset">
+                  {{ data.name }}</a
+                >
+              </td>
+              <td>{{ data.description }}</td>
+              <td [ngClass]="{ 'text-danger': data.amount.startsWith('-') }">
+                {{ data.amount }}
+              </td>
+              <td>
+                {{ data.date }}
+                <small class="text-muted">{{ data.time }}</small>
+              </td>
+              <td>
+                <span
+                  class="badge p-1"
+                  [ngClass]="{
+                    'bg-success-subtle text-success': data.status == 'Success',
+                    'bg-warning-subtle text-warning': data.status == 'Onhold',
+                    'bg-info-subtle text-info': data.status == 'Cancelled',
+                    'bg-danger-subtle text-danger': data.status == 'Failed',
+                  }"
+                  >{{ data.status }}</span
+                >
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card-footer border-top border-light">
+    <div
+      class="align-items-center justify-content-between row text-center text-sm-start"
+    >
+      <div class="col-sm">
+        <div class="text-muted">
+          Showing
+          <span class="fw-semibold text-body">
+            {{ (total$ | async)! }}
+          </span>
+          of
+          <span class="fw-semibold">
+            {{ tableService.endIndex }}
+          </span>
+          Transactions
+        </div>
+      </div>
+      <div class="col-sm-auto mt-3 mt-sm-0">
+        <ul
+          class="pagination pagination-boxed pagination-sm mb-0 justify-content-center"
+        >
+          <ngb-pagination
+            [collectionSize]="(total$ | async)!"
+            [(page)]="tableService.page"
+            [pageSize]="tableService.pageSize"
+          >
+            <ng-template ngbPaginationPrevious
+              ><i class="bx bx-left-arrow-alt"></i
+            ></ng-template>
+            <ng-template ngbPaginationNext
+              ><i class="bx bx-right-arrow-alt"></i
+            ></ng-template>
+          </ngb-pagination>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,121 @@
+<app-page-title title="Invoice" subtitle="Invoice Details" />
+
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <div class="clearfix">
+          <div class="float-sm-end">
+            <div class="auth-logo">
+              <img
+                class="logo-dark me-1"
+                src="assets/images/logo-dark.png"
+                alt="logo-dark"
+                height="24"
+              />
+            </div>
+            <address class="mt-3">
+              1729 Bangor St,<br />
+              Houlton, ME, 04730 <br />
+              <abbr title="Phone">P:</abbr>
+              (207) 532-9109
+            </address>
+          </div>
+          <div class="float-sm-start">
+            <h5 class="card-title mb-2">
+              Invoice: {{ invoiceDetail.invoice_number }}
+            </h5>
+          </div>
+        </div>
+
+        <div class="row mt-3">
+          <div class="col-md-6">
+            <h6 class="fw-normal text-muted">Customer</h6>
+            <h6 class="fs-16">{{ invoiceDetail.client.name }}</h6>
+            <address>
+              135 White Cemetery Rd,<br />
+              Perryville, KY, 40468<br />
+              <abbr title="Phone">P:</abbr>
+              (304) 584-4345
+            </address>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-12">
+            <div
+              class="table-responsive table-borderless text-nowrap mt-3 table-centered"
+            >
+              <table class="table mb-0">
+                <thead class="bg-light bg-opacity-50">
+                  <tr>
+                    <th class="border-0 py-2">Product Name</th>
+                    <th class="border-0 py-2">Quantity</th>
+                    <th class="border-0 py-2">Price</th>
+                    <th class="text-end border-0 py-2">Total</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  @for (product of productList; track $index) {
+                    <tr>
+                      <td>{{ product.name }}</td>
+                      <td>{{ product.qty }}</td>
+                      <td>${{ product.price }}</td>
+                      <td class="text-end">
+                        ${{ product.qty * product.price }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="row mt-3">
+          <div class="col-sm-7">
+            <div class="clearfix pt-xl-3 pt-0">
+              <h6 class="text-muted">Notes:</h6>
+
+              <small class="text-muted">
+                All accounts are to be paid within 7 days from receipt of
+                invoice. To be paid by cheque or credit card or direct payment
+                online. If account is not paid within 7 days the credits details
+                supplied as confirmation of work undertaken will be charged the
+                agreed quoted fee noted above.
+              </small>
+            </div>
+          </div>
+          <div class="col-sm-5">
+            <div class="float-end">
+              <p>
+                <span class="fw-medium">Sub-total :</span>
+                <span class="float-end">${{ subTotal }}</span>
+              </p>
+              <p>
+                <span class="fw-medium">Discount (10%) :</span>
+                <span class="float-end">
+                  &nbsp;&nbsp;&nbsp; ${{ discountPrice.toFixed(3) }}</span
+                >
+              </p>
+              <h3>${{ totalAmount.toFixed(2) }} USD</h3>
+            </div>
+            <div class="clearfix"></div>
+          </div>
+        </div>
+
+        <div class="mt-5 mb-1">
+          <div class="text-end d-print-none">
+            <a href="javascript:window.print()" class="btn btn-primary me-1"
+              >Print</a
+            >
+            <a href="javascript:void(0);" class="btn btn-outline-primary"
+              >Submit</a
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,84 @@
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h4 class="card-title">Revenue Sources</h4>
+    <div ngbDropdown class="dropdown">
+      <a
+        ngbDropdownToggle
+        class="dropdown-toggle arrow-none card-drop"
+        data-bs-toggle="dropdown"
+        aria-expanded="false"
+      >
+        <iconify-icon
+          icon="iconamoon:menu-kebab-vertical-circle-duotone"
+          class="fs-20 align-middle text-muted"
+        ></iconify-icon>
+      </a>
+      <div ngbDropdownMenu class="dropdown-menu dropdown-menu-end">
+        <!-- item-->
+        <a href="javascript:void(0);" class="dropdown-item">Sales Report</a>
+        <!-- item-->
+        <a href="javascript:void(0);" class="dropdown-item">Export Report</a>
+        <!-- item-->
+        <a href="javascript:void(0);" class="dropdown-item">Profit</a>
+        <!-- item-->
+        <a href="javascript:void(0);" class="dropdown-item">Action</a>
+      </div>
+    </div>
+  </div>
+  <!-- end card-header-->
+  <div class="card-body">
+    <div id="revenue-sources" class="apex-charts mb-2">
+      <apx-chart
+        [series]="revenueSourceChart.series!"
+        [chart]="revenueSourceChart.chart!"
+        [legend]="revenueSourceChart.legend!"
+        [stroke]="revenueSourceChart.stroke!"
+        [plotOptions]="revenueSourceChart.plotOptions!"
+        [labels]="revenueSourceChart.labels!"
+        [colors]="revenueSourceChart.colors!"
+        [dataLabels]="revenueSourceChart.dataLabels!"
+      ></apx-chart>
+    </div>
+
+    <div class="table-responsive mb-n1">
+      <table
+        class="table table-nowrap table-borderless table-sm table-centered mb-0"
+      >
+        <thead class="bg-light bg-opacity-50 thead-sm">
+          <tr>
+            <th class="py-1">Sources</th>
+            <th class="py-1">Revenue</th>
+            <th class="py-1">Perc.</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Online</td>
+            <td>{{ currency }}187,232</td>
+            <td>
+              48.63%
+              <span class="badge badge-soft-success ms-1">2.5% Up</span>
+            </td>
+          </tr>
+          <tr>
+            <td>Offline</td>
+            <td>{{ currency }}126,874</td>
+            <td>
+              36.08%
+              <span class="badge badge-soft-success ms-1">8.5% Up</span>
+            </td>
+          </tr>
+          <tr>
+            <td>Direct</td>
+            <td>{{ currency }}90,127</td>
+            <td>
+              23.41%
+              <span class="badge badge-soft-danger ms-1">10.98% Down</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- end table-responsive-->
+  </div>
+</div>

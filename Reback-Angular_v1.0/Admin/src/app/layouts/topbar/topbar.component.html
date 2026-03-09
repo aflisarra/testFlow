@@ -1,0 +1,380 @@
+<header class="topbar">
+  <div class="container-xxl">
+    <div class="navbar-header">
+      <div class="d-flex align-items-center gap-2">
+        <div class="topbar-item">
+          <button
+            type="button"
+            class="button-toggle-menu"
+            (click)="toggleMobileMenu()"
+          >
+            <iconify-icon
+              icon="iconamoon:menu-burger-horizontal"
+              class="fs-22"
+            ></iconify-icon>
+          </button>
+        </div>
+
+        <!-- App Search-->
+        <form class="app-search d-none d-md-block me-auto">
+          <div class="position-relative">
+            <input
+              type="search"
+              class="form-control"
+              placeholder="Search..."
+              autocomplete="off"
+              value=""
+            />
+            <iconify-icon
+              icon="iconamoon:search-duotone"
+              class="search-widget-icon"
+            ></iconify-icon>
+          </div>
+        </form>
+      </div>
+
+      <div class="d-flex align-items-center gap-1">
+        <div class="topbar-item">
+          <button
+            type="button"
+            class="topbar-button"
+            id="light-dark-mode"
+            (click)="changeTheme()"
+          >
+            <iconify-icon
+              icon="iconamoon:mode-dark-duotone"
+              class="fs-24 align-middle"
+            ></iconify-icon>
+          </button>
+        </div>
+
+        <div ngbDropdown class="dropdown topbar-item d-none d-lg-flex">
+          <button
+            ngbDropdownToggle
+            type="button"
+            class="topbar-button arrow-none"
+            data-bs-toggle="dropdown"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            <iconify-icon
+              icon="iconamoon:apps"
+              class="fs-24 align-middle"
+            ></iconify-icon>
+          </button>
+          <div ngbDropdownMenu class="dropdown-menu dropdown-menu-end p-0">
+            <div class="p-1">
+              @for (item of appsList; track $index) {
+                <a class="dropdown-item py-2" href="javascript:void(0);">
+                  <img [src]="item.image" class="avatar-xs" alt="Github" />
+                  <span class="ms-2"
+                    >{{ item.name }}:
+                    <span class="fw-medium">{{ item.handle }}</span></span
+                  >
+                </a>
+              }
+            </div>
+          </div>
+        </div>
+
+        <div ngbDropdown class="dropdown topbar-item">
+          <button
+            ngbDropdownToggle
+            type="button"
+            class="topbar-button position-relative arrow-none"
+            id="page-header-notifications-dropdown"
+            data-bs-toggle="dropdown"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            <iconify-icon
+              icon="iconamoon:notification-duotone"
+              class="fs-24 align-middle"
+            ></iconify-icon>
+            <span
+              class="position-absolute topbar-badge fs-10 translate-middle badge bg-danger rounded-pill"
+              >{{ notificationList.length
+              }}<span class="visually-hidden">unread messages</span></span
+            >
+          </button>
+          <div
+            ngbDropdownMenu
+            class="dropdown-menu py-0 dropdown-lg dropdown-menu-end"
+            aria-labelledby="page-header-notifications-dropdown"
+          >
+            <div
+              class="p-3 border-top-0 border-start-0 border-end-0 border-dashed border"
+            >
+              <div class="row align-items-center">
+                <div class="col">
+                  <h6 class="m-0 fs-16 fw-semibold">Notifications</h6>
+                </div>
+                <div class="col-auto">
+                  <a
+                    href="javascript: void(0);"
+                    class="text-dark text-decoration-underline"
+                  >
+                    <small>Clear All</small>
+                  </a>
+                </div>
+              </div>
+            </div>
+            <ngx-simplebar style="max-height: 280px">
+              @for (notify of notificationList; track $index) {
+                <a
+                  href="javascript:void(0);"
+                  class="dropdown-item py-3 border-bottom text-wrap"
+                >
+                  <div class="d-flex">
+                    <div class="flex-shrink-0">
+                      @if (notify.icon) {
+                        <img
+                          [src]="notify.icon"
+                          class="img-fluid me-2 avatar-sm rounded-circle"
+                          alt="avatar-1"
+                        />
+                      } @else {
+                        <div class="avatar-sm me-2">
+                          <span
+                            class="avatar-title bg-soft-info text-info fs-20 rounded-circle"
+                          >
+                            {{ notify.from.charAt(0) }}
+                          </span>
+                        </div>
+                      }
+                    </div>
+                    <div class="flex-grow-1">
+                      <p class="mb-0">
+                        <span class="fw-medium">{{ notify.from }} </span>
+                      </p>
+                      <p class="mb-0 text-wrap">{{ notify.content }}</p>
+                    </div>
+                  </div>
+                </a>
+              }
+            </ngx-simplebar>
+            <div class="text-center py-3">
+              <a href="javascript:void(0);" class="btn btn-primary btn-sm"
+                >View All Notification <i class="bx bx-right-arrow-alt ms-1"></i
+              ></a>
+            </div>
+          </div>
+        </div>
+
+        <div class="topbar-item">
+          <button
+            type="button"
+            (click)="settingMenu()"
+            class="topbar-button"
+            id="theme-settings-btn"
+            data-bs-target="#theme-settings-offcanvas"
+            aria-controls="theme-settings-offcanvas"
+          >
+            <iconify-icon
+              icon="iconamoon:settings-duotone"
+              class="fs-24 align-middle"
+            ></iconify-icon>
+          </button>
+        </div>
+
+        <div class="topbar-item d-none d-md-flex">
+          <button
+            type="button"
+            class="topbar-button"
+            id="theme-settings-btn"
+            (click)="open(content)"
+            aria-controls="theme-settings-offcanvas"
+          >
+            <iconify-icon
+              icon="iconamoon:history-duotone"
+              class="fs-24 align-middle"
+            ></iconify-icon>
+          </button>
+        </div>
+
+        <div ngbDropdown class="dropdown topbar-item">
+          <a
+            type="button"
+            ngbDropdownToggle
+            class="topbar-button arrow-none"
+            id="page-header-user-dropdown"
+            data-bs-toggle="dropdown"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            <span class="d-flex align-items-center">
+              <img
+                class="rounded-circle"
+                width="32"
+                src="assets/images/users/avatar-1.jpg"
+                alt="avatar-3"
+              />
+            </span>
+          </a>
+          <div ngbDropdownMenu class="dropdown-menu dropdown-menu-end">
+            <!-- item-->
+            <h6 class="dropdown-header">Welcome Gaston!</h6>
+            <a class="dropdown-item" routerLink="/pages/profile">
+              <i
+                class="bx bx-user-circle text-muted fs-18 align-middle me-1"
+              ></i
+              ><span class="align-middle">Profile</span>
+            </a>
+            <a class="dropdown-item" routerLink="/apps/chat">
+              <i
+                class="bx bx-message-dots text-muted fs-18 align-middle me-1"
+              ></i
+              ><span class="align-middle">Messages</span>
+            </a>
+
+            <a class="dropdown-item" routerLink="/pages/pricing">
+              <i class="bx bx-wallet text-muted fs-18 align-middle me-1"></i
+              ><span class="align-middle">Pricing</span>
+            </a>
+            <a class="dropdown-item" routerLink="/pages/faqs">
+              <i
+                class="bx bx-help-circle text-muted fs-18 align-middle me-1"
+              ></i
+              ><span class="align-middle">Help</span>
+            </a>
+            <a class="dropdown-item" routerLink="/auth/lock-screen">
+              <i class="bx bx-lock text-muted fs-18 align-middle me-1"></i
+              ><span class="align-middle">Lock screen</span>
+            </a>
+
+            <div class="dropdown-divider my-1"></div>
+
+            <a class="dropdown-item text-danger" (click)="logout()">
+              <i class="bx bx-log-out fs-18 align-middle me-1"></i
+              ><span class="align-middle">Logout</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<ng-template #content let-offcanvas>
+  <div class="d-flex align-items-center bg-primary p-3 offcanvas-header">
+    <h5 class="text-white m-0 fw-semibold">Activity Stream</h5>
+    <button
+      type="button"
+      class="btn-close btn-close-white ms-auto"
+      (click)="offcanvas.close()"
+    ></button>
+  </div>
+
+  <div class="offcanvas-body p-0">
+    <ngx-simplebar data-simplebar class="h-100 p-4">
+      <div class="position-relative ms-2">
+        <span
+          class="position-absolute start-0 top-0 border border-dashed h-100"
+        ></span>
+        @for (data of activityList; track $index) {
+          <div class="position-relative ps-4">
+            <div class="mb-4">
+              <span
+                class="position-absolute start-0 translate-middle-x d-inline-flex align-items-center justify-content-center rounded-circle text-light fs-20  bg-{{
+                  data.variant
+                }} "
+                [ngClass]="{ 'avatar-sm': !data.icon }"
+              >
+                @if (data.icon) {
+                  <img
+                    [src]="data.icon"
+                    alt="avatar-5"
+                    class="avatar-sm rounded-circle"
+                  />
+                } @else if (data.type) {
+                  <iconify-icon
+                    [icon]="getActivityIcon(data.type)"
+                  ></iconify-icon>
+                } @else {
+                  {{ data.title.charAt(0).toUpperCase() }}
+                }
+              </span>
+              <div class="ms-2">
+                <h5 class="mb-1 text-dark fw-semibold fs-15 lh-base">
+                  {{ data.title }}
+                  @if (data.status) {
+                    <span
+                      class="badge bg-{{ data.variant }}-subtle text-{{
+                        data.variant
+                      }} px-2 py-1 ms-1"
+                      >{{ data.status }}</span
+                    >
+                  }
+                </h5>
+
+                @if (data.files && data.type) {
+                  <p class="d-flex align-items-center">
+                    Add {{ data.files.length }} files to
+                    <span class="d-flex align-items-center text-primary ms-1">
+                      <iconify-icon icon="iconamoon:file-light"></iconify-icon>
+                      {{ data.type }}</span
+                    >
+                  </p>
+                }
+                @if (data.content) {
+                  <p>{{ data.content }}</p>
+                }
+                @if (data.files) {
+                  <div class="bg-light bg-opacity-50 rounded-2 p-2">
+                    <div class="row">
+                      @for (file of data.files; track $index) {
+                        @if (file.preview) {
+                          <div class="col-lg-4">
+                            <a href="javascript:void(0);">
+                              <img
+                                [src]="file.preview"
+                                alt=""
+                                class="img-fluid rounded"
+                            /></a>
+                          </div>
+                        } @else {
+                          <div
+                            class="border-end border-light"
+                            [ngClass]="{ 'col-lg-6': data.files.length > 1 }"
+                          >
+                            <div class="d-flex align-items-center gap-2">
+                              <i
+                                class="bx fs-20"
+                                [class]="getFileExtensionIcon(file.name)"
+                              ></i>
+                              <a
+                                href="javascript:void(0);"
+                                class="text-dark fw-medium"
+                                >{{ file.name }}</a
+                              >
+                              <div class="ms-auto">
+                                <a
+                                  href="javascript:void(0);"
+                                  class="fw-medium text-primary fs-18"
+                                  ngbTooltip="Download"
+                                  placement="bottom"
+                                >
+                                  <iconify-icon
+                                    icon="iconamoon:cloud-download-duotone"
+                                  ></iconify-icon>
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+                        }
+                      }
+                    </div>
+                  </div>
+                }
+                <h6 class="mt-2 text-muted">{{ data.time.toDateString() }}</h6>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+      <a href="javascript:void(0);" class="btn btn-outline-dark w-100"
+        >View All</a
+      >
+    </ngx-simplebar>
+  </div>
+</ng-template>

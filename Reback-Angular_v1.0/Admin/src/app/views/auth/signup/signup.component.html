@@ -1,0 +1,168 @@
+<!-- eslint-disable @angular-eslint/template/prefer-control-flow -->
+<div class="row justify-content-center">
+  <div class="col-xl-12">
+    <div class="card auth-card">
+      <div class="card-body p-0">
+        <div class="row align-items-center g-0">
+          <div class="col-lg-6 d-none d-lg-inline-block border-end">
+            <div class="auth-page-sidebar">
+              <img
+                src="assets/images/sign-in.svg"
+                alt="auth"
+                class="img-fluid"
+              />
+            </div>
+          </div>
+
+          <div class="col-lg-6">
+            <div class="p-4">
+              <app-logo-box
+                className="mx-auto mb-4 text-center auth-logo"
+                height="24"
+                logoHeight="30"
+              />
+
+              <h2 class="fw-bold text-center fs-18">Sign Up</h2>
+              <p class="text-muted text-center mt-1 mb-4">
+                New to our platform? Sign up now! It only takes a minute.
+              </p>
+
+              <div class="row justify-content-center">
+                <div class="col-12 col-md-8">
+                  <!-- Error Alert -->
+                  <div *ngIf="error" class="alert alert-danger alert-dismissible fade show" role="alert">
+                    {{ error }}
+                  </div>
+
+                  <!-- Success message -->
+                  <div *ngIf="submitted && !error" class="alert alert-success alert-dismissible fade show" role="alert">
+                    Registration successful! Redirecting...
+                  </div>
+
+                  <form [formGroup]="signupForm" (ngSubmit)="onSubmit()" class="authentication-form">
+                    <!-- Username Field -->
+                    <div class="mb-3">
+                      <label class="form-label" for="username">Username</label>
+                      <input
+                        formControlName="username"
+                        type="text"
+                        id="username"
+                        class="form-control"
+                        [class.is-invalid]="submitted && f['username'].invalid"
+                        placeholder="Enter your username"
+                      />
+                      <div *ngIf="submitted && f['username'].invalid" class="invalid-feedback d-block">
+                        <span *ngIf="f['username'].errors?.['required']">Username is required</span>
+                        <span *ngIf="f['username'].errors?.['minlength']">Username must be at least 3 characters</span>
+                      </div>
+                    </div>
+
+                    <!-- Email Field -->
+                    <div class="mb-3">
+                      <label class="form-label" for="email">Email</label>
+                      <input
+                        formControlName="email"
+                        type="email"
+                        id="email"
+                        class="form-control"
+                        [class.is-invalid]="submitted && f['email'].invalid"
+                        placeholder="Enter your email"
+                      />
+                      <div *ngIf="submitted && f['email'].invalid" class="invalid-feedback d-block">
+                        <span *ngIf="f['email'].errors?.['required']">Email is required</span>
+                        <span *ngIf="f['email'].errors?.['email']">Please enter a valid email</span>
+                      </div>
+                    </div>
+
+                    <!-- Password Field -->
+                    <div class="mb-3">
+                      <label class="form-label" for="password">Password</label>
+                      <div class="input-group">
+                        <input
+                          formControlName="password"
+                          [type]="showPassword ? 'text' : 'password'"
+                          id="password"
+                          class="form-control"
+                          [class.is-invalid]="submitted && f['password'].invalid"
+                          placeholder="Enter your password"
+                        />
+                        <button 
+                          type="button" 
+                          class="btn btn-outline-secondary"
+                          (click)="togglePasswordVisibility()"
+                          tabindex="-1"
+                        >
+                          <i [class]="showPassword ? 'feather icon-eye-off' : 'feather icon-eye'"></i>
+                        </button>
+                      </div>
+                      <div *ngIf="submitted && f['password'].invalid" class="invalid-feedback d-block">
+                        <span *ngIf="f['password'].errors?.['required']">Password is required</span>
+                        <span *ngIf="f['password'].errors?.['minlength']">Password must be at least 6 characters</span>
+                      </div>
+                    </div>
+
+                    <!-- Confirm Password Field -->
+                    <div class="mb-3">
+                      <label class="form-label" for="confirmPassword">Confirm Password</label>
+                      <input
+                        formControlName="confirmPassword"
+                        [type]="showPassword ? 'text' : 'password'"
+                        id="confirmPassword"
+                        class="form-control"
+                        [class.is-invalid]="(submitted && f['confirmPassword'].invalid) || (submitted && signupForm.errors?.['passwordMismatch'])"
+                        placeholder="Confirm your password"
+                      />
+                      <div *ngIf="submitted && (f['confirmPassword'].invalid || signupForm.errors?.['passwordMismatch'])" class="invalid-feedback d-block">
+                        <span *ngIf="f['confirmPassword'].errors?.['required']">Confirm password is required</span>
+                        <span *ngIf="signupForm.errors?.['passwordMismatch']">Passwords do not match</span>
+                      </div>
+                    </div>
+
+                    <!-- Terms Checkbox -->
+                    <div class="mb-3">
+                      <div class="form-check">
+                        <input
+                          formControlName="termsAccepted"
+                          type="checkbox"
+                          class="form-check-input"
+                          [class.is-invalid]="submitted && f['termsAccepted'].invalid"
+                          id="checkbox-signin"
+                        />
+                        <label class="form-check-label" for="checkbox-signin">
+                          I accept Terms and Condition
+                        </label>
+                      </div>
+                      <div *ngIf="submitted && f['termsAccepted'].invalid" class="invalid-feedback d-block">
+                        You must accept terms and conditions
+                      </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="mb-1 text-center d-grid">
+                      <button
+                        class="btn btn-primary"
+                        type="submit"
+                        [disabled]="loading"
+                      >
+                        <span *ngIf="loading" class="spinner-border spinner-border-sm me-2"></span>
+                        {{ loading ? 'Creating Account...' : 'Sign Up' }}
+                      </button>
+                    </div>
+                  </form>
+                  <app-social-btn />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="text-white mb-0 text-center">
+      I already have an account
+      <a routerLink="/auth/sign-in-2" class="text-white fw-bold ms-1"
+        >Sign In</a
+      >
+    </p>
+  </div>
+</div>

@@ -1,0 +1,77 @@
+<app-page-title title="Apps" subtitle="Social" />
+
+<div class="row justify-content-center">
+  <div class="col-xxl-3">
+    <div class="sticky-bar">
+      <div
+        class="offcanvas-xxl offcanvas-start"
+        tabindex="-1"
+        id="accountInfoffcanvas"
+        aria-labelledby="accountInfoffcanvasLabel"
+      >
+        <social-menu />
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xxl-6">
+    <div class="card d-xxl-none d-flex">
+      <div class="d-flex gap-2 align-items-center p-2">
+        <button
+          class="btn btn-light px-2 d-inline-flex align-items-center"
+          type="button"
+          (click)="openMenuOffcanvas()"
+          aria-controls="accountInfoffcanvas"
+        >
+          <i class="bx bx-menu fs-18"></i>
+        </button>
+
+        <h5 class="me-auto mb-0">Gatson Keller</h5>
+
+        <button
+          class="btn btn-light px-2 d-inline-flex align-items-center"
+          type="button"
+          (click)="openFriendOffcanvas()"
+          data-bs-target="#friendListffcanvas"
+          aria-controls="friendListffcanvas"
+        >
+          <i class="bx bx-menu fs-18"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="tab-content pt-0">
+      @if (activeTab == 'feed') {
+        <social-feed />
+      }
+      @if (activeTab == 'friends') {
+        <social-friend-feed />
+      }
+      @if (activeTab == 'events') {
+        <social-event />
+      }
+      @if (activeTab == 'groups') {
+        <social-groups />
+      }
+      @if (activeTab == 'saved') {
+        <social-saved />
+      }
+      @if (activeTab == 'memories') {
+        <social-memories />
+      }
+    </div>
+  </div>
+
+  <div class="col-xxl-3">
+    <div class="sticky-bar">
+      <div
+        class="offcanvas-xxl offcanvas-end"
+        tabindex="-1"
+        id="friendListffcanvas"
+        aria-labelledby="accoufriendListvasLabel"
+      >
+        <social-friend-list />
+      </div>
+    </div>
+  </div>
+</div>

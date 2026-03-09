@@ -1,0 +1,567 @@
+<app-page-title [title]="'Advanced UI'" [subtitle]="'Swiper Slider'" />
+
+<div class="row">
+  <div class="col-xl-9">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-1 anchor" id="overview">
+          Overview
+          <a
+            class="btn btn-sm btn-outline-success rounded-2 float-end"
+            href="https://swiperjs.com/get-started"
+            target="_blank"
+          >
+            Official Website
+          </a>
+        </h5>
+        <p class="text-muted mb-3">
+          Swiper is the most modern slider with hardware accelerated transitions
+          and amazing native behavior.
+        </p>
+
+        <h5 class="mt-2">Usage</h5>
+        <p>
+          To use Swiper, follow the instructions from its documentation over
+          <a href="https://swiperjs.com/get-started" class="text-primary">
+            here</a
+          >
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-1 anchor" id="default">
+          Default Swiper
+          <a class="anchor-link" href="#default">#</a>
+        </h5>
+        <p class="text-muted">
+          Use
+          <code>[config]="swiperConfig" init="false"</code>
+          attribute to set a default swiper.
+        </p>
+        <div class="row">
+          <div class="col-lg-6 mb-3">
+            <div class="swiper rounded" data-swiper="default">
+              <swiper-container
+                class="swiper-wrapper"
+                [config]="swiperConfig"
+                init="false"
+              >
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-1.jpg"
+                    alt=""
+                    class="img-fluid"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-2.jpg"
+                    alt=""
+                    class="img-fluid"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-3.jpg"
+                    alt=""
+                    class="img-fluid"
+                  />
+                </swiper-slide>
+              </swiper-container>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-1 anchor" id="navigation">
+          Navigation & Pagination Swiper
+          <a class="anchor-link" href="#navigation">#</a>
+        </h5>
+        <p class="text-muted">
+          Use
+          <code>[config]="swiperNavigation" init="false"</code>
+          attribute to set a swiper with navigation and pagination.
+        </p>
+        <div class="row">
+          <div class="col-lg-6 mb-3">
+            <div class="swiper rounded">
+              <swiper-container
+                [config]="swiperNavigation"
+                class="swiper-wrapper"
+                init="false"
+              >
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-4.jpg"
+                    alt=""
+                    class="img-fluid"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-5.jpg"
+                    alt=""
+                    class="img-fluid"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-6.jpg"
+                    alt=""
+                    class="img-fluid"
+                  />
+                </swiper-slide>
+              </swiper-container>
+              <div class="swiper-button-next basic-next"></div>
+              <div class="swiper-button-prev basic-prev"></div>
+              <div class="swiper-pagination basic-pagination"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-1 anchor" id="pagination-dynamic">
+          Pagination Dynamic Swiper
+          <a class="anchor-link" href="#pagination-dynamic">#</a>
+        </h5>
+        <p class="text-muted">
+          Use
+          <code> init="false" [config]="swiperPagination"</code>
+          attribute to set a swiper with dynamic and pagination.
+        </p>
+        <div class="row">
+          <div class="col-lg-6 mb-3">
+            <div class="swiper rounded" data-swiper="dynamic">
+              <swiper-container
+                class="swiper-wrapper"
+                init="false"
+                [config]="swiperPagination"
+              >
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-4.jpg"
+                    alt=""
+                    class="img-fluid"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-5.jpg"
+                    alt=""
+                    class="img-fluid"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-6.jpg"
+                    alt=""
+                    class="img-fluid"
+                  />
+                </swiper-slide>
+              </swiper-container>
+              <div
+                id="swiper-pagination"
+                class="swiper-pagination dynamic-pagination"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-1 anchor" id="effect-fade">
+          Effect Fade Swiper
+          <a class="anchor-link" href="#effect-fade">#</a>
+        </h5>
+        <p class="text-muted">
+          Use
+          <code>[config]="swiperfadeEffect" init="false"</code>
+          attribute to set a swiper with fade effect.
+        </p>
+        <div class="row">
+          <div class="col-lg-6 mb-3">
+            <div class="swiper rounded" data-swiper="effect-fade">
+              <swiper-container
+                class="swiper-wrapper"
+                [config]="swiperfadeEffect"
+                init="false"
+              >
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-3.jpg"
+                    alt=""
+                    class="img-fluid"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-4.jpg"
+                    alt=""
+                    class="img-fluid"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-5.jpg"
+                    alt=""
+                    class="img-fluid"
+                  />
+                </swiper-slide>
+              </swiper-container>
+              <div
+                id="swiper-pagination"
+                class="swiper-pagination effect-pagination"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-1 anchor" id="effect-creative">
+          Effect Creative Swiper
+          <a class="anchor-link" href="#effect-creative">#</a>
+        </h5>
+        <p class="text-muted">
+          Use
+          <code> [config]="swiperCreativeEffect" init="false"</code>
+          attribute to set a swiper with creative custom effect.
+        </p>
+        <div class="row">
+          <div class="col-lg-6 mb-3">
+            <div class="swiper" data-swiper="creative">
+              <swiper-container
+                class="swiper-wrapper"
+                [config]="swiperCreativeEffect"
+                init="false"
+              >
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-3.jpg"
+                    alt=""
+                    class="img-fluid rounded"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-4.jpg"
+                    alt=""
+                    class="img-fluid rounded"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-5.jpg"
+                    alt=""
+                    class="img-fluid rounded"
+                  />
+                </swiper-slide>
+              </swiper-container>
+              <div class="swiper-pagination creative-pagination"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-1 anchor" id="effect-flip">
+          Effect Flip Swiper
+          <a class="anchor-link" href="#effect-flip">#</a>
+        </h5>
+        <p class="text-muted">
+          Use
+          <code>[config]="swiperFlip" init="false"</code>
+          attribute to set a swiper with flip custom effect.
+        </p>
+        <div class="row">
+          <div class="col-lg-6 mb-3">
+            <div class="swiper" data-swiper="flip">
+              <swiper-container
+                class="swiper-wrapper"
+                [config]="swiperFlip"
+                init="false"
+              >
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-3.jpg"
+                    alt=""
+                    class="img-fluid rounded"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-4.jpg"
+                    alt=""
+                    class="img-fluid rounded"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-5.jpg"
+                    alt=""
+                    class="img-fluid rounded"
+                  />
+                </swiper-slide>
+              </swiper-container>
+              <div class="swiper-pagination swiper-flip"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-1 anchor" id="scrollbar">
+          Scrollbar Swiper
+          <a class="anchor-link" href="#scrollbar">#</a>
+        </h5>
+        <p class="text-muted">
+          Use
+          <code>[config]="swiperScroll" init="false"</code>
+          attribute to set a swiper with scrollbar pagination.
+        </p>
+        <div class="row">
+          <div class="col-lg-6 mb-3">
+            <div class="swiper" data-swiper="scrollbar">
+              <swiper-container
+                class="swiper-wrapper"
+                [config]="swiperScroll"
+                init="false"
+              >
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-3.jpg"
+                    alt=""
+                    class="img-fluid rounded"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-4.jpg"
+                    alt=""
+                    class="img-fluid rounded"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-5.jpg"
+                    alt=""
+                    class="img-fluid rounded"
+                  />
+                </swiper-slide>
+              </swiper-container>
+              <div class="swiper-button-next"></div>
+              <div class="swiper-button-prev"></div>
+              <div class="swiper-scrollbar"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-1 anchor" id="vertical">
+          Vertical Swiper
+          <a class="anchor-link" href="#vertical">#</a>
+        </h5>
+        <p class="text-muted">
+          Use
+          <code>[config]="verticalConfig" init="false"</code>
+          attribute to set a swiper with vertical pagination.
+        </p>
+        <div class="row">
+          <div class="col-lg-6 mb-3">
+            <div class="swiper" data-swiper="vertical" style="height: 320px">
+              <swiper-container
+                [config]="verticalConfig"
+                init="false"
+                class="swiper-wrapper"
+              >
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-3.jpg"
+                    alt=""
+                    class="img-fluid rounded"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-4.jpg"
+                    alt=""
+                    class="img-fluid rounded"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-5.jpg"
+                    alt=""
+                    class="img-fluid rounded"
+                  />
+                </swiper-slide>
+              </swiper-container>
+              <div class="swiper-pagination vertical-pagination"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-1 anchor" id="mousewheel">
+          Mousewheel Control Swiper
+          <a class="anchor-link" href="#mousewheel">#</a>
+        </h5>
+        <p class="text-muted">
+          Use
+          <code>init="false" [config]="swiperMouseWheel"</code>
+          attribute to set a swiper with mousewheel scroll.
+        </p>
+        <div class="row">
+          <div class="col-lg-6 mb-3">
+            <div
+              class="swiper rounded"
+              data-swiper="mousewheel"
+              style="height: 324px"
+            >
+              <swiper-container
+                class="swiper-wrapper"
+                init="false"
+                [config]="swiperMouseWheel"
+              >
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-3.jpg"
+                    alt=""
+                    class="img-fluid rounded"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-4.jpg"
+                    alt=""
+                    class="img-fluid rounded"
+                  />
+                </swiper-slide>
+                <swiper-slide class="swiper-slide">
+                  <img
+                    src="assets/images/small/img-5.jpg"
+                    alt=""
+                    class="img-fluid rounded"
+                  />
+                </swiper-slide>
+              </swiper-container>
+              <div class="swiper-pagination mouse-wheel-pagination"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-1 anchor" id="responsive">
+          Responsive Breakpoints Swiper
+          <a class="anchor-link" href="#overview">#</a>
+        </h5>
+        <p class="text-muted">
+          Use
+          <code> init="false" [config]="resposiveConfig"</code>
+          attribute to set a responsive swiper.
+        </p>
+        <div class="mb-3">
+          <div
+            class="swiper rounded gallery-light pb-4"
+            data-swiper="responsive"
+          >
+            <swiper-container
+              class="swiper-wrapper"
+              init="false"
+              [config]="resposiveConfig"
+            >
+              <swiper-slide class="swiper-slide">
+                <img
+                  src="assets/images/small/img-1.jpg"
+                  alt=""
+                  class="img-fluid rounded"
+                />
+              </swiper-slide>
+              <swiper-slide class="swiper-slide">
+                <img
+                  src="assets/images/small/img-2.jpg"
+                  alt=""
+                  class="img-fluid rounded"
+                />
+              </swiper-slide>
+              <swiper-slide class="swiper-slide">
+                <img
+                  src="assets/images/small/img-3.jpg"
+                  alt=""
+                  class="img-fluid rounded"
+                />
+              </swiper-slide>
+              <swiper-slide class="swiper-slide">
+                <img
+                  src="assets/images/small/img-4.jpg"
+                  alt=""
+                  class="img-fluid rounded"
+                />
+              </swiper-slide>
+              <swiper-slide class="swiper-slide">
+                <img
+                  src="assets/images/small/img-5.jpg"
+                  alt=""
+                  class="img-fluid rounded"
+                />
+              </swiper-slide>
+              <swiper-slide class="swiper-slide">
+                <img
+                  src="assets/images/small/img-6.jpg"
+                  alt=""
+                  class="img-fluid rounded"
+                />
+              </swiper-slide>
+            </swiper-container>
+            <div
+              class="swiper-pagination swiper-pagination-dark responsive-pagination"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-3">
+    <ui-examples-list
+      [linkList]="[
+        { label: 'Overview', link: '#overview' },
+        { label: 'Default Swiper', link: '#default' },
+        { label: 'Navigation & Pagination Swiper', link: '#navigation' },
+        { label: 'Pagination Dynamic Swiper', link: '#pagination-dynamic' },
+        { label: 'Effect Fade Swiper', link: '#effect-fade' },
+        { label: 'Effect Creative Swiper', link: '#effect-creative' },
+        { label: 'Effect Flip Swiper', link: '#effect-flip' },
+        { label: 'Scrollbar Swiper', link: '#scrollbar' },
+        { label: 'Vertical Swiper', link: '#vertical' },
+        { label: 'Mousewheel Control Swiper', link: '#mousewheel' },
+        { label: 'Responsive Breakpoints Swiper', link: '#responsive' },
+      ]"
+    />
+  </div>
+</div>
