@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common'
-import { Component, Input, OnInit, inject } from '@angular/core'
+import { Component, Input, OnChanges, OnInit, SimpleChanges, inject } from '@angular/core'
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms'
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap'
 import {
@@ -15,7 +15,7 @@ import { map, type Observable } from 'rxjs'
   imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './role-upsert-modal.component.html',
 })
-export class RoleUpsertModalComponent implements OnInit {
+export class RoleUpsertModalComponent implements OnInit, OnChanges {
   private fb = inject(FormBuilder)
   private adminService = inject(AdminManagementService)
 
@@ -24,6 +24,9 @@ export class RoleUpsertModalComponent implements OnInit {
 
   submitting = false
   error = ''
+
+  actionGroups: Array<{ key: string; label: string; actions: AppAction[] }> = []
+  private enabledGroups = new Map<string, boolean>()
 
   roleForm = this.fb.group({
     name: ['', [Validators.required]],
@@ -41,6 +44,13 @@ export class RoleUpsertModalComponent implements OnInit {
         actions: this.role.actions || [],
       })
     }
+    this.rebuildActionGroups()
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['actions']) {
+      this.rebuildActionGroups()
+    }
   }
 
   get selectedCount(): number {
@@ -55,10 +65,27 @@ export class RoleUpsertModalComponent implements OnInit {
 
   toggleAll(checked: boolean): void {
     if (checked) {
+      for (const group of this.actionGroups) this.enabledGroups.set(group.key, true)
       this.roleForm.patchValue({ actions: (this.actions || []).map((a) => a._id) })
       return
     }
+    for (const group of this.actionGroups) this.enabledGroups.set(group.key, false)
     this.roleForm.patchValue({ actions: [] })
+  }
+
+  isGroupEnabled(groupKey: string): boolean {
+    return this.enabledGroups.get(groupKey) ?? false
+  }
+
+  toggleGroup(groupKey: string, checked: boolean): void {
+    this.enabledGroups.set(groupKey, checked)
+    if (checked) return
+
+    const group = this.actionGroups.find((g) => g.key === groupKey)
+    if (!group) return
+    const groupIds = new Set(group.actions.map((a) => a._id))
+    const selected = (this.roleForm.value.actions || []).filter((id) => !groupIds.has(id))
+    this.roleForm.patchValue({ actions: selected })
   }
 
   onToggleAction(actionId: number, checked: boolean): void {
@@ -73,6 +100,64 @@ export class RoleUpsertModalComponent implements OnInit {
 
   isActionChecked(actionId: number): boolean {
     return (this.roleForm.value.actions || []).includes(actionId)
+  }
+
+  private rebuildActionGroups(): void {
+    const grouped = new Map<string, AppAction[]>()
+    for (const action of this.actions || []) {
+      const key = this.getGroupKey(action)
+      const list = grouped.get(key) || []
+      list.push(action)
+      grouped.set(key, list)
+    }
+
+    const groups = [...grouped.entries()].map(([key, groupActions]) => ({
+      key,
+      label: this.getGroupLabel(key),
+      actions: [...groupActions].sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+
+    const order = ['manage_roles', 'manage_users', 'dashboard', 'other']
+    groups.sort((a, b) => {
+      const ai = order.indexOf(a.key)
+      const bi = order.indexOf(b.key)
+      const ax = ai === -1 ? 999 : ai
+      const bx = bi === -1 ? 999 : bi
+      if (ax !== bx) return ax - bx
+      return a.label.localeCompare(b.label)
+    })
+
+    this.actionGroups = groups
+
+    const selected = new Set(this.roleForm.value.actions || [])
+    for (const group of groups) {
+      if (this.enabledGroups.has(group.key)) continue
+      const anySelected = group.actions.some((a) => selected.has(a._id))
+      this.enabledGroups.set(group.key, anySelected)
+    }
+  }
+
+  private getGroupKey(action: AppAction): string {
+    const name = (action.name || '').toLowerCase()
+    const path = (action.path || '').toLowerCase()
+
+    if (path.includes('/roles') || name.includes('role')) return 'manage_roles'
+    if (path.includes('/users') || name.includes('user')) return 'manage_users'
+    if (name === 'dashboard' || path === '/dashboard') return 'dashboard'
+    return 'other'
+  }
+
+  private getGroupLabel(groupKey: string): string {
+    switch (groupKey) {
+      case 'manage_roles':
+        return 'Action role'
+      case 'manage_users':
+        return 'Manage user'
+      case 'dashboard':
+        return 'Dashboard'
+      default:
+        return 'Other actions'
+    }
   }
 
   save(): void {

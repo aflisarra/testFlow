@@ -12,7 +12,7 @@ Thumbs.db
 !**/.env.example
 
 # Node
-**/node_modules/
+node_modules/
 **/.npm-cache/
 **/npm-debug.log*
 **/yarn-debug.log*
@@ -36,3 +36,4 @@ Thumbs.db
 backend-2026/uploads/**
 !backend-2026/uploads/**/.gitkeep
 
+"node_modules/" 

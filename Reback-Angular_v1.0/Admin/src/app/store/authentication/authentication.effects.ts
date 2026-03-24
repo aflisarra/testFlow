@@ -1,8 +1,9 @@
 import { Inject, Injectable } from '@angular/core'
 import { ActivatedRoute, Router } from '@angular/router'
 import { Actions, createEffect, ofType } from '@ngrx/effects'
+import { ToastrService } from 'ngx-toastr'
 import { of } from 'rxjs'
-import { catchError, exhaustMap, map, filter } from 'rxjs/operators'
+import { catchError, exhaustMap, map, filter, tap } from 'rxjs/operators'
 import {
   login,
   loginFailure,
@@ -43,6 +44,17 @@ export class AuthenticationEffects {
     )
   )
 
+  loginFailureToast$ = createEffect(
+    () =>
+      this.actions$.pipe(
+        ofType(loginFailure),
+        tap(() => {
+          this.toastr.error('Connexion échouée', '', { timeOut: 2500 })
+        })
+      ),
+    { dispatch: false }
+  )
+
   logout$ = createEffect(() =>
     this.actions$.pipe(
       ofType(logout),
@@ -58,6 +70,7 @@ export class AuthenticationEffects {
     @Inject(Actions) private actions$: Actions,
     private AuthenticationService: AuthenticationService,
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private toastr: ToastrService
   ) {}
 }

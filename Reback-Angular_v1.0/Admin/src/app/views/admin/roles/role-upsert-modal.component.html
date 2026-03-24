@@ -40,19 +40,39 @@
 
         <div class="exec-actions-box">
           <div class="exec-actions-scroll custom-scrollbar">
-            @if (actions.length === 0) {
+            @if (actionGroups.length === 0) {
               <div class="text-muted px-2 py-2">No actions</div>
             }
-            @for (action of actions; track action._id) {
-              <label class="exec-action-item">
-                <span class="exec-action-name">{{ action.name }}</span>
-                <input
-                  class="exec-checkbox exec-checkbox-lg"
-                  type="checkbox"
-                  [checked]="isActionChecked(action._id)"
-                  (change)="onToggleAction(action._id, $any($event.target).checked)"
-                />
-              </label>
+            @for (group of actionGroups; track group.key) {
+              <div class="mb-2">
+                <label class="exec-action-item">
+                  <span class="exec-action-name fw-semibold">{{ group.label }}</span>
+                  <input
+                    class="exec-checkbox exec-checkbox-lg"
+                    type="checkbox"
+                    [checked]="isGroupEnabled(group.key)"
+                    (change)="toggleGroup(group.key, $any($event.target).checked)"
+                  />
+                </label>
+
+                <div class="ms-3">
+                  @for (action of group.actions; track action._id) {
+                    <label
+                      class="exec-action-item"
+                      [class.opacity-50]="!isGroupEnabled(group.key)"
+                    >
+                      <span class="exec-action-name">{{ action.name }}</span>
+                      <input
+                        class="exec-checkbox exec-checkbox-lg"
+                        type="checkbox"
+                        [disabled]="!isGroupEnabled(group.key)"
+                        [checked]="isActionChecked(action._id)"
+                        (change)="onToggleAction(action._id, $any($event.target).checked)"
+                      />
+                    </label>
+                  }
+                </div>
+              </div>
             }
           </div>
         </div>
