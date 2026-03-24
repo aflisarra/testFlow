@@ -33,7 +33,6 @@ node_modules/
 **/venv/
 
 # App-generated uploads (keep folder placeholders)
-backend-2026/uploads/**
-!backend-2026/uploads/**/.gitkeep
+
 
 "node_modules/" 
