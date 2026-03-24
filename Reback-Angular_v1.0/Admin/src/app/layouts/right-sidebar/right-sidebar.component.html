@@ -1,0 +1,217 @@
+<div>
+  <div
+    class="offcanvas-end border-0"
+    tabindex="-1"
+    id="theme-settings-offcanvas"
+  >
+    <div class="d-flex align-items-center bg-primary p-3 offcanvas-header">
+      <h5 class="text-white m-0">Theme Settings</h5>
+      <button
+        type="button"
+        class="btn-close btn-close-white ms-auto"
+        (click)="offcanvas.dismiss('Cross click')"
+      ></button>
+    </div>
+
+    <div class="offcanvas-body p-0">
+      <ngx-simplebar style="height: calc(100vh - 140px)">
+        <div class="p-3 settings-bar">
+          <div>
+            <h5 class="mb-3 font-16 fw-semibold">Color Scheme</h5>
+
+            <div class="form-check mb-2">
+              <input
+                class="form-check-input"
+                type="radio"
+                name="data-bs-theme"
+                id="layout-color-light"
+                value="light"
+                [checked]="color == 'light'"
+                (change)="changeLayoutColor('light')"
+              />
+              <label class="form-check-label" for="layout-color-light">
+                Light
+              </label>
+            </div>
+            <div class="form-check mb-2">
+              <input
+                class="form-check-input"
+                type="radio"
+                name="data-bs-theme"
+                id="layout-color-dark"
+                value="dark"
+                [checked]="color == 'dark'"
+                (change)="changeLayoutColor('dark')"
+              />
+              <label class="form-check-label" for="layout-color-dark"
+                >Dark
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <h5 class="my-3 font-16 fw-semibold">Topbar Color</h5>
+
+            <div class="form-check mb-2">
+              <input
+                class="form-check-input"
+                type="radio"
+                name="data-topbar-color"
+                id="topbar-color-light"
+                value="light"
+                [checked]="topbar == 'light'"
+                (change)="changeTopbar('light')"
+              />
+              <label class="form-check-label"> Light </label>
+            </div>
+
+            <div class="form-check mb-2">
+              <input
+                class="form-check-input"
+                type="radio"
+                name="data-topbar-color"
+                id="topbar-color-dark"
+                value="dark"
+                [checked]="topbar == 'dark'"
+                (change)="changeTopbar('dark')"
+              />
+              <label class="form-check-label" for="topbar-color-dark">
+                Dark
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <h5 class="my-3 font-16 fw-semibold">Menu Color</h5>
+
+            <div class="form-check mb-2">
+              <input
+                class="form-check-input"
+                type="radio"
+                name="data-menu-color"
+                id="leftbar-color-light"
+                value="light"
+                [checked]="menucolor == 'light'"
+                (change)="changeMenu('light')"
+              />
+              <label class="form-check-label" for="leftbar-color-light">
+                Light
+              </label>
+            </div>
+
+            <div class="form-check mb-2">
+              <input
+                class="form-check-input"
+                type="radio"
+                name="data-menu-color"
+                id="leftbar-color-dark"
+                value="dark"
+                [checked]="menucolor == 'dark'"
+                (change)="changeMenu('dark')"
+              />
+              <label class="form-check-label" for="leftbar-color-dark">
+                Dark
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <h5 class="my-3 font-16 fw-semibold">Sidebar Size</h5>
+
+            <div class="form-check mb-2">
+              <input
+                class="form-check-input"
+                type="radio"
+                name="data-menu-size"
+                id="leftbar-size-default"
+                value="default"
+                [checked]="sidebarsize == 'default'"
+                (change)="changeSize('default')"
+              />
+              <label class="form-check-label" for="leftbar-size-default">
+                Default
+              </label>
+            </div>
+
+            <div class="form-check mb-2">
+              <input
+                class="form-check-input"
+                type="radio"
+                name="data-menu-size"
+                id="leftbar-size-small"
+                value="condensed"
+                [checked]="sidebarsize == 'condensed'"
+                (change)="changeSize('condensed')"
+              />
+              <label class="form-check-label" for="leftbar-size-small">
+                Condensed
+              </label>
+            </div>
+
+            <div class="form-check mb-2">
+              <input
+                class="form-check-input"
+                type="radio"
+                name="data-menu-size"
+                id="leftbar-hidden"
+                value="hidden"
+                [checked]="sidebarsize == 'hidden'"
+                (change)="changeSize('hidden')"
+              />
+              <label class="form-check-label" for="leftbar-hidden">
+                Hidden
+              </label>
+            </div>
+
+            <div class="form-check mb-2">
+              <input
+                class="form-check-input"
+                type="radio"
+                name="data-menu-size"
+                id="leftbar-size-small-hover-active"
+                value="sm-hover-active"
+                [checked]="sidebarsize == 'sm-hover-active'"
+                (change)="changeSize('sm-hover-active')"
+              />
+              <label
+                class="form-check-label"
+                for="leftbar-size-small-hover-active"
+              >
+                Small Hover Active
+              </label>
+            </div>
+
+            <div class="form-check mb-2">
+              <input
+                class="form-check-input"
+                type="radio"
+                name="data-menu-size"
+                id="leftbar-size-small-hover"
+                value="sm-hover"
+                [checked]="sidebarsize == 'sm-hover'"
+                (change)="changeSize('sm-hover')"
+              />
+              <label class="form-check-label" for="leftbar-size-full">
+                Small Hover
+              </label>
+            </div>
+          </div>
+        </div>
+      </ngx-simplebar>
+    </div>
+    <div class="offcanvas-footer border-top p-3 text-center">
+      <div class="row">
+        <div class="col">
+          <button
+            type="button"
+            class="btn btn-danger w-100"
+            id="reset-layout"
+            (click)="reset()"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

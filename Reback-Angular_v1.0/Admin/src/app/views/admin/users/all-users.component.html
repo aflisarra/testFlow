@@ -1,0 +1,122 @@
+<div class="row g-4">
+  <div class="col-xl-4">
+    <div class="card h-100">
+      <div class="card-header">
+        <h4 class="card-title mb-0 brand-title">Sign Up</h4>
+      </div>
+      <div class="card-body">
+        <form [formGroup]="createUserForm" (ngSubmit)="submitCreateUser()">
+          <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input class="form-control" formControlName="name" placeholder="ex: John Doe" />
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input class="form-control" formControlName="email" placeholder="ex: john@example.com" />
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input class="form-control" type="password" formControlName="password" placeholder="******" />
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Role</label>
+            <select class="form-select" formControlName="role">
+              <option value="" disabled>Select role</option>
+              @for (role of roles; track role._id) {
+              <option [value]="role.name">{{ role.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <input class="form-control" formControlName="description" placeholder="Optional..." />
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Picture (optional)</label>
+            <input class="form-control" type="file" accept="image/*" (change)="onPictureSelected($event)" />
+          </div>
+
+          <button class="btn btn-brand w-100" type="submit" [disabled]="submitting">
+            {{ submitting ? 'Creating...' : 'Create User' }}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-8">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h4 class="card-title mb-0 brand-title">Users List</h4>
+        <button class="btn btn-sm btn-brand" (click)="loadUsers()">Refresh</button>
+      </div>
+      <div class="card-body">
+        @if (loading) {
+        <p class="text-muted mb-0">Loading users...</p>
+        }
+
+        @if (error) {
+        <div class="alert alert-danger mb-0">{{ error }}</div>
+        }
+
+        @if (!loading && !error) {
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Description</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (user of users; track user._id) {
+              <tr>
+                <td>
+                  <div class="d-flex align-items-center">
+                    <img
+                      [src]="resolveAvatarUrl(user.picture)"
+                      (error)="onAvatarError($event)"
+                      alt="avatar"
+                      class="rounded-circle me-2 border"
+                      style="width:32px;height:32px;object-fit:cover;"
+                    />
+                    <span class="fw-medium">{{ user.name }}</span>
+                  </div>
+                </td>
+                <td>{{ user.email }}</td>
+                <td><span class="badge brand-badge">{{ user.role }}</span></td>
+                <td>{{ user.description || '-' }}</td>
+                <td class="text-end">
+                  <button class="btn btn-sm btn-action btn-action-edit me-2" type="button" title="Edit"
+                    (click)="onEditUser(user)">
+                    <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
+                  </button>
+                  <button class="btn btn-sm btn-action btn-action-delete" type="button" title="Delete"
+                    (click)="onDeleteUser(user)">
+                    <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
+                  </button>
+                </td>
+              </tr>
+              }
+
+              @if (users.length === 0) {
+              <tr>
+                <td colspan="5" class="text-center text-muted py-4">No users found</td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        }
+      </div>
+    </div>
+  </div>
+</div>

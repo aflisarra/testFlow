@@ -1,0 +1,152 @@
+<div
+  class="tab-pane fade active show"
+  id="social-friends"
+  role="tabpanel"
+  aria-labelledby="social-friends-tab"
+>
+  <ul ngbNav #nav="ngbNav" class="nav nav-pills">
+    <li ngbNavItem class="nav-item">
+      <a
+        ngbNavLink
+        data-bs-toggle="tab"
+        aria-expanded="false"
+        class="nav-link px-4"
+      >
+        <span>All Friends</span>
+      </a>
+      <ng-template ngbNavContent>
+        <div class="tab-pane show active" id="all">
+          @for (friend of friendList; track $index) {
+            <div class="card">
+              <div class="card-body">
+                <div class="d-flex align-items-center">
+                  <div class="flex-shrink-0">
+                    <img
+                      [src]="friend.profile"
+                      class="img-fluid avatar-md rounded me-2"
+                      alt="avatar-1"
+                    />
+                  </div>
+                  <div class="flex-grow-1">
+                    <div ngbDropdown class="dropdown float-end">
+                      <a
+                        ngbDropdownToggle
+                        href="javascript:void(0);"
+                        class="dropdown-toggle arrow-none text-dark"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false"
+                      >
+                        <i class="bx bx-dots-vertical-rounded fs-18"></i>
+                      </a>
+                      <div
+                        ngbDropdownMenu
+                        class="dropdown-menu dropdown-menu-end"
+                      >
+                        <a href="javascript:void(0);" class="dropdown-item">
+                          <i class="bx bxs-user-detail me-1"></i>See Profile
+                        </a>
+                        <a href="javascript:void(0);" class="dropdown-item">
+                          <i class="bx bxl-telegram me-1"></i>Message to
+                          Sharlene
+                        </a>
+                        <a href="javascript:void(0);" class="dropdown-item">
+                          <i class="bx bx-user-x me-1"></i>Unfriend Sharlene
+                        </a>
+                        <a href="javascript:void(0);" class="dropdown-item">
+                          <i class="bx bx-block me-1"></i>Block Sharlene
+                        </a>
+                      </div>
+                    </div>
+                    <h5>
+                      <a href="javascript:void(0);" class="text-reset">{{
+                        friend.name
+                      }}</a>
+                    </h5>
+                    <p class="mb-0">
+                      {{ friend.mutual > 0 ? friend.mutual : 'no' }} mutual
+                      friends
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <!-- end card body-->
+            </div>
+          }
+        </div>
+      </ng-template>
+    </li>
+
+    <li ngbNavItem class="nav-item">
+      <a
+        ngbNavLink
+        data-bs-toggle="tab"
+        aria-expanded="false"
+        class="nav-link px-4"
+      >
+        <span>Pending Requests ({{ pendingList.length }})</span>
+      </a>
+      <ng-template ngbNavContent>
+        <div class="tab-pane" id="pending">
+          @for (friend of pendingList; track $index) {
+            <div class="card">
+              <div class="card-body">
+                <div class="d-flex align-items-center">
+                  <div class="flex-shrink-0">
+                    <img
+                      [src]="friend.profile"
+                      class="img-fluid avatar-md rounded me-2"
+                      alt="avatar-11"
+                    />
+                  </div>
+                  <div class="flex-grow-1">
+                    <div ngbDropdown class="dropdown float-end">
+                      <a
+                        ngbDropdownToggle
+                        href="javascript:void(0);"
+                        class="dropdown-toggle arrow-none text-dark"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false"
+                      >
+                        <i class="bx bx-dots-vertical-rounded fs-18"></i>
+                      </a>
+                      <div
+                        ngbDropdownMenu
+                        class="dropdown-menu dropdown-menu-end"
+                      >
+                        <a href="javascript:void(0);" class="dropdown-item">
+                          <i class="bx bxs-user-detail me-1"></i>See Profile
+                        </a>
+                        <a href="javascript:void(0);" class="dropdown-item">
+                          <i class="bx bxl-telegram me-1"></i>Message to
+                          Sharlene
+                        </a>
+                        <a href="javascript:void(0);" class="dropdown-item">
+                          <i class="bx bx-user-x me-1"></i>Unfriend Sharlene
+                        </a>
+                        <a href="javascript:void(0);" class="dropdown-item">
+                          <i class="bx bx-block me-1"></i>Block Sharlene
+                        </a>
+                      </div>
+                    </div>
+                    <h5>
+                      <a href="javascript:void(0);" class="text-reset">{{
+                        friend.name
+                      }}</a>
+                    </h5>
+                    <p class="mb-0">
+                      {{ friend.mutual > 0 ? friend.mutual : 'no' }} mutual
+                      friends
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <!-- end card body-->
+            </div>
+          }
+        </div>
+      </ng-template>
+    </li>
+  </ul>
+
+  <div [ngbNavOutlet]="nav" class="tab-content mt-3 pt-0 text-muted"></div>
+</div>

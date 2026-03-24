@@ -1,0 +1,242 @@
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="mb-0 fw-semibold">Dashboard Overview</h4>
+    <div class="text-muted">AI Test Ops</div>
+  </div>
+
+  <div class="d-flex align-items-center gap-2">
+    <button
+      type="button"
+      class="btn btn-sm btn-soft-secondary d-inline-flex align-items-center justify-content-center"
+      aria-label="Notifications"
+    >
+      <iconify-icon icon="lucide:bell" class="fs-18"></iconify-icon>
+    </button>
+
+    <button type="button" class="btn btn-primary btn-sm px-3">
+      Run New Test
+    </button>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-md-6 col-xl-3">
+    <div class="card shadow-sm rounded-4 mb-0">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="text-muted">Total Test Runs</div>
+            <div class="display-6 fw-bold mb-0">1,284</div>
+          </div>
+          <span class="badge bg-success-subtle text-success rounded-pill">
+            +12.5%
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-md-6 col-xl-3">
+    <div class="card shadow-sm rounded-4 mb-0">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="text-muted">Success Rate</div>
+            <div class="display-6 fw-bold mb-0">98.2%</div>
+          </div>
+          <span class="badge bg-success-subtle text-success rounded-pill">
+            +0.4%
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-md-6 col-xl-3">
+    <div class="card shadow-sm rounded-4 mb-0">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="text-muted">Active Deployments</div>
+            <div class="display-6 fw-bold mb-0">14</div>
+          </div>
+          <span class="badge bg-light text-muted rounded-pill">
+            Stable
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-md-6 col-xl-3">
+    <div class="card shadow-sm rounded-4 mb-0">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="text-muted">AI Anomalies</div>
+            <div class="display-6 fw-bold mb-0 text-warning">3</div>
+          </div>
+          <span class="badge bg-warning-subtle text-warning rounded-pill">
+            Action Required
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-12 col-xl-8">
+    <div class="card shadow-sm rounded-4 mb-0">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h5 class="mb-0">Test Coverage &amp; Health</h5>
+          <select class="form-select form-select-sm w-auto">
+            <option selected>Last 30 Days</option>
+            <option>Last 7 Days</option>
+          </select>
+        </div>
+
+        <div dir="ltr">
+          <apx-chart
+            class="apex-charts"
+            [series]="coverageHealthChart.series!"
+            [chart]="coverageHealthChart.chart!"
+            [stroke]="coverageHealthChart.stroke!"
+            [fill]="coverageHealthChart.fill!"
+            [markers]="coverageHealthChart.markers!"
+            [xaxis]="coverageHealthChart.xaxis!"
+            [yaxis]="coverageHealthChart.yaxis!"
+            [grid]="coverageHealthChart.grid!"
+            [legend]="coverageHealthChart.legend!"
+            [colors]="coverageHealthChart.colors!"
+            [tooltip]="coverageHealthChart.tooltip!"
+          ></apx-chart>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-4">
+    <div class="card shadow-sm rounded-4 mb-0">
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <div
+            class="avatar-xs rounded-circle bg-primary bg-opacity-10 d-inline-flex align-items-center justify-content-center"
+          >
+            <iconify-icon
+              icon="lucide:sparkles"
+              class="text-primary"
+            ></iconify-icon>
+          </div>
+          <h5 class="mb-0">AI Insights</h5>
+        </div>
+
+        <div class="d-grid gap-2">
+          <div class="ai-insight ai-insight-warning">
+            <div class="ai-insight-title">REGRESSION WARNING</div>
+            <div class="text-muted">
+              Checkout latency increased by 15% in v2.4.1 build.
+            </div>
+          </div>
+
+          <div class="ai-insight ai-insight-primary">
+            <div class="ai-insight-title">OPTIMIZATION</div>
+            <div class="text-muted">
+              3 redundant UI tests identified. Estimated 5min run reduction.
+            </div>
+          </div>
+
+          <div class="ai-insight ai-insight-success">
+            <div class="ai-insight-title">SELF-HEALED</div>
+            <div class="text-muted">
+              Login selector updated automatically for staging env.
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-soft-primary w-100 mt-3">
+          View All Insights
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <div class="card shadow-sm rounded-4">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <h5 class="mb-0">Recent Test Runs</h5>
+          <a class="btn btn-link btn-sm" href="javascript:void(0);">View All</a>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr class="text-uppercase text-muted small">
+                <th>Run ID</th>
+                <th>Environment</th>
+                <th>Tests</th>
+                <th>Status</th>
+                <th>Duration</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="fw-medium">#TR-8942</td>
+                <td>Production</td>
+                <td>412 / 412</td>
+                <td>
+                  <span class="badge bg-success-subtle text-success">
+                    Passed
+                  </span>
+                </td>
+                <td>12m 45s</td>
+                <td class="text-end">
+                  <a class="btn btn-link btn-sm" href="javascript:void(0);">
+                    Report
+                  </a>
+                </td>
+              </tr>
+              <tr>
+                <td class="fw-medium">#TR-8941</td>
+                <td>Staging</td>
+                <td>408 / 412</td>
+                <td>
+                  <span class="badge bg-danger-subtle text-danger">
+                    Failed
+                  </span>
+                </td>
+                <td>11m 20s</td>
+                <td class="text-end">
+                  <a class="btn btn-link btn-sm" href="javascript:void(0);">
+                    Report
+                  </a>
+                </td>
+              </tr>
+              <tr>
+                <td class="fw-medium">#TR-8940</td>
+                <td>QA-02</td>
+                <td>156 / 412</td>
+                <td>
+                  <span class="badge bg-primary-subtle text-primary">
+                    Running
+                  </span>
+                </td>
+                <td>--</td>
+                <td class="text-end">
+                  <a class="btn btn-link btn-sm" href="javascript:void(0);">
+                    Report
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

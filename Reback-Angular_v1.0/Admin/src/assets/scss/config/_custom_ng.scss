@@ -1,0 +1,68 @@
+@import "nouislider/dist/nouislider.css";
+@import "quill/dist/quill.snow.css";
+@import "quill/dist/quill.bubble.css";
+@import "@ctrl/ngx-emoji-mart/picker";
+
+.apex-charts {
+  div {
+    min-height: 0 !important;
+  }
+}
+
+.modal {
+  --bs-modal-border-color: none !important;
+}
+
+.emoji-mart {
+  position: absolute;
+  bottom: 30px;
+  left: 0;
+}
+
+.toast-top-center {
+  left: 45% !important;
+}
+
+.toast-bottom-center {
+  left: 45% !important;
+}
+
+.scrollspy-example {
+  position: relative;
+  height: 200px;
+  margin-top: 0.5rem;
+  overflow: auto;
+}
+
+.noUi-connect {
+  background-color: #1c84ee;
+}
+
+.noUi-target {
+  background-color: #eef2f7;
+  border: transparent;
+  box-shadow: none;
+}
+
+.noUi-handle {
+  height: 20px !important;
+  width: 20px !important;
+  background: #1c84ee;
+  box-shadow: none;
+  border-color: #fff;
+}
+
+.noUi-horizontal {
+  height: 8px;
+}
+
+.standard {
+  .toast-body {
+    padding: 0px !important;
+  }
+}
+
+.width-auto {
+  max-width: 450px !important;
+  width: 100% !important;
+}

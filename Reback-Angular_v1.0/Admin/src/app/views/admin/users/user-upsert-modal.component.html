@@ -1,0 +1,48 @@
+<div class="exec-upsert">
+  <div class="exec-upsert-body">
+    <header class="exec-upsert-header">
+      <h1 class="exec-upsert-title">Edit user</h1>
+      <p class="exec-upsert-subtitle">Modify identity and role for this user.</p>
+    </header>
+
+    @if (error) {
+      <div class="alert alert-danger">{{ error }}</div>
+    }
+
+    <form class="exec-upsert-form" [formGroup]="userForm">
+      <div class="exec-field">
+        <label class="exec-label">Name</label>
+        <input class="exec-input" formControlName="name" placeholder="Enter name..." />
+      </div>
+
+      <div class="exec-field">
+        <label class="exec-label">Email</label>
+        <input class="exec-input" formControlName="email" placeholder="Enter email..." />
+      </div>
+
+      <div class="exec-field">
+        <label class="exec-label">Role</label>
+        <select class="exec-select" formControlName="role">
+          <option value="" disabled>Select role</option>
+          @for (role of roles; track role._id) {
+            <option [value]="role.name">{{ role.name }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="exec-field">
+        <label class="exec-label">Description</label>
+        <input class="exec-input" formControlName="description" placeholder="Optional..." />
+      </div>
+
+      <div class="exec-buttons">
+        <button class="exec-btn exec-btn-cancel" type="button" (click)="activeModal.dismiss(false)">Cancel</button>
+        <button class="exec-btn exec-btn-save" type="button" [disabled]="submitting" (click)="save()">
+          {{ submitting ? 'Saving...' : 'Save' }}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="exec-upsert-accent"></div>
+</div>

@@ -1,0 +1,105 @@
+<div class="row">
+  @for (team of ourTeamList; track $index) {
+    <div class="col-xxl-4 col-md-6">
+      <div class="card">
+        <div class="position-relative">
+          <img
+            src="assets/images/profile-bg.jpg"
+            alt=""
+            class="card-img rounded-bottom-0"
+          />
+          <img
+            [src]="team.profile"
+            alt=""
+            class="avatar-lg rounded-circle position-absolute top-100 start-50 translate-middle border border-light border-3"
+          />
+        </div>
+        <div class="card-body text-center mt-4 mb-3 pt-3">
+          <a href="javascript:void(0);" class="text-dark fw-medium fs-18">{{
+            team.name
+          }}</a>
+          <p class="mb-2 mt-1">
+            <i class="bx bxs-envelope text-warning align-middle"></i>
+            {{ team.email }}
+          </p>
+          <div class="my-2">
+            <p class="badge bg-light text-dark px-2 py-1 mb-2 fs-14">
+              {{ team.post }}
+            </p>
+          </div>
+          <div class="d-flex justify-content-center gap-2">
+            <a
+              href="javascript:void(0);"
+              class="btn btn-soft-primary avatar-sm fs-20 d-inline-flex align-items-center justify-content-center p-0"
+              placement="bottom"
+              tooltipClass="primary-tooltip"
+              ngbTooltip="Facebook"
+              ><i class="bx bxl-facebook"></i
+            ></a>
+            <a
+              href="javascript:void(0);"
+              class="btn btn-soft-danger avatar-sm fs-20 d-inline-flex align-items-center justify-content-center p-0"
+              placement="bottom"
+              tooltipClass="danger-tooltip"
+              ngbTooltip="Instagram"
+              ><i class="bx bxl-instagram-alt"></i
+            ></a>
+            <a
+              href="javascript:void(0);"
+              class="btn btn-soft-info avatar-sm fs-20 d-inline-flex align-items-center justify-content-center p-0"
+              placement="bottom"
+              tooltipClass="info-tooltip"
+              ngbTooltip="Twitter"
+              ><i class="bx bxl-twitter"></i
+            ></a>
+            <a
+              href="javascript:void(0);"
+              class="btn btn-soft-primary avatar-sm fs-20 d-inline-flex align-items-center justify-content-center p-0"
+              placement="bottom"
+              tooltipClass="primary-tooltip"
+              ngbTooltip="Linkedin"
+              ><i class="bx bxl-linkedin"></i
+            ></a>
+          </div>
+        </div>
+        <div class="card-footer text-center border-top">
+          <div class="row">
+            <div class="col-lg-4 col-4 border-end">
+              <h4 class="text-dark fw-medium">
+                {{ team.projects }}
+              </h4>
+              <h5
+                class="mb-0 d-flex align-items-center justify-content-center gap-1 text-muted fs-14"
+              >
+                <i class="bx bx-briefcase-alt-2 text-muted"></i>
+                Projects
+              </h5>
+            </div>
+            <div class="col-lg-4 col-4 border-end">
+              <h4 class="text-dark fw-medium">
+                {{ team.duration }}
+              </h4>
+              <h5
+                class="mb-0 d-flex align-items-center justify-content-center gap-1 text-muted fs-14"
+              >
+                <i class="bx bx-calendar-event text-muted"></i>
+                Duration
+              </h5>
+            </div>
+            <div class="col-lg-4 col-4">
+              <h4 class="text-dark fw-medium">
+                {{ team.tasks }}
+              </h4>
+              <h5
+                class="mb-0 d-flex align-items-center justify-content-center gap-1 text-muted fs-14"
+              >
+                <i class="bx bx-task text-muted"></i>
+                Tasks
+              </h5>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>

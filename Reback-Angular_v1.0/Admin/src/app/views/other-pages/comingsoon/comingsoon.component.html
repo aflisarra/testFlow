@@ -1,0 +1,44 @@
+<div class="row justify-content-center">
+  <div class="col-lg-10">
+    <div class="card auth-card text-center">
+      <div class="card-body">
+        <app-logo-box
+          className="mx-auto text-center auth-logo my-5"
+          height="24"
+          logoHeight="30"
+        />
+
+        <h2 class="fw-semibold">We Are Launching Soon...</h2>
+        <p class="lead mt-3 w-75 mx-auto pb-4 fst-italic">
+          Exciting news is on the horizon! We're thrilled to announce that
+          something incredible is coming your way very soon. Our team has been
+          hard at work behind the scenes, crafting something special just for
+          you.
+        </p>
+
+        <div class="row my-5">
+          <div class="col">
+            <h3 id="days" class="fw-bold fs-60">{{ countdown.days }}</h3>
+            <p class="text-uppercase fw-semibold">Days</p>
+          </div>
+          <div class="col">
+            <h3 id="hours" class="fw-bold fs-60">{{ countdown.hours }}</h3>
+            <p class="text-uppercase fw-semibold">Hours</p>
+          </div>
+          <div class="col">
+            <h3 id="minutes" class="fw-bold fs-60">{{ countdown.minutes }}</h3>
+            <p class="text-uppercase fw-semibold">Minutes</p>
+          </div>
+          <div class="col">
+            <h3 id="seconds" class="fw-bold fs-60">{{ countdown.seconds }}</h3>
+            <p class="text-uppercase fw-semibold">Seconds</p>
+          </div>
+        </div>
+
+        <a routerLink="/pages/contact-us" class="btn btn-success mb-5"
+          >Contact Us</a
+        >
+      </div>
+    </div>
+  </div>
+</div>

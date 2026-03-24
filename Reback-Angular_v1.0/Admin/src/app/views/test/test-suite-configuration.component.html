@@ -1,0 +1,116 @@
+<div class="testlab-page">
+  <div class="testlab-container px-4 px-lg-5 pb-4 pb-lg-5 pt-0">
+    <div class="testlab-hero mb-4">
+      <h2 class="testlab-hero-title mb-2">Generate Automated Test Plans</h2>
+      <p class="testlab-hero-subtitle mb-0">
+        Streamline your testing process by uploading your functional specifications. Our AI will analyze the document and generate comprehensive test cases for your project.
+      </p>
+    </div>
+
+    @if (errorMessage) {
+    <div class="alert alert-danger mb-4">{{ errorMessage }}</div>
+    }
+
+    <div class="row g-4">
+      <div class="col-12 col-lg-6">
+        <div class="testlab-card p-4 mb-4">
+          <div class="testlab-card-title mb-1">
+            <iconify-icon icon="iconamoon:link-duotone" class="testlab-title-icon"></iconify-icon>
+            <span>Application URL</span>
+          </div>
+          <p class="testlab-card-subtitle mb-3">Link to your deployed application</p>
+
+          <input class="testlab-input" placeholder="https://myapp.com" [value]="appUrl"
+            (input)="appUrl = $any($event.target).value" />
+        </div>
+
+        <div class="testlab-card p-4">
+          <div class="testlab-card-title mb-1">
+            <iconify-icon icon="iconamoon:edit-duotone" class="testlab-title-icon"></iconify-icon>
+            <span>Document Spec</span>
+          </div>
+          <p class="testlab-card-subtitle mb-3">Enter or paste your document specifications here...</p>
+
+          <textarea class="testlab-textarea" placeholder="Enter or paste your document specifications here..."
+            [value]="specText" (input)="specText = $any($event.target).value"></textarea>
+        </div>
+
+        <div class="testlab-card p-4 mt-4">
+          <div class="testlab-card-title mb-1">
+            <iconify-icon icon="iconamoon:cloud-upload-duotone" class="testlab-title-icon"></iconify-icon>
+            <span>Upload Specification Document</span>
+          </div>
+          <p class="testlab-card-subtitle mb-3">Drag and drop your DOCX file or browse to upload</p>
+
+          <input #fileInput type="file" accept=".docx" class="d-none" (change)="onFileSelected($event)" />
+
+          <div class="testlab-dropzone" (click)="fileInput.click()">
+            <iconify-icon icon="iconamoon:cloud-upload-duotone" class="fs-1 text-muted"></iconify-icon>
+            <p class="mt-2 mb-1 text-secondary-emphasis">Drag and drop your PDF or DOCX file here</p>
+            <p class="mb-0 small text-muted">Maximum file size: 10MB</p>
+            <button type="button" class="btn btn-sm mt-3 testlab-browse-btn">
+              Browse Files
+            </button>
+            @if (uploadedFileName) {
+            <div class="small text-muted mt-2">Selected: {{ uploadedFileName }}</div>
+            }
+          </div>
+        </div>
+
+        <div class="testlab-cta">
+          <button class="btn btn-brand flex-grow-1 py-3 fw-bold" type="button" [disabled]="generating"
+            (click)="onGeneratePlan()">
+            <iconify-icon icon="iconamoon:sparkles-duotone" class="me-2"></iconify-icon>
+            {{ generating ? 'Generating...' : 'Generate Test Plan' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-6">
+        <div class="testlab-card p-4 h-100 d-flex flex-column">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="testlab-card-title">
+              <iconify-icon icon="iconamoon:playlist-duotone" class="testlab-title-icon"></iconify-icon>
+              <span>Generated Test Plan</span>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="testlab-icon-btn" type="button" title="Copy" (click)="onCopyPlan()">
+                <iconify-icon icon="iconamoon:copy-duotone"></iconify-icon>
+              </button>
+              <button class="testlab-icon-btn" type="button" title="Download" (click)="onDownloadPlan()">
+                <iconify-icon icon="iconamoon:download-duotone"></iconify-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="testlab-output flex-grow-1">
+            @if (!generatedSections?.length) {
+            <p class="mb-0 text-muted">
+              No plan generated yet. Fill the URL + description, upload a DOCX spec, then click “Generate Test Plan”.
+            </p>
+            } @else {
+            @for (section of generatedSections; track section.title) {
+            <h4 class="mb-2">{{ section.title }}</h4>
+            <ul class="mb-3 ps-4">
+              @for (item of section.items; track item) {
+              <li class="mb-1">{{ item }}</li>
+              }
+            </ul>
+            }
+            }
+            <p class="fst-italic small text-muted mb-0">
+              Review the generated plan above. You can edit individual test cases or add new ones manually.
+            </p>
+          </div>
+
+          <div class="mt-3 d-flex gap-3">
+            <button class="btn btn-brand flex-grow-1 fw-bold" type="button" (click)="onSavePlan()">Save Plan</button>
+            <button class="btn testlab-btn-secondary flex-grow-1 fw-bold" type="button" (click)="onExportJira()">
+              Export to Jira
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,13 @@
+<div class="row d-flex justify-content-center my-4">
+  @for (data of helpList; track $index) {
+    <div class="col-md-6 col-lg-4 mb-3">
+      <div class="text-center">
+        <img [src]="data.image" alt="help-1" class="img-fluid avatar-md mb-3" />
+        <h4 class="fw-semibold">{{ data.title }}</h4>
+        <p class="px-2 px-xl-5">
+          {{ data.description }}
+        </p>
+      </div>
+    </div>
+  }
+</div>

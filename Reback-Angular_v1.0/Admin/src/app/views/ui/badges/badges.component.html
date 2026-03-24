@@ -1,0 +1,211 @@
+<app-page-title [title]="'Base UI'" [subtitle]="'Badge'" />
+
+<div class="row">
+  <div class="col-xl-9">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-1 anchor" id="heading">
+          Heading
+          <a class="anchor-link" href="#heading">#</a>
+        </h5>
+        <p class="text-muted">
+          Provide contextual feedback messages for typical user actions with the
+          handful of available and flexible alert messages. Alerts are available
+          for any length of text, as well as an optional dismiss button.
+        </p>
+        <div class="mb-3">
+          <h1>
+            h1.Example heading
+            <span class="badge bg-primary">New</span>
+          </h1>
+          <h2>
+            h2.Example heading
+            <span class="badge bg-secondary">New</span>
+          </h2>
+          <h3>
+            h3.Example heading
+            <span class="badge bg-success">New</span>
+          </h3>
+          <h4>
+            h4.Example heading
+            <span class="badge bg-info">New</span>
+          </h4>
+          <h5>
+            h5.Example heading
+            <span class="badge bg-warning">New</span>
+          </h5>
+          <h6 class="mb-0">
+            h6.Example heading
+            <span class="badge bg-danger">New</span>
+          </h6>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-1 anchor" id="default_pill_badges">
+          Default & Pill Badges
+          <a class="anchor-link" href="#default_pill_badges">#</a>
+        </h5>
+        <p class="text-muted">
+          Use our background utility classes to quickly change the appearance of
+          a badge. And use the
+          <code>.rounded-pill</code> class to make badges more rounded.
+        </p>
+        <div class="mb-3">
+          <div class="mb-2">
+            @for (item of badges; track $index) {
+              <span class="badge bg-{{ item.toLowerCase() }} me-1">{{
+                item
+              }}</span>
+            }
+          </div>
+
+          <div>
+            @for (item of badges; track $index) {
+              <span
+                class="badge bg-{{ item.toLowerCase() }} rounded-pill me-1"
+                >{{ item }}</span
+              >
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-1 anchor" id="outline_badges">
+          Outline & Outline Pill Badges
+          <a class="anchor-link" href="#outline_badges">#</a>
+        </h5>
+        <p class="text-muted">
+          Using the
+          <code>.badge-outline-**</code> to quickly create a bordered badges.
+        </p>
+
+        <div class="mb-3">
+          <div class="mb-2">
+            @for (item of badges; track $index) {
+              <span class="badge badge-outline-{{ item.toLowerCase() }} me-1">{{
+                item
+              }}</span>
+            }
+          </div>
+
+          <div>
+            @for (item of badges; track $index) {
+              <span
+                class="badge badge-outline-{{
+                  item.toLowerCase()
+                }} rounded-pill me-1"
+                >{{ item }}</span
+              >
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-1 anchor" id="soft_badges">
+          Soft & Soft Pill Badges
+          <a class="anchor-link" href="#soft_badges">#</a>
+        </h5>
+        <p class="text-muted">
+          Using the
+          <code>.badge-soft-**</code> modifier class, you can have more soften
+          variation.
+        </p>
+
+        <div class="mb-3">
+          <div class="mb-2">
+            @for (item of badges; track $index) {
+              <span class="badge badge-soft-{{ item.toLowerCase() }} me-1">{{
+                item
+              }}</span>
+            }
+          </div>
+
+          <div>
+            @for (item of badges; track $index) {
+              <span
+                class="badge badge-soft-{{
+                  item.toLowerCase()
+                }} rounded-pill me-1"
+                >{{ item }}</span
+              >
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-1 anchor" id="component_badges">
+          Buttons & Position
+          <a class="anchor-link" href="#component_badges">#</a>
+        </h5>
+        <p class="text-muted">
+          Alerts can also contain additional HTML elements like headings,
+          paragraphs and dividers.
+        </p>
+
+        <div class="mb-3">
+          <div class="mb-2">
+            <button type="button" class="btn btn-primary me-1 mb-1">
+              Notifications
+              <span class="badge bg-danger ms-1">4</span>
+            </button>
+            <button type="button" class="btn btn-outline-primary me-1 mb-1">
+              Notifications
+              <span class="badge bg-primary ms-1">new</span>
+            </button>
+            <button type="button" class="btn btn-soft-primary me-1 mb-1">
+              Notifications
+              <span class="badge bg-primary ms-1">11</span>
+            </button>
+            <a href="javascript:void(0);" class="btn me-1 mb-1">
+              Notifications
+              <span class="badge bg-primary ms-1">90+</span>
+            </a>
+          </div>
+
+          <div>
+            <button
+              type="button"
+              class="btn btn-primary position-relative me-3"
+            >
+              Inbox
+              <span
+                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light"
+                >99+</span
+              >
+            </button>
+            <button type="button" class="btn btn-primary position-relative">
+              Profile
+              <span
+                class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"
+              ></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-3">
+    <ui-examples-list
+      [linkList]="[
+        { label: 'Heading', link: '#heading' },
+        { label: 'Default & Pill Badges', link: '#default_pill_badges' },
+        { label: 'Outline & Outline Pill Badges', link: '#outline_badges' },
+        { label: 'Soft & Soft Pill Badges', link: '#soft_badges' },
+        { label: 'Buttons & Position', link: '#component_badges' },
+      ]"
+    />
+  </div>
+</div>

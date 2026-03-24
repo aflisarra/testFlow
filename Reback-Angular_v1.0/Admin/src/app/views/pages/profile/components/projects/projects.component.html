@@ -1,0 +1,106 @@
+<div class="card">
+  <div class="card-header d-flex align-items-center">
+    <h5 class="card-title">Projects</h5>
+    <div class="ms-auto">
+      <div ngbDropdown class="dropdown">
+        <a
+          ngbDropdownToggle
+          href="javascript:void(0);"
+          class="dropdown-toggle arrow-none"
+          data-bs-toggle="dropdown"
+          aria-expanded="false"
+        >
+          <i class="bx bx-dots-vertical-rounded fs-18 text-dark"></i>
+        </a>
+        <div ngbDropdownMenu class="dropdown-menu dropdown-menu-end">
+          <a href="javascript:void(0);" class="dropdown-item">
+            <i class="bx bx-edit-alt me-2"></i>Edit Report
+          </a>
+          <a href="javascript:void(0);" class="dropdown-item">
+            <i class="bx bx-export me-2"></i>Export Report
+          </a>
+          <a href="javascript:void(0);" class="dropdown-item">
+            <i class="bx bxs-hand-up me-2"></i>Action
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      @for (data of projectList; track $index) {
+        <div class="col-lg-6">
+          <div class="card shadow-none mb-0">
+            <div class="card-body p-lg-3 p-2">
+              <div class="d-flex align-items-center gap-3 mb-3">
+                <div class="avatar-md flex-shrink-0">
+                  <span class="avatar-title bg-light rounded-circle">
+                    <iconify-icon
+                      [icon]="data.icon"
+                      class="text-{{ data.iconColor }} fs-28"
+                    ></iconify-icon>
+                  </span>
+                </div>
+                <a href="javascript:void(0);" class="fw-medium text-dark">{{
+                  data.title
+                }}</a>
+                <div class="ms-auto">
+                  <a
+                    href="javascript:void(0);"
+                    class="fw-medium text-muted fs-18"
+                    ngbTooltip="Download"
+                    placement="bottom"
+                    ><iconify-icon
+                      icon="iconamoon:cloud-download-duotone"
+                    ></iconify-icon
+                  ></a>
+                </div>
+              </div>
+              <div class="d-flex gap-2">
+                <h5
+                  class="card-title badge text-secondary d-flex gap-1 align-items-center py-1 px-2 fs-13 mb-3 border rounded-1"
+                >
+                  <iconify-icon icon="iconamoon:clock-duotone"></iconify-icon>
+                  {{ data.days }} day left
+                </h5>
+                <h5
+                  class="card-title badge text-secondary d-flex gap-1 align-items-center py-1 px-2 fs-13 mb-3 border rounded-1"
+                >
+                  <iconify-icon icon="iconamoon:file-duotone"></iconify-icon>
+                  {{ data.file }} Files
+                </h5>
+              </div>
+              <div>
+                <p class="fs-15 mb-1 float-end">8/12</p>
+                <p class="fs-15 mb-1">{{ data.progressValue }}%</p>
+                <ngb-progressbar
+                  class="mb-3"
+                  [type]="data.progressType"
+                  [value]="data.progressValue"
+                  [height]="'5px'"
+                  [striped]="true"
+                  [animated]="true"
+                ></ngb-progressbar>
+              </div>
+
+              <div class="d-flex align-items-center gap-3">
+                <div class="avatar-group">
+                  @for (img of data.teamMebmer; track $index) {
+                    <div class="avatar-group-item">
+                      <img
+                        [src]="img"
+                        alt=""
+                        class="rounded-circle avatar-sm"
+                      />
+                    </div>
+                  }
+                </div>
+                <h5 class="mb-0">{{ data.team }}+ Team Work</h5>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>

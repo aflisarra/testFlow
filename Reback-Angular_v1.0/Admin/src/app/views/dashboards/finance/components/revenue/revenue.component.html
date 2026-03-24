@@ -1,0 +1,40 @@
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h4 class="card-title">Revenue</h4>
+    <div>
+      <button type="button" class="btn btn-sm btn-outline-light me-1">
+        ALL
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-light me-1">
+        1M
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-light me-1">
+        6M
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-light active">
+        1Y
+      </button>
+    </div>
+  </div>
+  <!-- end card-title-->
+
+  <div class="card-body">
+    <div dir="ltr">
+      <div id="dash-revenue-chart" class="apex-charts">
+        <apx-chart
+          [chart]="revenueChart.chart!"
+          [series]="revenueChart.series!"
+          [stroke]="revenueChart.stroke!"
+          [fill]="revenueChart.fill!"
+          [markers]="revenueChart.markers!"
+          [xaxis]="revenueChart.xaxis!"
+          [yaxis]="revenueChart.yaxis!"
+          [grid]="revenueChart.grid!"
+          [legend]="revenueChart.legend!"
+          [colors]="revenueChart.colors!"
+          [tooltip]="revenueChart.tooltip!"
+        ></apx-chart>
+      </div>
+    </div>
+  </div>
+</div>
