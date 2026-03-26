@@ -43,17 +43,20 @@ function parseBoolean(value) {
   return ["1", "true", "yes", "y", "on"].includes(value.trim().toLowerCase());
 }
 
-function ensureDocx(file, cb) {
+function ensureSpecFile(file, cb) {
   const ext = path.extname(file.originalname || "").toLowerCase();
-  const okExt = ext === ".docx";
+  const okExt = ext === ".docx" || ext === ".md" || ext === ".txt";
+
   const okMime =
     !file.mimetype ||
     file.mimetype ===
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-    file.mimetype === "application/octet-stream";
+    file.mimetype === "application/octet-stream" ||
+    file.mimetype === "text/plain" ||
+    file.mimetype === "text/markdown";
 
   if (okExt && okMime) return cb(null, true);
-  cb(new Error("Only .docx files are allowed"));
+  cb(new Error("Only .docx, .md, or .txt files are allowed"));
 }
 
 function safeBasename(filename) {
@@ -100,7 +103,7 @@ const upload = multer({
     },
   }),
   limits: { fileSize: 15 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => ensureDocx(file, cb),
+  fileFilter: (req, file, cb) => ensureSpecFile(file, cb),
 });
 
 function runPowerShell(command) {
@@ -254,34 +257,60 @@ router.get("/testsuite/:id/plan", async (req, res) => {
   }
 });
 
+router.get("/testsuite/:id/test-plans", async (req, res) => {
+  try {
+    const testSuiteId = String(req.params.id || "").trim();
+    if (!testSuiteId) return res.status(400).json({ message: "testSuiteId is required" });
+
+    const suite = await TestSuite.findById(testSuiteId);
+    if (!suite) return res.status(404).json({ message: "TestSuite not found" });
+
+    const testPlans = Array.isArray(suite.testPlans) ? suite.testPlans : [];
+    return res.json({ testSuiteId, testPlans });
+  } catch (error) {
+    res.status(500).json({ message: error?.message || "Failed to get test plans" });
+  }
+});
+
 router.post("/generate-plan", upload.single("file"), async (req, res) => {
   try {
     const urlCible = String(req.body?.urlCible || req.body?.url_cible || "").trim();
     const userIdBody = String(req.body?.userId || "").trim();
     const providedTestSuiteId = String(req.body?.testSuiteId || "").trim();
     const suiteName = String(req.body?.nom || "").trim();
-    const description = String(req.body?.description || "").trim();
+    const styleConfig = String(
+      req.body?.styleConfig ||
+        req.body?.style_config ||
+        req.body?.style_configuration ||
+        req.body?.description ||
+        ""
+    ).trim();
     const regenerate = parseBoolean(req.body?.regenerate);
 
-    if (!urlCible) return res.status(400).json({ message: "urlCible is required" });
-    if (!description) return res.status(400).json({ message: "description is required" });
-    if (!req.file) return res.status(400).json({ message: "file (.docx) is required" });
+    if (!req.file) return res.status(400).json({ message: "file (.docx/.md/.txt) is required" });
 
     // userId is only required when creating a new TestSuite (no providedTestSuiteId).
     const userId = userIdBody || getUserIdFromAuthHeader(req);
 
     const fileBuffer = req.file?.buffer || (req.file?.path ? await fs.readFile(req.file.path) : null);
-    if (!fileBuffer) return res.status(400).json({ message: "file (.docx) is required" });
+    if (!fileBuffer) return res.status(400).json({ message: "file (.docx/.md/.txt) is required" });
 
-    const specText = await extractDocxText(fileBuffer);
-    if (!specText) return res.status(400).json({ message: "Unable to extract text from .docx" });
+    const ext = path.extname(String(req.file?.originalname || "")).toLowerCase();
+    let specText = "";
+    if (ext === ".docx") {
+      specText = await extractDocxText(fileBuffer);
+      if (!specText) return res.status(400).json({ message: "Unable to extract text from .docx" });
+    } else {
+      specText = String(Buffer.from(fileBuffer).toString("utf8") || "").trim();
+      if (!specText) return res.status(400).json({ message: "Unable to read text from file" });
+    }
 
     const specTextStored = specText.slice(0, 50_000);
 
     const combinedDescription = [
-      description,
+      styleConfig,
       "",
-      "---- SPEC DOCX EXTRACT ----",
+      "---- SPEC EXTRACT ----",
       specText,
     ]
       .join("\n")
@@ -298,6 +327,7 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
         description: combinedDescription,
         urlCible,
         specText: specTextStored,
+        styleConfig,
         specFileName: req.file?.originalname || null,
         specFilePath: req.file?.filename ? `uploads/specs/${req.file.filename}` : null,
       };
@@ -316,6 +346,7 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
         urlCible,
         userId,
         specText: specTextStored,
+        styleConfig,
         specFileName: req.file?.originalname || null,
         specFilePath: req.file?.filename ? `uploads/specs/${req.file.filename}` : null,
       });
@@ -324,19 +355,10 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
     const testSuiteId = String(suite._id);
 
     if (!regenerate) {
-      if (Array.isArray(suite.planSteps) && suite.planSteps.length) {
-        const plans = [...suite.planSteps]
-          .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
-          .map((p) => ({
-            _id: p._id,
-            contenu: p.contenu,
-            ordre: p.ordre,
-            testSuiteId,
-          }));
+      if (Array.isArray(suite.testPlans) && suite.testPlans.length) {
         return res.json({
           testSuiteId,
-          steps: plans.map((p) => p.contenu),
-          plans,
+          testPlans: suite.testPlans,
           reused: true,
         });
       }
@@ -355,6 +377,8 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
     } else {
       // Clear embedded plan and legacy docs
       suite.planSteps = [];
+      suite.testPlans = [];
+      suite.testCasesByPlan = [];
       await suite.save();
       await PlanTest.deleteMany({ testSuiteId });
     }
@@ -362,40 +386,27 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
     const baseUrl = getFastApiBaseUrl();
     const fastApiResponse = await axios.post(
       `${baseUrl}/generate-plan`,
-      { spec_text: specText, url_cible: urlCible, description },
+      { spec_text: specText, url_cible: urlCible, style_config: styleConfig, description: styleConfig },
       { timeout: 185_000 }
     );
 
-    const steps = fastApiResponse?.data?.steps;
-    if (!Array.isArray(steps) || !steps.length) {
-      return res.status(502).json({ message: "FastAPI returned empty steps" });
+    const testPlans = fastApiResponse?.data?.test_plans || fastApiResponse?.data?.testPlans;
+    if (!Array.isArray(testPlans) || !testPlans.length) {
+      return res.status(502).json({ message: "FastAPI returned empty test plans" });
     }
 
-    const docs = steps
-      .map((s) => String(s || "").trim())
-      .filter(Boolean)
-      .slice(0, 50)
-      .map((step, idx) => ({
-        contenu: step,
-        ordre: idx + 1,
-      }));
-
-    suite.planSteps = docs;
+    suite.testPlans = testPlans
+      .map((p, idx) => ({
+        id: String(p?.id || `TP-${idx + 1}`).trim(),
+        title: String(p?.title || `Test Plan ${idx + 1}`).trim(),
+        description: String(p?.description || "").trim(),
+      }))
+      .slice(0, 20);
     await suite.save();
-
-    const plans = [...suite.planSteps]
-      .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
-      .map((p) => ({
-        _id: p._id,
-        contenu: p.contenu,
-        ordre: p.ordre,
-        testSuiteId,
-      }));
 
     return res.json({
       testSuiteId,
-      steps: plans.map((p) => p.contenu),
-      plans,
+      testPlans: suite.testPlans,
       reused: false,
     });
   } catch (error) {
@@ -405,6 +416,88 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
       error?.response?.data?.message ||
       error?.message ||
       "Generate plan failed";
+    return res.status(status).json({ message });
+  }
+});
+
+router.post("/generate-test-cases", async (req, res) => {
+  try {
+    const testSuiteId = String(req.body?.testSuiteId || "").trim();
+    const planId = String(req.body?.planId || req.body?.plan_id || "").trim();
+    const planTitle = String(req.body?.planTitle || req.body?.plan_title || "").trim();
+    const planDescription = String(req.body?.planDescription || req.body?.plan_description || "").trim();
+    const regenerate = parseBoolean(req.body?.regenerate);
+
+    if (!testSuiteId) return res.status(400).json({ message: "testSuiteId is required" });
+    if (!planId) return res.status(400).json({ message: "planId is required" });
+
+    const suite = await TestSuite.findById(testSuiteId);
+    if (!suite) return res.status(404).json({ message: "TestSuite not found" });
+
+    const existing = Array.isArray(suite.testCasesByPlan)
+      ? suite.testCasesByPlan.find((x) => String(x.planId) === planId)
+      : null;
+
+    if (existing && existing.testCases?.length && !regenerate) {
+      return res.json({
+        testSuiteId,
+        planId,
+        planTitle: existing.planTitle,
+        testCases: existing.testCases,
+        reused: true,
+      });
+    }
+
+    const baseUrl = getFastApiBaseUrl();
+    const fastApiResponse = await axios.post(
+      `${baseUrl}/generate-test-cases`,
+      {
+        plan_id: planId,
+        plan_title: planTitle || planId,
+        plan_description: planDescription || "",
+        spec_text: String(suite.specText || ""),
+        style_config: String(suite.styleConfig || ""),
+      },
+      { timeout: 185_000 }
+    );
+
+    const testCases = fastApiResponse?.data?.test_cases || fastApiResponse?.data?.testCases;
+    const resolvedTitle = String(fastApiResponse?.data?.plan_title || planTitle || planId).trim();
+    if (!Array.isArray(testCases) || !testCases.length) {
+      return res.status(502).json({ message: "FastAPI returned empty test cases" });
+    }
+
+    const normalized = testCases
+      .map((tc, idx) => ({
+        id: String(tc?.id || `TC-${idx + 1}`).trim(),
+        title: String(tc?.title || `Test Case ${idx + 1}`).trim(),
+        steps: Array.isArray(tc?.steps) ? tc.steps.map((s) => String(s || "").trim()).filter(Boolean) : [],
+        expected_result: String(tc?.expected_result || tc?.expectedResult || "").trim(),
+      }))
+      .slice(0, 50);
+
+    suite.testCasesByPlan = (suite.testCasesByPlan || []).filter((x) => String(x.planId) !== planId);
+    suite.testCasesByPlan.push({
+      planId,
+      planTitle: resolvedTitle,
+      testCases: normalized,
+    });
+    await suite.save();
+
+    return res.json({
+      testSuiteId,
+      planId,
+      planTitle: resolvedTitle,
+      testCases: normalized,
+      reused: false,
+    });
+  } catch (error) {
+    const status = error?.response?.status || 500;
+    const message =
+      error?.response?.data?.error ||
+      error?.response?.data?.message ||
+      error?.message ||
+      "Generate test cases failed";
     return res.status(status).json({ message });
   }
 });

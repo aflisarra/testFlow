@@ -1,4 +1,5 @@
-import { CUSTOM_ELEMENTS_SCHEMA, Component, inject } from '@angular/core'
+import { CUSTOM_ELEMENTS_SCHEMA, Component, DestroyRef, inject } from '@angular/core'
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { SimplebarAngularModule } from 'simplebar-angular'
 import { NavigationEnd, Router, RouterModule } from '@angular/router'
 import {
@@ -14,6 +15,7 @@ import { changesidebarsize } from '@/app/store/layout/layout-action'
 import { Store } from '@ngrx/store'
 import { getSidebarsize } from '@/app/store/layout/layout-selector'
 import { basePath } from '@/app/common/constants'
+import { getUser } from '@/app/store/authentication/authentication.selector'
 
 @Component({
   selector: 'app-sidebar',
@@ -35,6 +37,7 @@ export class SidebarComponent {
   activeMenuItems: string[] = []
 
   store = inject(Store)
+  private destroyRef = inject(DestroyRef)
   router = inject(Router)
   trimmedURL = this.router.url?.replaceAll(
     basePath !== '' ? basePath + '/' : '',
@@ -61,7 +64,13 @@ export class SidebarComponent {
   }
 
   initMenu(): void {
-    this.menuItems = MENU
+    this.store
+      .select(getUser)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((user) => {
+        const actionIds = (user?.actions || []) as number[]
+        this.menuItems = this.buildMenuForActions(actionIds)
+      })
   }
 
   ngAfterViewInit() {
@@ -197,5 +206,48 @@ export class SidebarComponent {
     this.store.select(getSidebarsize).subscribe((size) => {
       document.documentElement.setAttribute('data-menu-size', size)
     })
+  }
+
+  private buildMenuForActions(actionIds: number[]): MenuItem[] {
+    const clonedMenu = this.cloneMenu(MENU)
+    if (!actionIds || actionIds.length === 0) return clonedMenu
+
+    const ids = new Set(
+      (actionIds || [])
+        .map((x) => Number(x))
+        .filter((x) => Number.isFinite(x))
+    )
+
+    // Map UI pages to backend action IDs (seed.actions.js)
+    const roleActionIds = new Set([6, 7, 8, 9])
+    const userActionIds = new Set([10, 2, 3, 4, 5])
+
+    const usersMenu = clonedMenu.find((m) => m.key === 'users')
+    if (usersMenu?.subMenu?.length) {
+      usersMenu.subMenu = (usersMenu.subMenu as MenuItem[]).filter((child) => {
+        if (child.link === '/admin/roles') {
+          return [...roleActionIds].some((id) => ids.has(id))
+        }
+        if (child.link === '/admin/users') {
+          return [...userActionIds].some((id) => ids.has(id))
+        }
+        return true
+      })
+    }
+
+    return clonedMenu.filter((m) => !m.subMenu || (m.subMenu as MenuItem[]).length > 0 || m.isTitle)
+  }
+
+  private cloneMenu(menu: MenuItem[]): MenuItem[] {
+    return (menu || []).map((item) => this.cloneMenuItem(item))
+  }
+
+  private cloneMenuItem(item: MenuItem): MenuItem {
+    return {
+      ...item,
+      subMenu: Array.isArray(item.subMenu)
+        ? (item.subMenu as MenuItem[]).map((child) => this.cloneMenuItem(child))
+        : item.subMenu,
+    }
   }
 }

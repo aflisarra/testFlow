@@ -6,6 +6,8 @@ import { AllUsersComponent } from './admin/users/all-users.component'
 import { InviteUserComponent } from './admin/users/invite-user.component'
 import { RolesManagementComponent } from './admin/roles/roles-management.component'
 import { TestSuiteConfigurationComponent } from './test/test-suite-configuration.component'
+import { TestCasesValidationComponent } from './test/test-cases-validation.component'
+import { TestCasesHomeComponent } from './test/test-cases-home.component'
 
 export const VIEW_ROUTES: Route[] = [
   {
@@ -98,5 +100,15 @@ export const VIEW_ROUTES: Route[] = [
     path: 'test',
     component: TestSuiteConfigurationComponent,
     data: { title: 'Test' },
+  },
+  {
+    path: 'test-cases',
+    component: TestCasesHomeComponent,
+    data: { title: 'Test Cases' },
+  },
+  {
+    path: 'test-cases/:id',
+    component: TestCasesValidationComponent,
+    data: { title: 'Validation' },
   },
 ]

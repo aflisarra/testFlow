@@ -22,6 +22,34 @@ const planStepSchema = new mongoose.Schema(
     { _id: true }
 );
 
+const testPlanSchema = new mongoose.Schema(
+    {
+        id: { type: String, required: true, trim: true },
+        title: { type: String, required: true, trim: true },
+        description: { type: String, default: "", trim: true }
+    },
+    { _id: false }
+);
+
+const testCaseSchema = new mongoose.Schema(
+    {
+        id: { type: String, required: true, trim: true },
+        title: { type: String, required: true, trim: true },
+        steps: { type: [String], default: [] },
+        expected_result: { type: String, default: "", trim: true }
+    },
+    { _id: false }
+);
+
+const testCasesByPlanSchema = new mongoose.Schema(
+    {
+        planId: { type: String, required: true, trim: true },
+        planTitle: { type: String, required: true, trim: true },
+        testCases: { type: [testCaseSchema], default: [] }
+    },
+    { _id: false }
+);
+
 const testSuiteSchema = new mongoose.Schema({
 
     // Name of the test suite (auto-generated or user-defined)
@@ -58,10 +86,28 @@ const testSuiteSchema = new mongoose.Schema({
         default: null
     },
 
+    // Style configuration entered by the user (frontend)
+    styleConfig: {
+        type: String,
+        default: ""
+    },
+
     // Embedded test plan steps (preferred storage)
     // Avoids storing one MongoDB document per step in a separate collection.
     planSteps: {
         type: [planStepSchema],
+        default: []
+    },
+
+    // New format: high-level test plans (TP-1, TP-2...)
+    testPlans: {
+        type: [testPlanSchema],
+        default: []
+    },
+
+    // New format: generated test cases grouped by plan
+    testCasesByPlan: {
+        type: [testCasesByPlanSchema],
         default: []
     },
 

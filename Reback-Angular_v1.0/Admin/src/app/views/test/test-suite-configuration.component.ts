@@ -1,23 +1,17 @@
-// ============================================================
-// test-suite-configuration.component.ts
-// VERSION ULTRA DEBUG — console.log sur CHAQUE interaction
-// même quand tu tapes dans un champ
-// ============================================================
-
 import { CommonModule } from '@angular/common'
-import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, OnInit } from '@angular/core'
+import { Component, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core'
 import { Store } from '@ngrx/store'
+import { Router } from '@angular/router'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
-import { TestLabService, type PlanTestDto } from '@/app/core/services/testlab.service'
-
-type GeneratedSection = {
-  title: string
-  items: string[]
-}
+import {
+  TestLabService,
+  type TestPlanDto,
+  type TestCaseDto,
+} from '@/app/core/services/testlab.service'
 
 @Component({
   selector: 'app-test-suite-configuration',
@@ -27,255 +21,296 @@ type GeneratedSection = {
   styleUrl: './test-suite-configuration.component.css',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
-export class TestSuiteConfigurationComponent implements OnInit {
+export class TestSuiteConfigurationComponent {
   private store = inject(Store)
   private testLabService = inject(TestLabService)
   private authService = inject(AuthenticationService)
+  private router = inject(Router)
 
-  appUrl = ''
-  specText = ''
+  styleConfig = ''
   uploadedFileName = ''
   selectedFile: File | null = null
-  generating = false
+
+  generatingPlans = false
+  generatingCasesPlanId: string | null = null
+  confirmingAll = false
+  confirmProgress = { done: 0, total: 0, current: '' }
   errorMessage = ''
+
   currentTestSuiteId = ''
-  generatedSections: GeneratedSection[] = []
+  testPlans: TestPlanDto[] = []
+  selectedPlanId: string | null = null
+  testCasesByPlan: Record<string, TestCaseDto[]> = {}
 
-  // ── Log au démarrage du composant ────────────────────────
-  ngOnInit() {
-    console.log('🚀 [INIT] TestSuiteConfigurationComponent chargé')
-    console.log('🚀 [INIT] testLabService disponible :', !!this.testLabService)
-    console.log('🚀 [INIT] store disponible :', !!this.store)
+  get selectedPlan(): TestPlanDto | null {
+    const id = this.selectedPlanId
+    if (!id) return null
+    return this.testPlans.find((p) => p.id === id) || null
   }
 
-  // ── Log à chaque frappe dans le champ URL ────────────────
-  onAppUrlChange(value: string) {
-    this.appUrl = value
-    console.log('📝 [URL] Valeur saisie :', value)
+  get selectedTestCases(): TestCaseDto[] {
+    const id = this.selectedPlanId
+    if (!id) return []
+    return this.testCasesByPlan[id] || []
   }
-
-  // ── Log à chaque frappe dans le textarea ─────────────────
-  onSpecTextChange(value: string) {
-    this.specText = value
-    console.log('📝 [SPEC] Valeur saisie :', value.slice(0, 50))
+  // 🔹 Fonction appelée quand l'utilisateur change le style
+  onStyleConfigChange(value: string) {
+    // INPUT: value (string) → texte saisi par l'utilisateur
+    // OUTPUT: met à jour la variable styleConfig
+    this.styleConfig = value
   }
-
-  // ── Log à la sélection du fichier ────────────────────────
+  // 🔹 Fonction appelée quand un fichier est sélectionné
   onFileSelected(event: Event) {
-    console.log('📁 [FILE] Événement onFileSelected déclenché')
+    // INPUT: event (Event) → événement HTML input file
+    // OUTPUT:
+    // - stocke le fichier sélectionné
+    // - met à jour le nom du fichier affiché
     const input = event.target as HTMLInputElement | null
-    console.log('📁 [FILE] input element :', input)
-    console.log('📁 [FILE] files :', input?.files)
     const file = input?.files?.[0] || null
     this.selectedFile = file
     this.uploadedFileName = file?.name || ''
-    if (file) {
-      console.log('📁 [FILE] ✅ Fichier sélectionné :', file.name)
-      console.log('📁 [FILE] Taille :', file.size, 'bytes')
-      console.log('📁 [FILE] Type :', file.type)
-    } else {
-      console.warn('📁 [FILE] ❌ Aucun fichier sélectionné')
-    }
   }
-
-  // ── Log au clic sur Generate ─────────────────────────────
+  // 🔹 Bouton "Generate Plan"
   onGeneratePlan() {
-    console.log('🔥 [CLICK] ============================================')
-    console.log('🔥 [CLICK] Bouton Generate Test Plan cliqué !')
-    console.log('🔥 [CLICK] appUrl =', `"${this.appUrl}"`)
-    console.log('🔥 [CLICK] specText =', `"${this.specText.slice(0, 80)}"`)
-    console.log('🔥 [CLICK] selectedFile =', this.selectedFile?.name || 'NULL')
-    console.log('🔥 [CLICK] generating =', this.generating)
-    console.log('🔥 [CLICK] ============================================')
-    void this.generatePlan()
+    // INPUT: aucun
+    // OUTPUT: lance la génération des test plans
+    void this.generatePlans()
+  }
+  // 🔹 Annuler la génération
+  onCancelPlans() {
+    // INPUT: aucun
+    // OUTPUT:
+    // - reset toutes les variables
+    // - nettoie l'état du composant
+    this.errorMessage = ''
+    this.generatingPlans = false
+    this.generatingCasesPlanId = null
+    this.confirmingAll = false
+    this.confirmProgress = { done: 0, total: 0, current: '' }
+
+    this.currentTestSuiteId = ''
+    this.testPlans = []
+    this.selectedPlanId = null
+    this.testCasesByPlan = {}
+  }
+  // 🔹 Régénérer les plans
+  onRegeneratePlans() {
+    // INPUT: aucun
+    // OUTPUT: relance la génération avec regenerate = true
+
+    void this.generatePlans(true)
+  }
+  // 🔹 Confirmer tous les plans
+  async onConfirmPlans() {
+    // INPUT: aucun
+    // OUTPUT:
+    // - génère les test cases pour chaque plan
+    // - redirige vers page test-cases
+    if (!this.currentTestSuiteId || !this.testPlans.length) return
+    this.errorMessage = ''
+    this.confirmingAll = true
+    this.confirmProgress = { done: 0, total: this.testPlans.length, current: '' }
+
+    try {
+      for (const plan of this.testPlans) {
+        this.confirmProgress = {
+          done: this.confirmProgress.done,
+          total: this.confirmProgress.total,
+          current: plan.title || plan.id,
+        }
+        const ok = await this.generateTestCases(plan, false)
+        if (!ok) return
+        this.confirmProgress = {
+          ...this.confirmProgress,
+          done: Math.min(this.confirmProgress.done + 1, this.confirmProgress.total),
+        }
+      }
+
+      await this.router.navigate(['/test-cases', this.currentTestSuiteId])
+    } finally {
+      this.confirmingAll = false
+      this.confirmProgress = { done: 0, total: 0, current: '' }
+    }
+  }
+  // 🔹 Copier plan dans clipboard
+  async onCopyPlan() {
+    // INPUT: aucun
+    // OUTPUT:
+    // - copie texte du plan + test cases dans le presse-papier
+    const planId = this.selectedPlanId
+    if (!planId) return
+    const plan = this.testPlans.find((p) => p.id === planId)
+    const cases = this.testCasesByPlan[planId] || []
+    const text = [
+      `Test Plan: ${plan?.title || planId}`,
+      plan?.description ? `Description: ${plan.description}` : '',
+      '',
+      ...cases.map(
+        (tc) =>
+          `${tc.id} — ${tc.title}\n${tc.steps.map((s) => `- ${s}`).join('\n')}\nExpected: ${tc.expected_result}`
+      ),
+    ]
+      .filter(Boolean)
+      .join('\n\n')
+    await navigator.clipboard.writeText(text)
+  }
+  // 🔹 Télécharger plan
+
+  onDownloadPlan() {
+    // INPUT: aucun
+    // OUTPUT:
+    // - génère un fichier .txt
+    // - déclenche téléchargement
+    const planId = this.selectedPlanId
+    if (!planId) return
+    const plan = this.testPlans.find((p) => p.id === planId)
+    const cases = this.testCasesByPlan[planId] || []
+    const text = [
+      `Test Plan: ${plan?.title || planId}`,
+      plan?.description ? `Description: ${plan.description}` : '',
+      '',
+      ...cases.map(
+        (tc) =>
+          `${tc.id} — ${tc.title}\n${tc.steps.map((s) => `- ${s}`).join('\n')}\nExpected: ${tc.expected_result}`
+      ),
+    ]
+      .filter(Boolean)
+      .join('\n\n')
+
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${plan?.id || 'test-plan'}-test-cases.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+  // 🔹 Sauvegarder plan
+  onSavePlan() {
+    // INPUT: aucun
+    // OUTPUT: affiche message (placeholder)
+
+    alert(`Plan sauvegardé ! TestSuite ID : ${this.currentTestSuiteId}`)
   }
 
-  async onCopyPlan() {
-    console.log('📋 [COPY] Copie du plan...')
-    const text = this.generatedSections
-      .map(s => `${s.title}\n${s.items.map(i => `- ${i}`).join('\n')}`)
-      .join('\n\n')
-    try {
-      await navigator.clipboard.writeText(text)
-      console.log('📋 [COPY] ✅ Copié !')
-    } catch (err) {
-      console.warn('📋 [COPY] ❌ Échec :', err)
-    }
+  onExportJira() {
+    alert('Export Jira — à implémenter')
+  }
+
+  async onSelectPlan(plan: TestPlanDto) {
+    this.selectedPlanId = plan.id
+  }
+  // 🔹 Régénérer test cases d’un plan
+  async onRegenerateTestCases(plan: TestPlanDto) {
+    // INPUT: plan
+    // OUTPUT: regénère test cases pour ce plan
+
+    await this.generateTestCases(plan, true)
+  }
+
+  onDeleteTestCase(planId: string, testCaseId: string) {
+    const list = this.testCasesByPlan[planId] || []
+    this.testCasesByPlan[planId] = list.filter((tc) => tc.id !== testCaseId)
   }
 
   private resolveUserIdFromToken(token: string): string {
     try {
       const decoded = jwt_decode<Record<string, unknown>>(token)
       const userLike =
-        (decoded?.['user'] as Record<string, unknown> | undefined) ?? decoded
-
+        (decoded?.['user'] as Record<string, unknown>) || decoded || {}
       return String(
-        (userLike?.['userId'] as string | number | undefined) ||
-          (userLike?.['id'] as string | number | undefined) ||
-          (userLike?.['_id'] as string | number | undefined) ||
-          (userLike?.['sub'] as string | number | undefined) ||
-          ''
+        userLike['userId'] || userLike['id'] || userLike['_id'] || userLike['sub'] || ''
       ).trim()
-    } catch (err) {
-      console.error('🔑 [JWT] Erreur décodage token :', err)
+    } catch {
       return ''
     }
   }
 
-  onDownloadPlan() {
-    console.log('💾 [DOWNLOAD] Téléchargement...')
-    const text = this.generatedSections
-      .map(s => `${s.title}\n${s.items.map(i => `- ${i}`).join('\n')}`)
-      .join('\n\n')
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'generated-test-plan.txt'
-    a.click()
-    URL.revokeObjectURL(url)
-    console.log('💾 [DOWNLOAD] ✅ Téléchargé')
-  }
-
-  onSavePlan() {
-    console.log('💾 [SAVE] currentTestSuiteId :', this.currentTestSuiteId)
-    alert(`Plan sauvegardé ! TestSuite ID : ${this.currentTestSuiteId}`)
-  }
-
-  onExportJira() {
-    console.log('📤 [JIRA] Export Jira cliqué')
-    alert('Export Jira — à implémenter')
-  }
-
-  // ── Flux principal ────────────────────────────────────────
-  private async generatePlan() {
-    console.log('⚙️ [GENERATE] Fonction generatePlan() démarrée')
-
+  private async generatePlans(regenerate: boolean = true) {
     this.errorMessage = ''
-    this.generatedSections = []
-
-    // ── Validation URL ───────────────────────────────────────
-    console.log('🔍 [VALIDATE] Vérification URL...')
-    if (!this.appUrl.trim()) {
-      this.errorMessage = "L'URL de l'application est obligatoire"
-      console.warn('🔍 [VALIDATE] ❌ URL vide !')
-      return
-    }
-    console.log('🔍 [VALIDATE] ✅ URL ok :', this.appUrl)
-
-    // ── Validation Description ───────────────────────────────
-    console.log('🔍 [VALIDATE] Vérification description...')
-    if (!this.specText.trim()) {
-      this.errorMessage = 'La description est obligatoire'
-      console.warn('🔍 [VALIDATE] ❌ Description vide !')
-      return
-    }
-    console.log('🔍 [VALIDATE] ✅ Description ok')
-
-    // ── Validation Fichier ───────────────────────────────────
-    console.log('🔍 [VALIDATE] Vérification fichier...')
-    if (!this.selectedFile) {
-      this.errorMessage = 'Veuillez uploader un fichier .docx'
-      console.warn('🔍 [VALIDATE] ❌ Fichier manquant !')
-      return
-    }
-    console.log('🔍 [VALIDATE] ✅ Fichier ok :', this.selectedFile.name)
-
-    this.generating = true
-    console.log('⚙️ [GENERATE] generating = true')
+    this.generatingPlans = true
+    this.testPlans = []
+    this.selectedPlanId = null
+    this.testCasesByPlan = {}
 
     try {
-      // ── Récupérer userId ─────────────────────────────────
-      console.log('👤 [AUTH] Récupération userId depuis NgRx store...')
-      const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
-      console.log('👤 [AUTH] user reçu :', user)
-
-      // 1) userId depuis store (quand l'app n'a pas été refresh)
-      let userId = String((user as any)?.id || (user as any)?._id || '').trim()
-
-      // 2) fallback token (localStorage) si store vide après refresh
-      const token = String((user as any)?.token || this.authService.session || '').trim()
-      if (!userId && token) userId = this.resolveUserIdFromToken(token)
-
-      console.log('👤 [AUTH] userId final :', userId)
-
-      if (!userId) {
-        this.errorMessage = 'Session expirée. Reconnectez-vous.'
-        console.error('👤 [AUTH] ❌ userId introuvable même dans le token !')
+      if (!this.selectedFile) {
+        this.errorMessage = 'Veuillez uploader un fichier (.docx / .md / .txt)'
         return
       }
 
-      // ── FormData ─────────────────────────────────────────
-      console.log('📦 [FORMDATA] Construction FormData...')
+      const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
+      let userId = String((user as any)?.id || (user as any)?._id || '').trim()
+      const token = String((user as any)?.token || this.authService.session || '').trim()
+      if (!userId && token) userId = this.resolveUserIdFromToken(token)
+      if (!userId) {
+        this.errorMessage = 'Session expirée. Reconnectez-vous.'
+        return
+      }
+
       const formData = new FormData()
       formData.append('file', this.selectedFile)
-      formData.append('urlCible', this.appUrl.trim())
-      formData.append('description', this.specText.trim())
+      formData.append('styleConfig', this.styleConfig.trim())
+      formData.append('description', this.styleConfig.trim())
       formData.append('userId', userId)
-      formData.append('nom', `Test Suite - ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`)
-      formData.append('regenerate', 'true')
-      console.log('📦 [FORMDATA] ✅ FormData prêt')
-
-      // ── Appel HTTP ────────────────────────────────────────
-      console.log('🌐 [HTTP] Appel generatePlanFromDocx...')
-      console.log('🌐 [HTTP] URL cible : POST /ollama/generate-plan')
-
-      const result = await firstValueFrom(
-        this.testLabService.generatePlanFromDocx(formData)
+      formData.append(
+        'nom',
+        `Test Suite - ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`
       )
+      if (this.currentTestSuiteId) formData.append('testSuiteId', this.currentTestSuiteId)
+      formData.append('regenerate', regenerate ? 'true' : 'false')
 
-      console.log('🌐 [HTTP] ✅ Réponse reçue !')
-      console.log('🌐 [HTTP] result complet :', result)
-      console.log('🌐 [HTTP] testSuiteId :', result?.testSuiteId)
-      console.log('🌐 [HTTP] steps :', result?.steps)
-      console.log('🌐 [HTTP] plans :', result?.plans)
+      const result = await firstValueFrom(this.testLabService.generatePlanFromDocx(formData))
 
       this.currentTestSuiteId = String(result?.testSuiteId || '')
+      this.testPlans = Array.isArray(result?.testPlans) ? result.testPlans : []
+      this.selectedPlanId = this.testPlans[0]?.id || null
 
-      const steps = Array.isArray(result?.steps)
-        ? result.steps
-        : this.normalizeSteps(result?.plans || [])
-
-      console.log('📋 [STEPS] Nombre :', steps.length)
-      console.log('📋 [STEPS] Liste :', steps)
-
-      this.generatedSections = [{
-        title: 'Generated Test Plan',
-        items: steps.length ? steps : ['Aucun step — vérifier la console F12']
-      }]
-
-      console.log('✅ [UI] generatedSections mis à jour :', this.generatedSections)
-
+      if (!this.testPlans.length) {
+        this.errorMessage = 'Aucun test plan généré.'
+      }
     } catch (err: unknown) {
-      console.error('❌ [ERROR] Erreur capturée :', err)
-      console.error('❌ [ERROR] status :', (err as any)?.status)
-      console.error('❌ [ERROR] error body :', (err as any)?.error)
-      console.error('❌ [ERROR] message :', (err as any)?.message)
-
       const status = (err as any)?.status
       if (status === 0) {
-        this.errorMessage = '❌ Backend Node.js non accessible — vérifier que npm start tourne sur port 3000'
+        this.errorMessage =
+          'Backend Node.js non accessible — vérifier que le serveur tourne sur port 3000'
       } else if (status === 502) {
-        this.errorMessage = '❌ FastAPI non accessible — vérifier que uvicorn tourne sur port 8000'
+        this.errorMessage =
+          'FastAPI non accessible — vérifier que uvicorn tourne sur port 8000'
       } else if (status === 504) {
-        this.errorMessage = '❌ Ollama timeout — essayer avec un fichier plus petit'
+        this.errorMessage = 'Ollama timeout — essayer avec un fichier plus petit'
       } else {
         this.errorMessage =
-          (err as any)?.error?.error ||
-          (err as any)?.error?.message ||
-          (err as any)?.message ||
-          'Erreur inconnue — voir console F12'
+          (err as any)?.error?.message || (err as any)?.message || 'Erreur inconnue'
       }
     } finally {
-      this.generating = false
-      console.log('⚙️ [GENERATE] generating = false — terminé')
+      this.generatingPlans = false
     }
   }
 
-  private normalizeSteps(plans: PlanTestDto[]): string[] {
-    return [...plans]
-      .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
-      .map(p => String(p.contenu || '').trim())
-      .filter(Boolean)
+  private async generateTestCases(plan: TestPlanDto, regenerate: boolean): Promise<boolean> {
+    if (!this.currentTestSuiteId) return false
+    this.errorMessage = ''
+    this.generatingCasesPlanId = plan.id
+
+    try {
+      const resp = await firstValueFrom(
+        this.testLabService.generateTestCases({
+          testSuiteId: this.currentTestSuiteId,
+          planId: plan.id,
+          planTitle: plan.title,
+          planDescription: plan.description,
+          regenerate,
+        })
+      )
+      this.testCasesByPlan[plan.id] = resp?.testCases || []
+      return true
+    } catch (err: unknown) {
+      this.errorMessage =
+        (err as any)?.error?.message || (err as any)?.message || 'Erreur test cases'
+      return false
+    } finally {
+      this.generatingCasesPlanId = null
+    }
   }
 }

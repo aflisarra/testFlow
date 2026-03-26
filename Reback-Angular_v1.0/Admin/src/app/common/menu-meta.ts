@@ -63,21 +63,19 @@ export const MENU: MenuItem[] = [
     collapsed: true,
     subMenu: [
       {
-        key: 'test-suite',
-        label: 'Test Suite',
+        key: 'test-plan',
+        label: 'Test plan',
         link: '/test',
         parentKey: 'test',
       },
-
       {
-        key: 'historique',
-        label: 'historique',
-        link: '/admin/users/invite',
+        key: 'test-cases',
+        label: 'Test case',
+        link: '/test-cases',
         parentKey: 'test',
       },
+
     ],
   },
-
-
 
 ]

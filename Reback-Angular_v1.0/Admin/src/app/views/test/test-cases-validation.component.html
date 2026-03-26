@@ -1,0 +1,129 @@
+<div class="testlab-page">
+  <div class="testlab-container px-4 px-lg-5 pb-4 pb-lg-5 pt-0">
+    @if (errorMessage) {
+    <div class="alert alert-danger mb-4">{{ errorMessage }}</div>
+    }
+
+    <div class="testlab-card p-4 mt-4 testlab-plan-card">
+      <div class="testlab-output">
+        @if (loading) {
+        <div class="testlab-processing">
+          <div class="testlab-processing-icon">
+            <iconify-icon icon="iconamoon:settings-duotone"></iconify-icon>
+          </div>
+          <h4 class="mb-1">Loading Validation</h4>
+          <p class="mb-0 text-muted">Fetching test plans and test cases for this suite…</p>
+        </div>
+        } @else if (!testPlans.length) {
+        <p class="mb-0 text-muted">No test plans yet.</p>
+        } @else {
+
+
+        <div class="tc-head mb-3">
+          <div>
+            <h3 class="tc-title mb-1">Validation</h3>
+            <p class="tc-subtitle mb-0">
+              Review, reorder, and confirm the generated test structures before finalizing the
+              automation scripts.
+            </p>
+          </div>
+        </div>
+
+        <div class="tc-plan-picker mb-3">
+          @for (plan of testPlans; track plan.id) {
+          <button type="button" class="tc-plan-pill" [class.tc-plan-pill--active]="selectedPlanId === plan.id"
+            (click)="onSelectPlan(plan)">
+            {{ plan.id }}
+          </button>
+          }
+        </div>
+
+        @if (!selectedPlan) {
+        <p class="mb-0 text-muted">Select a test plan above to generate its test cases.</p>
+        } @else {
+        <div class="tc-layout">
+          <div class="tc-main">
+            <div class="tc-section-head">
+              <div>
+                <div class="tc-kicker">LOGIC MODULE</div>
+                <h4 class="tc-module-title mb-1">{{ selectedPlan.title }}</h4>
+                @if (selectedPlan.description) {
+                <p class="tc-module-desc mb-0">{{ selectedPlan.description }}</p>
+                }
+              </div>
+
+              <div class="tc-actions">
+                <button type="button" class="btn tc-btn tc-btn-ghost"
+                  [disabled]="generatingCasesPlanId === selectedPlan.id" (click)="onRegenerate(selectedPlan)">
+                  <iconify-icon icon="iconamoon:refresh-2-duotone" class="me-1"></iconify-icon>
+                  Regenerate
+                </button>
+                <button type="button" class="btn tc-btn tc-btn-danger" [disabled]="!selectedTestCases.length">
+                  <iconify-icon icon="iconamoon:trash-duotone" class="me-1"></iconify-icon>
+                  Delete
+                </button>
+                <button type="button" class="btn tc-btn tc-btn-primary" [disabled]="!selectedTestCases.length">
+                  <iconify-icon icon="iconamoon:check-circle-2-duotone" class="me-1"></iconify-icon>
+                  Confirm
+                </button>
+              </div>
+            </div>
+
+            @if (generatingCasesPlanId === selectedPlan.id) {
+            <div class="tc-inline-processing">
+              <span class="tc-pill">Processing AI...</span>
+            </div>
+            }
+
+            <div class="tc-grid">
+              @for (tc of selectedTestCases; track tc.id) {
+              <div class="tc-card">
+                <div class="tc-card-top">
+                  <div class="tc-chip">{{ tc.id }}</div>
+                  <button type="button" class="tc-icon" title="Remove"
+                    (click)="onDeleteTestCase(selectedPlan.id, tc.id)">
+                    <iconify-icon icon="iconamoon:trash-duotone"></iconify-icon>
+                  </button>
+                </div>
+
+                <div class="tc-card-body">
+                  <div class="tc-card-title">{{ tc.title }}</div>
+                  @if (tc.expected_result) {
+                  <div class="tc-card-sub">{{ tc.expected_result }}</div>
+                  }
+                </div>
+              </div>
+              }
+            </div>
+
+            <div class="tc-footer">
+              <button type="button" class="btn btn-brand tc-finalize" [disabled]="!selectedTestCases.length">
+                <iconify-icon icon="iconamoon:code-duotone" class="me-2"></iconify-icon>
+                Finalize &amp; Generate Scripts
+                <span class="tc-count">{{ selectedTestCases.length }} Test Cases</span>
+              </button>
+            </div>
+          </div>
+
+          <aside class="tc-side">
+            <div class="tc-metrics">
+              <div class="tc-metrics-title">EFFICIENCY METRICS</div>
+              <div class="tc-metrics-row">
+                <div class="tc-metrics-label">VALIDATION COVERAGE</div>
+                <div class="tc-metrics-value">82%</div>
+              </div>
+              <div class="tc-bar">
+                <div class="tc-bar-fill" style="width: 82%"></div>
+              </div>
+              <p class="tc-tip mb-0">
+                Pro Tip: Drag test cases to reorder their priority in the generated execution script.
+              </p>
+            </div>
+          </aside>
+        </div>
+        }
+        }
+      </div>
+    </div>
+  </div>
+</div>

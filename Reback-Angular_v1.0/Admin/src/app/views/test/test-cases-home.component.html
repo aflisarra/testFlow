@@ -1,0 +1,54 @@
+<div class="testlab-page">
+  <div class="testlab-container px-4 px-lg-5 pb-4 pb-lg-5 pt-0">
+    <div class="testlab-hero mb-4 mt-4">
+      <h2 class="testlab-hero-title mb-2">My Test Suites</h2>
+      <p class="testlab-hero-subtitle mb-0">
+        Select a test suite to view its generated test cases and validation plans.
+      </p>
+    </div>
+
+    @if (errorMessage) {
+    <div class="alert alert-danger mb-4">{{ errorMessage }}</div>
+    }
+
+    <div class="testlab-card p-4 mt-4">
+      @if (loading) {
+      <div class="testlab-processing">
+        <div class="testlab-processing-icon">
+          <iconify-icon icon="iconamoon:settings-duotone"></iconify-icon>
+        </div>
+        <h4 class="mb-1">Loading Test Suites</h4>
+        <p class="mb-0 text-muted">Retrieving your test suites...</p>
+      </div>
+      } @else if (!suites.length) {
+      <p class="mb-0 text-muted">No test suites found.</p>
+      } @else {
+      <div class="d-flex align-items-start justify-content-between gap-3 mb-4">
+        <div>
+          <h4 class="mb-1">Available Test Suites</h4>
+          <p class="mb-0 text-muted">Click on a suite to open its validations and test cases.</p>
+        </div>
+        <span class="testlab-pill">{{ suites.length }} suites</span>
+      </div>
+
+      <div class="testlab-plan-list">
+        @for (suite of suites; track suite._id) {
+        <button type="button" class="testlab-plan-item" (click)="openSuite(suite)">
+          <div class="testlab-plan-title">
+            <span class="fw-bold">{{ suite.nom || 'Unnamed Suite' }}</span>
+          </div>
+          @if (suite.description) {
+          <div class="testlab-plan-desc mt-1">{{ suite.description }}</div>
+          }
+          @if (suite.createdAt) {
+          <div class="testlab-plan-date mt-2 small text-muted">
+            Created: {{ suite.createdAt | date }}
+          </div>
+          }
+        </button>
+        }
+      </div>
+      }
+    </div>
+  </div>
+</div>
