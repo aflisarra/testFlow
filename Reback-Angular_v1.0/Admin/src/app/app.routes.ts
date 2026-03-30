@@ -2,6 +2,7 @@ import { RedirectCommand, Router, Routes, type UrlTree } from '@angular/router'
 import { AuthLayoutComponent } from './layouts/auth-layout/auth-layout.component'
 import { PrivateLayoutComponent } from './layouts/private-layout/private-layout.component'
 import { AuthenticationService } from './core/services/auth.service'
+import { TestCasesHomeComponent } from './views/test/test-cases-home.component'
 import { inject } from '@angular/core'
 
 export const routes: Routes = [
@@ -39,4 +40,10 @@ export const routes: Routes = [
     loadChildren: () =>
       import('./views/auth/auth.route').then((mod) => mod.AUTH_ROUTES),
   },
+  /*{
+    path: 'test-suites',
+    loadComponent: () =>
+      import('./views/test/test-cases-home.component')
+        .then(m => m.TestCasesHomeComponent)
+  }*/
 ]

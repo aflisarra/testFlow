@@ -1,4 +1,4 @@
-const aiService = require("../services/ai.service");
+//const aiService = require("../services/ai.service");
 const PlanTest = require("../models/plantest");
 const TestSuite = require("../models/testsuite");
 

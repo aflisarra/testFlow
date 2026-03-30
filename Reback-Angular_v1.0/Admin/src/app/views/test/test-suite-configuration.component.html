@@ -1,10 +1,17 @@
 <div class="testlab-page">
   <div class="testlab-container px-4 px-lg-5 pb-4 pb-lg-5 pt-0">
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         ÉTAPE 1 — Formulaire de génération des plans
+         Visible tant qu'aucun plan n'est généré OU qu'on régénère
+    ════════════════════════════════════════════════════════════════════ -->
+    @if (currentPlanIndex === -1) {
+
     <div class="testlab-hero mb-4">
       <h2 class="testlab-hero-title mb-2">Generate Automated Test Plans</h2>
       <p class="testlab-hero-subtitle mb-0">
-        Upload your specification document and optional style configuration. The system will generate
-        test plans, then you’ll validate detailed test cases in the next step.
+        Upload your specification document and optional style configuration. The system will
+        generate test plans, then you'll validate detailed test cases one by one.
       </p>
     </div>
 
@@ -13,6 +20,7 @@
     }
 
     <div class="row g-4 align-items-stretch">
+      <!-- Style config -->
       <div class="col-12 col-lg-6">
         <div class="testlab-card p-4 h-100">
           <div class="testlab-card-title mb-1">
@@ -22,29 +30,24 @@
           <p class="testlab-card-subtitle mb-3">
             Input style parameters (e.g. verbosity: high, format: gherkin, prioritize: edge-cases)...
           </p>
-
-          <textarea class="testlab-textarea testlab-textarea--compact"
-            placeholder="Input style parameters (e.g. verbosity: high, format: gherkin, prioritize: edge-cases)..."
+          <textarea class="testlab-textarea testlab-textarea--compact" placeholder="Input style parameters..."
             [value]="styleConfig" (input)="onStyleConfigChange($any($event.target).value)"></textarea>
-
           <p class="testlab-help mt-2 mb-0">
             Define the tone, technical depth, and structure of the generated test sequences.
           </p>
         </div>
       </div>
 
+      <!-- Upload fichier -->
       <div class="col-12 col-lg-6">
         <div class="testlab-card p-4 h-100">
           <div class="testlab-card-title mb-1">
             <iconify-icon icon="iconamoon:document-duotone" class="testlab-title-icon"></iconify-icon>
             <span>Specification Document</span>
           </div>
-          <p class="testlab-card-subtitle mb-3">
-            Drag &amp; drop your spec file or browse to upload
-          </p>
+          <p class="testlab-card-subtitle mb-3">Drag &amp; drop your spec file or browse to upload</p>
 
           <input #fileInput type="file" accept=".docx,.md,.txt" class="d-none" (change)="onFileSelected($event)" />
-
           <div class="testlab-dropzone" (click)="fileInput.click()">
             <iconify-icon icon="iconamoon:cloud-upload-duotone" class="fs-1 text-muted"></iconify-icon>
             <p class="mt-2 mb-1 text-secondary-emphasis">Drag &amp; drop files here</p>
@@ -58,6 +61,7 @@
       </div>
     </div>
 
+    <!-- Bouton Generate -->
     <div class="testlab-cta justify-content-center">
       <button class="btn btn-brand px-5 py-3 fw-bold testlab-generate-btn" type="button" [disabled]="generatingPlans"
         (click)="onGeneratePlan()">
@@ -66,6 +70,7 @@
       </button>
     </div>
 
+    <!-- Zone résultat plans -->
     <div class="testlab-card p-4 mt-4">
       @if (generatingPlans) {
       <div class="testlab-processing">
@@ -75,54 +80,215 @@
         <h4 class="mb-1">Generating Test Plans</h4>
         <p class="mb-0 text-muted">Please wait...</p>
       </div>
+
       } @else if (testPlans.length) {
-      <div class="d-flex align-items-start justify-content-between gap-3">
+
+      <!-- En-tête avec compteur -->
+      <div class="d-flex align-items-start justify-content-between gap-3 mb-3">
         <div>
           <h4 class="mb-1">Generated Test Plans</h4>
           <p class="mb-0 text-muted">
-            Review the plans, then confirm to generate detailed test cases for each plan.
+            Review the plans below, then click <strong>Start</strong> to generate test cases
+            one plan at a time.
           </p>
         </div>
         <span class="testlab-pill">{{ testPlans.length }} plans</span>
       </div>
 
-      <div class="testlab-plan-list mt-3">
+      <!-- Liste des plans (lecture seule ici) -->
+      <div class="testlab-plan-list">
         @for (plan of testPlans; track plan.id) {
-        <button type="button" class="testlab-plan-item" [class.testlab-plan-item--active]="selectedPlanId === plan.id"
-          (click)="onSelectPlan(plan)">
+        <div class="testlab-plan-item testlab-plan-item--readonly">
           <div class="testlab-plan-title">
             <span class="me-2 testlab-plan-badge">{{ plan.id }}</span>
             <span class="fw-bold">{{ plan.title }}</span>
           </div>
           <div class="testlab-plan-desc">{{ plan.description }}</div>
-        </button>
+        </div>
         }
       </div>
 
-      @if (confirmingAll) {
-      <div class="small text-muted mt-3">
-        Generating test cases... {{ confirmProgress.done }}/{{ confirmProgress.total }}
-        @if (confirmProgress.current) { <span> - {{ confirmProgress.current }}</span> }
-      </div>
-      }
-
+      <!-- Actions -->
       <div class="testlab-actions mt-4">
-        <button type="button" class="btn btn-outline-secondary px-4" [disabled]="confirmingAll || generatingPlans"
-          (click)="onCancelPlans()">
+        <button type="button" class="btn btn-outline-secondary px-4" (click)="onCancelPlans()">
           Cancel
         </button>
-        <button type="button" class="btn btn-outline-primary px-4" [disabled]="confirmingAll || generatingPlans"
-          (click)="onRegeneratePlans()">
+        <button type="button" class="btn btn-outline-primary px-4" (click)="onRegeneratePlans()">
           Regenerate
         </button>
-        <button type="button" class="btn btn-brand px-4 fw-bold" [disabled]="confirmingAll || generatingPlans"
-          (click)="onConfirmPlans()">
-          Confirm
+        <!-- ✅ Démarre le flux séquentiel -->
+        <button type="button" class="btn btn-brand px-4 fw-bold" (click)="onStartSequentialFlow()">
+          <iconify-icon icon="iconamoon:arrow-right-2-duotone" class="me-1"></iconify-icon>
+          Start — Review Plan by Plan
         </button>
       </div>
+
       } @else {
       <p class="mb-0 text-muted">No plans generated yet.</p>
       }
     </div>
+
+    }<!-- fin @if currentPlanIndex === -1 -->
+
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         ÉTAPE 2 — Flux séquentiel : un plan à la fois
+    ════════════════════════════════════════════════════════════════════ -->
+    @if (currentPlanIndex >= 0) {
+
+    <!-- Barre de progression globale -->
+    <div class="testlab-progress-bar-wrapper mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="small text-muted">
+          Plan {{ currentPlanIndex + 1 }} of {{ testPlans.length }}
+        </span>
+        <span class="small text-muted">
+          {{ confirmedCount }} confirmed
+        </span>
+      </div>
+      <div class="progress" style="height: 6px;">
+        <div class="progress-bar bg-success" [style.width.%]="(confirmedCount / testPlans.length) * 100"></div>
+      </div>
+
+      <!-- Indicateurs de plans (stepper) -->
+      <div class="testlab-stepper mt-2">
+        @for (plan of testPlans; track plan.id; let i = $index) {
+        <div class="testlab-step" [class.testlab-step--active]="i === currentPlanIndex"
+          [class.testlab-step--confirmed]="planStatuses[plan.id] === 'confirmed'"
+          [class.testlab-step--pending]="planStatuses[plan.id] === 'pending'">
+          <div class="testlab-step-dot">
+            @if (planStatuses[plan.id] === 'confirmed') {
+            <iconify-icon icon="iconamoon:check-circle-1-duotone"></iconify-icon>
+            } @else {
+            {{ i + 1 }}
+            }
+          </div>
+          <div class="testlab-step-label">{{ plan.title }}</div>
+        </div>
+        }
+      </div>
+    </div>
+
+    @if (errorMessage) {
+    <div class="alert alert-danger mb-4">{{ errorMessage }}</div>
+    }
+
+    <!-- Carte du plan courant -->
+    @if (currentPlan) {
+    <div class="testlab-card p-4">
+
+      <!-- En-tête du plan -->
+      <div class="d-flex align-items-start justify-content-between gap-3 mb-3">
+        <div>
+          <div class="testlab-plan-badge mb-1">{{ currentPlan.id }}</div>
+          <h4 class="mb-1">{{ currentPlan.title }}</h4>
+          <p class="mb-0 text-muted">{{ currentPlan.description }}</p>
+        </div>
+        <span class="testlab-status-badge"
+          [class.testlab-status-badge--generating]="planStatuses[currentPlan.id] === 'generating'"
+          [class.testlab-status-badge--reviewing]="planStatuses[currentPlan.id] === 'reviewing'"
+          [class.testlab-status-badge--confirmed]="planStatuses[currentPlan.id] === 'confirmed'">
+          @if (planStatuses[currentPlan.id] === 'generating') { Generating... }
+          @else if (planStatuses[currentPlan.id] === 'reviewing') { Review }
+          @else if (planStatuses[currentPlan.id] === 'confirmed') { Confirmed ✓ }
+          @else { Pending }
+        </span>
+      </div>
+
+      <!-- État : génération en cours -->
+      @if (generatingCases) {
+      <div class="testlab-processing py-4">
+        <div class="testlab-processing-icon">
+          <iconify-icon icon="iconamoon:settings-duotone"></iconify-icon>
+        </div>
+        <p class="mb-0 text-muted">Generating test cases for this plan...</p>
+      </div>
+
+      <!-- État : test cases disponibles -->
+      } @else if (currentTestCases.length) {
+      <div class="testlab-case-list mt-2">
+        @for (tc of currentTestCases; track tc.id) {
+        <div class="testlab-case-item">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <span class="testlab-case-id me-2">{{ tc.id }}</span>
+              <span class="fw-semibold">{{ tc.title }}</span>
+            </div>
+            <!-- Supprimer un test case -->
+            <button type="button" class="btn btn-sm btn-outline-danger testlab-delete-btn"
+              (click)="onDeleteTestCase(currentPlan.id, tc.id)" title="Remove test case">
+              <iconify-icon icon="iconamoon:trash-duotone"></iconify-icon>
+            </button>
+          </div>
+
+          <!-- Étapes -->
+          @if (tc.steps?.length) {
+          <ul class="testlab-steps mt-2 mb-1">
+            @for (step of tc.steps; track $index) {
+            <li>{{ step }}</li>
+            }
+          </ul>
+          }
+          <div class="testlab-expected">
+            <span class="text-muted small">Expected: </span>{{ tc.expected_result }}
+          </div>
+        </div>
+        }
+      </div>
+
+      <!-- État : aucun test case -->
+      } @else {
+      <p class="text-muted py-3">No test cases generated yet.</p>
+      }
+
+      <!-- Actions du plan courant -->
+      <div class="testlab-actions mt-4">
+        <!-- Retour plan précédent -->
+        <button type="button" class="btn btn-outline-secondary px-3"
+          [disabled]="currentPlanIndex === 0 || generatingCases" (click)="onGoToPreviousPlan()">
+          <iconify-icon icon="iconamoon:arrow-left-2-duotone" class="me-1"></iconify-icon>
+          Previous
+        </button>
+
+        <!-- Outils : copier / télécharger -->
+        <button type="button" class="btn btn-outline-secondary px-3"
+          [disabled]="generatingCases || !currentTestCases.length" (click)="onCopyCurrentPlan()"
+          title="Copy to clipboard">
+          <iconify-icon icon="iconamoon:copy-duotone"></iconify-icon>
+        </button>
+        <button type="button" class="btn btn-outline-secondary px-3"
+          [disabled]="generatingCases || !currentTestCases.length" (click)="onDownloadCurrentPlan()"
+          title="Download .txt">
+          <iconify-icon icon="iconamoon:download-duotone"></iconify-icon>
+        </button>
+
+        <!-- Régénérer les test cases -->
+        <button type="button" class="btn btn-outline-primary px-4" [disabled]="generatingCases"
+          (click)="onRegenerateCurrentCases()">
+          <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
+          Regenerate Cases
+        </button>
+
+        <!-- Confirmer et passer au suivant (ou terminer) -->
+        <button type="button" class="btn btn-brand px-4 fw-bold"
+          [disabled]="generatingCases || !currentTestCases.length || finishing" (click)="onConfirmCurrentPlan()">
+          @if (finishing) {
+          <iconify-icon icon="iconamoon:settings-duotone" class="me-1"></iconify-icon>
+          Finishing...
+          } @else if (isLastPlan) {
+          <iconify-icon icon="iconamoon:check-circle-1-duotone" class="me-1"></iconify-icon>
+          Confirm &amp; Finish
+          } @else {
+          <iconify-icon icon="iconamoon:arrow-right-2-duotone" class="me-1"></iconify-icon>
+          Confirm &amp; Next Plan
+          }
+        </button>
+      </div>
+
+    </div><!-- fin testlab-card plan courant -->
+    }
+
+    }<!-- fin @if currentPlanIndex >= 0 -->
+
   </div>
 </div>

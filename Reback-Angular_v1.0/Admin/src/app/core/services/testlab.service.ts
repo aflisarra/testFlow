@@ -1,6 +1,5 @@
 // ============================================================
 // services/testlab.service.ts
-// Angular service — appelle Node.js backend
 // ============================================================
 
 import { Injectable, inject } from '@angular/core'
@@ -26,7 +25,6 @@ export interface TestPlanDto {
 export interface GeneratePlanResponse {
   testSuiteId: string
   testPlans?: TestPlanDto[]
-  // Backward compat (old format)
   steps?: string[]
   plans?: PlanTestDto[]
   reused?: boolean
@@ -50,24 +48,30 @@ export interface GenerateTestCasesResponse {
 export interface GetTestPlansResponse {
   testSuiteId: string
   testPlans: TestPlanDto[]
+  testCasesByPlan?: any[]
 }
 
 export interface TestSuiteDto {
   _id: string
   nom?: string
   description?: string
+  specFileName?: string
+  urlCible?: string
+  testPlans?: TestPlanDto[]
   createdAt?: string
   updatedAt?: string
 }
+
+// ── Service ─────────────────────────────────────────────────
 
 @Injectable({ providedIn: 'root' })
 export class TestLabService {
   private http = inject(HttpClient)
 
-  // URL du backend Node.js
   private baseUrl = 'http://localhost:3000/api'
 
-  // Générer les test plans depuis un document + style config
+  // ── Génération ───────────────────────────────────────────
+
   generatePlanFromDocx(formData: FormData): Observable<GeneratePlanResponse> {
     return this.http.post<GeneratePlanResponse>(
       `${this.baseUrl}/ollama/generate-plan`,
@@ -75,7 +79,6 @@ export class TestLabService {
     )
   }
 
-  // Générer les test cases d’un plan confirmé
   generateTestCases(payload: {
     testSuiteId: string
     planId: string
@@ -89,17 +92,24 @@ export class TestLabService {
     )
   }
 
-  getTestPlans(testSuiteId: string): Observable<GetTestPlansResponse> {
-    return this.http.get<GetTestPlansResponse>(
-      `${this.baseUrl}/ollama/testsuite/${testSuiteId}/test-plans`
+  // ── Test Suites ──────────────────────────────────────────
+
+  // ✅ GET /api/testsuites/user/:userId
+  getTestSuitesByUser(userId: string): Observable<TestSuiteDto[]> {
+    return this.http.get<TestSuiteDto[]>(
+      `${this.baseUrl}/testsuites/user/${userId}`
     )
   }
 
-  getTestSuitesByUser(userId: string): Observable<TestSuiteDto[]> {
-    return this.http.get<TestSuiteDto[]>(`${this.baseUrl}/testsuites/user/${userId}`)
+  // ✅ GET /api/testsuites/:id/plans
+  getTestPlans(testSuiteId: string): Observable<GetTestPlansResponse> {
+    return this.http.get<GetTestPlansResponse>(
+      `${this.baseUrl}/testsuites/${testSuiteId}/plans`
+    )
   }
 
-  // Récupérer l’ancien plan (legacy)
+  // ── Legacy ───────────────────────────────────────────────
+
   getPlanByTestSuiteId(
     testSuiteId: string
   ): Observable<{ plans: PlanTestDto[]; steps: string[] }> {
@@ -108,12 +118,12 @@ export class TestLabService {
     )
   }
 
-  // Health check FastAPI
+  // ── Utilitaires ──────────────────────────────────────────
+
   checkHealth(): Observable<{ status: string }> {
     return this.http.get<{ status: string }>(`${this.baseUrl}/ollama/health`)
   }
 
-  // Chat avec Ollama
   chat(message: string): Observable<{ reply: string }> {
     return this.http.post<{ reply: string }>(`${this.baseUrl}/ollama/chat`, {
       message,

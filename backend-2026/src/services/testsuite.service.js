@@ -415,8 +415,41 @@ async function getPlanByTestSuiteId(testSuiteId) {
     return { plans: legacyPlans, steps: legacyPlans.map((p) => p.contenu) };
 }
 
+
+async function getTestSuitesByUser(userId) {
+    if (!userId) {
+        const error = new Error('userId is required')
+        error.statusCode = 400
+        throw error
+    }
+    return await TestSuite.find({ userId })
+        .select('_id nom description specFileName urlCible testPlans createdAt')
+        .sort({ createdAt: -1 })
+        .lean()
+}
+
+async function getTestPlansByTestSuiteId(testSuiteId) {
+    const suite = await TestSuite.findById(testSuiteId)
+        .select('_id testPlans testCasesByPlan')
+        .lean()
+
+    if (!suite) {
+        const error = new Error('TestSuite not found')
+        error.statusCode = 404
+        throw error
+    }
+
+    return {
+        testSuiteId: String(suite._id),
+        testPlans: suite.testPlans || [],
+        testCasesByPlan: suite.testCasesByPlan || [],
+    }
+}
+
 module.exports = {
     generatePlan,
     getPlanByTestSuiteId,
+    getTestSuitesByUser,
+    getTestPlansByTestSuiteId,
     parseBoolean,
 };

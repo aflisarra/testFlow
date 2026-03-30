@@ -111,4 +111,11 @@ export const VIEW_ROUTES: Route[] = [
     component: TestCasesValidationComponent,
     data: { title: 'Validation' },
   },
+
+  {
+    path: 'test-suites',
+    loadComponent: () =>
+      import('./test/test-cases-validation.component')
+        .then(m => m.TestCasesValidationComponent)
+  },
 ]

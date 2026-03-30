@@ -54,3 +54,11 @@ exports.delete = async (req, res) => {
   }
 };
 
+exports.getPlans = async (req, res) => {
+  try {
+    const result = await testSuiteService.getTestPlansByTestSuiteId(req.params.id)
+    res.json(result)
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ message: error.message })
+  }
+}

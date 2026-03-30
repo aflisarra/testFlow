@@ -29,7 +29,7 @@ const actionRoutes = require('../src/routes/action.routes');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
-
+console.log('MONGO URI =', process.env.MONGODB_URI);
 //app.use(cors());
 app.use(express.json()); ///parser les données au format JSON
 
@@ -115,7 +115,7 @@ app.use((req, res, next) => {
   });
 });
 
-mongoose.connect(process.env.MONGODB_URL, {
+mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })

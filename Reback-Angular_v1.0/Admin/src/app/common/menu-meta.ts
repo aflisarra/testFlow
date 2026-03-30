@@ -74,6 +74,12 @@ export const MENU: MenuItem[] = [
         link: '/test-cases',
         parentKey: 'test',
       },
+      {
+        key: 'test-suites',
+        label: 'Test Suites',
+        link: '/test-suites',
+        parentKey: 'test',
+      },
 
     ],
   },

@@ -14,4 +14,6 @@ router.put('/:id', controller.update);
 
 router.delete('/:id', controller.delete);
 
+router.get('/:id/plans', controller.getPlans)
+
 module.exports = router;

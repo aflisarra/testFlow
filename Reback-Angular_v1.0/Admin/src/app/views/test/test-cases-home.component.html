@@ -1,7 +1,7 @@
 <div class="testlab-page">
   <div class="testlab-container px-4 px-lg-5 pb-4 pb-lg-5 pt-0">
     <div class="testlab-hero mb-4 mt-4">
-      <h2 class="testlab-hero-title mb-2">My Test Suites</h2>
+      <h2 class="testlab-hero-title mb-2">My test Cases</h2>
       <p class="testlab-hero-subtitle mb-0">
         Select a test suite to view its generated test cases and validation plans.
       </p>
@@ -20,6 +20,99 @@
         <h4 class="mb-1">Loading Test Suites</h4>
         <p class="mb-0 text-muted">Retrieving your test suites...</p>
       </div>
+      } @else if (plans.length > 0) {
+      <div class="d-flex align-items-start justify-content-between gap-3 mb-4">
+        <div>
+          <h4 class="mb-1">Generated Test Plans</h4>
+          <p class="mb-0 text-muted">Review the generated test cases organized by their respective plans.</p>
+        </div>
+        <span class="testlab-pill">{{ plans.length }} plans</span>
+      </div>
+
+      @if (generating) {
+      <div class="alert alert-primary d-flex align-items-center mb-4 border-0 shadow-sm"
+        style="background-color: rgba(13, 110, 253, 0.05);">
+        <div class="spinner-border spinner-border-sm text-primary me-3" role="status"></div>
+        <div class="fw-medium text-primary">AI is analyzing and generating test cases... Please wait.</div>
+      </div>
+      }
+
+      <div class="plans-accordion">
+        @for (plan of plans; track plan.id) {
+        <div class="plan-card mb-3" [class.is-expanded]="expandedPlans[plan.id]">
+          <div class="plan-header p-3 p-md-4" (click)="togglePlan(plan.id)">
+            <div class="d-flex justify-content-between align-items-start">
+
+              <div class="plan-actions d-flex align-items-center gap-3">
+                <span class="cases-badge">
+                  <iconify-icon icon="fluent:task-list-square-24-regular" class="me-1"></iconify-icon>
+                  {{ testCasesByPlan[plan.id]?.length || 0 }} Cases
+                </span>
+                <button class="btn btn-sm btn-icon expand-btn">
+                  <iconify-icon [icon]="expandedPlans[plan.id] ? 'mdi:chevron-up' : 'mdi:chevron-down'"></iconify-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          @if (expandedPlans[plan.id]) {
+          <div class="plan-body p-3 p-md-4 border-top">
+            @if (!testCasesByPlan[plan.id] || testCasesByPlan[plan.id].length === 0) {
+            <div class="empty-cases text-center py-4">
+              @if (generating) {
+              <div class="spinner-grow text-primary spinner-grow-sm mb-2" role="status"></div>
+              <p class="text-muted mb-0 small">Generating cases for this plan...</p>
+              } @else {
+              <iconify-icon icon="fluent:document-error-24-regular"
+                class="fs-1 text-muted opacity-50 mb-2"></iconify-icon>
+              <p class="text-muted mb-0 small">No test cases generated.</p>
+              }
+            </div>
+            } @else {
+            <div class="cases-list">
+              @for (tc of testCasesByPlan[plan.id]; track tc.id; let i = $index) {
+              <div class="case-item mb-3">
+                <div class="case-header d-flex justify-content-between align-items-start mb-2">
+                  <div class="d-flex align-items-start gap-2">
+                    <span class="case-number">{{ i + 1 }}</span>
+                    <h6 class="case-title mb-0">{{ tc.title }}</h6>
+                  </div>
+                </div>
+
+                <div class="case-content ps-4 ms-2">
+                  <div class="row g-3">
+                    @if (tc.steps && tc.steps.length) {
+                    <div class="col-md-6">
+                      <div class="detail-box h-100">
+                        <span class="detail-label mb-1 d-block">Test Steps:</span>
+                        <ol class="step-list mb-0 ps-3">
+                          @for (step of tc.steps; track step) {
+                          <li>{{ step }}</li>
+                          }
+                        </ol>
+                      </div>
+                    </div>
+                    }
+
+                    @if (tc.expected_result) {
+                    <div class="col-md-6">
+                      <div class="detail-box h-100 success-box">
+                        <span class="detail-label text-success mb-1 d-block">Expected Result:</span>
+                        <span class="detail-value">{{ tc.expected_result }}</span>
+                      </div>
+                    </div>
+                    }
+                  </div>
+                </div>
+              </div>
+              }
+            </div>
+            }
+          </div>
+          }
+        </div>
+        }
+      </div>
       } @else if (!suites.length) {
       <p class="mb-0 text-muted">No test suites found.</p>
       } @else {
@@ -31,21 +124,132 @@
         <span class="testlab-pill">{{ suites.length }} suites</span>
       </div>
 
-      <div class="testlab-plan-list">
+      <div class="plans-accordion mt-4">
         @for (suite of suites; track suite._id) {
-        <button type="button" class="testlab-plan-item" (click)="openSuite(suite)">
-          <div class="testlab-plan-title">
-            <span class="fw-bold">{{ suite.nom || 'Unnamed Suite' }}</span>
+        <div class="plan-card mb-3" [class.is-expanded]="expandedSuites[suite._id]">
+          <div class="plan-header p-3 p-md-4" (click)="toggleSuite(suite)">
+            <div class="d-flex justify-content-between align-items-start">
+              <div class="plan-info flex-grow-1 pe-3">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                  <div class="plan-icon">
+                    <iconify-icon icon="lucide:folder-check"></iconify-icon>
+                  </div>
+                  <h5 class="plan-title mb-0">{{ suite.nom || 'Unnamed Suite' }}</h5>
+                </div>
+                @if (suite.description) {
+                <!-- Using a clamp class to prevent massive descriptions from breaking the UI -->
+                <p class="plan-desc suite-desc-clamp mb-0 ms-md-5">{{ suite.description }}</p>
+                }
+                @if (suite.createdAt) {
+                <p class="plan-desc mb-0 ms-md-5 mt-1 opacity-75" style="font-size: 0.75rem;">
+                  <iconify-icon icon="lucide:calendar-clock" class="me-1 align-text-bottom"></iconify-icon>
+                  Created: {{ suite.createdAt | date:'medium' }}
+                </p>
+                }
+              </div>
+              <div class="plan-actions d-flex align-items-center gap-3 flex-shrink-0">
+                <button class="btn btn-sm btn-outline-primary rounded-pill px-3 me-2"
+                  (click)="openSuite(suite); $event.stopPropagation()" title="Open in Test Cases Validation view">
+                  <iconify-icon icon="lucide:external-link" class="me-1"></iconify-icon> Open
+                </button>
+                <button class="btn btn-sm btn-icon expand-btn">
+                  <iconify-icon
+                    [icon]="expandedSuites[suite._id] ? 'mdi:chevron-up' : 'mdi:chevron-down'"></iconify-icon>
+                </button>
+              </div>
+            </div>
           </div>
-          @if (suite.description) {
-          <div class="testlab-plan-desc mt-1">{{ suite.description }}</div>
-          }
-          @if (suite.createdAt) {
-          <div class="testlab-plan-date mt-2 small text-muted">
-            Created: {{ suite.createdAt | date }}
+
+          @if (expandedSuites[suite._id]) {
+          <div class="plan-body p-3 p-md-4 border-top">
+            @if (loadingSuitePlans[suite._id]) {
+            <div class="text-center py-4">
+              <div class="spinner-border text-primary spinner-border-sm mb-2" role="status"></div>
+              <p class="text-muted mb-0 small">Loading test plans and cases...</p>
+            </div>
+            } @else if (!suitePlans[suite._id] || suitePlans[suite._id].length === 0) {
+            <div class="empty-cases text-center py-4">
+              <iconify-icon icon="fluent:document-error-24-regular"
+                class="fs-1 text-muted opacity-50 mb-2"></iconify-icon>
+              <p class="text-muted mb-0 small">No test plans found for this suite.</p>
+            </div>
+            } @else {
+            <!-- Inner accordion for Plans -->
+            <div class="plans-accordion">
+              @for (plan of suitePlans[suite._id]; track plan.id) {
+              <div class="plan-card mb-2" [class.is-expanded]="expandedPlans[plan.id]">
+                <div class="plan-header p-3 bg-light" (click)="togglePlan(plan.id); $event.stopPropagation()">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                      <iconify-icon icon="lucide:test-tube" class="text-primary"></iconify-icon>
+                      <strong class="text-dark">{{ plan.title || 'Untitled Plan' }}</strong>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                      <span class="cases-badge bg-white border">
+                        {{ testCasesByPlan[plan.id]?.length || 0 }} Cases
+                      </span>
+                      <iconify-icon [icon]="expandedPlans[plan.id] ? 'lucide:chevron-up' : 'lucide:chevron-down'"
+                        class="text-muted">
+                      </iconify-icon>
+                    </div>
+                  </div>
+                </div>
+
+                @if (expandedPlans[plan.id]) {
+                <div class="plan-body p-3 bg-white">
+                  @if (!testCasesByPlan[plan.id] || testCasesByPlan[plan.id].length === 0) {
+                  <div class="text-center py-3 text-muted small">
+                    No test cases generated.
+                  </div>
+                  } @else {
+                  <div class="cases-list">
+                    @for (tc of testCasesByPlan[plan.id]; track tc.id; let i = $index) {
+                    <div class="case-item mb-3 shadow-none border">
+                      <div class="case-header d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex align-items-start gap-2">
+                          <span class="case-number">{{ i + 1 }}</span>
+                          <h6 class="case-title mb-0">{{ tc.title }}</h6>
+                        </div>
+                      </div>
+
+                      <div class="case-content ps-4 ms-2">
+                        <div class="row g-3">
+                          @if (tc.steps && tc.steps.length) {
+                          <div class="col-md-6">
+                            <div class="detail-box h-100">
+                              <span class="detail-label mb-1 d-block">Test Steps:</span>
+                              <ol class="step-list mb-0 ps-3">
+                                @for (step of tc.steps; track step) {
+                                <li>{{ step }}</li>
+                                }
+                              </ol>
+                            </div>
+                          </div>
+                          }
+
+                          @if (tc.expected_result) {
+                          <div class="col-md-6">
+                            <div class="detail-box h-100 success-box">
+                              <span class="detail-label text-success mb-1 d-block">Expected Result:</span>
+                              <span class="detail-value">{{ tc.expected_result }}</span>
+                            </div>
+                          </div>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                    }
+                  </div>
+                  }
+                </div>
+                }
+              </div>
+              }
+            </div>
+            }
           </div>
           }
-        </button>
+        </div>
         }
       </div>
       }
