@@ -19,6 +19,12 @@
     <div class="alert alert-danger mb-4">{{ errorMessage }}</div>
     }
 
+    <div class="testlab-card p-4 mb-4 testlab-name-row">
+      <label class="testlab-name-label mb-2 d-block">Test Name</label>
+      <input type="text" class="testlab-input" placeholder="Test Name" [value]="nameTest"
+        (input)="onNameTestChange($any($event.target).value)" />
+    </div>
+
     <div class="row g-4 align-items-stretch">
       <!-- Style config -->
       <div class="col-12 col-lg-6">
@@ -73,12 +79,35 @@
     <!-- Zone résultat plans -->
     <div class="testlab-card p-4 mt-4">
       @if (generatingPlans) {
-      <div class="testlab-processing">
-        <div class="testlab-processing-icon">
-          <iconify-icon icon="iconamoon:settings-duotone"></iconify-icon>
+      <div class="d-flex align-items-start justify-content-between gap-3 mb-4">
+        <div>
+          <h4 class="mb-1">Generated Test Plan</h4>
+          <p class="mb-0 text-muted">Draft version based on current parameters</p>
         </div>
-        <h4 class="mb-1">Generating Test Plans</h4>
-        <p class="mb-0 text-muted">Please wait...</p>
+        <span class="testlab-pill testlab-pill--processing">PROCESSING<span class="testlab-dots"></span></span>
+      </div>
+
+      <div class="testlab-processing testlab-processing--plan">
+        <div class="testlab-processing-icon testlab-processing-icon--boxed">
+          <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin"></iconify-icon>
+        </div>
+        <h4 class="mb-1">Architecting Your Test Plan</h4>
+        <p class="mb-4 text-muted">AI is analyzing your specifications and style preferences to generate optimized test
+          sequences.</p>
+
+        <div class="testlab-skeleton">
+          <div class="testlab-skeleton-row"></div>
+          <div class="testlab-skeleton-row w-75"></div>
+          <div class="testlab-skeleton-block mt-3"></div>
+          <div class="testlab-skeleton-row mt-3"></div>
+          <div class="testlab-skeleton-row w-50"></div>
+        </div>
+
+        <div class="testlab-actions mt-4 w-100">
+          <button type="button" class="btn btn-outline-secondary px-4" disabled>Cancel</button>
+          <button type="button" class="btn btn-outline-primary px-4" disabled>Regenerate</button>
+          <button type="button" class="btn btn-brand px-4 fw-bold" disabled>Confirm Plan</button>
+        </div>
       </div>
 
       } @else if (testPlans.length) {
@@ -199,9 +228,9 @@
       @if (generatingCases) {
       <div class="testlab-processing py-4">
         <div class="testlab-processing-icon">
-          <iconify-icon icon="iconamoon:settings-duotone"></iconify-icon>
+          <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin"></iconify-icon>
         </div>
-        <p class="mb-0 text-muted">Generating test cases for this plan...</p>
+        <p class="mb-0 text-muted">Generating test cases for this plan<span class="testlab-dots"></span></p>
       </div>
 
       <!-- État : test cases disponibles -->

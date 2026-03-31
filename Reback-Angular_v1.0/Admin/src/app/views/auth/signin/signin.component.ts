@@ -35,12 +35,12 @@ export class SigninComponent implements OnInit {
   public store = inject(Store)
   public router = inject(Router)
 
-ngOnInit(): void {
- this.signInForm = this.fb.group({
-  email: ['', [Validators.required, Validators.email]],
-  password: ['', [Validators.required]],
-});
-}
+  ngOnInit(): void {
+    this.signInForm = this.fb.group({
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required]],
+    });
+  }
 
   get formValues() {
     return this.signInForm.controls
@@ -61,7 +61,7 @@ ngOnInit(): void {
 
     // Dispatch login action to store - NgRx effects will handle the API call
     this.store.dispatch(login({ email, password }));
-    
+
     // Reset form and loading state after a short delay
     setTimeout(() => {
       this.isLoading = false;

@@ -1,4 +1,4 @@
-@import './test-suite-configuration.component.css';
+@import './test-plan.component.css';
 
 .tc-suites {
   display: grid;
@@ -301,4 +301,24 @@
 :host-context([data-bs-theme='dark']) .cases-badge {
   background: rgba(255, 255, 255, 0.05);
   color: #cbd5e1;
+}
+
+.tc-workflow-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.tc-current-plan {
+  border-color: #dbe7f5;
+}
+
+.tc-status {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.tc-status--generating {
+  color: #0d6efd;
 }

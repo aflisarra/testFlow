@@ -20,12 +20,12 @@ router.post('/logout', authController.logout);
 router.post('/refresh-token', refreshTokenController);
 
 // ✅ Forgot password
-router.post('/forgot-password', authController.forgotPassword);
+/*router.post('/forgot-password', authController.forgotPassword);
 
 // ✅ Reset password
 router.post('/reset-password', authController.resetPassword);
 
 // ✅ Verify code
-router.post('/verify-code', authController.verifyCode);
+router.post('/verify-code', authController.verifyCode);*/
 
 module.exports = router;

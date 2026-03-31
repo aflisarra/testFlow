@@ -4,6 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router'
 import { Store } from '@ngrx/store'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
+import { ToastrService } from 'ngx-toastr'
 
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
@@ -30,6 +31,7 @@ export class TestCasesHomeComponent {
   private testLabService = inject(TestLabService)
   private router = inject(Router)
   private route = inject(ActivatedRoute)
+  private toastr = inject(ToastrService)
 
   loading = false
   generating = false
@@ -47,6 +49,32 @@ export class TestCasesHomeComponent {
   loadingSuitePlans: Record<string, boolean> = {}
 
   testSuiteId = ''
+
+  get generatedCount(): number {
+    return this.plans.filter((p) => (this.testCasesByPlan[p.id]?.length || 0) > 0).length
+  }
+
+  get progressPercent(): number {
+    if (!this.plans.length) return 0
+    return (this.generatedCount / this.plans.length) * 100
+  }
+
+  get currentPlanNumber(): number {
+    if (!this.plans.length) return 0
+    return Math.min(this.generatedCount + 1, this.plans.length)
+  }
+
+  get currentPlanPreview(): TestPlanDto | null {
+    if (!this.plans.length) return null
+    const pending = this.plans.find((p) => (this.testCasesByPlan[p.id]?.length || 0) === 0)
+    return pending || this.plans[0]
+  }
+
+  get currentPlanCases(): TestCaseDto[] {
+    const plan = this.currentPlanPreview
+    if (!plan) return []
+    return this.testCasesByPlan[plan.id] || []
+  }
 
   togglePlan(planId: string) {
     this.expandedPlans[planId] = !this.expandedPlans[planId]
@@ -93,7 +121,10 @@ export class TestCasesHomeComponent {
   }
 
   async ngOnInit() {
-    this.testSuiteId = this.route.snapshot.paramMap.get('id') || ''
+    this.testSuiteId =
+      String(this.route.snapshot.paramMap.get('id') || '').trim() ||
+      String(this.route.snapshot.queryParamMap.get('suiteId') || '').trim()
+    const requestedSuiteId = String(this.route.snapshot.queryParamMap.get('suiteId') || '').trim()
 
     // ✅ FIX : utiliser history.state au lieu de getCurrentNavigation()
     const state = history.state as { plans?: TestPlanDto[] }
@@ -107,6 +138,12 @@ export class TestCasesHomeComponent {
       await this.generateAllTestCases()
     } else {
       await this.loadSuites()
+      if (requestedSuiteId) {
+        const target = this.suites.find((s) => String(s._id || '').trim() === requestedSuiteId)
+        if (target && !this.expandedSuites[requestedSuiteId]) {
+          await this.toggleSuite(target)
+        }
+      }
     }
   }
 
@@ -147,6 +184,10 @@ export class TestCasesHomeComponent {
 
     this.generating = true
     this.errorMessage = ''
+    this.toastr.info(
+      'Generation des test cases en cours en arriere-plan. Vous pouvez naviguer librement.',
+      'AI'
+    )
 
     try {
       for (const plan of this.plans) {
@@ -171,6 +212,7 @@ export class TestCasesHomeComponent {
           this.testCasesByPlan[plan.id] = []
         }
       }
+      this.toastr.success('Generation des test cases terminee.', 'AI')
     } finally {
       this.generating = false
     }

@@ -9,6 +9,11 @@ import {
 import { NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap'
 import { ConfirmModalComponent } from '../shared/confirm-modal.component'
 import { RoleUpsertModalComponent } from './role-upsert-modal.component'
+import { Store } from '@ngrx/store'
+import { getUser } from '@/app/store/authentication/authentication.selector'
+import { firstValueFrom } from 'rxjs'
+import { take } from 'rxjs/operators'
+import { ToastrService } from 'ngx-toastr'
 
 @Component({
   selector: 'app-roles-management',
@@ -20,18 +25,52 @@ import { RoleUpsertModalComponent } from './role-upsert-modal.component'
 export class RolesManagementComponent implements OnInit {
   private adminService = inject(AdminManagementService)
   private modalService = inject(NgbModal)
+  private store = inject(Store)
+  private toastr = inject(ToastrService)
 
   roles: AppRole[] = []
   actions: AppAction[] = []
 
   loading = false
   error = ''
+  permissionAlert = ''
 
-  ngOnInit(): void {
-    this.loadData()
+  private readonly ACTION_ADD_ROLE = 6
+  private readonly ACTION_EDIT_ROLE = 7
+  private readonly ACTION_VIEW_ROLE = 8
+  private readonly ACTION_DELETE_ROLE = 9
+
+  canAddRole = false
+  canEditRole = false
+  canDeleteRole = false
+  canViewRoles = false
+
+  async ngOnInit(): Promise<void> {
+    await this.initPermissions()
+    if (this.canViewRoles) {
+      this.loadData()
+    } else {
+      this.notifyPermissionDenied("Acces refuse: vous n'avez pas l'action View Role.")
+    }
+  }
+
+  private async initPermissions() {
+    const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
+    const actions = Array.isArray((user as any)?.actions) ? (user as any).actions : []
+    this.canAddRole = actions.includes(this.ACTION_ADD_ROLE)
+    this.canEditRole = actions.includes(this.ACTION_EDIT_ROLE)
+    this.canDeleteRole = actions.includes(this.ACTION_DELETE_ROLE)
+    this.canViewRoles = actions.includes(this.ACTION_VIEW_ROLE)
   }
 
   loadData(): void {
+    if (!this.canViewRoles) {
+      this.notifyPermissionDenied("Acces refuse: vous n'avez pas l'action View Role.")
+      this.roles = []
+      this.actions = []
+      return
+    }
+
     this.loading = true
     this.error = ''
 
@@ -57,6 +96,11 @@ export class RolesManagementComponent implements OnInit {
   }
 
   onCreateRole(): void {
+    if (!this.canAddRole) {
+      this.notifyPermissionDenied('Action non autorisee: Add Role.')
+      return
+    }
+
     const ref = this.modalService.open(RoleUpsertModalComponent, {
       size: 'lg',
       centered: true,
@@ -77,6 +121,11 @@ export class RolesManagementComponent implements OnInit {
   }
 
   onEditRole(role: AppRole) {
+    if (!this.canEditRole) {
+      this.notifyPermissionDenied('Action non autorisee: Edit Role.')
+      return
+    }
+
     const ref = this.modalService.open(RoleUpsertModalComponent, {
       size: 'lg',
       centered: true,
@@ -89,6 +138,11 @@ export class RolesManagementComponent implements OnInit {
   }
 
   async onDeleteRole(role: AppRole) {
+    if (!this.canDeleteRole) {
+      this.notifyPermissionDenied('Action non autorisee: Delete Role.')
+      return
+    }
+
     const ref = this.modalService.open(ConfirmModalComponent, {
       centered: true,
       windowClass: 'confirm-modal-window',
@@ -110,5 +164,10 @@ export class RolesManagementComponent implements OnInit {
         },
       })
     })
+  }
+
+  private notifyPermissionDenied(message: string) {
+    this.permissionAlert = message
+    this.toastr.warning(message, 'Permission')
   }
 }

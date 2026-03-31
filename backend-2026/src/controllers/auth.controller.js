@@ -75,7 +75,7 @@ exports.logout = async (req, res) => {
 };
 
 // Forgot password
-exports.forgotPassword = async (req, res) => {
+/*exports.forgotPassword = async (req, res) => {
   if (!req.body.email) {
     return res.status(400).json({ message: 'Email requis' });
   }
@@ -87,10 +87,10 @@ exports.forgotPassword = async (req, res) => {
     console.error('Erreur dans forgotPassword :', error);
     res.status(400).json({ message: error.message });
   }
-};
+};*/
 
 // Verify reset code
-exports.verifyCode = async (req, res) => {
+/*exports.verifyCode = async (req, res) => {
   const { email, code } = req.body;
 
   if (!email || !code) {
@@ -104,10 +104,10 @@ exports.verifyCode = async (req, res) => {
     console.error('Erreur verification code:', err.message);
     res.status(400).json({ message: err.message });
   }
-};
+};*/
 
 // Reset password
-exports.resetPassword = async (req, res) => {
+/*exports.resetPassword = async (req, res) => {
   try {
     const { email, newPassword, confirmPassword } = req.body;
 
@@ -125,7 +125,7 @@ exports.resetPassword = async (req, res) => {
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
-};
+};*/
 
 // Public: roles list to show in signup dropdown (exclude admin)
 // Route: GET /api/auth/signup-roles

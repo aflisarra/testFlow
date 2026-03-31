@@ -29,6 +29,85 @@
         <span class="testlab-pill">{{ plans.length }} plans</span>
       </div>
 
+      @if (currentPlanPreview) {
+      <div class="tc-workflow mb-4">
+        <div class="tc-workflow-head d-flex justify-content-between align-items-center mb-2">
+          <span class="small text-muted">Plan {{ currentPlanNumber }} of {{ plans.length }}</span>
+          <span class="small text-muted">{{ generatedCount }} confirmed</span>
+        </div>
+        <div class="progress tc-workflow-progress mb-3">
+          <div class="progress-bar bg-success" [style.width.%]="progressPercent"></div>
+        </div>
+
+        <div class="testlab-card p-4 tc-current-plan">
+          <div class="d-flex align-items-start justify-content-between gap-3 mb-3">
+            <div class="flex-grow-1">
+              <div class="testlab-plan-badge mb-1">{{ currentPlanPreview.id }}</div>
+              <h4 class="mb-1">{{ currentPlanPreview.title }}</h4>
+              <p class="mb-0 text-muted">{{ currentPlanPreview.description }}</p>
+            </div>
+            <span class="tc-status" [class.tc-status--generating]="generating">
+              {{ generating ? 'Generating...' : 'Review' }}
+            </span>
+          </div>
+
+          @if (generating && !currentPlanCases.length) {
+          <div class="testlab-processing py-4">
+            <div class="testlab-processing-icon">
+              <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin"></iconify-icon>
+            </div>
+            <p class="mb-0 text-muted">Generating test cases for this plan<span class="testlab-dots"></span></p>
+          </div>
+          } @else if (currentPlanCases.length) {
+          <div class="testlab-case-list mt-2">
+            @for (tc of currentPlanCases; track tc.id) {
+            <div class="testlab-case-item">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <span class="testlab-case-id me-2">{{ tc.id }}</span>
+                  <span class="fw-semibold">{{ tc.title }}</span>
+                </div>
+              </div>
+              @if (tc.steps?.length) {
+              <ul class="testlab-steps mt-2 mb-1">
+                @for (step of tc.steps; track $index) {
+                <li>{{ step }}</li>
+                }
+              </ul>
+              }
+              <div class="testlab-expected"><span class="text-muted small">Expected: </span>{{ tc.expected_result }}
+              </div>
+            </div>
+            }
+          </div>
+          } @else {
+          <p class="text-muted py-3">No test cases generated yet.</p>
+          }
+
+          <div class="testlab-actions mt-4">
+            <button type="button" class="btn btn-outline-secondary px-3" disabled>
+              <iconify-icon icon="iconamoon:arrow-left-2-duotone" class="me-1"></iconify-icon>
+              Previous
+            </button>
+            <button type="button" class="btn btn-outline-secondary px-3" disabled title="Copy to clipboard">
+              <iconify-icon icon="iconamoon:copy-duotone"></iconify-icon>
+            </button>
+            <button type="button" class="btn btn-outline-secondary px-3" disabled title="Download .txt">
+              <iconify-icon icon="iconamoon:download-duotone"></iconify-icon>
+            </button>
+            <button type="button" class="btn btn-outline-primary px-4" [disabled]="generating">
+              <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
+              Regenerate Cases
+            </button>
+            <button type="button" class="btn btn-brand px-4 fw-bold" [disabled]="generating || !currentPlanCases.length">
+              <iconify-icon icon="iconamoon:arrow-right-2-duotone" class="me-1"></iconify-icon>
+              Confirm &amp; Next Plan
+            </button>
+          </div>
+        </div>
+      </div>
+      }
+
       @if (generating) {
       <div class="alert alert-primary d-flex align-items-center mb-4 border-0 shadow-sm"
         style="background-color: rgba(13, 110, 253, 0.05);">
@@ -148,10 +227,6 @@
                 }
               </div>
               <div class="plan-actions d-flex align-items-center gap-3 flex-shrink-0">
-                <button class="btn btn-sm btn-outline-primary rounded-pill px-3 me-2"
-                  (click)="openSuite(suite); $event.stopPropagation()" title="Open in Test Cases Validation view">
-                  <iconify-icon icon="lucide:external-link" class="me-1"></iconify-icon> Open
-                </button>
                 <button class="btn btn-sm btn-icon expand-btn">
                   <iconify-icon
                     [icon]="expandedSuites[suite._id] ? 'mdi:chevron-up' : 'mdi:chevron-down'"></iconify-icon>

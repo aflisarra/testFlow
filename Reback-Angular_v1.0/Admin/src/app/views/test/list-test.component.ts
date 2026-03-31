@@ -19,8 +19,8 @@ import {
   selector: 'app-test-cases-validation',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './test-cases-validation.component.html',
-  styleUrl: './test-cases-validation.component.css',
+  templateUrl: './list-test.component.html',
+  styleUrl: './list-test.component.css',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class TestCasesValidationComponent {
@@ -50,7 +50,9 @@ export class TestCasesValidationComponent {
     const q = this.searchQuery.toLowerCase().trim()
     if (!q) return this.suites
     return this.suites.filter(s =>
+      (s.creatorName || '').toLowerCase().includes(q) ||
       (s.nom || '').toLowerCase().includes(q) ||
+      (s.nametest || '').toLowerCase().includes(q) ||
       (s.description || '').toLowerCase().includes(q)
     )
   }
@@ -64,6 +66,11 @@ export class TestCasesValidationComponent {
   }
 
   async ngOnInit() {
+    const routeSuiteId = String(this.route.snapshot.paramMap.get('id') || '').trim()
+    if (routeSuiteId) {
+      await this.openSuiteById(routeSuiteId)
+      return
+    }
     await this.loadSuites()
   }
 
@@ -92,27 +99,11 @@ export class TestCasesValidationComponent {
 
   // Ouvrir la vue détail
   async onOpenSuite(suite: TestSuiteDto) {
-    this.testSuiteId = String(suite._id).trim()
-    if (!this.testSuiteId) return
-
-    this.view = 'detail'
-    this.testPlans = []
-    this.selectedPlanId = null
-    this.testCasesByPlan = {}
-    this.loading = true
-    this.errorMessage = ''
-
-    try {
-      const resp = await firstValueFrom(this.testLabService.getTestPlans(this.testSuiteId))
-      this.testPlans = resp?.testPlans || []
-      if (!this.testPlans.length) { this.errorMessage = 'No test plans found.'; return }
-      this.selectedPlanId = this.testPlans[0].id
-      await this.generateTestCases(this.testPlans[0], false)
-    } catch (err: unknown) {
-      this.errorMessage = (err as any)?.error?.message || 'Unable to load plans'
-    } finally {
-      this.loading = false
-    }
+    const id = String(suite._id || '').trim()
+    if (!id) return
+    await this.router.navigate(['/test-cases'], {
+      queryParams: { suiteId: id },
+    })
   }
 
   onBackToList() {
@@ -160,11 +151,12 @@ export class TestCasesValidationComponent {
 
   // Helpers affichage
   getSuiteInitials(suite: TestSuiteDto): string {
-    const name = suite.nom || suite._id || '?'
+    const name = suite.creatorName || suite.nom || suite._id || '?'
     return name.slice(0, 2).toUpperCase()
   }
 
   getTotalCases(suite: TestSuiteDto): number {
+    if (typeof suite.totalTestCases === 'number') return suite.totalTestCases
     return (suite as any).testCasesByPlan?.reduce(
       (acc: number, p: any) => acc + (p.testCases?.length || 0), 0
     ) || 0
@@ -197,5 +189,29 @@ export class TestCasesValidationComponent {
       const u = (decoded?.['user'] as Record<string, unknown>) || decoded || {}
       return String(u['userId'] || u['id'] || u['_id'] || u['sub'] || '').trim()
     } catch { return '' }
+  }
+
+  private async openSuiteById(testSuiteId: string) {
+    this.testSuiteId = String(testSuiteId).trim()
+    if (!this.testSuiteId) return
+
+    this.view = 'detail'
+    this.testPlans = []
+    this.selectedPlanId = null
+    this.testCasesByPlan = {}
+    this.loading = true
+    this.errorMessage = ''
+
+    try {
+      const resp = await firstValueFrom(this.testLabService.getTestPlans(this.testSuiteId))
+      this.testPlans = resp?.testPlans || []
+      if (!this.testPlans.length) { this.errorMessage = 'No test plans found.'; return }
+      this.selectedPlanId = this.testPlans[0].id
+      await this.generateTestCases(this.testPlans[0], false)
+    } catch (err: unknown) {
+      this.errorMessage = (err as any)?.error?.message || 'Unable to load plans'
+    } finally {
+      this.loading = false
+    }
   }
 }

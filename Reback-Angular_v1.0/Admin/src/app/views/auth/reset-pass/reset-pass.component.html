@@ -3,58 +3,123 @@
     <div class="card auth-card">
       <div class="card-body p-0">
         <div class="row align-items-center g-0">
+
+          <!-- Illustration latérale -->
           <div class="col-lg-6 d-none d-lg-inline-block border-end">
             <div class="auth-page-sidebar">
-              <img
-                src="assets/images/sign-in.svg"
-                alt="auth"
-                class="img-fluid"
-              />
+              <img src="assets/images/sign-in.svg" alt="auth" class="img-fluid" />
             </div>
           </div>
+
+          <!-- Contenu principal -->
           <div class="col-lg-6">
             <div class="p-4">
-              <app-logo-box
-                className="mx-auto mb-4 text-center auth-logo"
-                height="24"
-                logoHeight="30"
-              />
+              <app-logo-box className="mx-auto mb-4 text-center auth-logo" height="24" logoHeight="30" />
 
-              <h2 class="fw-bold text-center fs-18">Reset Password</h2>
-              <p class="text-muted text-center mt-1 mb-4">
-                Enter your email address and we'll send you an email with
-                instructions to reset your password.
-              </p>
-
-              <div class="row justify-content-center">
-                <div class="col-12 col-md-8">
-                  <form class="authentication-form">
-                    <div class="mb-3">
-                      <label class="form-label" for="example-email"
-                        >Email</label
-                      >
-                      <input
-                        type="email"
-                        id="example-email"
-                        name="example-email"
-                        class="form-control"
-                        placeholder="Enter your email"
-                      />
+              <!-- ── ÉTAPE : email ── -->
+              <ng-container *ngIf="step === 'email'">
+                <h2 class="fw-bold text-center fs-18">Reset Password</h2>
+                <p class="text-muted text-center mt-1 mb-4">
+                  Enter your email address and we'll send you a reset link.
+                </p>
+                <div class="row justify-content-center">
+                  <div class="col-12 col-md-8">
+                    <div class="authentication-form">
+                      <div class="mb-3">
+                        <label class="form-label" for="email">Email</label>
+                        <input type="email" id="email" class="form-control" placeholder="Enter your email"
+                          [(ngModel)]="email" />
+                      </div>
+                      <div *ngIf="errorMsg" class="alert alert-danger py-2 mb-3">{{ errorMsg }}</div>
+                      <div class="mb-1 text-center d-grid">
+                        <button class="btn btn-primary" type="button" (click)="submitEmail()" [disabled]="loading">
+                          <span *ngIf="loading" class="spinner-border spinner-border-sm me-2"></span>
+                          Send Reset Link
+                        </button>
+                      </div>
                     </div>
-                    <div class="mb-1 text-center d-grid">
-                      <button
-                        class="btn btn-primary"
-                        type="button"
-                        routerLink="/"
-                      >
-                        Reset Password
-                      </button>
-                    </div>
-                  </form>
+                  </div>
                 </div>
-              </div>
+              </ng-container>
+
+              <!-- ── ÉTAPE : otp ── -->
+              <ng-container *ngIf="step === 'otp'">
+                <h2 class="fw-bold text-center fs-18">Enter your code</h2>
+                <p class="text-muted text-center mt-1 mb-4">
+                  Check your inbox for the 6-digit code we just sent to <strong>{{ email }}</strong>.
+                </p>
+                <div class="row justify-content-center">
+                  <div class="col-12 col-md-8">
+                    <div class="authentication-form">
+                      <div class="mb-3">
+                        <label class="form-label" for="otp">Verification code</label>
+                        <input type="text" id="otp" class="form-control text-center fw-bold fs-5 letter-spacing-wide"
+                          placeholder="000000" maxlength="6" [(ngModel)]="otpCode" />
+                      </div>
+                      <div *ngIf="errorMsg" class="alert alert-danger py-2 mb-3">{{ errorMsg }}</div>
+                      <div class="mb-1 text-center d-grid">
+                        <button class="btn btn-primary" type="button" (click)="submitOtp()" [disabled]="loading">
+                          <span *ngIf="loading" class="spinner-border spinner-border-sm me-2"></span>
+                          Verify Code
+                        </button>
+                      </div>
+                      <p class="text-center mt-3 mb-0">
+                        <a href="#" class="text-muted small" (click)="step = 'email'; $event.preventDefault()">
+                          ← Use a different email
+                        </a>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </ng-container>
+
+              <!-- ── ÉTAPE : new-password ── -->
+              <ng-container *ngIf="step === 'new-password'">
+                <h2 class="fw-bold text-center fs-18">New Password</h2>
+                <p class="text-muted text-center mt-1 mb-4">
+                  Choose a strong password (at least 8 characters).
+                </p>
+                <div class="row justify-content-center">
+                  <div class="col-12 col-md-8">
+                    <div class="authentication-form">
+                      <div class="mb-3">
+                        <label class="form-label" for="new-pass">New password</label>
+                        <input type="password" id="new-pass" class="form-control" placeholder="Enter new password"
+                          [(ngModel)]="newPassword" />
+                      </div>
+                      <div *ngIf="errorMsg" class="alert alert-danger py-2 mb-3">{{ errorMsg }}</div>
+                      <div class="mb-1 text-center d-grid">
+                        <button class="btn btn-primary" type="button" (click)="submitNewPassword()"
+                          [disabled]="loading">
+                          <span *ngIf="loading" class="spinner-border spinner-border-sm me-2"></span>
+                          Reset Password
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </ng-container>
+
+              <!-- ── ÉTAPE : done ── -->
+              <ng-container *ngIf="step === 'done'">
+                <div class="text-center py-4">
+                  <div class="mb-3" style="font-size:48px">✓</div>
+                  <h2 class="fw-bold fs-18">Password updated!</h2>
+                  <p class="text-muted mt-1">Redirecting you to sign in…</p>
+                </div>
+              </ng-container>
+
+              <!-- Chargement magic link (ngOnInit) -->
+              <ng-container *ngIf="loading && step === 'email' && !errorMsg">
+                <div class="text-center py-4">
+                  <span class="spinner-border"></span>
+                  <p class="text-muted mt-2">Verifying link…</p>
+                </div>
+              </ng-container>
+
             </div>
           </div>
+
         </div>
       </div>
     </div>

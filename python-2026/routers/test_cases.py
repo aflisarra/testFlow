@@ -28,12 +28,27 @@ def _debug_errors() -> bool:
     return os.getenv("DEBUG_ERRORS", "false").lower() in ("1", "true", "yes")
 
 
+def _test_cases_timeout() -> int:
+    """
+    Timeout dédié aux générations de test cases.
+    Priorité:
+      1) OLLAMA_TEST_CASES_TIMEOUT
+      2) OLLAMA_TIMEOUT
+      3) 300s
+    """
+    raw = os.getenv("OLLAMA_TEST_CASES_TIMEOUT", os.getenv("OLLAMA_TIMEOUT", "300"))
+    try:
+        return int(raw)
+    except ValueError:
+        return 300
+
+
 def _error_payload(message: str, detail: Optional[str] = None):
     if detail and _debug_errors():
         return {"error": message, "detail": detail}
     return {"error": message}
 
-
+#fausse donnee de test
 # ── Mock data ────────────────────────────────────────────────
 MOCK_TEST_CASES = {
     "plan_id": "TP-1",
@@ -200,7 +215,7 @@ def generate_test_cases(payload: GenerateTestCasesRequest):
     prompt = _build_prompt(plan_id, plan_title, plan_description, spec_text, style_config)
 
     try:
-        reply  = run_ollama(prompt, timeout=120)
+        reply  = run_ollama(prompt, timeout=_test_cases_timeout())
         parsed = parse_json_from_ollama(reply)
 
         if not isinstance(parsed, list) or not parsed:

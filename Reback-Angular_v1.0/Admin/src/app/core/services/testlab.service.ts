@@ -54,10 +54,14 @@ export interface GetTestPlansResponse {
 export interface TestSuiteDto {
   _id: string
   nom?: string
+  nametest?: string
+  creatorName?: string
+  totalTestCases?: number
   description?: string
   specFileName?: string
   urlCible?: string
   testPlans?: TestPlanDto[]
+  testCasesByPlan?: any[]
   createdAt?: string
   updatedAt?: string
 }

@@ -25,9 +25,9 @@ def get_ollama_path() -> str:
 
 def _default_timeout() -> int:
     try:
-        return int(os.getenv("OLLAMA_TIMEOUT", "120"))
+        return int(os.getenv("OLLAMA_TIMEOUT", "300"))
     except ValueError:
-        return 120
+        return 300
 
 
 def _strip_code_fences(text: str) -> str:
@@ -155,7 +155,7 @@ def run_ollama(prompt: str, timeout: int | None = None) -> str:
     Args:
         prompt:  Texte envoyé au LLM.
         timeout: Secondes avant TimeoutExpired.
-                 Si None → lit OLLAMA_TIMEOUT (.env) ou 120s par défaut.
+                 Si None → lit OLLAMA_TIMEOUT (.env) ou 300s par défaut.
     """
     effective_timeout = timeout if timeout is not None else _default_timeout()
 

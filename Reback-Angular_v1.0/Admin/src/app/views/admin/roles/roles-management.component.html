@@ -6,7 +6,9 @@
       </div>
       <div class="card-body">
         <p class="text-muted mb-3">Create roles and assign permissions (actions).</p>
-        <button class="btn btn-brand w-100" type="button" (click)="onCreateRole()">New Role</button>
+        <button class="btn btn-brand w-100" type="button" (click)="onCreateRole()" [disabled]="!canAddRole">
+          New Role
+        </button>
       </div>
     </div>
   </div>
@@ -15,7 +17,7 @@
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h4 class="card-title mb-0 brand-title">Roles</h4>
-        <button class="btn btn-sm btn-brand" (click)="loadData()">Refresh</button>
+        <button class="btn btn-sm btn-brand" (click)="loadData()" [disabled]="!canViewRoles">Refresh</button>
       </div>
       <div class="card-body">
         @if (loading) {
@@ -26,7 +28,7 @@
           <div class="alert alert-danger">{{ error }}</div>
         }
 
-        @if (!loading) {
+        @if (!loading && canViewRoles) {
           <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
               <thead>
@@ -49,6 +51,7 @@
                         type="button"
                         title="Edit"
                         (click)="onEditRole(role)"
+                        [disabled]="!canEditRole"
                       >
                         <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
                       </button>
@@ -57,6 +60,7 @@
                         type="button"
                         title="Delete"
                         (click)="onDeleteRole(role)"
+                        [disabled]="!canDeleteRole"
                       >
                         <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
                       </button>
@@ -72,6 +76,7 @@
             </table>
           </div>
         }
+
       </div>
     </div>
   </div>

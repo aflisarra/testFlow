@@ -52,7 +52,10 @@ export const layoutReducer = createReducer(
 
 // Configuration for localStorageSync
 export function localStorageSyncReducer(reducer: any) {
-  return localStorageSync({ keys: ['layout'], rehydrate: true })(reducer)
+  return localStorageSync({
+    keys: ['layout', 'authentication'],/// ??????????????
+    rehydrate: true,
+  })(reducer)
 }
 
 // Selector

@@ -30,6 +30,21 @@ from utils.ollama import get_ollama_path, get_ollama_model  # noqa: E402
 OLLAMA_MODEL = get_ollama_model()
 USE_MOCK     = os.getenv("USE_MOCK", "false").lower() in ("1", "true", "yes")
 
+
+def _chat_timeout() -> int:
+    """
+    Timeout dédié au endpoint /chat.
+    Priorité:
+      1) OLLAMA_CHAT_TIMEOUT
+      2) OLLAMA_TIMEOUT
+      3) 300s
+    """
+    raw = os.getenv("OLLAMA_CHAT_TIMEOUT", os.getenv("OLLAMA_TIMEOUT", "300"))
+    try:
+        return int(raw)
+    except ValueError:
+        return 300
+
 # ── App ────────────────────────────────────────────────────
 app = FastAPI(
     title="Ollama AI API",
@@ -84,7 +99,7 @@ def chat(data: dict):
             capture_output=True,
             text=True,
             encoding="utf-8",
-            timeout=120
+            timeout=_chat_timeout()
         )
         reply = result.stdout.strip()
         if not reply:

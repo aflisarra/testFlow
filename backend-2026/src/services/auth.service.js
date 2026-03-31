@@ -160,7 +160,7 @@ const loginUser = async ({ email, password }) => {
   };
 };
 
-async function forgotPassword(email) {
+/*async function forgotPassword(email) {
   const user = await User.findOne({ email });
   if (!user) throw new Error('Utilisateur non trouve');
 
@@ -174,9 +174,9 @@ async function forgotPassword(email) {
   await sendEmail(user.email, 'Reinitialisation de votre mot de passe', message);
 
   return true;
-}
+}*/
 
-async function verifyResetCode(email, code) {
+/*async function verifyResetCode(email, code) {
   const user = await User.findOne({ email });
   if (!user) throw new Error('Utilisateur non trouve');
 
@@ -190,9 +190,9 @@ async function verifyResetCode(email, code) {
   }
 
   return true;
-}
+}*/
 
-async function resetPassword(email, newPassword) {
+/*async function resetPassword(email, newPassword) {
   const user = await User.findOne({ email });
   if (!user) throw new Error('Utilisateur non trouve');
 
@@ -202,14 +202,14 @@ async function resetPassword(email, newPassword) {
 
   await user.save();
   return true;
-}
+}*/
 
 module.exports = {
   registerUser,
   loginUser,
-  resetPassword,
-  forgotPassword,
-  verifyResetCode,
+  /*resetPassword,*/
+  /*forgotPassword,*/
+  /*verifyResetCode,*/
   generateToken,
   generateAccessToken,
   generateRefreshToken,

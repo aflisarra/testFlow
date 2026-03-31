@@ -1,5 +1,5 @@
 //const aiService = require("../services/ai.service");
-const PlanTest = require("../models/plantest");
+const PlanTest = require("../models/plantest.model");
 const TestSuite = require("../models/testsuite");
 
 /*exports.generatePlan = async (req, res) => {

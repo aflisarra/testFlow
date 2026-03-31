@@ -5,6 +5,11 @@ import { AdminManagementService, AppRole, AppUser } from '@/app/core/services/ad
 import { NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap'
 import { ConfirmModalComponent } from '../shared/confirm-modal.component'
 import { UserUpsertModalComponent } from './user-upsert-modal.component'
+import { Store } from '@ngrx/store'
+import { getUser } from '@/app/store/authentication/authentication.selector'
+import { firstValueFrom } from 'rxjs'
+import { take } from 'rxjs/operators'
+import { ToastrService } from 'ngx-toastr'
 
 @Component({
   selector: 'app-all-users',
@@ -17,6 +22,8 @@ export class AllUsersComponent implements OnInit {
   private adminService = inject(AdminManagementService)
   private fb = inject(FormBuilder)
   private modalService = inject(NgbModal)
+  private store = inject(Store)
+  private toastr = inject(ToastrService)
 
   users: AppUser[] = []
   readonly defaultAvatar = 'assets/images/users/default-user.svg'
@@ -25,6 +32,12 @@ export class AllUsersComponent implements OnInit {
   loading = false
   submitting = false
   error = ''
+  permissionAlert = ''
+
+  private readonly ACTION_ADD_USER = 2
+  private readonly ACTION_EDIT_USER = 3
+  private readonly ACTION_VIEW_USER = 4
+  private readonly ACTION_DELETE_USER = 5
 
   createUserForm = this.fb.group({
     name: ['', [Validators.required]],
@@ -35,9 +48,28 @@ export class AllUsersComponent implements OnInit {
     picture: [null as File | null],
   })
 
-  ngOnInit(): void {
+  canAddUser = false
+  canEditUser = false
+  canDeleteUser = false
+  canViewUsers = false
+
+  async ngOnInit(): Promise<void> {
+    await this.initPermissions()
     this.loadRoles()
-    this.loadUsers()
+    if (this.canViewUsers) {
+      this.loadUsers()
+    } else {
+      this.notifyPermissionDenied("Acces refuse: vous n'avez pas l'action View User.")
+    }
+  }
+
+  private async initPermissions() {
+    const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
+    const actions = Array.isArray((user as any)?.actions) ? (user as any).actions : []
+    this.canAddUser = actions.includes(this.ACTION_ADD_USER)
+    this.canEditUser = actions.includes(this.ACTION_EDIT_USER)
+    this.canDeleteUser = actions.includes(this.ACTION_DELETE_USER)
+    this.canViewUsers = actions.includes(this.ACTION_VIEW_USER)
   }
 
   loadRoles(): void {
@@ -52,6 +84,12 @@ export class AllUsersComponent implements OnInit {
   }
 
   loadUsers(): void {
+    if (!this.canViewUsers) {
+      this.notifyPermissionDenied("Acces refuse: vous n'avez pas l'action View User.")
+      this.users = []
+      return
+    }
+
     this.loading = true
     this.error = ''
 
@@ -88,6 +126,11 @@ export class AllUsersComponent implements OnInit {
   }
 
   submitCreateUser(): void {
+    if (!this.canAddUser) {
+      this.notifyPermissionDenied('Action non autorisee: Add User.')
+      return
+    }
+
     if (this.createUserForm.invalid) {
       this.createUserForm.markAllAsTouched()
       return
@@ -124,6 +167,11 @@ export class AllUsersComponent implements OnInit {
   }
 
   onEditUser(user: AppUser) {
+    if (!this.canEditUser) {
+      this.notifyPermissionDenied('Action non autorisee: Edit User.')
+      return
+    }
+
     const ref = this.modalService.open(UserUpsertModalComponent, {
       size: 'lg',
       centered: true,
@@ -137,6 +185,11 @@ export class AllUsersComponent implements OnInit {
   }
 
   onDeleteUser(user: AppUser) {
+    if (!this.canDeleteUser) {
+      this.notifyPermissionDenied('Action non autorisee: Delete User.')
+      return
+    }
+
     const ref = this.modalService.open(ConfirmModalComponent, {
       centered: true,
       windowClass: 'confirm-modal-window',
@@ -157,5 +210,10 @@ export class AllUsersComponent implements OnInit {
         },
       })
     })
+  }
+
+  private notifyPermissionDenied(message: string) {
+    this.permissionAlert = message
+    this.toastr.warning(message, 'Permission')
   }
 }

@@ -9,7 +9,7 @@ const axios = require("axios");
 const jwt = require("jsonwebtoken");
 
 const TestSuite = require("../models/testsuite");
-const PlanTest = require("../models/plantest"); // legacy (backward-compat migration only)
+const PlanTest = require("../models/plantest.model"); // legacy (backward-compat migration only)
 
 const router = express.Router();
 
@@ -18,6 +18,19 @@ function getFastApiBaseUrl() {
     /\/$/,
     ""
   );
+}
+
+function getFastApiHeaders() {
+  const secret = process.env.FASTAPI_SECRET || "";
+  return secret ? { "X-Internal-Token": secret } : {};
+}
+
+function truncateSpecText(text, maxChars = 800) {
+  const str = String(text || "").trim();
+  if (str.length <= maxChars) return str;
+  const cut = str.slice(0, maxChars);
+  const lastDot = cut.lastIndexOf(".");
+  return lastDot > maxChars / 2 ? cut.slice(0, lastDot + 1) : cut + "...";
 }
 
 function getUserIdFromAuthHeader(req) {
@@ -50,7 +63,7 @@ function ensureSpecFile(file, cb) {
   const okMime =
     !file.mimetype ||
     file.mimetype ===
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
     file.mimetype === "application/octet-stream" ||
     file.mimetype === "text/plain" ||
     file.mimetype === "text/markdown";
@@ -182,7 +195,7 @@ async function extractDocxText(buffer) {
     const xml = await fs.readFile(documentXmlPath, "utf8");
     return extractTextFromDocumentXml(xml);
   } finally {
-    await fs.rm(tempRoot, { recursive: true, force: true }).catch(() => {});
+    await fs.rm(tempRoot, { recursive: true, force: true }).catch(() => { });
   }
 }
 
@@ -278,12 +291,13 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
     const userIdBody = String(req.body?.userId || "").trim();
     const providedTestSuiteId = String(req.body?.testSuiteId || "").trim();
     const suiteName = String(req.body?.nom || "").trim();
+    const testName = String(req.body?.nametest || req.body?.nameTest || "").trim();
     const styleConfig = String(
       req.body?.styleConfig ||
-        req.body?.style_config ||
-        req.body?.style_configuration ||
-        req.body?.description ||
-        ""
+      req.body?.style_config ||
+      req.body?.style_configuration ||
+      req.body?.description ||
+      ""
     ).trim();
     const regenerate = parseBoolean(req.body?.regenerate);
 
@@ -332,6 +346,7 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
         specFilePath: req.file?.filename ? `uploads/specs/${req.file.filename}` : null,
       };
       if (suiteName) updates.nom = suiteName;
+      if (testName) updates.nametest = testName;
 
       suite = await TestSuite.findByIdAndUpdate(providedTestSuiteId, updates, { new: true });
     } else {
@@ -342,6 +357,7 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
       const defaultName = `Test Suite - ${now.toISOString().slice(0, 19).replace("T", " ")}`;
       suite = await TestSuite.create({
         nom: suiteName || defaultName,
+        nametest: testName || suiteName || defaultName,
         description: combinedDescription,
         urlCible,
         userId,
@@ -455,10 +471,10 @@ router.post("/generate-test-cases", async (req, res) => {
         plan_id: planId,
         plan_title: planTitle || planId,
         plan_description: planDescription || "",
-        spec_text: String(suite.specText || ""),
+        spec_text: truncateSpecText(suite.specText, 800),
         style_config: String(suite.styleConfig || ""),
       },
-      { timeout: 185_000 }
+      { timeout: 185_000, headers: getFastApiHeaders() }
     );
 
     const testCases = fastApiResponse?.data?.test_cases || fastApiResponse?.data?.testCases;

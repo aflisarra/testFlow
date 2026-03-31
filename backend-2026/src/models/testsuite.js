@@ -59,6 +59,13 @@ const testSuiteSchema = new mongoose.Schema({
         trim: true
     },
 
+    // Optional user-facing test name shown in listing tables
+    nametest: {
+        type: String,
+        default: "",
+        trim: true
+    },
+
     // Short description entered by the user in the textarea
     // "What do you want to test ?"
     description: {

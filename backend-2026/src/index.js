@@ -12,6 +12,7 @@ const { generateToken } = require('../src/services/auth.service');
 const testSuiteRoutes = require('./routes/testsuite.routes');
 const plantestRoutes = require("./routes/planTest.routes");
 const aiRoutes = require("./routes/ai.routes");
+const authMagic = require("./routes/auth.magic.routes");
 // Routes
 const ollamaRoutes = require('./routes/ollama.routes')
 ///////////////////////////////////////////////
@@ -101,6 +102,7 @@ app.use('/api/testsuites', testSuiteRoutes);
 app.use("/api/plantest", plantestRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/ollama", ollamaRoutes);
+app.use("/auth", authMagic);
 // 2️⃣ Middleware global pour rafraîchir le token si valide
 app.use((req, res, next) => {
   const authHeader = req.headers['authorization'];

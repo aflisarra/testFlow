@@ -12,6 +12,7 @@ import { Router } from '@angular/router'
 import { Store } from '@ngrx/store'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
+import { ToastrService } from 'ngx-toastr'
 
 // Statuts possibles pour chaque plan dans le flux séquentiel
 export type PlanStatus = 'pending' | 'generating' | 'reviewing' | 'confirmed'
@@ -20,8 +21,8 @@ export type PlanStatus = 'pending' | 'generating' | 'reviewing' | 'confirmed'
   selector: 'app-test-suite-configuration',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './test-suite-configuration.component.html',
-  styleUrl: './test-suite-configuration.component.css',
+  templateUrl: './test-plan.component.html',
+  styleUrl: './test-plan.component.css',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class TestSuiteConfigurationComponent {
@@ -29,8 +30,10 @@ export class TestSuiteConfigurationComponent {
   private testLabService = inject(TestLabService)
   private authService = inject(AuthenticationService)
   private router = inject(Router)
+  private toastr = inject(ToastrService)
 
   styleConfig = ''
+  nameTest = ''
   uploadedFileName = ''
   selectedFile: File | null = null
 
@@ -92,6 +95,10 @@ export class TestSuiteConfigurationComponent {
     this.styleConfig = value
   }
 
+  onNameTestChange(value: string) {
+    this.nameTest = value
+  }
+
   // 🔹 Sélection de fichier
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement | null
@@ -111,6 +118,7 @@ export class TestSuiteConfigurationComponent {
     this.generatingPlans = false
     this.generatingCases = false
     this.finishing = false
+    this.nameTest = ''
 
     this.currentTestSuiteId = ''
     this.testPlans = []
@@ -261,9 +269,14 @@ export class TestSuiteConfigurationComponent {
   private async finishAndNavigate() {
     this.finishing = true
     try {
-      await this.router.navigate(['/test-cases', this.currentTestSuiteId], {
+      await this.router.navigate(['/test-cases'], {
+        queryParams: { suiteId: this.currentTestSuiteId },
         state: { plans: this.testPlans },
       })
+      this.toastr.info(
+        'Generation des test cases en cours en arriere-plan. Vous pouvez naviguer librement.',
+        'AI'
+      )
     } finally {
       this.finishing = false
     }
@@ -291,8 +304,10 @@ export class TestSuiteConfigurationComponent {
     this.planStatuses = {}
 
     try {
+      this.toastr.info('Generation du test plan en cours. Vous pouvez changer de page.', 'AI')
       if (!this.selectedFile) {
         this.errorMessage = 'Veuillez uploader un fichier (.docx / .md / .txt)'
+        this.toastr.warning(this.errorMessage, 'Test Plan')
         return
       }
 
@@ -302,6 +317,7 @@ export class TestSuiteConfigurationComponent {
       if (!userId && token) userId = this.resolveUserIdFromToken(token)
       if (!userId) {
         this.errorMessage = 'Session expirée. Reconnectez-vous.'
+        this.toastr.error(this.errorMessage, 'Session')
         return
       }
 
@@ -314,6 +330,7 @@ export class TestSuiteConfigurationComponent {
         'nom',
         `Test Suite - ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`
       )
+      if (this.nameTest.trim()) formData.append('nametest', this.nameTest.trim())
       if (this.currentTestSuiteId) formData.append('testSuiteId', this.currentTestSuiteId)
       formData.append('regenerate', regenerate ? 'true' : 'false')
 
@@ -327,6 +344,9 @@ export class TestSuiteConfigurationComponent {
 
       if (!this.testPlans.length) {
         this.errorMessage = 'Aucun test plan généré.'
+        this.toastr.warning(this.errorMessage, 'Test Plan')
+      } else {
+        this.toastr.success('Test plans générés avec succès.', 'AI')
       }
     } catch (err: unknown) {
       const status = (err as any)?.status
@@ -342,6 +362,7 @@ export class TestSuiteConfigurationComponent {
         this.errorMessage =
           (err as any)?.error?.message || (err as any)?.message || 'Erreur inconnue'
       }
+      this.toastr.error(this.errorMessage, 'Generation')
     } finally {
       this.generatingPlans = false
     }

@@ -11,7 +11,7 @@ const { spawn } = require("child_process");
 const axios = require("axios");
 
 const TestSuite = require("../models/testsuite");
-const PlanTest = require("../models/plantest");
+const PlanTest = require("../models/plantest.model");
 
 // ============================================================
 // HELPERS UTILITAIRES
@@ -407,6 +407,7 @@ async function getPlanByTestSuiteId(testSuiteId) {
     }
 
     // Backward compatibility (copy-only migration)
+    //list des tests 
     const legacyPlans = await PlanTest.find({ testSuiteId }).sort({ ordre: 1 });
     if (suite && legacyPlans.length) {
         suite.planSteps = legacyPlans.map((p) => ({ contenu: p.contenu, ordre: p.ordre }));
@@ -417,15 +418,25 @@ async function getPlanByTestSuiteId(testSuiteId) {
 
 
 async function getTestSuitesByUser(userId) {
-    if (!userId) {
-        const error = new Error('userId is required')
-        error.statusCode = 400
-        throw error
-    }
-    return await TestSuite.find({ userId })
-        .select('_id nom description specFileName urlCible testPlans createdAt')
+    // Public listing mode: return all suites regardless of connected user.
+    // Keep the same function signature/endpoint for frontend compatibility.
+    const suites = await TestSuite.find({})
+        .select('_id nom nametest description specFileName urlCible testPlans testCasesByPlan createdAt userId')
+        .populate('userId', 'name email')
         .sort({ createdAt: -1 })
         .lean()
+
+    return suites.map((suite) => {
+        const totalTestCases = (suite.testCasesByPlan || []).reduce((acc, plan) => {
+            return acc + ((plan?.testCases || []).length || 0)
+        }, 0)
+
+        return {
+            ...suite,
+            creatorName: suite?.userId?.name || suite?.userId?.email || 'Unknown User',
+            totalTestCases,
+        }
+    })
 }
 
 async function getTestPlansByTestSuiteId(testSuiteId) {

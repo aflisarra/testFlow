@@ -8,22 +8,24 @@
         <form [formGroup]="createUserForm" (ngSubmit)="submitCreateUser()">
           <div class="mb-3">
             <label class="form-label">Name</label>
-            <input class="form-control" formControlName="name" placeholder="ex: John Doe" />
+            <input class="form-control" formControlName="name" placeholder="ex: John Doe" [disabled]="!canAddUser" />
           </div>
 
           <div class="mb-3">
             <label class="form-label">Email</label>
-            <input class="form-control" formControlName="email" placeholder="ex: john@example.com" />
+            <input class="form-control" formControlName="email" placeholder="ex: john@example.com"
+              [disabled]="!canAddUser" />
           </div>
 
           <div class="mb-3">
             <label class="form-label">Password</label>
-            <input class="form-control" type="password" formControlName="password" placeholder="******" />
+            <input class="form-control" type="password" formControlName="password" placeholder="******"
+              [disabled]="!canAddUser" />
           </div>
 
           <div class="mb-3">
             <label class="form-label">Role</label>
-            <select class="form-select" formControlName="role">
+            <select class="form-select" formControlName="role" [disabled]="!canAddUser">
               <option value="" disabled>Select role</option>
               @for (role of roles; track role._id) {
               <option [value]="role.name">{{ role.name }}</option>
@@ -33,15 +35,16 @@
 
           <div class="mb-3">
             <label class="form-label">Description</label>
-            <input class="form-control" formControlName="description" placeholder="Optional..." />
+            <input class="form-control" formControlName="description" placeholder="Optional..." [disabled]="!canAddUser" />
           </div>
 
           <div class="mb-3">
             <label class="form-label">Picture (optional)</label>
-            <input class="form-control" type="file" accept="image/*" (change)="onPictureSelected($event)" />
+            <input class="form-control" type="file" accept="image/*" (change)="onPictureSelected($event)"
+              [disabled]="!canAddUser" />
           </div>
 
-          <button class="btn btn-brand w-100" type="submit" [disabled]="submitting">
+          <button class="btn btn-brand w-100" type="submit" [disabled]="submitting || !canAddUser">
             {{ submitting ? 'Creating...' : 'Create User' }}
           </button>
         </form>
@@ -53,7 +56,7 @@
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h4 class="card-title mb-0 brand-title">Users List</h4>
-        <button class="btn btn-sm btn-brand" (click)="loadUsers()">Refresh</button>
+        <button class="btn btn-sm btn-brand" (click)="loadUsers()" [disabled]="!canViewUsers">Refresh</button>
       </div>
       <div class="card-body">
         @if (loading) {
@@ -64,7 +67,7 @@
         <div class="alert alert-danger mb-0">{{ error }}</div>
         }
 
-        @if (!loading && !error) {
+        @if (!loading && !error && canViewUsers) {
         <div class="table-responsive">
           <table class="table table-hover align-middle mb-0">
             <thead>
@@ -96,11 +99,11 @@
                 <td>{{ user.description || '-' }}</td>
                 <td class="text-end">
                   <button class="btn btn-sm btn-action btn-action-edit me-2" type="button" title="Edit"
-                    (click)="onEditUser(user)">
+                    (click)="onEditUser(user)" [disabled]="!canEditUser">
                     <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
                   </button>
                   <button class="btn btn-sm btn-action btn-action-delete" type="button" title="Delete"
-                    (click)="onDeleteUser(user)">
+                    (click)="onDeleteUser(user)" [disabled]="!canDeleteUser">
                     <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
                   </button>
                 </td>
@@ -116,6 +119,7 @@
           </table>
         </div>
         }
+
       </div>
     </div>
   </div>

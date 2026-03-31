@@ -5,8 +5,8 @@ import { InvoicesComponent } from './invoices/invoices/invoices.component'
 import { AllUsersComponent } from './admin/users/all-users.component'
 import { InviteUserComponent } from './admin/users/invite-user.component'
 import { RolesManagementComponent } from './admin/roles/roles-management.component'
-import { TestSuiteConfigurationComponent } from './test/test-suite-configuration.component'
-import { TestCasesValidationComponent } from './test/test-cases-validation.component'
+import { TestSuiteConfigurationComponent } from './test/test-plan.component'
+import { TestCasesValidationComponent } from './test/list-test.component'
 import { TestCasesHomeComponent } from './test/test-cases-home.component'
 
 export const VIEW_ROUTES: Route[] = [
@@ -115,7 +115,7 @@ export const VIEW_ROUTES: Route[] = [
   {
     path: 'test-suites',
     loadComponent: () =>
-      import('./test/test-cases-validation.component')
+      import('./test/list-test.component')
         .then(m => m.TestCasesValidationComponent)
   },
 ]

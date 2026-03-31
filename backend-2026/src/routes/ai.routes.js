@@ -3,7 +3,7 @@ const axios = require("axios");
 
 const router = express.Router();
 
-function getFastApiBaseUrl() {
+/*function getFastApiBaseUrl() {
   return String(process.env.FASTAPI_BASE_URL || "http://localhost:8000").replace(
     /\/$/,
     ""
@@ -41,7 +41,7 @@ router.post("/chat", async (req, res) => {
       error: error?.response?.data || error?.message || "FastAPI chat failed",
     });
   }
-});
+});*/
 
 module.exports = router;
 
