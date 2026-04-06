@@ -3,7 +3,7 @@
 # ============================================================
 #
 # SETUP :
-#   pip install fastapi uvicorn python-dotenv python-docx python-multipart
+#   pip install fastapi uvicorn python-dotenv python-docx python-multipart requests
 #   uvicorn main:app --reload
 #
 # ENDPOINTS :
@@ -24,8 +24,8 @@ from dotenv import load_dotenv
 
 load_dotenv()  # Must run before importing modules that read env vars.
 
-from routers import test_plans, test_cases  # noqa: E402
-from utils.ollama import get_ollama_path, get_ollama_model  # noqa: E402
+from routers import test_plans, test_cases          # noqa: E402
+from utils.ollama import run_ollama, get_ollama_model  # noqa: E402
 
 OLLAMA_MODEL = get_ollama_model()
 USE_MOCK     = os.getenv("USE_MOCK", "false").lower() in ("1", "true", "yes")
@@ -44,6 +44,7 @@ def _chat_timeout() -> int:
         return int(raw)
     except ValueError:
         return 300
+
 
 # ── App ────────────────────────────────────────────────────
 app = FastAPI(
@@ -64,6 +65,7 @@ app.add_middleware(
 app.include_router(test_plans.router)
 app.include_router(test_cases.router)
 
+
 # ── GET / — Health check ───────────────────────────────────
 @app.get("/")
 def root():
@@ -80,6 +82,7 @@ def root():
         }
     }
 
+
 # ── POST /chat — Chat libre ────────────────────────────────
 @app.post("/chat")
 def chat(data: dict):
@@ -92,23 +95,14 @@ def chat(data: dict):
         return JSONResponse({"reply": f"[MOCK] Received: {message[:100]}..."})
 
     try:
-        ollama_path = get_ollama_path()
-        result = subprocess.run(
-            [ollama_path, "run", OLLAMA_MODEL],
-            input=message,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=_chat_timeout()
-        )
-        reply = result.stdout.strip()
-        if not reply:
-            return JSONResponse(status_code=500, content={"reply": f"Ollama returned empty. Run: ollama pull {OLLAMA_MODEL}"})
+        reply = run_ollama(message, timeout=_chat_timeout())
         return JSONResponse({"reply": reply})
 
-    except FileNotFoundError:
-        return JSONResponse(status_code=500, content={"reply": "Ollama not found. Install from https://ollama.com"})
+    except FileNotFoundError as e:
+        return JSONResponse(status_code=500, content={"reply": str(e)})
     except subprocess.TimeoutExpired:
         return JSONResponse(status_code=504, content={"reply": "Ollama took too long."})
+    except RuntimeError as e:
+        return JSONResponse(status_code=500, content={"reply": str(e)})
     except Exception as e:
         return JSONResponse(status_code=500, content={"reply": str(e)})

@@ -32,12 +32,14 @@ uvicorn main:app --reload --host 127.0.0.1 --port 8000
 Variables disponibles dans `.env`:
 - `OLLAMA_TIMEOUT`: timeout global (defaut 300s)
 - `OLLAMA_CHAT_TIMEOUT`: timeout pour `/chat` (fallback: `OLLAMA_TIMEOUT`)
+- `OLLAMA_TEST_PLANS_TIMEOUT`: timeout pour `/generate-plan` (fallback: `OLLAMA_TIMEOUT`)
 - `OLLAMA_TEST_CASES_TIMEOUT`: timeout pour `/generate-test-cases` (fallback: `OLLAMA_TIMEOUT`)
 
 Exemple:
 ```env
 OLLAMA_TIMEOUT=300
 OLLAMA_CHAT_TIMEOUT=300
+OLLAMA_TEST_PLANS_TIMEOUT=300
 OLLAMA_TEST_CASES_TIMEOUT=420
 ```
 
@@ -75,4 +77,3 @@ OLLAMA_TEST_CASES_TIMEOUT=420
 - Ajouter environnements dev/prod explicites.
 - Ajouter monitoring basique (latence endpoints, erreurs 5xx, timeouts).
 - Ajouter politique retry/backoff sur appels externes si necessaire.
-

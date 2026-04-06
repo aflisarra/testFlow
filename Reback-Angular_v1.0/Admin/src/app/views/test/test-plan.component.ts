@@ -140,8 +140,7 @@ export class TestSuiteConfigurationComponent {
    */
   async onStartSequentialFlow() {
     if (!this.testPlans.length || !this.currentTestSuiteId) return
-    this.currentPlanIndex = 0
-    await this.generateCasesForCurrentPlan()
+    await this.finishAndNavigate()
   }
 
   /**
@@ -347,6 +346,7 @@ export class TestSuiteConfigurationComponent {
         this.toastr.warning(this.errorMessage, 'Test Plan')
       } else {
         this.toastr.success('Test plans générés avec succès.', 'AI')
+        await this.finishAndNavigate()
       }
     } catch (err: unknown) {
       const status = (err as any)?.status
@@ -367,4 +367,5 @@ export class TestSuiteConfigurationComponent {
       this.generatingPlans = false
     }
   }
+
 }

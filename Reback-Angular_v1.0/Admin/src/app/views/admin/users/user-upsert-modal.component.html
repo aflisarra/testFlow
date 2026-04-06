@@ -1,7 +1,17 @@
 <div class="exec-upsert">
   <div class="exec-upsert-body">
     <header class="exec-upsert-header">
-      <h3 class="exec-upsert-title">Edit user</h3>
+      <div class="exec-upsert-headline">
+        <h3 class="exec-upsert-title">Edit User</h3>
+        <button
+          class="exec-close-btn"
+          type="button"
+          aria-label="Close"
+          (click)="activeModal.dismiss(false)"
+        >
+          ×
+        </button>
+      </div>
       <p class="exec-upsert-subtitle">Modify identity and role for this user.</p>
     </header>
 

@@ -102,6 +102,13 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges {
     return (this.roleForm.value.actions || []).includes(actionId)
   }
 
+  formatActionName(name?: string): string {
+    return String(name || '')
+      .replace(/[-_]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
   private rebuildActionGroups(): void {
     const grouped = new Map<string, AppAction[]>()
     for (const action of this.actions || []) {

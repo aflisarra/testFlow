@@ -157,6 +157,7 @@ export class AllUsersComponent implements OnInit {
           description: '',
           picture: null,
         })
+        this.showActionSuccess('created')
         this.loadUsers()
       },
       error: (err) => {
@@ -181,7 +182,12 @@ export class AllUsersComponent implements OnInit {
     ref.componentInstance.user = user
     ref.componentInstance.roles = this.roles
 
-    ref.closed.subscribe(() => this.loadUsers())
+    ref.closed.subscribe((updated) => {
+      if (updated) {
+        this.showActionSuccess('edited')
+      }
+      this.loadUsers()
+    })
   }
 
   onDeleteUser(user: AppUser) {
@@ -195,16 +201,19 @@ export class AllUsersComponent implements OnInit {
       windowClass: 'confirm-modal-window',
       backdropClass: 'confirm-modal-backdrop',
     })
-    ref.componentInstance.title = 'Delete user?'
-    ref.componentInstance.message = 'This will delete'
+    ref.componentInstance.title = 'Delete user ?'
+    //ref.componentInstance.message = 'This will delete'
     ref.componentInstance.entityName = user.email
-    ref.componentInstance.details = 'This action cannot be undone.'
+    //ref.componentInstance.details = 'This action cannot be undone.'
     ref.componentInstance.confirmText = 'Delete'
     ref.componentInstance.cancelText = 'Cancel'
 
     ref.closed.subscribe(() => {
       this.adminService.deleteUser(user._id).subscribe({
-        next: () => this.loadUsers(),
+        next: () => {
+          this.showActionSuccess('deleted')
+          this.loadUsers()
+        },
         error: (err) => {
           this.error = err?.error?.message || 'Unable to delete user'
         },
@@ -215,5 +224,10 @@ export class AllUsersComponent implements OnInit {
   private notifyPermissionDenied(message: string) {
     this.permissionAlert = message
     this.toastr.warning(message, 'Permission')
+  }
+
+  private showActionSuccess(action: 'created' | 'edited' | 'deleted') {
+    const title = action.charAt(0).toUpperCase() + action.slice(1)
+    this.toastr.success('This action was completed successfully.', title)
   }
 }

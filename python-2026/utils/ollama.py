@@ -2,7 +2,7 @@
 # utils/ollama.py
 #
 # FIX 502 : mistral retourne souvent du texte AUTOUR du JSON
-# Nouvelles stratégies de parsing plus agressives
+# FIX ANSI : suppression des séquences d'échappement terminal
 # ============================================================
 
 import subprocess
@@ -30,10 +30,19 @@ def _default_timeout() -> int:
         return 300
 
 
+def _strip_ansi(text: str) -> str:
+    """
+    Supprime les séquences d'échappement ANSI de la réponse Ollama.
+    Exemple : \x1b[4D  \x1b[1D  \x1b[3D  → supprimés
+    Ces caractères viennent du terminal interne d'Ollama et cassent le JSON.
+    """
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+    return ansi_escape.sub("", text)
+
+
 def _strip_code_fences(text: str) -> str:
     """Supprime les ``` que mistral ajoute souvent."""
     trimmed = (text or "").strip()
-    # Supprime ```json ... ``` ou ``` ... ```
     trimmed = re.sub(r"^```(?:json|JSON)?\s*", "", trimmed)
     trimmed = re.sub(r"\s*```$", "", trimmed)
     return trimmed.strip()
@@ -44,7 +53,6 @@ def _extract_json_array(text: str):
     Extrait le premier tableau JSON valide du texte.
     Mistral peut écrire du texte avant/après le JSON.
     """
-    # Cherche tous les blocs [...] dans le texte
     depth = 0
     start = None
     for i, ch in enumerate(text):
@@ -59,7 +67,6 @@ def _extract_json_array(text: str):
                 try:
                     return json.loads(candidate)
                 except json.JSONDecodeError:
-                    # Ce bloc n'est pas valide, continuer à chercher
                     start = None
     return None
 
@@ -100,7 +107,8 @@ def parse_json_from_ollama(text: str):
 
     Raises ValueError si aucune stratégie ne fonctionne.
     """
-    raw = (text or "").strip()
+    # ── Nettoyage ANSI en premier (avant tout parsing) ──────
+    raw = _strip_ansi((text or "").strip())
 
     # ── Stratégie 1 : JSON direct ───────────────────────────
     try:
@@ -124,14 +132,12 @@ def parse_json_from_ollama(text: str):
     # ── Stratégie 4 : extraire le premier objet JSON ────────
     obj = _extract_json_object(stripped or raw)
     if obj is not None:
-        # Certains modèles wrappent : {"test_cases": [...]}
         for key in ("test_cases", "testCases", "cases", "results", "items"):
             if isinstance(obj.get(key), list):
                 return obj[key]
         return obj
 
     # ── Stratégie 5 : nettoyer les virgules finales (JSON5) ─
-    # Mistral écrit parfois [{"a": 1,}, {"b": 2,}]
     cleaned = re.sub(r",\s*([}\]])", r"\1", stripped or raw)
     try:
         return json.loads(cleaned)
@@ -150,7 +156,7 @@ def parse_json_from_ollama(text: str):
 
 def run_ollama(prompt: str, timeout: int | None = None) -> str:
     """
-    Envoie un prompt à Ollama via subprocess.
+    Envoie un prompt à Ollama (par l'API HTTP d'abord, via subprocess en fallback).
 
     Args:
         prompt:  Texte envoyé au LLM.
@@ -159,6 +165,33 @@ def run_ollama(prompt: str, timeout: int | None = None) -> str:
     """
     effective_timeout = timeout if timeout is not None else _default_timeout()
 
+    # Essaie d'utiliser l'API locale en priorité (pas de terminal == pas d'anomalies ANSI/wrapping)
+    import urllib.request
+    import urllib.error
+    import json
+    
+    try:
+        url = "http://127.0.0.1:11434/api/generate"
+        req_body = {
+            "model": get_ollama_model(),
+            "prompt": prompt,
+            "stream": False,
+            "options": {"num_ctx": 4096}
+        }
+        data = json.dumps(req_body).encode("utf-8")
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+        
+        with urllib.request.urlopen(req, timeout=effective_timeout) as response:
+            resp_body = response.read().decode("utf-8")
+            js = json.loads(resp_body)
+            # Pas besoin de nettoyer les séquences ANSI ici
+            return js.get("response", "")
+    except Exception as e:
+        print(f"Ollama HTTP API fallback because of: {e}")
+        pass
+
+    import os
+    # Fallback CLI
     result = subprocess.run(
         [get_ollama_path(), "run", get_ollama_model()],
         input=prompt,
@@ -166,11 +199,12 @@ def run_ollama(prompt: str, timeout: int | None = None) -> str:
         text=True,
         encoding="utf-8",
         timeout=effective_timeout,
+        env={**os.environ, "TERM": "dumb"}  # évite le redessin et la coloration
     )
 
     stdout = (result.stdout or "").strip()
     if stdout:
-        return stdout
+        return _strip_ansi(stdout)
 
     stderr = (result.stderr or "").strip()
     if result.returncode and stderr:

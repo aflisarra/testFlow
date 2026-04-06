@@ -117,8 +117,8 @@
         <div>
           <h4 class="mb-1">Generated Test Plans</h4>
           <p class="mb-0 text-muted">
-            Review the plans below, then click <strong>Start</strong> to generate test cases
-            one plan at a time.
+            Review the plans below, then click <strong>Open Test Cases</strong>.
+            Test case generation will start only when the user clicks Generate.
           </p>
         </div>
         <span class="testlab-pill">{{ testPlans.length }} plans</span>
@@ -148,7 +148,7 @@
         <!-- ✅ Démarre le flux séquentiel -->
         <button type="button" class="btn btn-brand px-4 fw-bold" (click)="onStartSequentialFlow()">
           <iconify-icon icon="iconamoon:arrow-right-2-duotone" class="me-1"></iconify-icon>
-          Start — Review Plan by Plan
+          Open Test Cases
         </button>
       </div>
 
@@ -226,11 +226,35 @@
 
       <!-- État : génération en cours -->
       @if (generatingCases) {
-      <div class="testlab-processing py-4">
-        <div class="testlab-processing-icon">
-          <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin"></iconify-icon>
+      <div class="tc-generating-state">
+        <div class="tc-generating-head">
+          <div class="tc-generating-icon-wrap">
+            <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin"></iconify-icon>
+          </div>
+          <div>
+            <div class="tc-generating-kicker">AI Processing</div>
+            <h5 class="mb-1">Generating Test Cases</h5>
+            <p class="mb-0 text-muted">
+              {{ currentPlan.id }} is being analyzed to build high-quality, executable test scenarios.
+            </p>
+          </div>
         </div>
-        <p class="mb-0 text-muted">Generating test cases for this plan<span class="testlab-dots"></span></p>
+
+        <div class="tc-generating-progress mt-3">
+          <div class="tc-generating-progress-bar"></div>
+        </div>
+
+        <div class="tc-generating-skeleton mt-3">
+          <div class="tc-generating-skeleton-row w-85"></div>
+          <div class="tc-generating-skeleton-row w-65"></div>
+          <div class="tc-generating-skeleton-card"></div>
+          <div class="tc-generating-skeleton-row w-75"></div>
+        </div>
+
+        <div class="tc-generating-note mt-3">
+          <iconify-icon icon="iconamoon:information-circle-duotone"></iconify-icon>
+          <span>Generating test cases for this plan<span class="testlab-dots"></span></span>
+        </div>
       </div>
 
       <!-- État : test cases disponibles -->

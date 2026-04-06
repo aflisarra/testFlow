@@ -98,14 +98,16 @@
                 <td><span class="badge brand-badge">{{ user.role }}</span></td>
                 <td>{{ user.description || '-' }}</td>
                 <td class="text-end">
-                  <button class="btn btn-sm btn-action btn-action-edit me-2" type="button" title="Edit"
-                    (click)="onEditUser(user)" [disabled]="!canEditUser">
-                    <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
-                  </button>
-                  <button class="btn btn-sm btn-action btn-action-delete" type="button" title="Delete"
-                    (click)="onDeleteUser(user)" [disabled]="!canDeleteUser">
-                    <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
-                  </button>
+                  <div class="d-inline-flex align-items-center flex-nowrap gap-2">
+                    <button class="btn btn-sm btn-action btn-action-edit" type="button" title="Edit"
+                      (click)="onEditUser(user)" [disabled]="!canEditUser">
+                      <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
+                    </button>
+                    <button class="btn btn-sm btn-action btn-action-delete" type="button" title="Delete"
+                      (click)="onDeleteUser(user)" [disabled]="!canDeleteUser">
+                      <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
+                    </button>
+                  </div>
                 </td>
               </tr>
               }

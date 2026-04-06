@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common'
+﻿import { CommonModule } from '@angular/common'
 import { Component, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core'
 import { ActivatedRoute, Router } from '@angular/router'
 import { Store } from '@ngrx/store'
@@ -43,12 +43,12 @@ export class TestCasesHomeComponent {
   testCasesByPlan: Record<string, TestCaseDto[]> = {}
   expandedPlans: Record<string, boolean> = {}
 
-  // New state for suites accordion
   expandedSuites: Record<string, boolean> = {}
   suitePlans: Record<string, TestPlanDto[]> = {}
   loadingSuitePlans: Record<string, boolean> = {}
 
   testSuiteId = ''
+  selectedPlanId = ''
 
   get generatedCount(): number {
     return this.plans.filter((p) => (this.testCasesByPlan[p.id]?.length || 0) > 0).length
@@ -61,11 +61,18 @@ export class TestCasesHomeComponent {
 
   get currentPlanNumber(): number {
     if (!this.plans.length) return 0
-    return Math.min(this.generatedCount + 1, this.plans.length)
+    const current = this.currentPlanPreview
+    if (!current) return 0
+    const idx = this.plans.findIndex((p) => p.id === current.id)
+    return idx >= 0 ? idx + 1 : 1
   }
 
   get currentPlanPreview(): TestPlanDto | null {
     if (!this.plans.length) return null
+    if (this.selectedPlanId) {
+      const selected = this.plans.find((p) => p.id === this.selectedPlanId)
+      if (selected) return selected
+    }
     const pending = this.plans.find((p) => (this.testCasesByPlan[p.id]?.length || 0) === 0)
     return pending || this.plans[0]
   }
@@ -78,6 +85,7 @@ export class TestCasesHomeComponent {
 
   togglePlan(planId: string) {
     this.expandedPlans[planId] = !this.expandedPlans[planId]
+    this.selectedPlanId = planId
   }
 
   async toggleSuite(suite: TestSuiteDto) {
@@ -86,32 +94,11 @@ export class TestCasesHomeComponent {
 
     this.expandedSuites[suiteId] = !this.expandedSuites[suiteId]
 
-    // Only load if expanding and not already loaded/loading
     if (this.expandedSuites[suiteId] && !this.suitePlans[suiteId] && !this.loadingSuitePlans[suiteId]) {
       this.loadingSuitePlans[suiteId] = true
       try {
         const resp = await firstValueFrom(this.testLabService.getTestPlans(suiteId))
         this.suitePlans[suiteId] = resp?.testPlans || []
-
-        // Let's also load test cases for these plans sequentially to not overload ollama
-        for (const plan of this.suitePlans[suiteId]) {
-          try {
-            const tcResp = await firstValueFrom(
-              this.testLabService.generateTestCases({
-                testSuiteId: suiteId,
-                planId: plan.id,
-                planTitle: plan.title,
-                planDescription: plan.description,
-                regenerate: false
-              })
-            )
-            this.testCasesByPlan[plan.id] = tcResp?.testCases || []
-            await this.delay(500) // Small delay to avoid hammering the endpoint
-          } catch (e) {
-            console.error(`Erreur chargement cas plan ${plan.id}`, e)
-            this.testCasesByPlan[plan.id] = []
-          }
-        }
       } catch (err) {
         console.error('Erreur chargement plans suite', err)
       } finally {
@@ -126,23 +113,20 @@ export class TestCasesHomeComponent {
       String(this.route.snapshot.queryParamMap.get('suiteId') || '').trim()
     const requestedSuiteId = String(this.route.snapshot.queryParamMap.get('suiteId') || '').trim()
 
-    // ✅ FIX : utiliser history.state au lieu de getCurrentNavigation()
     const state = history.state as { plans?: TestPlanDto[] }
     this.plans = state?.plans || []
 
     if (this.plans.length > 0) {
+      this.selectedPlanId = this.plans[0].id
       this.expandedPlans[this.plans[0].id] = true
+      return
     }
 
-    if (this.plans.length) {
-      await this.generateAllTestCases()
-    } else {
-      await this.loadSuites()
-      if (requestedSuiteId) {
-        const target = this.suites.find((s) => String(s._id || '').trim() === requestedSuiteId)
-        if (target && !this.expandedSuites[requestedSuiteId]) {
-          await this.toggleSuite(target)
-        }
+    await this.loadSuites()
+    if (requestedSuiteId) {
+      const target = this.suites.find((s) => String(s._id || '').trim() === requestedSuiteId)
+      if (target && !this.expandedSuites[requestedSuiteId]) {
+        await this.toggleSuite(target)
       }
     }
   }
@@ -166,9 +150,7 @@ export class TestCasesHomeComponent {
         return
       }
 
-      this.suites = await firstValueFrom(
-        this.testLabService.getTestSuitesByUser(userId)
-      )
+      this.suites = await firstValueFrom(this.testLabService.getTestSuitesByUser(userId))
     } catch (err: unknown) {
       this.errorMessage =
         (err as any)?.error?.message ||
@@ -179,48 +161,37 @@ export class TestCasesHomeComponent {
     }
   }
 
-  async generateAllTestCases() {
-    if (!this.plans.length || !this.testSuiteId) return
+  async onGenerateCases(plan: TestPlanDto, regenerate = false) {
+    if (!this.testSuiteId) return
 
     this.generating = true
     this.errorMessage = ''
-    this.toastr.info(
-      'Generation des test cases en cours en arriere-plan. Vous pouvez naviguer librement.',
-      'AI'
-    )
+    this.selectedPlanId = plan.id
 
     try {
-      for (const plan of this.plans) {
-        try {
-          const resp = await firstValueFrom(
-            this.testLabService.generateTestCases({
-              testSuiteId: this.testSuiteId,
-              planId: plan.id,
-              planTitle: plan.title,
-              planDescription: plan.description,
-              regenerate: false,
-            })
-          )
-          this.testCasesByPlan[plan.id] = resp?.testCases || []
-
-          // ✅ Pause entre chaque appel pour ne pas surcharger Ollama
-          await this.delay(2000)
-
-        } catch (err: unknown) {
-          console.error(`Erreur plan ${plan.id}:`, err)
-          // Continue avec le plan suivant au lieu de tout arrêter
-          this.testCasesByPlan[plan.id] = []
-        }
-      }
-      this.toastr.success('Generation des test cases terminee.', 'AI')
+      const resp = await firstValueFrom(
+        this.testLabService.generateTestCases({
+          testSuiteId: this.testSuiteId,
+          planId: plan.id,
+          planTitle: plan.title,
+          planDescription: plan.description,
+          regenerate,
+        })
+      )
+      this.testCasesByPlan[plan.id] = resp?.testCases || []
+      this.toastr.success(
+        regenerate ? `Test cases regenerated for ${plan.id}` : `Test cases generated for ${plan.id}`,
+        'AI'
+      )
+    } catch (err: unknown) {
+      this.errorMessage = (err as any)?.error?.message || 'Unable to generate test cases'
     } finally {
       this.generating = false
     }
   }
 
-  // ✅ Ajouter cette méthode utilitaire
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms))
+  onDeleteTestCase(planId: string, testCaseId: string) {
+    this.testCasesByPlan[planId] = (this.testCasesByPlan[planId] || []).filter((tc) => tc.id !== testCaseId)
   }
 
   openSuite(suite: TestSuiteDto) {
@@ -233,18 +204,12 @@ export class TestCasesHomeComponent {
   private resolveUserIdFromToken(token: string): string {
     try {
       const decoded = jwt_decode<Record<string, unknown>>(token)
-      const userLike =
-        (decoded?.['user'] as Record<string, unknown>) || decoded || {}
+      const userLike = (decoded?.['user'] as Record<string, unknown>) || decoded || {}
 
-      return String(
-        userLike['userId'] ||
-        userLike['id'] ||
-        userLike['_id'] ||
-        userLike['sub'] ||
-        ''
-      ).trim()
+      return String(userLike['userId'] || userLike['id'] || userLike['_id'] || userLike['sub'] || '').trim()
     } catch {
       return ''
     }
   }
+
 }

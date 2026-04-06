@@ -109,14 +109,22 @@ export class RolesManagementComponent implements OnInit {
     })
     ref.componentInstance.role = null
     ref.componentInstance.actions = this.actions
-    ref.closed.subscribe(() => this.loadData())
+    ref.closed.subscribe((created) => {
+      if (created) {
+        this.showActionSuccess('created')
+      }
+      this.loadData()
+    })
   }
 
   getActionNames(actionIds?: number[]): string {
     if (!actionIds || actionIds.length === 0) return '-'
 
     return actionIds
-      .map((id) => this.actions.find((a) => a._id === id)?.name || `#${id}`)
+      .map((id) => {
+        const raw = this.actions.find((a) => a._id === id)?.name || `#${id}`
+        return raw.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim()
+      })
       .join(', ')
   }
 
@@ -134,7 +142,12 @@ export class RolesManagementComponent implements OnInit {
     })
     ref.componentInstance.role = role
     ref.componentInstance.actions = this.actions
-    ref.closed.subscribe(() => this.loadData())
+    ref.closed.subscribe((updated) => {
+      if (updated) {
+        this.showActionSuccess('edited')
+      }
+      this.loadData()
+    })
   }
 
   async onDeleteRole(role: AppRole) {
@@ -148,17 +161,20 @@ export class RolesManagementComponent implements OnInit {
       windowClass: 'confirm-modal-window',
       backdropClass: 'confirm-modal-backdrop',
     })
-    ref.componentInstance.title = 'Delete role?'
-    ref.componentInstance.message = 'This will delete'
+    ref.componentInstance.title = 'Delete role ?'
+    //ref.componentInstance.message = 'This will delete'
     ref.componentInstance.entityName = role.name
-    ref.componentInstance.details = 'This action cannot be undone.'
+    //ref.componentInstance.details = 'This action cannot be undone.'
     ref.componentInstance.confirmText = 'Delete'
     ref.componentInstance.cancelText = 'Cancel'
     ref.componentInstance.confirmButtonClass = 'btn-brand'
 
     ref.closed.subscribe(() => {
       this.adminService.deleteRole(role._id).subscribe({
-        next: () => this.loadData(),
+        next: () => {
+          this.showActionSuccess('deleted')
+          this.loadData()
+        },
         error: (err) => {
           this.error = err?.error?.message || 'Unable to delete role'
         },
@@ -169,5 +185,10 @@ export class RolesManagementComponent implements OnInit {
   private notifyPermissionDenied(message: string) {
     this.permissionAlert = message
     this.toastr.warning(message, 'Permission')
+  }
+
+  private showActionSuccess(action: 'created' | 'edited' | 'deleted') {
+    const title = action.charAt(0).toUpperCase() + action.slice(1)
+    this.toastr.success('This action was completed successfully.', title)
   }
 }

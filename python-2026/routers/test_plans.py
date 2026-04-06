@@ -19,6 +19,7 @@
 
 import subprocess
 import os
+import re
 from typing import List, Optional
 
 from fastapi import APIRouter, UploadFile, File
@@ -29,6 +30,7 @@ from utils.ollama import run_ollama, parse_json_from_ollama
 from utils.docx_reader import extract_text_from_docx
 
 router = APIRouter()
+
 
 def _use_mock() -> bool:
     return os.getenv("USE_MOCK", "false").lower() in ("1", "true", "yes")
@@ -43,12 +45,142 @@ def _error_payload(message: str, detail: Optional[str] = None):
         return {"error": message, "detail": detail}
     return {"error": message}
 
+
+def _test_plans_timeout() -> int:
+    """
+    Timeout dedie a la generation des test plans.
+    Priorite:
+      1) OLLAMA_TEST_PLANS_TIMEOUT
+      2) OLLAMA_TIMEOUT
+      3) 300s
+    """
+    raw = os.getenv("OLLAMA_TEST_PLANS_TIMEOUT", os.getenv("OLLAMA_TIMEOUT", "300"))
+    try:
+        return int(raw)
+    except ValueError:
+        return 300
+
+
+def _truncate_spec(text: str, max_chars: int = 2400) -> str:
+    text = (text or "").strip()
+    if len(text) <= max_chars:
+        return text
+    truncated = text[:max_chars]
+    last_period = truncated.rfind(".")
+    if last_period > max_chars // 2:
+        return truncated[: last_period + 1]
+    return truncated + "..."
+
+
+# ── Prompt optimisé pour Mistral/Mixtral ────────────────────
+def _build_prompt(spec_text: str, style_config: str) -> str:
+    spec_short = _truncate_spec(spec_text, max_chars=2400)
+
+    style_block = (
+        f"UI Design Config:\n{style_config}"
+        if style_config
+        else "UI Design Config: (none — skip Visual/UI plan)"
+    )
+
+    # Exemple concret avec descriptions courtes (max 10 mots)
+    # Mistral imite l'exemple → descriptions courtes garanties
+    example = (
+        '[\n'
+        '  {"id": "TP-1", "title": "Authentication", "description": "Login logout and session expiry"},\n'
+        '  {"id": "TP-2", "title": "Form Validation", "description": "Required fields format and error messages"}\n'
+        ']'
+    )
+
+    return (
+        "<s>[INST]\n"
+        "You are a senior QA engineer. Your only task is to output a JSON array of test plan objects.\n\n"
+        "### Output format\n"
+        "- A raw JSON array. No markdown, no backticks, no prose before or after.\n"
+        "- Each object has exactly 3 keys: \"id\", \"title\", \"description\".\n"
+        "- \"id\": string, format TP-N (e.g. TP-1, TP-2 ...)\n"
+        "- \"title\": string, max 6 words, names a distinct test area\n"
+        "- \"description\": string, maximum 10 words, no punctuation at the end\n"
+        "- Between 4 and 10 objects total.\n"
+        "- Include a Visual/UI plan only if UI Design Config is provided.\n\n"
+        "### Example output\n"
+        f"{example}\n\n"
+        f"### {style_block}\n\n"
+        "### Specification\n"
+        f"{spec_short}\n"
+        "[/INST]"
+    )
+
+
+def _normalize_plan_id(value: object, index: int) -> str:
+    text = str(value).strip() if value is not None else ""
+    if re.fullmatch(r"TP-\d+", text):
+        return text
+    digits = re.search(r"\d+", text)
+    if digits:
+        return f"TP-{digits.group()}"
+    return f"TP-{index + 1}"
+
+
+def _extract_plans_from_text(reply: str) -> List[dict]:
+    """
+    Fallback when the model does not return valid JSON.
+    Try to recover plans from plain text bullets/numbered lines.
+    """
+    text = (reply or "").strip()
+    if not text:
+        return []
+
+    plans: List[dict] = []
+    seen_titles = set()
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith(("{", "}", "[", "]", "```")):
+            continue
+        if len(line) < 3:
+            continue
+
+        m = re.match(
+            r"^(?:[-*]\s+|\d+[.)]\s+)?(?P<title>[^:-]{3,90}?)(?:\s*[:\-]\s*(?P<desc>.+))?$",
+            line,
+        )
+        if not m:
+            continue
+
+        title = (m.group("title") or "").strip(" .:-")
+        desc = (m.group("desc") or "").strip()
+
+        lowered = title.lower()
+        if lowered in {"json", "test plans", "output", "rules", "specification"}:
+            continue
+        if title.lower().startswith(("here are", "below are", "i can", "sure")):
+            continue
+        if title in seen_titles:
+            continue
+
+        seen_titles.add(title)
+        plans.append(
+            {
+                "id": f"TP-{len(plans) + 1}",
+                "title": title,
+                "description": desc,
+            }
+        )
+
+        if len(plans) >= 10:
+            break
+
+    return plans if len(plans) >= 3 else []
+
+
 # ── Mock data ───────────────────────────────────────────────
 MOCK_TEST_PLANS = [
-    {"id": "TP-1", "title": "Authentication",       "description": "Login, logout and session management"},
-    {"id": "TP-2", "title": "Form Validation",      "description": "Required fields, formats and error messages"},
-    {"id": "TP-3", "title": "Navigation & Routing", "description": "Page transitions, redirects and breadcrumbs"},
-    {"id": "TP-4", "title": "Visual & UI",          "description": "Colors, fonts, button shapes and spacing"},
+    {"id": "TP-1", "title": "Authentication",       "description": "Login logout and session management"},
+    {"id": "TP-2", "title": "Form Validation",      "description": "Required fields formats and error messages"},
+    {"id": "TP-3", "title": "Navigation & Routing", "description": "Page transitions redirects and breadcrumbs"},
+    {"id": "TP-4", "title": "Visual & UI",          "description": "Colors fonts button shapes and spacing"},
 ]
 
 
@@ -110,37 +242,24 @@ def generate_plan(payload: GeneratePlanRequest):
     if _use_mock():
         return {"test_plans": MOCK_TEST_PLANS}
 
-    prompt = "\n".join(
-        [
-            "You are a senior QA engineer.",
-            "Read the specification and UI design config below.",
-            "Generate a high-level test plan as a JSON array of objects.",
-            "",
-            "Each object must have exactly:",
-            '  "id"          : TP-1, TP-2 ...',
-            '  "title"       : short test area name',
-            '  "description" : one sentence of what this plan covers',
-            "",
-            "Rules:",
-            "- Between 4 and 10 test plans",
-            "- Cover all major areas from the spec",
-            "- Add a Visual/UI plan if style config is provided",
-            "- Return ONLY the raw JSON array, no markdown, no explanation",
-            "",
-            f"UI Design Config:\n{style_config}" if style_config else "UI Design Config: (none)",
-            "",
-            "Specification:",
-            spec_text,
-        ]
-    )
+    prompt = _build_prompt(spec_text, style_config)
 
     try:
-        reply = run_ollama(prompt)
-        parsed = parse_json_from_ollama(reply)
+        reply = run_ollama(prompt, timeout=_test_plans_timeout())
+        try:
+            parsed = parse_json_from_ollama(reply)
+        except ValueError as parse_error:
+            recovered = _extract_plans_from_text(reply)
+            if recovered:
+                return {"test_plans": recovered}
+            raise parse_error
 
         # Some models wrap the array in an object, accept both.
-        if isinstance(parsed, dict) and isinstance(parsed.get("test_plans"), list):
-            parsed = parsed["test_plans"]
+        if isinstance(parsed, dict):
+            for key in ("test_plans", "plans", "items", "results"):
+                if isinstance(parsed.get(key), list):
+                    parsed = parsed[key]
+                    break
 
         if not isinstance(parsed, list) or not parsed:
             return JSONResponse(status_code=502, content={"error": "AI returned empty test plans"})
@@ -150,13 +269,17 @@ def generate_plan(payload: GeneratePlanRequest):
             if isinstance(item, dict):
                 test_plans.append(
                     {
-                        "id": str(item.get("id", f"TP-{i+1}")),
-                        "title": item.get("title", f"Test Plan {i+1}"),
-                        "description": item.get("description", ""),
+                        "id": _normalize_plan_id(item.get("id"), i),
+                        "title": str(item.get("title") or item.get("name") or f"Test Plan {i+1}").strip(),
+                        "description": str(
+                            item.get("description")
+                            or item.get("scope")
+                            or item.get("summary")
+                            or ""
+                        ).strip(),
                     }
                 )
             else:
-                # Fallback if the model returns a list of strings.
                 test_plans.append(
                     {
                         "id": f"TP-{i+1}",
@@ -170,7 +293,7 @@ def generate_plan(payload: GeneratePlanRequest):
     except FileNotFoundError:
         return JSONResponse(status_code=500, content=_error_payload("Ollama not found. Install from https://ollama.com"))
     except subprocess.TimeoutExpired:
-        return JSONResponse(status_code=504, content=_error_payload("Ollama took too long. Try a smaller spec."))
+        return JSONResponse(status_code=504, content=_error_payload("Ollama took too long. Check OLLAMA_TEST_PLANS_TIMEOUT / OLLAMA_TIMEOUT."))
     except ValueError as e:
         return JSONResponse(status_code=502, content=_error_payload("AI returned invalid JSON.", str(e)))
     except RuntimeError as e:

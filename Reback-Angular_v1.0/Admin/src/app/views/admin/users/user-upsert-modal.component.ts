@@ -13,6 +13,7 @@ import {
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './user-upsert-modal.component.html',
+  styleUrls: ['./user-upsert-modal.component.css'],
 })
 export class UserUpsertModalComponent implements OnInit {
   private fb = inject(FormBuilder)
@@ -73,4 +74,3 @@ export class UserUpsertModalComponent implements OnInit {
     })
   }
 }
-

@@ -1,9 +1,8 @@
 # ============================================================
 # routers/test_cases.py
 #
-# FIX : mistral retourne expected_result comme objet
-#       {"pass": "...", "fail": "..."} au lieu d'une string
-#       → _normalize_expected_result() aplatit ça en string
+# FIX 502 : prompt réécrit pour Mistral (tokens [INST], few-shot)
+# FIX     : expected_result normalisé si l'IA retourne un objet
 # ============================================================
 
 import subprocess
@@ -29,13 +28,6 @@ def _debug_errors() -> bool:
 
 
 def _test_cases_timeout() -> int:
-    """
-    Timeout dédié aux générations de test cases.
-    Priorité:
-      1) OLLAMA_TEST_CASES_TIMEOUT
-      2) OLLAMA_TIMEOUT
-      3) 300s
-    """
     raw = os.getenv("OLLAMA_TEST_CASES_TIMEOUT", os.getenv("OLLAMA_TIMEOUT", "300"))
     try:
         return int(raw)
@@ -48,7 +40,7 @@ def _error_payload(message: str, detail: Optional[str] = None):
         return {"error": message, "detail": detail}
     return {"error": message}
 
-#fausse donnee de test
+
 # ── Mock data ────────────────────────────────────────────────
 MOCK_TEST_CASES = {
     "plan_id": "TP-1",
@@ -115,27 +107,22 @@ class TestCasesResponse(BaseModel):
 
 def _normalize_expected_result(value) -> str:
     """
-    Mistral retourne parfois expected_result comme :
-      - string normale       → "User is redirected"          ✅ OK
-      - objet pass/fail      → {"pass": "...", "fail": "..."}  ← FIX
-      - objet result/outcome → {"result": "...", ...}           ← FIX
-      - liste                → ["step1", "step2"]               ← FIX
-      - None / autre         → ""                               ← FIX
+    Normalise expected_result quelle que soit la forme retournée par Mistral.
+      - string normale       → retournée telle quelle
+      - objet pass/fail      → "Pass: ... | Fail: ..."
+      - objet result/outcome → valeur extraite
+      - liste                → jointure avec " | "
+      - None / autre         → ""
     """
     if isinstance(value, str):
         return value.strip()
 
     if isinstance(value, dict):
-        # Cas {"pass": "...", "fail": "..."}  ← ce qu'on voit dans l'erreur
         if "pass" in value and "fail" in value:
             return f"Pass: {value['pass']} | Fail: {value['fail']}"
-
-        # Cas {"result": "..."} ou {"expected": "..."}
         for key in ("result", "expected", "expected_result", "outcome", "description"):
             if isinstance(value.get(key), str):
                 return value[key].strip()
-
-        # Fallback : joindre toutes les valeurs string du dict
         parts = [str(v) for v in value.values() if v and isinstance(v, str)]
         return " | ".join(parts) if parts else str(value)
 
@@ -158,35 +145,52 @@ def _truncate_spec(text: str, max_chars: int = 800) -> str:
 
 def _build_prompt(plan_id: str, plan_title: str, plan_description: str,
                   spec_text: str, style_config: str) -> str:
+
     plan_number = re.search(r"\d+", plan_id)
     tc_prefix   = f"TC-{plan_number.group()}" if plan_number else "TC"
     spec_short  = _truncate_spec(spec_text, max_chars=800)
 
-    # ✅ On force explicitement expected_result en STRING dans l'exemple
-    lines = [
-        "QA engineer. Return ONLY a JSON array, no text around it.",
-        f"Generate EXACTLY 4 test cases for: {plan_title}",
-        f"Context: {plan_description}",
-        "",
-        "Each item must follow this exact structure:",
-        '{',
-        f'  "id": "{tc_prefix}.1",',
-        '  "title": "short description",',
-        '  "steps": ["Step 1", "Step 2", "Step 3"],',
-        '  "expected_result": "one plain sentence describing the expected outcome"',
-        '}',
-        "",
-        # Règle explicite pour éviter l'objet pass/fail
-        'IMPORTANT: "expected_result" must be a plain string, NOT an object.',
-        "Rules: imperative steps, independent cases, include 1 error scenario.",
-        "",
-        f"Spec:\n{spec_short}",
-    ]
+    style_block = (
+        f"UI Design Config:\n{style_config[:200]}"
+        if style_config
+        else "UI Design Config: (none)"
+    )
 
-    if style_config:
-        lines.append(f"\nUI style: {style_config[:200]}")
+    # Exemple few-shot avec le bon préfixe TC
+    example = (
+        '[\n'
+        f'  {{"id": "{tc_prefix}.1", "title": "Valid login redirects to dashboard", '
+        '"steps": ["Enter valid email", "Enter valid password", "Click Submit"], '
+        '"expected_result": "User is redirected to the dashboard"}},\n'
+        f'  {{"id": "{tc_prefix}.2", "title": "Empty fields show error messages", '
+        '"steps": ["Leave email empty", "Leave password empty", "Click Submit"], '
+        '"expected_result": "Required field errors are displayed"}}\n'
+        ']'
+    )
 
-    return "\n".join(lines)
+    return (
+        "<s>[INST]\n"
+        "You are a senior QA engineer. Your only task is to output a JSON array of test case objects.\n\n"
+        "### Output format\n"
+        "- A raw JSON array. No markdown, no backticks, no prose before or after.\n"
+        "- Each object has exactly 4 keys: \"id\", \"title\", \"steps\", \"expected_result\".\n"
+        f'- "id": string, format {tc_prefix}.N (e.g. {tc_prefix}.1, {tc_prefix}.2 ...)\n'
+        '- "title": string, max 8 words, describes what is being tested\n'
+        '- "steps": array of strings, each step starts with an imperative verb\n'
+        '- "expected_result": a plain string, max 15 words. NEVER an object or array.\n'
+        "- Generate exactly 4 test cases.\n"
+        "- Include at least 1 error/negative scenario.\n\n"
+        "### Example output\n"
+        f"{example}\n\n"
+        f"### Test Plan\n"
+        f"ID: {plan_id}\n"
+        f"Title: {plan_title}\n"
+        f"Description: {plan_description}\n\n"
+        f"### {style_block}\n\n"
+        "### Specification\n"
+        f"{spec_short}\n"
+        "[/INST]"
+    )
 
 
 @router.post("/generate-test-cases", response_model=TestCasesResponse)
@@ -219,6 +223,7 @@ def generate_test_cases(payload: GenerateTestCasesRequest):
         parsed = parse_json_from_ollama(reply)
 
         if not isinstance(parsed, list) or not parsed:
+            print(f"Error: AI returned empty test cases or not a list. Parsed payload: {parsed}")
             return JSONResponse(status_code=502, content={"error": "AI returned empty test cases"})
 
         plan_number = re.search(r"\d+", plan_id)
@@ -235,7 +240,6 @@ def generate_test_cases(payload: GenerateTestCasesRequest):
                     "id":    str(item.get("id", f"{tc_prefix}.{i+1}")),
                     "title": item.get("title", f"Test Case {i+1}"),
                     "steps": [str(s).strip() for s in steps if str(s).strip()],
-                    # ✅ FIX : normalise expected_result quelle que soit sa forme
                     "expected_result": _normalize_expected_result(
                         item.get("expected_result") or item.get("expectedResult") or ""
                     ),
@@ -261,11 +265,14 @@ def generate_test_cases(payload: GenerateTestCasesRequest):
         return JSONResponse(status_code=504, content=_error_payload(
             "Ollama took too long. Check: ollama run mistral"))
     except ValueError as e:
+        print(f"ValueError parsing JSON in test_cases: {e}")
         return JSONResponse(status_code=502, content=_error_payload(
             "AI returned invalid JSON.", str(e)))
     except RuntimeError as e:
+        print(f"RuntimeError in run_ollama: {e}")
         return JSONResponse(status_code=502, content=_error_payload(
             "Ollama error.", str(e)))
     except Exception as e:
+        print(f"Internal error in test_cases: {e}")
         return JSONResponse(status_code=500, content=_error_payload(
             "Internal error.", str(e)))

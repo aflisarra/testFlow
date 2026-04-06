@@ -95,13 +95,21 @@
             <button type="button" class="btn btn-outline-secondary px-3" disabled title="Download .txt">
               <iconify-icon icon="iconamoon:download-duotone"></iconify-icon>
             </button>
-            <button type="button" class="btn btn-outline-primary px-4" [disabled]="generating">
+            <button
+              type="button"
+              class="btn btn-outline-primary px-4"
+              [disabled]="generating"
+              (click)="onGenerateCases(currentPlanPreview!, false)">
               <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
-              Regenerate Cases
+              Generate Cases
             </button>
-            <button type="button" class="btn btn-brand px-4 fw-bold" [disabled]="generating || !currentPlanCases.length">
-              <iconify-icon icon="iconamoon:arrow-right-2-duotone" class="me-1"></iconify-icon>
-              Confirm &amp; Next Plan
+            <button
+              type="button"
+              class="btn btn-brand px-4 fw-bold"
+              [disabled]="generating || !currentPlanCases.length"
+              (click)="onGenerateCases(currentPlanPreview!, true)">
+              <iconify-icon icon="iconamoon:refresh-2-duotone" class="me-1"></iconify-icon>
+              Regenerate Cases
             </button>
           </div>
         </div>
@@ -127,6 +135,13 @@
                   <iconify-icon icon="fluent:task-list-square-24-regular" class="me-1"></iconify-icon>
                   {{ testCasesByPlan[plan.id]?.length || 0 }} Cases
                 </span>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-primary"
+                  (click)="onGenerateCases(plan, false); $event.stopPropagation()"
+                  [disabled]="generating">
+                  Generate
+                </button>
                 <button class="btn btn-sm btn-icon expand-btn">
                   <iconify-icon [icon]="expandedPlans[plan.id] ? 'mdi:chevron-up' : 'mdi:chevron-down'"></iconify-icon>
                 </button>
