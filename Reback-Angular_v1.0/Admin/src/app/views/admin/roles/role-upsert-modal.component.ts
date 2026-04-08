@@ -14,6 +14,7 @@ import { map, type Observable } from 'rxjs'
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './role-upsert-modal.component.html',
+  styleUrls: ['./role-upsert-modal.component.css'],
 })
 export class RoleUpsertModalComponent implements OnInit, OnChanges {
   private fb = inject(FormBuilder)
@@ -24,13 +25,14 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges {
 
   submitting = false
   error = ''
+  submitted = false
 
   actionGroups: Array<{ key: string; label: string; actions: AppAction[] }> = []
   private enabledGroups = new Map<string, boolean>()
 
   roleForm = this.fb.group({
-    name: ['', [Validators.required]],
-    description: ['', [Validators.required]],
+    name: ['', [Validators.required, Validators.pattern(/\S+/)]],
+    description: ['', [Validators.required, Validators.pattern(/\S+/)]],
     actions: [[] as number[]],
   })
 
@@ -103,10 +105,14 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges {
   }
 
   formatActionName(name?: string): string {
-    return String(name || '')
+    const clean = String(name || '')
       .replace(/[-_]+/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
+      .toLowerCase()
+
+    if (!clean) return ''
+    return clean.charAt(0).toUpperCase() + clean.slice(1)
   }
 
   private rebuildActionGroups(): void {
@@ -168,8 +174,15 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges {
   }
 
   save(): void {
+    this.submitted = true
+
     if (this.roleForm.invalid) {
       this.roleForm.markAllAsTouched()
+      return
+    }
+
+    if ((this.roleForm.value.actions || []).length === 0) {
+      this.error = 'Please select at least one action.'
       return
     }
 

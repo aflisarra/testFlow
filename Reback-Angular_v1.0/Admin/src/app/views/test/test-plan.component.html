@@ -117,8 +117,7 @@
         <div>
           <h4 class="mb-1">Generated Test Plans</h4>
           <p class="mb-0 text-muted">
-            Review the plans below, then click <strong>Open Test Cases</strong>.
-            Test case generation will start only when the user clicks Generate.
+            Review and validate plans. Test case generation starts only in <strong>/testcases</strong>.
           </p>
         </div>
         <span class="testlab-pill">{{ testPlans.length }} plans</span>
@@ -128,9 +127,24 @@
       <div class="testlab-plan-list">
         @for (plan of testPlans; track plan.id) {
         <div class="testlab-plan-item testlab-plan-item--readonly">
-          <div class="testlab-plan-title">
-            <span class="me-2 testlab-plan-badge">{{ plan.id }}</span>
-            <span class="fw-bold">{{ plan.title }}</span>
+          <div class="testlab-plan-title d-flex align-items-center justify-content-between gap-2">
+            <div>
+              <span class="me-2 testlab-plan-badge">{{ plan.id }}</span>
+              <span class="fw-bold">{{ plan.title }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge text-capitalize"
+                [ngClass]="planStatuses[plan.id] === 'confirmed' ? 'text-bg-success' : 'text-bg-warning'">
+                {{ planStatuses[plan.id] === 'confirmed' ? 'Complete' : 'Incomplete' }}
+              </span>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success"
+                [disabled]="planStatuses[plan.id] === 'confirmed'"
+                (click)="onConfirmPlan(plan.id)">
+                Confirm
+              </button>
+            </div>
           </div>
           <div class="testlab-plan-desc">{{ plan.description }}</div>
         </div>
@@ -139,16 +153,22 @@
 
       <!-- Actions -->
       <div class="testlab-actions mt-4">
-        <button type="button" class="btn btn-outline-secondary px-4" (click)="onCancelPlans()">
-          Cancel
-        </button>
         <button type="button" class="btn btn-outline-primary px-4" (click)="onRegeneratePlans()">
           Regenerate
         </button>
-        <!-- ✅ Démarre le flux séquentiel -->
-        <button type="button" class="btn btn-brand px-4 fw-bold" (click)="onStartSequentialFlow()">
+        <button type="button" class="btn btn-outline-success px-4" (click)="onValidatePlans()">
+          Validate
+        </button>
+        <button
+          type="button"
+          class="btn btn-success px-4 fw-bold"
+          [disabled]="sessionSaved"
+          (click)="onSaveSession()">
+          Save
+        </button>
+        <button type="button" class="btn btn-brand px-4 fw-bold" [disabled]="finishing" (click)="onValidateAndGoToCases()">
           <iconify-icon icon="iconamoon:arrow-right-2-duotone" class="me-1"></iconify-icon>
-          Open Test Cases
+          Validate &amp; Next
         </button>
       </div>
 

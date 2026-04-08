@@ -102,11 +102,31 @@
   box-shadow: 0 0 0 3px rgba(122, 169, 217, 0.18);
 }
 
+.exec-input.is-invalid,
+.exec-select.is-invalid,
+.exec-textarea.is-invalid {
+  border-color: #ef4444;
+  background: #fff7f7;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.12);
+}
+
+.exec-input.is-invalid:focus,
+.exec-select.is-invalid:focus,
+.exec-textarea.is-invalid:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+}
+
 .exec-actions-box {
   border: 1px solid #dce8f5;
   border-radius: 12px;
   background: #f9fcff;
   padding: 0.5rem;
+}
+
+.exec-actions-box.is-invalid {
+  border-color: #ef4444;
+  background: #fff7f7;
 }
 
 .exec-actions-scroll {
@@ -128,12 +148,17 @@
   border: none;
   border-radius: 10px;
   padding: 0.58rem 0.9rem;
-  font-weight: 400;
+  font-weight: 400 !important;
+}
+
+.exec-buttons .exec-btn {
+  font-weight: 400 !important;
 }
 
 .exec-btn-cancel {
   background: #eef3f9;
   color: #45688f;
+  font-weight: 400 !important;
 }
 
 .exec-btn-cancel:hover {
@@ -144,6 +169,7 @@
   background: #ec8a00;
   border: 1px solid #ec8a00;
   color: #ffffff;
+  font-weight: 400 !important;
 }
 
 .exec-btn-save:hover:not(:disabled) {

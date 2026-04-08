@@ -56,6 +56,24 @@ export const MENU: MenuItem[] = [
     ],
 
   },
+
+
+  //project management 
+  {
+    key: 'project Management',
+    icon: 'iconamoon:folder-duotone',
+    label: 'project Management',
+    collapsed: true,
+    subMenu: [
+      {
+        key: 'project',
+        label: 'project',
+        link: '/project',
+        parentKey: 'project',
+      }
+    ]
+  },
+
   {
     key: 'test',
     icon: 'iconamoon:file-check-duotone',

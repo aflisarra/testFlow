@@ -50,6 +50,14 @@ const testCasesByPlanSchema = new mongoose.Schema(
     { _id: false }
 );
 
+const planStatusSchema = new mongoose.Schema(
+    {
+        planId: { type: String, required: true, trim: true },
+        status: { type: String, enum: ['pending', 'generating', 'reviewing', 'confirmed', 'completed', 'incomplete'], default: 'pending' }
+    },
+    { _id: false }
+);
+
 const testSuiteSchema = new mongoose.Schema({
 
     // Name of the test suite (auto-generated or user-defined)
@@ -116,6 +124,24 @@ const testSuiteSchema = new mongoose.Schema({
     testCasesByPlan: {
         type: [testCasesByPlanSchema],
         default: []
+    },
+
+    // Session-level completion status persisted by frontend workflow
+    sessionStatus: {
+        type: String,
+        enum: ['complete', 'incomplete'],
+        default: 'incomplete'
+    },
+
+    // Persisted status per plan id
+    planStatuses: {
+        type: [planStatusSchema],
+        default: []
+    },
+
+    sessionSavedAt: {
+        type: Date,
+        default: null
     },
 
     // Target URL of the application to test

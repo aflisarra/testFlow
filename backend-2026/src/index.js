@@ -25,6 +25,7 @@ const roleRoutes = require('../src/routes/role.routes');
 //const userRoutes = require('./src/routes/user.routes');
 const authRedirectRoute = require('../src/routes/authRedirect');
 const actionRoutes = require('../src/routes/action.routes');
+const projectRoutes = require('../src/routes/project.routes');
 
 
 
@@ -98,6 +99,7 @@ app.use('/api/auth', require('../src/routes/auth.routes'));
 app.use('/api/users', require('../src/routes/user.routes'));
 app.use('/api/roles', roleRoutes);
 app.use('/api/actions', actionRoutes);
+app.use('/api/projects', projectRoutes);
 app.use('/api/testsuites', testSuiteRoutes);
 app.use("/api/plantest", plantestRoutes);
 app.use("/api/ai", aiRoutes);

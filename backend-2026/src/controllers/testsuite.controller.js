@@ -62,3 +62,20 @@ exports.getPlans = async (req, res) => {
     res.status(error.statusCode || 500).json({ message: error.message })
   }
 }
+
+exports.saveSession = async (req, res) => {
+  try {
+    const suite = await testSuiteService.saveSuiteSession(req.params.id, req.body || {})
+    res.json({
+      message: 'Session saved successfully',
+      suite: {
+        _id: suite._id,
+        sessionStatus: suite.sessionStatus,
+        planStatuses: suite.planStatuses || [],
+        sessionSavedAt: suite.sessionSavedAt || null,
+      },
+    })
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ message: error.message })
+  }
+}

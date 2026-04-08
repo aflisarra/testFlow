@@ -14,12 +14,14 @@ import { getUser } from '@/app/store/authentication/authentication.selector'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { ToastrService } from 'ngx-toastr'
+import { loginSuccess } from '@/app/store/authentication/authentication.actions'
 
 @Component({
   selector: 'app-roles-management',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, NgbModalModule],
   templateUrl: './roles-management.component.html',
+  styleUrls: ['./roles-management.component.css'],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class RolesManagementComponent implements OnInit {
@@ -112,6 +114,7 @@ export class RolesManagementComponent implements OnInit {
     ref.closed.subscribe((created) => {
       if (created) {
         this.showActionSuccess('created')
+        this.refreshCurrentUserPermissions()
       }
       this.loadData()
     })
@@ -123,9 +126,20 @@ export class RolesManagementComponent implements OnInit {
     return actionIds
       .map((id) => {
         const raw = this.actions.find((a) => a._id === id)?.name || `#${id}`
-        return raw.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim()
+        return this.toSentenceCase(raw)
       })
       .join(', ')
+  }
+
+  private toSentenceCase(value: string): string {
+    const clean = String(value || '')
+      .replace(/[-_]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase()
+
+    if (!clean) return ''
+    return clean.charAt(0).toUpperCase() + clean.slice(1)
   }
 
   onEditRole(role: AppRole) {
@@ -145,6 +159,7 @@ export class RolesManagementComponent implements OnInit {
     ref.closed.subscribe((updated) => {
       if (updated) {
         this.showActionSuccess('edited')
+        this.refreshCurrentUserPermissions()
       }
       this.loadData()
     })
@@ -173,6 +188,7 @@ export class RolesManagementComponent implements OnInit {
       this.adminService.deleteRole(role._id).subscribe({
         next: () => {
           this.showActionSuccess('deleted')
+          this.refreshCurrentUserPermissions()
           this.loadData()
         },
         error: (err) => {
@@ -190,5 +206,31 @@ export class RolesManagementComponent implements OnInit {
   private showActionSuccess(action: 'created' | 'edited' | 'deleted') {
     const title = action.charAt(0).toUpperCase() + action.slice(1)
     this.toastr.success('This action was completed successfully.', title)
+  }
+
+  private refreshCurrentUserPermissions() {
+    this.adminService.getCurrentUserProfile().subscribe({
+      next: async (resp) => {
+        const current = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
+        if (!current) return
+
+        const updatedUser = {
+          ...current,
+          id: (resp?.user as any)?._id || (current as any)?.id || '',
+          username: resp?.user?.name || (current as any)?.username || '',
+          email: resp?.user?.email || (current as any)?.email || '',
+          picture: resp?.user?.picture ?? (current as any)?.picture ?? null,
+          role: resp?.user?.role || (current as any)?.role || '',
+          actions: Array.isArray(resp?.actions) ? resp.actions : [],
+          token: (current as any)?.token || '',
+        }
+
+        this.store.dispatch(loginSuccess({ user: updatedUser as any }))
+        await this.initPermissions()
+      },
+      error: () => {
+        // Ignore sync errors to avoid blocking role management actions
+      },
+    })
   }
 }

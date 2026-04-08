@@ -16,6 +16,7 @@ import { ToastrService } from 'ngx-toastr'
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, NgbModalModule],
   templateUrl: './all-users.component.html',
+  styleUrls: ['./all-users.component.css'],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class AllUsersComponent implements OnInit {
@@ -31,8 +32,11 @@ export class AllUsersComponent implements OnInit {
   roles: AppRole[] = []
   loading = false
   submitting = false
+  createSubmitted = false
   error = ''
   permissionAlert = ''
+  private currentUserId = ''
+  private currentUserEmail = ''
 
   private readonly ACTION_ADD_USER = 2
   private readonly ACTION_EDIT_USER = 3
@@ -40,10 +44,10 @@ export class AllUsersComponent implements OnInit {
   private readonly ACTION_DELETE_USER = 5
 
   createUserForm = this.fb.group({
-    name: ['', [Validators.required]],
+    name: ['', [Validators.required, Validators.pattern(/\S+/)]],
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]],
-    role: ['', [Validators.required]],
+    role: ['', [Validators.required, Validators.pattern(/\S+/)]],
     description: [''],
     picture: [null as File | null],
   })
@@ -54,6 +58,7 @@ export class AllUsersComponent implements OnInit {
   canViewUsers = false
 
   async ngOnInit(): Promise<void> {
+    this.clearCreateUserCredentials()
     await this.initPermissions()
     this.loadRoles()
     if (this.canViewUsers) {
@@ -63,8 +68,17 @@ export class AllUsersComponent implements OnInit {
     }
   }
 
+  private clearCreateUserCredentials(): void {
+    this.createUserForm.patchValue(
+      { email: '', password: '' },
+      { emitEvent: false }
+    )
+  }
+
   private async initPermissions() {
     const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
+    this.currentUserId = String((user as any)?.id || (user as any)?._id || '').trim()
+    this.currentUserEmail = String((user as any)?.email || '').trim().toLowerCase()
     const actions = Array.isArray((user as any)?.actions) ? (user as any).actions : []
     this.canAddUser = actions.includes(this.ACTION_ADD_USER)
     this.canEditUser = actions.includes(this.ACTION_EDIT_USER)
@@ -95,7 +109,7 @@ export class AllUsersComponent implements OnInit {
 
     this.adminService.getUsers().subscribe({
       next: (users) => {
-        this.users = users
+        this.users = (users || []).filter((u) => !this.isCurrentUser(u))
         this.loading = false
       },
       error: (err) => {
@@ -126,6 +140,8 @@ export class AllUsersComponent implements OnInit {
   }
 
   submitCreateUser(): void {
+    this.createSubmitted = true
+
     if (!this.canAddUser) {
       this.notifyPermissionDenied('Action non autorisee: Add User.')
       return
@@ -149,6 +165,7 @@ export class AllUsersComponent implements OnInit {
     this.adminService.createUser(payload).subscribe({
       next: () => {
         this.submitting = false
+        this.createSubmitted = false
         this.createUserForm.reset({
           name: '',
           email: '',
@@ -229,5 +246,13 @@ export class AllUsersComponent implements OnInit {
   private showActionSuccess(action: 'created' | 'edited' | 'deleted') {
     const title = action.charAt(0).toUpperCase() + action.slice(1)
     this.toastr.success('This action was completed successfully.', title)
+  }
+
+  private isCurrentUser(user: AppUser): boolean {
+    const idMatch = String(user?._id || '').trim() !== '' && String(user?._id || '').trim() === this.currentUserId
+    const emailMatch =
+      String(user?.email || '').trim().toLowerCase() !== '' &&
+      String(user?.email || '').trim().toLowerCase() === this.currentUserEmail
+    return idMatch || emailMatch
   }
 }

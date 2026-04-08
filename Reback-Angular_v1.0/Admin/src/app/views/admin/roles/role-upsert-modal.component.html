@@ -21,19 +21,41 @@
 
     <form class="exec-upsert-form" [formGroup]="roleForm">
       <div class="exec-field">
-        <label class="exec-label">Role name</label>
-        <input class="exec-input" formControlName="name" placeholder="Enter role name..." />
+        <label class="exec-label">Role name <span class="text-danger">*</span></label>
+        <input
+          class="exec-input"
+          [class.is-invalid]="roleForm.controls.name.touched && roleForm.controls.name.invalid"
+          formControlName="name"
+          placeholder="Enter role name..."
+        />
+        @if (roleForm.controls.name.touched && roleForm.controls.name.errors?.['required']) {
+          <small class="text-danger">Role name is required.</small>
+        }
+        @if (roleForm.controls.name.touched && roleForm.controls.name.errors?.['pattern']) {
+          <small class="text-danger">Role name cannot be empty spaces.</small>
+        }
       </div>
 
       <div class="exec-field">
-        <label class="exec-label">Description</label>
-        <textarea class="exec-textarea" rows="2" formControlName="description"></textarea>
+        <label class="exec-label">Description <span class="text-danger">*</span></label>
+        <textarea
+          class="exec-textarea"
+          [class.is-invalid]="roleForm.controls.description.touched && roleForm.controls.description.invalid"
+          rows="2"
+          formControlName="description"
+        ></textarea>
+        @if (roleForm.controls.description.touched && roleForm.controls.description.errors?.['required']) {
+          <small class="text-danger">Description is required.</small>
+        }
+        @if (roleForm.controls.description.touched && roleForm.controls.description.errors?.['pattern']) {
+          <small class="text-danger">Description cannot be empty spaces.</small>
+        }
       </div>
 
       <div class="exec-field">
         <div class="exec-actions-head">
           <div class="d-flex flex-column">
-            <label class="exec-label mb-0">Actions</label>
+            <label class="exec-label mb-0">Actions <span class="text-danger">*</span></label>
             <span class="exec-selected-badge">{{ selectedCount }} selected</span>
           </div>
 
@@ -48,7 +70,7 @@
           </label>
         </div>
 
-        <div class="exec-actions-box">
+        <div class="exec-actions-box" [class.is-invalid]="submitted && (roleForm.value.actions || []).length === 0">
           <div class="exec-actions-scroll custom-scrollbar">
             @if (actionGroups.length === 0) {
               <div class="text-muted px-2 py-2">No actions</div>
@@ -86,6 +108,9 @@
             }
           </div>
         </div>
+        @if (submitted && (roleForm.value.actions || []).length === 0) {
+          <small class="text-danger">Select at least one action.</small>
+        }
 
         <div class="exec-buttons">
           <button

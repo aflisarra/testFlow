@@ -101,7 +101,7 @@ export class TestCasesValidationComponent {
   async onOpenSuite(suite: TestSuiteDto) {
     const id = String(suite._id || '').trim()
     if (!id) return
-    await this.router.navigate(['/test-cases'], {
+    await this.router.navigate(['/testcases'], {
       queryParams: { suiteId: id },
     })
   }
@@ -162,6 +162,33 @@ export class TestCasesValidationComponent {
     ) || 0
   }
 
+  getSuiteStatus(suiteId: string): 'Complete' | 'Incomplete' {
+    const suite = this.suites.find((s) => String(s._id || '').trim() === String(suiteId || '').trim())
+    if (suite?.sessionStatus === 'complete') return 'Complete'
+    return 'Incomplete'
+  }
+
+  getIncompletePlans(suite: TestSuiteDto): TestPlanDto[] {
+    const plans = (suite?.testPlans || []) as TestPlanDto[]
+    const statuses = Array.isArray(suite?.planStatuses) ? suite.planStatuses : []
+    const byPlan = new Map<string, string>()
+    for (const row of statuses) {
+      if (row?.planId) byPlan.set(row.planId, String(row.status || '').toLowerCase())
+    }
+    return plans.filter((p) => {
+      const status = byPlan.get(p.id) || 'pending'
+      return status !== 'confirmed' && status !== 'completed'
+    })
+  }
+
+  onCompleteTest(suite: TestSuiteDto, plan: TestPlanDto) {
+    const suiteId = String(suite?._id || '').trim()
+    if (!suiteId || !plan?.id) return
+    void this.router.navigate(['/testcases'], {
+      queryParams: { suiteId, planId: plan.id },
+    })
+  }
+
   private async generateTestCases(plan: TestPlanDto, regenerate: boolean) {
     this.generatingCasesPlanId = plan.id
     this.errorMessage = ''
@@ -205,9 +232,15 @@ export class TestCasesValidationComponent {
     try {
       const resp = await firstValueFrom(this.testLabService.getTestPlans(this.testSuiteId))
       this.testPlans = resp?.testPlans || []
+      for (const block of resp?.testCasesByPlan || []) {
+        if (block?.planId) this.testCasesByPlan[block.planId] = block?.testCases || []
+      }
       if (!this.testPlans.length) { this.errorMessage = 'No test plans found.'; return }
-      this.selectedPlanId = this.testPlans[0].id
-      await this.generateTestCases(this.testPlans[0], false)
+      const requestedPlanId = String(this.route.snapshot.queryParamMap.get('planId') || '').trim()
+      this.selectedPlanId =
+        requestedPlanId && this.testPlans.some((p) => p.id === requestedPlanId)
+          ? requestedPlanId
+          : this.testPlans[0].id
     } catch (err: unknown) {
       this.errorMessage = (err as any)?.error?.message || 'Unable to load plans'
     } finally {

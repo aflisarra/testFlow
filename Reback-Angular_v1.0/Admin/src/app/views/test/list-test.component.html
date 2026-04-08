@@ -10,13 +10,10 @@
   @if (view === 'list') {
   <div class="suites-header mb-4">
     <div>
-      <h2 class="suites-title">list of test suites</h2>
+      <h2 class="suites-title">List of Test Suites</h2>
       <p class="suites-subtitle">Manage and monitor your automated test suite runs.</p>
     </div>
-    <button type="button" class="btn-new-suite">
-      <iconify-icon icon="iconamoon:add-duotone"></iconify-icon>
-      New Test Suite
-    </button>
+
   </div>
 
   <div class="suites-table-card">
@@ -58,6 +55,7 @@
             <th>Spec File</th>
             <th>Plans</th>
             <th>Cases</th>
+            <th>Status</th>
             <th>Created At</th>
             <th></th>
           </tr>
@@ -87,6 +85,12 @@
             <td class="suite-plans-count">
               {{ getTotalCases(suite) }}
             </td>
+            <td>
+              <span class="badge"
+                [ngClass]="getSuiteStatus(suite._id) === 'Complete' ? 'text-bg-success' : 'text-bg-warning'">
+                {{ getSuiteStatus(suite._id) }}
+              </span>
+            </td>
             <td class="suite-date">
               {{ suite.createdAt ? (suite.createdAt | date:'dd MMM yyyy, HH:mm') : '—' }}
             </td>
@@ -105,7 +109,7 @@
           <!-- Detail panel (expandable) -->
           @if (expandedSuiteId === suite._id) {
           <tr class="suite-detail-row">
-            <td colspan="7">
+            <td colspan="8">
               <div class="suite-detail-panel">
                 <div class="suite-detail-grid">
 
@@ -164,6 +168,20 @@
                         <iconify-icon icon="iconamoon:eye-duotone"></iconify-icon>
                         View Plans & Cases
                       </button>
+                      @if (getIncompletePlans(suite).length) {
+                      <div class="mt-3">
+                        <div class="small fw-semibold mb-2">Incomplete tests</div>
+                        @for (plan of getIncompletePlans(suite); track plan.id) {
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                          <span class="small">{{ plan.id }} - {{ plan.title }}</span>
+                          <button type="button" class="btn btn-sm btn-outline-success"
+                            (click)="onCompleteTest(suite, plan); $event.stopPropagation()">
+                            Complete Test
+                          </button>
+                        </div>
+                        }
+                      </div>
+                      }
 
                     </div>
                   </div>

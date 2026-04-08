@@ -1,0 +1,156 @@
+<div class="project-page container-fluid py-3">
+  <div class="project-hero d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <h4 class="project-hero-title mb-1">Project Management</h4>
+      <p class="project-hero-subtitle mb-2">Create projects and build your delivery team with precision.</p>
+      <div class="project-hero-metrics">
+        <span class="metric-pill">{{ projects.length }} Projects</span>
+        <span class="metric-pill metric-pill--soft">{{ users.length }} Specialists</span>
+      </div>
+    </div>
+    <button class="btn btn-brand btn-hero" type="button" (click)="onNewProject()">New Project</button>
+
+  </div>
+
+  @if (error) {
+  <div class="alert alert-danger">{{ error }}</div>
+  }
+
+  <div class="row g-3">
+    <div class="col-lg-4">
+      <div class="card h-100 shadow-sm pm-panel">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <h6 class="mb-0 panel-title">Projects</h6>
+            <span class="panel-badge">{{ projects.length }}</span>
+          </div>
+
+          @if (loading) {
+          <p class="text-muted mb-0">Loading...</p>
+          } @else if (!projects.length) {
+          <p class="text-muted mb-0">No projects yet.</p>
+          } @else {
+          <div class="project-list">
+            @for (project of projects; track project._id) {
+            <button type="button" class="project-item" [class.project-item--active]="selectedProjectId === project._id"
+              (click)="onSelectProject(project)">
+              <div class="d-flex justify-content-between align-items-start gap-2">
+                <div>
+                  <div class="project-item-title">{{ project.title }}</div>
+                  <div class="small text-muted text-capitalize">{{ project.status }}</div>
+                </div>
+                <span class="project-users-chip">{{ project.assignedUsers?.length || 0 }} users</span>
+              </div>
+            </button>
+            }
+          </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-8">
+      <div class="card shadow-sm pm-panel">
+        <div class="card-body">
+          <form [formGroup]="projectForm" (ngSubmit)="saveProject()" class="row g-3">
+            <div class="col-12">
+              <label class="form-label pm-label">Project Title <span class="text-danger">*</span></label>
+              <input class="form-control"
+                [class.is-invalid]="projectForm.controls.title.touched && projectForm.controls.title.invalid"
+                formControlName="title" placeholder="e.g. QA infrastructure modernization" />
+              @if (projectForm.controls.title.touched && projectForm.controls.title.errors?.['required']) {
+              <div class="invalid-feedback d-block">Project title is required.</div>
+              }
+              @if (projectForm.controls.title.touched && projectForm.controls.title.errors?.['pattern']) {
+              <div class="invalid-feedback d-block">Project title cannot be empty spaces.</div>
+              }
+            </div>
+
+            <div class="col-12">
+              <label class="form-label pm-label">Project Description</label>
+              <textarea class="form-control" rows="3" formControlName="description"></textarea>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label pm-label">Date Range</label>
+              <div class="date-range-field">
+                <div class="date-range-item">
+                  <label class="date-range-label">Start Date</label>
+                  <input type="date" class="form-control" formControlName="startDate" />
+                </div>
+                <div class="date-range-sep">to</div>
+                <div class="date-range-item">
+                  <label class="date-range-label">End Date</label>
+                  <input type="date" class="form-control" formControlName="endDate" />
+                </div>
+              </div>
+              @if (hasInvalidDateOrder()) {
+              <div class="invalid-feedback d-block">End date cannot be before start date.</div>
+              }
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label pm-label">Milestone Date</label>
+              <input type="date" class="form-control" formControlName="milestoneDate" />
+              @if (hasInvalidDateOrder()) {
+              <div class="invalid-feedback d-block">Milestone date cannot be before start date.</div>
+              }
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label pm-label">Status</label>
+              <select class="form-select" formControlName="status">
+                <option value="draft">Draft</option>
+                <option value="active">Active</option>
+                <option value="paused">Paused</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+
+            <div class="col-12">
+              <div class="elite-team-head mb-2" (click)="toggleEliteTeam()">
+                <div>
+                  <label class="form-label mb-0 elite-team-title">Elite Team</label>
+                  <div class="small text-muted">Select your specialists</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary elite-team-toggle">
+                  {{ eliteTeamOpen ? 'Hide' : 'View' }}
+                </button>
+              </div>
+
+              @if (eliteTeamOpen && usersLoading) {
+              <p class="text-muted small mb-0">Loading users...</p>
+              } @else if (eliteTeamOpen && !users.length) {
+              <p class="text-muted small mb-0">No users available.</p>
+              } @else if (eliteTeamOpen) {
+              <div class="team-grid">
+                @for (user of users; track user._id) {
+                <label class="team-user" [class.team-user--active]="isAssigned(user._id)">
+                  <div class="team-user-left">
+                    <img [src]="resolveAvatarUrl(user.picture)" (error)="onAvatarError($event)" alt="avatar"
+                      class="team-avatar" />
+                    <div>
+                      <div class="team-name">{{ user.name }}</div>
+                      <div class="team-meta">{{ user.role || user.email }}</div>
+                    </div>
+                  </div>
+
+                  <input type="checkbox" class="team-check" [checked]="isAssigned(user._id)"
+                    (change)="toggleAssignUser(user._id, $any($event.target).checked)" />
+                </label>
+                }
+              </div>
+              }
+            </div>
+
+            <div class="col-12 d-flex justify-content-end gap-2 pt-2">
+              <button type="submit" class="btn btn-brand" [disabled]="submitting">
+                {{ submitting ? 'Saving...' : 'Save Project' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

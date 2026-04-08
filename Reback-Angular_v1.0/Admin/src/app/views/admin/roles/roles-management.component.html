@@ -1,12 +1,12 @@
-<div class="row g-4">
+<div class="row g-4 management-page">
   <div class="col-xl-4">
-    <div class="card h-100">
+    <div class="card h-100 panel-card">
       <div class="card-header">
-        <h4 class="card-title mb-0 brand-title">Create Role</h4>
+        <h4 class="card-title mb-0 brand-title panel-title">Create Role</h4>
       </div>
       <div class="card-body">
         <p class="text-muted mb-3">Create roles and assign permissions (actions).</p>
-        <button class="btn btn-brand w-100" type="button" (click)="onCreateRole()" [disabled]="!canAddRole">
+        <button class="btn btn-brand btn-unified w-100" type="button" (click)="onCreateRole()" [disabled]="!canAddRole">
           New Role
         </button>
       </div>
@@ -14,67 +14,57 @@
   </div>
 
   <div class="col-xl-8">
-    <div class="card h-100">
+    <div class="card h-100 panel-card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h4 class="card-title mb-0 brand-title">Roles</h4>
-        <button class="btn btn-sm btn-brand" (click)="loadData()" [disabled]="!canViewRoles">Refresh</button>
+        <h4 class="card-title mb-0 brand-title panel-title">Roles</h4>
+
       </div>
       <div class="card-body">
         @if (loading) {
-          <p class="text-muted mb-0">Loading roles...</p>
+        <p class="text-muted mb-0">Loading roles...</p>
         }
 
         @if (error) {
-          <div class="alert alert-danger">{{ error }}</div>
+        <div class="alert alert-danger">{{ error }}</div>
         }
 
         @if (!loading && canViewRoles) {
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Description</th>
-                  <th>Actions</th>
-                  <th class="text-end col-actions">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (role of roles; track role._id) {
-                  <tr>
-                    <td>{{ role.name }}</td>
-                    <td>{{ role.description }}</td>
-                    <td>{{ getActionNames(role.actions) }}</td>
-                    <td class="text-end col-actions">
-                      <button
-                        class="btn btn-sm btn-action btn-action-edit me-2"
-                        type="button"
-                        title="Edit"
-                        (click)="onEditRole(role)"
-                        [disabled]="!canEditRole"
-                      >
-                        <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
-                      </button>
-                      <button
-                        class="btn btn-sm btn-action btn-action-delete"
-                        type="button"
-                        title="Delete"
-                        (click)="onDeleteRole(role)"
-                        [disabled]="!canDeleteRole"
-                      >
-                        <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
-                      </button>
-                    </td>
-                  </tr>
-                }
-                @if (roles.length === 0) {
-                  <tr>
-                    <td colspan="4" class="text-center text-muted py-4">No roles found</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Actions</th>
+                <th class="text-end col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (role of roles; track role._id) {
+              <tr>
+                <td>{{ role.name }}</td>
+                <td>{{ role.description }}</td>
+                <td>{{ getActionNames(role.actions) }}</td>
+                <td class="text-end col-actions">
+                  <button class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified me-2" type="button" title="Edit"
+                    (click)="onEditRole(role)" [disabled]="!canEditRole">
+                    <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
+                  </button>
+                  <button class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button" title="Delete"
+                    (click)="onDeleteRole(role)" [disabled]="!canDeleteRole">
+                    <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
+                  </button>
+                </td>
+              </tr>
+              }
+              @if (roles.length === 0) {
+              <tr>
+                <td colspan="4" class="text-center text-muted py-4">No roles found</td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
         }
 
       </div>

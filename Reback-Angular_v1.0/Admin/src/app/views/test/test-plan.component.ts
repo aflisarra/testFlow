@@ -56,6 +56,8 @@ export class TestSuiteConfigurationComponent {
 
   /** True pendant la navigation finale vers /test-cases */
   finishing = false
+  plansValidated = false
+  sessionSaved = false
 
   // ──────────────────────────────────────────────────────────────────────────
 
@@ -112,6 +114,56 @@ export class TestSuiteConfigurationComponent {
     void this.generatePlans()
   }
 
+  onValidatePlans() {
+    if (!this.testPlans.length) return
+    this.plansValidated = true
+    this.toastr.success('Test plans validated successfully.', 'Validation')
+  }
+
+  onConfirmPlan(planId: string) {
+    if (!planId) return
+    this.planStatuses[planId] = 'confirmed'
+  }
+
+  onSaveSession() {
+    if (!this.testPlans.length || !this.currentTestSuiteId) return
+
+    const suiteStatus = this.allPlansConfirmed ? 'complete' : 'incomplete'
+    this.testLabService.saveSuiteSession(this.currentTestSuiteId, {
+      suiteStatus,
+      planStatuses: this.planStatuses,
+    }).subscribe({
+      next: () => {
+        this.sessionSaved = true
+        this.toastr.success('Test session saved successfully.', 'Save')
+      },
+      error: (err) => {
+        this.toastr.error(err?.error?.message || 'Unable to save session', 'Save')
+      },
+    })
+  }
+
+  async onValidateAndGoToCases() {
+    if (!this.testPlans.length || !this.currentTestSuiteId) return
+    if (!this.sessionSaved) {
+      this.toastr.warning('Click Save first. Nothing is persisted yet.', 'Save required')
+      return
+    }
+    if (!this.plansValidated) {
+      this.onValidatePlans()
+    }
+
+    this.finishing = true
+    try {
+      await this.router.navigate(['/testcases'], {
+        queryParams: { suiteId: this.currentTestSuiteId },
+        state: { plans: this.testPlans },
+      })
+    } finally {
+      this.finishing = false
+    }
+  }
+
   // 🔹 Annuler / reset complet
   onCancelPlans() {
     this.errorMessage = ''
@@ -125,6 +177,8 @@ export class TestSuiteConfigurationComponent {
     this.testCasesByPlan = {}
     this.currentPlanIndex = -1
     this.planStatuses = {}
+    this.plansValidated = false
+    this.sessionSaved = false
   }
 
   // 🔹 Régénérer tous les plans depuis le début
@@ -139,8 +193,7 @@ export class TestSuiteConfigurationComponent {
    * Appelé depuis "Confirm" sur la liste des plans.
    */
   async onStartSequentialFlow() {
-    if (!this.testPlans.length || !this.currentTestSuiteId) return
-    await this.finishAndNavigate()
+    await this.onValidateAndGoToCases()
   }
 
   /**
@@ -272,10 +325,10 @@ export class TestSuiteConfigurationComponent {
         queryParams: { suiteId: this.currentTestSuiteId },
         state: { plans: this.testPlans },
       })
-      this.toastr.info(
+      /*this.toastr.info(
         'Generation des test cases en cours en arriere-plan. Vous pouvez naviguer librement.',
         'AI'
-      )
+      )*/
     } finally {
       this.finishing = false
     }
@@ -301,6 +354,8 @@ export class TestSuiteConfigurationComponent {
     this.testCasesByPlan = {}
     this.currentPlanIndex = -1
     this.planStatuses = {}
+    this.plansValidated = false
+    this.sessionSaved = false
 
     try {
       this.toastr.info('Generation du test plan en cours. Vous pouvez changer de page.', 'AI')
@@ -346,7 +401,6 @@ export class TestSuiteConfigurationComponent {
         this.toastr.warning(this.errorMessage, 'Test Plan')
       } else {
         this.toastr.success('Test plans générés avec succès.', 'AI')
-        await this.finishAndNavigate()
       }
     } catch (err: unknown) {
       const status = (err as any)?.status

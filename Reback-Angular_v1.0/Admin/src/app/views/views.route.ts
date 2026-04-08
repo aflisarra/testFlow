@@ -8,6 +8,7 @@ import { RolesManagementComponent } from './admin/roles/roles-management.compone
 import { TestSuiteConfigurationComponent } from './test/test-plan.component'
 import { TestCasesValidationComponent } from './test/list-test.component'
 import { TestCasesHomeComponent } from './test/test-cases-home.component'
+import { ProjectManagementComponent } from './project/project-management.component'
 
 export const VIEW_ROUTES: Route[] = [
   {
@@ -64,6 +65,11 @@ export const VIEW_ROUTES: Route[] = [
     data: { title: 'Roles' },
   },
   {
+    path: 'project',
+    component: ProjectManagementComponent,
+    data: { title: 'Project Management' },
+  },
+  {
     path: 'ui',
     loadChildren: () => import('./ui/ui.route').then((mod) => mod.UI_ROUTES),
   },
@@ -107,7 +113,17 @@ export const VIEW_ROUTES: Route[] = [
     data: { title: 'Test Cases' },
   },
   {
+    path: 'testcases',
+    component: TestCasesHomeComponent,
+    data: { title: 'Test Cases' },
+  },
+  {
     path: 'test-cases/:id',
+    component: TestCasesValidationComponent,
+    data: { title: 'Validation' },
+  },
+  {
+    path: 'testcases/:id',
     component: TestCasesValidationComponent,
     data: { title: 'Validation' },
   },

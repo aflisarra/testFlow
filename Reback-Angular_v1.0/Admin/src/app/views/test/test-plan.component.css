@@ -1,6 +1,20 @@
+:host {
+    --pm-bg-a: #f6f8fc;
+    --pm-bg-b: #eef2fb;
+    --pm-panel: rgba(255, 255, 255, 0.88);
+    --pm-border: #e6ebf3;
+    --pm-text: #0f172a;
+    --pm-muted: #6b7280;
+    --pm-brand: #ec8a00;
+}
+
 .testlab-page {
     padding: 1.75rem 0;
-    background: #fff;
+    background:
+        radial-gradient(1000px 400px at 92% -8%, rgba(236, 138, 0, 0.16), transparent 55%),
+        radial-gradient(750px 320px at -8% 8%, rgba(59, 130, 246, 0.12), transparent 60%),
+        linear-gradient(180deg, var(--pm-bg-a) 0%, var(--pm-bg-b) 100%);
+    border-radius: 16px;
 }
 
 .testlab-container {
@@ -73,15 +87,15 @@
 }
 
 .testlab-hero-title {
-    font-weight: 900;
-    letter-spacing: -0.02em;
-    color: var(--brand-blue);
-    font-size: 1.85rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    color: var(--pm-text);
+    font-size: 1.45rem;
     line-height: 1.15;
 }
 
 .testlab-hero-subtitle {
-    color: #64748b;
+    color: #4b5563;
     max-width: 72ch;
     font-size: 0.95rem;
 }
@@ -92,10 +106,11 @@
 }
 
 .testlab-card {
-    background: #fff;
-    border: 1px solid #e7eef9;
-    border-radius: 0.9rem;
-    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.06);
+    background: var(--pm-panel);
+    border: 1px solid var(--pm-border);
+    border-radius: 16px;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
 }
 
 .testlab-card h3 {
@@ -108,7 +123,7 @@
     align-items: center;
     gap: 0.5rem;
     font-weight: 800;
-    color: var(--brand-blue);
+    color: var(--pm-text);
 }
 
 .testlab-title-icon {
@@ -117,8 +132,8 @@
 }
 
 .testlab-card-subtitle {
-    color: #64748b;
-    font-size: 0.8rem;
+    color: var(--pm-muted);
+    font-size: 0.82rem;
 }
 
 .testlab-name-row {
@@ -128,17 +143,19 @@
 }
 
 .testlab-name-label {
-    font-size: 0.76rem;
+    font-size: 0.78rem;
     font-weight: 800;
-    color: #1f3e67;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #475569;
 }
 
 .testlab-input,
 .testlab-textarea {
     width: 100%;
-    border: 1px solid #e7eef9;
-    background: #f3f6ff;
-    border-radius: 0.65rem;
+    border: 1px solid #d8e1ee;
+    background: #fcfdff;
+    border-radius: 11px;
     padding: 0.9rem 1rem;
     outline: none;
     transition: box-shadow 150ms ease, border-color 150ms ease, background 150ms ease;
@@ -160,8 +177,8 @@
 
 .testlab-input:focus,
 .testlab-textarea:focus {
-    border-color: var(--brand-orange);
-    box-shadow: 0 0 0 4px rgba(236, 138, 0, 0.15);
+    border-color: #86a3eb;
+    box-shadow: 0 0 0 3px rgba(95, 115, 242, 0.14);
     background: #fff;
 }
 
@@ -240,9 +257,9 @@
     font-weight: 800;
     padding: 0.35rem 0.6rem;
     border-radius: 999px;
-    color: #0f172a;
-    background: rgba(148, 163, 184, 0.35);
-    border: 1px solid rgba(148, 163, 184, 0.5);
+    color: #7a4a05;
+    background: #ffe8c9;
+    border: 1px solid #ffd39f;
 }
 
 .testlab-pill--processing {
@@ -363,11 +380,13 @@
 }
 
 .testlab-cta .btn {
-    border-radius: 0.6rem;
+    border-radius: 11px;
+    font-weight: 700;
 }
 
 .testlab-page .btn-brand {
-    border-radius: 0.6rem;
+    border-radius: 11px;
+    font-weight: 700;
     box-shadow: 0 14px 22px rgba(236, 138, 0, 0.18);
 }
 

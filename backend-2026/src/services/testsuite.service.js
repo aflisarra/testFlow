@@ -421,7 +421,7 @@ async function getTestSuitesByUser(userId) {
     // Public listing mode: return all suites regardless of connected user.
     // Keep the same function signature/endpoint for frontend compatibility.
     const suites = await TestSuite.find({})
-        .select('_id nom nametest description specFileName urlCible testPlans testCasesByPlan createdAt userId')
+        .select('_id nom nametest description specFileName urlCible testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt createdAt userId')
         .populate('userId', 'name email')
         .sort({ createdAt: -1 })
         .lean()
@@ -441,7 +441,7 @@ async function getTestSuitesByUser(userId) {
 
 async function getTestPlansByTestSuiteId(testSuiteId) {
     const suite = await TestSuite.findById(testSuiteId)
-        .select('_id testPlans testCasesByPlan')
+        .select('_id testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt')
         .lean()
 
     if (!suite) {
@@ -454,7 +454,48 @@ async function getTestPlansByTestSuiteId(testSuiteId) {
         testSuiteId: String(suite._id),
         testPlans: suite.testPlans || [],
         testCasesByPlan: suite.testCasesByPlan || [],
+        sessionStatus: suite.sessionStatus || 'incomplete',
+        planStatuses: suite.planStatuses || [],
+        sessionSavedAt: suite.sessionSavedAt || null,
     }
+}
+
+async function saveSuiteSession(testSuiteId, payload = {}) {
+    const planStatusesInput = payload?.planStatuses || {}
+    const planStatuses = Object.entries(planStatusesInput)
+        .map(([planId, status]) => ({
+            planId: String(planId || '').trim(),
+            status: String(status || '').trim(),
+        }))
+        .filter((item) => item.planId && item.status)
+
+    const suiteStatus = String(payload?.suiteStatus || 'incomplete').toLowerCase() === 'complete'
+        ? 'complete'
+        : 'incomplete'
+
+    const update = {
+        sessionStatus: suiteStatus,
+        planStatuses,
+        sessionSavedAt: new Date(),
+    }
+
+    if (payload?.testCasesByPlan && Array.isArray(payload.testCasesByPlan)) {
+        update.testCasesByPlan = payload.testCasesByPlan
+    }
+
+    const suite = await TestSuite.findByIdAndUpdate(
+        testSuiteId,
+        update,
+        { new: true }
+    )
+
+    if (!suite) {
+        const error = new Error('TestSuite not found')
+        error.statusCode = 404
+        throw error
+    }
+
+    return suite
 }
 
 module.exports = {
@@ -462,5 +503,6 @@ module.exports = {
     getPlanByTestSuiteId,
     getTestSuitesByUser,
     getTestPlansByTestSuiteId,
+    saveSuiteSession,
     parseBoolean,
 };

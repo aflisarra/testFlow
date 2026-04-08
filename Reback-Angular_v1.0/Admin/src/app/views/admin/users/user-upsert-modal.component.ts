@@ -26,9 +26,9 @@ export class UserUpsertModalComponent implements OnInit {
   error = ''
 
   userForm = this.fb.group({
-    name: ['', [Validators.required]],
+    name: ['', [Validators.required, Validators.pattern(/\S+/)]],
     email: ['', [Validators.required, Validators.email]],
-    role: ['', [Validators.required]],
+    role: ['', [Validators.required, Validators.pattern(/\S+/)]],
     description: [''],
   })
 

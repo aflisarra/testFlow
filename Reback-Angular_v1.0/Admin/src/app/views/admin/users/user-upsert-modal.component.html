@@ -21,23 +21,55 @@
 
     <form class="exec-upsert-form" [formGroup]="userForm">
       <div class="exec-field">
-        <label class="exec-label">Name</label>
-        <input class="exec-input" formControlName="name" placeholder="Enter name..." />
+        <label class="exec-label">Name <span class="text-danger">*</span></label>
+        <input
+          class="exec-input"
+          [class.is-invalid]="userForm.controls.name.touched && userForm.controls.name.invalid"
+          formControlName="name"
+          placeholder="Enter name..."
+        />
+        @if (userForm.controls.name.touched && userForm.controls.name.errors?.['required']) {
+          <small class="text-danger">Name is required.</small>
+        }
+        @if (userForm.controls.name.touched && userForm.controls.name.errors?.['pattern']) {
+          <small class="text-danger">Name cannot be empty spaces.</small>
+        }
       </div>
 
       <div class="exec-field">
-        <label class="exec-label">Email</label>
-        <input class="exec-input" formControlName="email" placeholder="Enter email..." />
+        <label class="exec-label">Email <span class="text-danger">*</span></label>
+        <input
+          class="exec-input"
+          [class.is-invalid]="userForm.controls.email.touched && userForm.controls.email.invalid"
+          formControlName="email"
+          placeholder="Enter email..."
+        />
+        @if (userForm.controls.email.touched && userForm.controls.email.errors?.['required']) {
+          <small class="text-danger">Email is required.</small>
+        }
+        @if (userForm.controls.email.touched && userForm.controls.email.errors?.['email']) {
+          <small class="text-danger">Enter a valid email address.</small>
+        }
       </div>
 
       <div class="exec-field">
-        <label class="exec-label">Role</label>
-        <select class="exec-select" formControlName="role">
+        <label class="exec-label">Role <span class="text-danger">*</span></label>
+        <select
+          class="exec-select"
+          [class.is-invalid]="userForm.controls.role.touched && userForm.controls.role.invalid"
+          formControlName="role"
+        >
           <option value="" disabled>Select role</option>
           @for (role of roles; track role._id) {
           <option [value]="role.name">{{ role.name }}</option>
           }
         </select>
+        @if (userForm.controls.role.touched && userForm.controls.role.errors?.['required']) {
+          <small class="text-danger">Role is required.</small>
+        }
+        @if (userForm.controls.role.touched && userForm.controls.role.errors?.['pattern']) {
+          <small class="text-danger">Role cannot be empty spaces.</small>
+        }
       </div>
 
       <div class="exec-field">

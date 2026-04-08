@@ -49,6 +49,9 @@ export interface GetTestPlansResponse {
   testSuiteId: string
   testPlans: TestPlanDto[]
   testCasesByPlan?: any[]
+  sessionStatus?: 'complete' | 'incomplete'
+  planStatuses?: Array<{ planId: string; status: string }>
+  sessionSavedAt?: string | null
 }
 
 export interface TestSuiteDto {
@@ -62,6 +65,9 @@ export interface TestSuiteDto {
   urlCible?: string
   testPlans?: TestPlanDto[]
   testCasesByPlan?: any[]
+  sessionStatus?: 'complete' | 'incomplete'
+  planStatuses?: Array<{ planId: string; status: string }>
+  sessionSavedAt?: string | null
   createdAt?: string
   updatedAt?: string
 }
@@ -110,6 +116,33 @@ export class TestLabService {
     return this.http.get<GetTestPlansResponse>(
       `${this.baseUrl}/testsuites/${testSuiteId}/plans`
     )
+  }
+
+  saveSuiteSession(
+    testSuiteId: string,
+    payload: {
+      suiteStatus: 'complete' | 'incomplete'
+      planStatuses: Record<string, string>
+      testCasesByPlan?: any[]
+    }
+  ): Observable<{
+    message: string
+    suite: {
+      _id: string
+      sessionStatus: 'complete' | 'incomplete'
+      planStatuses: Array<{ planId: string; status: string }>
+      sessionSavedAt: string | null
+    }
+  }> {
+    return this.http.patch<{
+      message: string
+      suite: {
+        _id: string
+        sessionStatus: 'complete' | 'incomplete'
+        planStatuses: Array<{ planId: string; status: string }>
+        sessionSavedAt: string | null
+      }
+    }>(`${this.baseUrl}/testsuites/${testSuiteId}/session`, payload)
   }
 
   // ── Legacy ───────────────────────────────────────────────

@@ -1,8 +1,24 @@
 /* ══════════════════════════════════════════
    PAGE
 ══════════════════════════════════════════ */
+:host {
+    --pm-bg-a: #f6f8fc;
+    --pm-bg-b: #eef2fb;
+    --pm-panel: rgba(255, 255, 255, 0.88);
+    --pm-border: #e6ebf3;
+    --pm-text: #0f172a;
+    --pm-muted: #6b7280;
+    --pm-brand: #ec8a00;
+    --pm-brand-soft: rgba(236, 138, 0, 0.14);
+}
+
 .testlab-suites-page {
     padding: 2rem;
+    background:
+        radial-gradient(1000px 400px at 92% -8%, rgba(236, 138, 0, 0.16), transparent 55%),
+        radial-gradient(750px 320px at -8% 8%, rgba(59, 130, 246, 0.12), transparent 60%),
+        linear-gradient(180deg, var(--pm-bg-a) 0%, var(--pm-bg-b) 100%);
+    border-radius: 16px;
 }
 
 /* ══════════════════════════════════════════
@@ -17,15 +33,16 @@
 }
 
 .suites-title {
-    font-size: 1.75rem;
+    font-size: 1.45rem;
     font-weight: 800;
-    color: var(--tc-text-primary);
+    letter-spacing: 0.01em;
+    color: var(--pm-text);
     margin: 0;
 }
 
 .suites-subtitle {
-    font-size: 0.85rem;
-    color: var(--tc-text-muted);
+    font-size: 0.95rem;
+    color: #4b5563;
     margin: 0;
 }
 
@@ -52,10 +69,32 @@
    TABLE CARD
 ══════════════════════════════════════════ */
 .suites-table-card {
-    background: var(--tc-card-bg);
-    border: 1px solid var(--tc-border);
-    border-radius: 1rem;
+    background: var(--pm-panel);
+    border: 1px solid var(--pm-border);
+    border-radius: 16px;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
     overflow: hidden;
+}
+
+.testlab-card {
+    background: var(--pm-panel);
+    border: 1px solid var(--pm-border);
+    border-radius: 16px;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+}
+
+.tc-title {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--pm-text);
+    letter-spacing: 0.01em;
+}
+
+.tc-subtitle {
+    color: #4b5563;
+    font-size: 0.92rem;
 }
 
 /* Toolbar */
@@ -138,10 +177,10 @@
 
 .suites-table thead th {
     padding: 1rem 2rem;
-    font-size: 0.65rem;
-    font-weight: 700;
+    font-size: 0.78rem;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.04em;
     color: var(--tc-text-muted);
     text-align: left;
 }
@@ -384,7 +423,7 @@
     align-items: center;
     justify-content: center;
     gap: 0.4rem;
-    background: #003A70;
+    background: #ec8a00;
     color: #fff;
     border: none;
     border-radius: 0.5rem;
@@ -396,7 +435,7 @@
 }
 
 .btn-suite-primary:hover {
-    background: #004b91;
+    background: #d97c00;
 }
 
 .btn-suite-ghost {

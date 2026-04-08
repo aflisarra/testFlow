@@ -203,11 +203,17 @@ html[data-bs-theme='dark'] textarea.form-control:focus {
   gap: 0.75rem;
 }
 
+.confirm-actions .btn {
+  border-radius: 10px !important;
+  font-weight: 400 !important;
+  padding: 0.58rem 0.9rem !important;
+  line-height: 1.2;
+}
+
 .btn-confirm-cancel {
   background: transparent;
   border: 1px solid rgba(115, 119, 129, 0.6);
   color: rgba(115, 119, 129, 1);
-  border-radius: 999px;
 }
 
 .btn-confirm-cancel:hover {

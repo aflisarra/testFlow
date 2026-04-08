@@ -125,7 +125,14 @@ exports.getUserProfile = async (req, res) => {
       return res.status(404).json({ message: 'User Not Found' });
     }
 
-    return res.status(200).json({ user });
+    const roleDoc = user.roleId != null
+      ? await Role.findById(user.roleId).select('actions')
+      : await Role.findOne({ name: String(user.role || '').trim() }).select('actions');
+
+    return res.status(200).json({
+      user,
+      actions: Array.isArray(roleDoc?.actions) ? roleDoc.actions : [],
+    });
   } catch (error) {
     console.error('Error fetching profile', error);
     return res.status(500).json({ message: 'Server Error' });

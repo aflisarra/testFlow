@@ -12,6 +12,11 @@ export interface AppUser {
   picture?: string
 }
 
+export interface CurrentUserProfileResponse {
+  user: AppUser
+  actions: number[]
+}
+
 export interface AppAction {
   _id: number
   name: string
@@ -23,6 +28,20 @@ export interface AppRole {
   name: string
   description: string
   actions?: number[]
+}
+
+export interface AppProject {
+  _id: string
+  title: string
+  description?: string
+  startDate?: string | null
+  endDate?: string | null
+  milestoneDate?: string | null
+  status: 'draft' | 'active' | 'paused' | 'completed'
+  ownerId?: AppUser | string
+  assignedUsers?: AppUser[]
+  createdAt?: string
+  updatedAt?: string
 }
 
 @Injectable({ providedIn: 'root' })
@@ -58,6 +77,10 @@ export class AdminManagementService {
 
   getUser(userId: string): Observable<AppUser> {
     return this.http.get<AppUser>(`${this.API_URL}/users/${userId}`)
+  }
+
+  getCurrentUserProfile(): Observable<CurrentUserProfileResponse> {
+    return this.http.get<CurrentUserProfileResponse>(`${this.API_URL}/users/profile`)
   }
 
   updateUser(
@@ -96,5 +119,51 @@ export class AdminManagementService {
 
   getActions(): Observable<AppAction[]> {
     return this.http.get<AppAction[]>(`${this.API_URL}/actions`)
+  }
+
+  getProjects(mine = false): Observable<AppProject[]> {
+    return this.http.get<AppProject[]>(`${this.API_URL}/projects`, {
+      params: { mine: String(mine) },
+    })
+  }
+
+  createProject(payload: {
+    title: string
+    description?: string
+    startDate?: string | null
+    endDate?: string | null
+    milestoneDate?: string | null
+    status?: 'draft' | 'active' | 'paused' | 'completed'
+    assignedUsers?: string[]
+  }): Observable<{ message: string; project: AppProject }> {
+    return this.http.post<{ message: string; project: AppProject }>(`${this.API_URL}/projects`, payload)
+  }
+
+  updateProject(
+    projectId: string,
+    payload: {
+      title?: string
+      description?: string
+      startDate?: string | null
+      endDate?: string | null
+      milestoneDate?: string | null
+      status?: 'draft' | 'active' | 'paused' | 'completed'
+      assignedUsers?: string[]
+    }
+  ): Observable<{ message: string; project: AppProject }> {
+    return this.http.put<{ message: string; project: AppProject }>(`${this.API_URL}/projects/${projectId}`, payload)
+  }
+
+  assignUsersToProject(
+    projectId: string,
+    assignedUsers: string[]
+  ): Observable<{ message: string; project: AppProject }> {
+    return this.http.patch<{ message: string; project: AppProject }>(`${this.API_URL}/projects/${projectId}/users`, {
+      assignedUsers,
+    })
+  }
+
+  deleteProject(projectId: string): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.API_URL}/projects/${projectId}`)
   }
 }
