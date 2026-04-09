@@ -116,47 +116,50 @@ export class TestSuiteConfigurationComponent {
 
   onValidatePlans() {
     if (!this.testPlans.length) return
+    this.testPlans.forEach((p) => {
+      this.planStatuses[p.id] = 'confirmed'
+    })
     this.plansValidated = true
     this.toastr.success('Test plans validated successfully.', 'Validation')
   }
 
-  onConfirmPlan(planId: string) {
-    if (!planId) return
-    this.planStatuses[planId] = 'confirmed'
-  }
-
-  onSaveSession() {
-    if (!this.testPlans.length || !this.currentTestSuiteId) return
-
+  async onSaveSession(): Promise<boolean> {
+    if (!this.testPlans.length || !this.currentTestSuiteId) return false
     const suiteStatus = this.allPlansConfirmed ? 'complete' : 'incomplete'
-    this.testLabService.saveSuiteSession(this.currentTestSuiteId, {
-      suiteStatus,
-      planStatuses: this.planStatuses,
-    }).subscribe({
-      next: () => {
-        this.sessionSaved = true
-        this.toastr.success('Test session saved successfully.', 'Save')
-      },
-      error: (err) => {
-        this.toastr.error(err?.error?.message || 'Unable to save session', 'Save')
-      },
-    })
+    try {
+      await firstValueFrom(
+        this.testLabService.saveSuiteSession(this.currentTestSuiteId, {
+          suiteStatus,
+          planStatuses: this.planStatuses,
+        })
+      )
+      this.sessionSaved = true
+      return true
+    } catch (err: any) {
+      this.toastr.error(err?.error?.message || 'Unable to save session', 'Save')
+      return false
+    }
   }
 
   async onValidateAndGoToCases() {
-    if (!this.testPlans.length || !this.currentTestSuiteId) return
-    if (!this.sessionSaved) {
-      this.toastr.warning('Click Save first. Nothing is persisted yet.', 'Save required')
+    if (!this.testPlans.length) {
+      this.toastr.warning('Generate at least one test plan first.', 'Validation')
       return
     }
     if (!this.plansValidated) {
       this.onValidatePlans()
     }
+    if (this.currentTestSuiteId && !this.sessionSaved) {
+      const saved = await this.onSaveSession()
+      if (!saved) {
+        this.toastr.warning('Session not saved. Redirecting to test cases anyway.', 'Save')
+      }
+    }
 
     this.finishing = true
     try {
-      await this.router.navigate(['/testcases'], {
-        queryParams: { suiteId: this.currentTestSuiteId },
+      await this.router.navigate(['/test-cases'], {
+        queryParams: this.currentTestSuiteId ? { suiteId: this.currentTestSuiteId } : undefined,
         state: { plans: this.testPlans },
       })
     } finally {
@@ -184,6 +187,57 @@ export class TestSuiteConfigurationComponent {
   // 🔹 Régénérer tous les plans depuis le début
   onRegeneratePlans() {
     void this.generatePlans(true)
+  }
+
+  async onRegeneratePlan(plan: TestPlanDto, index: number) {
+    if (!plan?.id || !this.currentTestSuiteId) return
+    if (!this.selectedFile) {
+      this.toastr.warning('Upload the specification document first.', 'Regenerate')
+      return
+    }
+
+    try {
+      const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
+      let userId = String((user as any)?.id || (user as any)?._id || '').trim()
+      const token = String((user as any)?.token || this.authService.session || '').trim()
+      if (!userId && token) userId = this.resolveUserIdFromToken(token)
+      if (!userId) {
+        this.toastr.error('Session expired. Reconnect and retry.', 'Session')
+        return
+      }
+
+      const formData = new FormData()
+      formData.append('file', this.selectedFile)
+      formData.append('styleConfig', this.styleConfig.trim())
+      formData.append('description', this.styleConfig.trim())
+      formData.append('userId', userId)
+      formData.append('testSuiteId', this.currentTestSuiteId)
+      formData.append('planId', plan.id)
+      formData.append('regenerate', 'true')
+
+      const result = await firstValueFrom(this.testLabService.generatePlanFromDocx(formData))
+      const nextPlans = Array.isArray(result?.testPlans) ? result.testPlans : []
+      if (!nextPlans.length) {
+        this.toastr.warning('No regenerated plan returned by backend.', 'Regenerate')
+        return
+      }
+
+      const bySameId = nextPlans.find((p) => p.id === plan.id)
+      const bySameIndex = nextPlans[index] || null
+      const updated = bySameId || bySameIndex
+      if (!updated) {
+        this.toastr.warning('Unable to match regenerated plan.', 'Regenerate')
+        return
+      }
+
+      this.testPlans[index] = updated
+      this.planStatuses[updated.id] = 'pending'
+      this.sessionSaved = false
+      this.plansValidated = false
+      this.toastr.success(`Plan ${plan.id} regenerated successfully.`, 'Regenerate')
+    } catch (err: any) {
+      this.toastr.error(err?.error?.message || 'Unable to regenerate this plan', 'Regenerate')
+    }
   }
 
   // ─── Flux séquentiel ──────────────────────────────────────────────────────

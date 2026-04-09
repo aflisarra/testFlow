@@ -229,6 +229,19 @@ export class TestCasesHomeComponent {
     this.onStopGeneration()
   }
 
+  onCancelPlan(plan: TestPlanDto) {
+    if (!plan?.id) return
+    if (this.generating && this.generatingPlanId === plan.id) {
+      this.onStopGeneration()
+      return
+    }
+
+    this.testCasesByPlan[plan.id] = []
+    this.planStatuses[plan.id] = 'incomplete'
+    this.expandedPlans[plan.id] = false
+    this.toastr.info(`Plan ${plan.id} cancelled.`, 'Cancel')
+  }
+
   onSaveSession() {
     if (!this.testSuiteId || !this.plans.length) return
 

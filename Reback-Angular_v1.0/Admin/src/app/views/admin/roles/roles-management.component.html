@@ -5,10 +5,17 @@
         <h4 class="card-title mb-0 brand-title panel-title">Create Role</h4>
       </div>
       <div class="card-body">
-        <p class="text-muted mb-3">Create roles and assign permissions (actions).</p>
-        <button class="btn btn-brand btn-unified w-100" type="button" (click)="onCreateRole()" [disabled]="!canAddRole">
-          New Role
-        </button>
+        @if (canAddRole) {
+        <app-role-upsert-modal
+          [inlineMode]="true"
+          [role]="null"
+          [actions]="actions"
+          (saved)="onCreateRoleSaved($event)"
+          (cancelled)="onCreateRoleCancelled()">
+        </app-role-upsert-modal>
+        } @else {
+        <div class="alert alert-warning mb-0">Action non autorisee: Add Role.</div>
+        }
       </div>
     </div>
   </div>
@@ -40,7 +47,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (role of roles; track role._id) {
+              @for (role of paginatedRoles; track role._id) {
               <tr>
                 <td>{{ role.name }}</td>
                 <td>{{ role.description }}</td>
@@ -65,6 +72,25 @@
             </tbody>
           </table>
         </div>
+
+        @if (roles.length > 0) {
+        <div class="table-pagination">
+          <span class="table-pagination__meta">
+            Showing {{ rolesRangeStart }}-{{ rolesRangeEnd }} of {{ roles.length }}
+          </span>
+          <div class="table-pagination__actions">
+            <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="currentRolePage === 1"
+              (click)="onPrevRolesPage()">
+              Previous
+            </button>
+            <span class="table-pagination__page">Page {{ currentRolePage }} / {{ totalRolePages }}</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+              [disabled]="currentRolePage === totalRolePages" (click)="onNextRolesPage()">
+              Next
+            </button>
+          </div>
+        </div>
+        }
         }
 
       </div>

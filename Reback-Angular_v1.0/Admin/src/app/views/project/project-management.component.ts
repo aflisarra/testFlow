@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common'
-import { Component, OnInit, inject } from '@angular/core'
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms'
+import { CUSTOM_ELEMENTS_SCHEMA, Component, HostListener, OnInit, inject } from '@angular/core'
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms'
 import {
   AdminManagementService,
   AppProject,
@@ -17,9 +17,10 @@ import { take } from 'rxjs/operators'
 @Component({
   selector: 'app-project-management',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule],
   templateUrl: './project-management.component.html',
   styleUrls: ['./project-management.component.css'],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class ProjectManagementComponent implements OnInit {
   private fb = inject(FormBuilder)
@@ -35,7 +36,7 @@ export class ProjectManagementComponent implements OnInit {
   usersLoading = false
   submitting = false
   error = ''
-  eliteTeamOpen = false
+  eliteTeamSearch = ''
   readonly defaultAvatar = 'assets/images/users/default-user.svg'
   private readonly backendOrigin = 'http://localhost:3000'
   private currentUserId = ''
@@ -43,13 +44,26 @@ export class ProjectManagementComponent implements OnInit {
 
   selectedProjectId: string | null = null
   assignedUserIds = new Set<string>()
+  editingProjectId: string | null = null
+  editSubmitting = false
+  editAssignedUserIds = new Set<string>()
+  editEliteTeamOpen = false
 
   projectForm = this.fb.group({
     title: ['', [Validators.required, Validators.pattern(/\S+/)]],
     description: [''],
-    startDate: [''],
-    endDate: [''],
-    milestoneDate: [''],
+    startDate: ['', [Validators.required]],
+    endDate: ['', [Validators.required]],
+    milestoneDate: ['', [Validators.required]],
+    status: this.fb.nonNullable.control<'draft' | 'active' | 'paused' | 'completed'>('draft'),
+  })
+
+  editProjectForm = this.fb.group({
+    title: ['', [Validators.required, Validators.pattern(/\S+/)]],
+    description: [''],
+    startDate: ['', [Validators.required]],
+    endDate: ['', [Validators.required]],
+    milestoneDate: ['', [Validators.required]],
     status: this.fb.nonNullable.control<'draft' | 'active' | 'paused' | 'completed'>('draft'),
   })
 
@@ -144,7 +158,27 @@ export class ProjectManagementComponent implements OnInit {
   }
 
   toggleEliteTeam(): void {
-    this.eliteTeamOpen = !this.eliteTeamOpen
+    // kept for backward compatibility
+  }
+
+  openEliteTeamModal(content: any): void {
+    this.modalService.open(content, {
+      size: 'lg',
+      centered: true,
+      windowClass: 'exec-upsert-modal-window',
+      backdropClass: 'exec-upsert-modal-backdrop',
+    })
+  }
+
+  get filteredEliteUsers(): AppUser[] {
+    const q = this.eliteTeamSearch.trim().toLowerCase()
+    if (!q) return this.users
+    return this.users.filter((u) => {
+      const name = String(u.name || '').toLowerCase()
+      const email = String(u.email || '').toLowerCase()
+      const role = String(u.role || '').toLowerCase()
+      return name.includes(q) || email.includes(q) || role.includes(q)
+    })
   }
 
   saveProject(): void {
@@ -224,6 +258,109 @@ export class ProjectManagementComponent implements OnInit {
     })
   }
 
+  openEditProjectModal(project: AppProject, content: any): void {
+    this.editingProjectId = project._id
+    this.editAssignedUserIds = new Set((project.assignedUsers || []).map((u) => u._id))
+    this.editProjectForm.reset({
+      title: project.title || '',
+      description: project.description || '',
+      startDate: this.toDateInput(project.startDate),
+      endDate: this.toDateInput(project.endDate),
+      milestoneDate: this.toDateInput(project.milestoneDate),
+      status: project.status || 'draft',
+    })
+
+    this.modalService.open(content, {
+      size: 'lg',
+      centered: true,
+      windowClass: 'exec-upsert-modal-window',
+      backdropClass: 'exec-upsert-modal-backdrop',
+    })
+  }
+
+  saveEditedProject(modal: any): void {
+    if (!this.editingProjectId) return
+    if (this.editProjectForm.invalid || this.hasInvalidEditDateOrder()) {
+      this.editProjectForm.markAllAsTouched()
+      return
+    }
+
+    const trimmedTitle = String(this.editProjectForm.value.title || '').trim()
+    if (!trimmedTitle) {
+      this.editProjectForm.controls.title.markAsTouched()
+      return
+    }
+
+    this.editSubmitting = true
+    const payload = {
+      title: trimmedTitle,
+      description: String(this.editProjectForm.value.description || '').trim(),
+      startDate: this.editProjectForm.value.startDate || null,
+      endDate: this.editProjectForm.value.endDate || null,
+      milestoneDate: this.editProjectForm.value.milestoneDate || null,
+      status: this.editProjectForm.value.status || 'draft',
+      assignedUsers: Array.from(this.editAssignedUserIds),
+    }
+
+    this.adminService.updateProject(this.editingProjectId, payload).subscribe({
+      next: () => {
+        this.editSubmitting = false
+        this.toastr.success('This action was completed successfully.', 'Edited')
+        modal.close()
+        this.loadProjects()
+      },
+      error: (err) => {
+        this.editSubmitting = false
+        this.error = err?.error?.message || 'Unable to save project'
+      },
+    })
+  }
+
+  isEditAssigned(userId: string): boolean {
+    return this.editAssignedUserIds.has(userId)
+  }
+
+  toggleEditAssignUser(userId: string, checked: boolean): void {
+    if (checked) this.editAssignedUserIds.add(userId)
+    else this.editAssignedUserIds.delete(userId)
+  }
+
+  get editSelectedCount(): number {
+    return this.editAssignedUserIds.size
+  }
+
+  get editAllSelected(): boolean {
+    const total = this.users.length
+    if (total === 0) return false
+    return this.editSelectedCount === total
+  }
+
+  get editFirstSelectedUser(): AppUser | null {
+    const firstId = Array.from(this.editAssignedUserIds)[0]
+    if (!firstId) return null
+    return this.users.find((u) => u._id === firstId) || null
+  }
+
+  toggleEditEliteTeamDropdown(): void {
+    this.editEliteTeamOpen = !this.editEliteTeamOpen
+  }
+
+  toggleEditAll(checked: boolean): void {
+    if (checked) {
+      this.editAssignedUserIds = new Set(this.users.map((u) => u._id))
+      return
+    }
+    this.editAssignedUserIds.clear()
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement | null
+    if (!target?.closest('.edit-elite-dropdown')) {
+      this.editEliteTeamOpen = false
+    }
+  }
+
   private toDateInput(value?: string | null): string {
     if (!value) return ''
     return String(value).slice(0, 10)
@@ -233,6 +370,16 @@ export class ProjectManagementComponent implements OnInit {
     const start = this.projectForm.value.startDate || ''
     const end = this.projectForm.value.endDate || ''
     const milestone = this.projectForm.value.milestoneDate || ''
+
+    if (start && end && end < start) return true
+    if (start && milestone && milestone < start) return true
+    return false
+  }
+
+  hasInvalidEditDateOrder(): boolean {
+    const start = this.editProjectForm.value.startDate || ''
+    const end = this.editProjectForm.value.endDate || ''
+    const milestone = this.editProjectForm.value.milestoneDate || ''
 
     if (start && end && end < start) return true
     if (start && milestone && milestone < start) return true

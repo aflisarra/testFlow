@@ -1,5 +1,17 @@
 import { CommonModule } from '@angular/common'
-import { Component, Input, OnChanges, OnInit, SimpleChanges, inject } from '@angular/core'
+import {
+  Component,
+  ElementRef,
+  EventEmitter,
+  HostListener,
+  Input,
+  OnChanges,
+  OnDestroy,
+  OnInit,
+  Output,
+  SimpleChanges,
+  inject,
+} from '@angular/core'
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms'
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap'
 import {
@@ -16,27 +28,31 @@ import { map, type Observable } from 'rxjs'
   templateUrl: './role-upsert-modal.component.html',
   styleUrls: ['./role-upsert-modal.component.css'],
 })
-export class RoleUpsertModalComponent implements OnInit, OnChanges {
+export class RoleUpsertModalComponent implements OnInit, OnChanges, OnDestroy {
   private fb = inject(FormBuilder)
   private adminService = inject(AdminManagementService)
+  private el = inject(ElementRef)
+  private activeModal = inject(NgbActiveModal, { optional: true })
 
   @Input() role: AppRole | null = null
   @Input() actions: AppAction[] = []
+  @Input() inlineMode = false
+  @Output() saved = new EventEmitter<boolean>()
+  @Output() cancelled = new EventEmitter<void>()
 
   submitting = false
   error = ''
   submitted = false
+  actionsOpen = false
 
   actionGroups: Array<{ key: string; label: string; actions: AppAction[] }> = []
   private enabledGroups = new Map<string, boolean>()
 
   roleForm = this.fb.group({
     name: ['', [Validators.required, Validators.pattern(/\S+/)]],
-    description: ['', [Validators.required, Validators.pattern(/\S+/)]],
+    description: ['', [Validators.pattern(/^$|\S+/)]],
     actions: [[] as number[]],
   })
-
-  constructor(public activeModal: NgbActiveModal) {}
 
   ngOnInit(): void {
     if (this.role) {
@@ -55,6 +71,20 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges {
     }
   }
 
+  ngOnDestroy(): void {
+    if (!this.activeModal) return
+    const appRoot = document.querySelector('app-root')
+    if (appRoot) appRoot.removeAttribute('aria-hidden')
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement
+    if (!target.closest('.exec-actions-dropdown')) {
+      this.actionsOpen = false
+    }
+  }
+
   get selectedCount(): number {
     return (this.roleForm.value.actions || []).length
   }
@@ -63,6 +93,10 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges {
     const total = this.actions.length
     if (total === 0) return false
     return this.selectedCount === total
+  }
+
+  getActionById(id: number): AppAction | undefined {
+    return this.actions.find((a) => a._id === id)
   }
 
   toggleAll(checked: boolean): void {
@@ -81,13 +115,19 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges {
 
   toggleGroup(groupKey: string, checked: boolean): void {
     this.enabledGroups.set(groupKey, checked)
-    if (checked) return
-
     const group = this.actionGroups.find((g) => g.key === groupKey)
     if (!group) return
+
+    const selected = new Set(this.roleForm.value.actions || [])
+    if (checked) {
+      for (const action of group.actions) selected.add(action._id)
+      this.roleForm.patchValue({ actions: [...selected] })
+      return
+    }
+
     const groupIds = new Set(group.actions.map((a) => a._id))
-    const selected = (this.roleForm.value.actions || []).filter((id) => !groupIds.has(id))
-    this.roleForm.patchValue({ actions: selected })
+    const next = [...selected].filter((id) => !groupIds.has(id))
+    this.roleForm.patchValue({ actions: next })
   }
 
   onToggleAction(actionId: number, checked: boolean): void {
@@ -162,14 +202,10 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges {
 
   private getGroupLabel(groupKey: string): string {
     switch (groupKey) {
-      case 'manage_roles':
-        return 'Action role'
-      case 'manage_users':
-        return 'Manage user'
-      case 'dashboard':
-        return 'Dashboard'
-      default:
-        return 'Other actions'
+      case 'manage_roles': return 'Action role'
+      case 'manage_users': return 'Manage user'
+      case 'dashboard': return 'Dashboard'
+      default: return 'Other actions'
     }
   }
 
@@ -202,12 +238,34 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges {
     request$.subscribe({
       next: () => {
         this.submitting = false
-        this.activeModal.close(true)
+        this.saved.emit(true)
+        if (this.inlineMode) {
+          this.roleForm.reset({ name: '', description: '', actions: [] })
+          this.error = ''
+          this.submitted = false
+          this.actionsOpen = false
+          for (const group of this.actionGroups) this.enabledGroups.set(group.key, false)
+        }
+        this.activeModal?.close(true)
       },
       error: (err: unknown) => {
         this.submitting = false
         this.error = (err as any)?.error?.message || 'Unable to save role'
       },
     })
+  }
+
+  onCancel(): void {
+    if (this.inlineMode) {
+      this.roleForm.reset({ name: '', description: '', actions: [] })
+      this.error = ''
+      this.submitted = false
+      this.actionsOpen = false
+      for (const group of this.actionGroups) this.enabledGroups.set(group.key, false)
+      this.cancelled.emit()
+      return
+    }
+    this.cancelled.emit()
+    this.activeModal?.dismiss(false)
   }
 }

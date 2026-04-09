@@ -1,5 +1,5 @@
 <div class="row g-4 management-page">
-  <div class="col-xl-4">
+  <div class="col-xl-5">
     <div class="card h-100 panel-card">
       <div class="card-header">
         <h4 class="card-title mb-0 brand-title panel-title">Sign Up</h4>
@@ -11,10 +11,12 @@
             <input class="form-control"
               [class.is-invalid]="(createSubmitted || createUserForm.controls.name.touched) && createUserForm.controls.name.invalid"
               formControlName="name" placeholder="ex: John Doe" [disabled]="!canAddUser" autocomplete="off" />
-            @if ((createSubmitted || createUserForm.controls.name.touched) && createUserForm.controls.name.errors?.['required']) {
+            @if ((createSubmitted || createUserForm.controls.name.touched) &&
+            createUserForm.controls.name.errors?.['required']) {
             <div class="invalid-feedback d-block">Name is required.</div>
             }
-            @if ((createSubmitted || createUserForm.controls.name.touched) && createUserForm.controls.name.errors?.['pattern']) {
+            @if ((createSubmitted || createUserForm.controls.name.touched) &&
+            createUserForm.controls.name.errors?.['pattern']) {
             <div class="invalid-feedback d-block">Name cannot be empty spaces.</div>
             }
           </div>
@@ -24,10 +26,12 @@
             <input class="form-control" type="email"
               [class.is-invalid]="(createSubmitted || createUserForm.controls.email.touched) && createUserForm.controls.email.invalid"
               formControlName="email" placeholder="ex: john@example.com" [disabled]="!canAddUser" autocomplete="off" />
-            @if ((createSubmitted || createUserForm.controls.email.touched) && createUserForm.controls.email.errors?.['required']) {
+            @if ((createSubmitted || createUserForm.controls.email.touched) &&
+            createUserForm.controls.email.errors?.['required']) {
             <div class="invalid-feedback d-block">Email is required.</div>
             }
-            @if ((createSubmitted || createUserForm.controls.email.touched) && createUserForm.controls.email.errors?.['email']) {
+            @if ((createSubmitted || createUserForm.controls.email.touched) &&
+            createUserForm.controls.email.errors?.['email']) {
             <div class="invalid-feedback d-block">Enter a valid email address.</div>
             }
           </div>
@@ -37,10 +41,12 @@
             <input class="form-control" type="password"
               [class.is-invalid]="(createSubmitted || createUserForm.controls.password.touched) && createUserForm.controls.password.invalid"
               formControlName="password" placeholder="******" [disabled]="!canAddUser" autocomplete="new-password" />
-            @if ((createSubmitted || createUserForm.controls.password.touched) && createUserForm.controls.password.errors?.['required']) {
+            @if ((createSubmitted || createUserForm.controls.password.touched) &&
+            createUserForm.controls.password.errors?.['required']) {
             <div class="invalid-feedback d-block">Password is required.</div>
             }
-            @if ((createSubmitted || createUserForm.controls.password.touched) && createUserForm.controls.password.errors?.['minlength']) {
+            @if ((createSubmitted || createUserForm.controls.password.touched) &&
+            createUserForm.controls.password.errors?.['minlength']) {
             <div class="invalid-feedback d-block">Password must be at least 6 characters.</div>
             }
           </div>
@@ -55,10 +61,12 @@
               <option [value]="role.name">{{ role.name }}</option>
               }
             </select>
-            @if ((createSubmitted || createUserForm.controls.role.touched) && createUserForm.controls.role.errors?.['required']) {
+            @if ((createSubmitted || createUserForm.controls.role.touched) &&
+            createUserForm.controls.role.errors?.['required']) {
             <div class="invalid-feedback d-block">Role is required.</div>
             }
-            @if ((createSubmitted || createUserForm.controls.role.touched) && createUserForm.controls.role.errors?.['pattern']) {
+            @if ((createSubmitted || createUserForm.controls.role.touched) &&
+            createUserForm.controls.role.errors?.['pattern']) {
             <div class="invalid-feedback d-block">Role cannot be empty spaces.</div>
             }
           </div>
@@ -83,8 +91,8 @@
     </div>
   </div>
 
-  <div class="col-xl-8">
-    <div class="card h-100 panel-card">
+  <div class="col-xl-7">
+    <div class="card h-100 panel-card users-list-card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h4 class="card-title mb-0 brand-title panel-title">Users List</h4>
 
@@ -106,12 +114,12 @@
                 <th>User</th>
                 <th>Email</th>
                 <th>Role</th>
-                <th>Description</th>
+
                 <th class="text-end">Actions</th>
               </tr>
             </thead>
             <tbody>
-              @for (user of users; track user._id) {
+              @for (user of paginatedUsers; track user._id) {
               <tr>
                 <td>
                   <div class="d-flex align-items-center">
@@ -122,15 +130,15 @@
                 </td>
                 <td>{{ user.email }}</td>
                 <td><span class="badge brand-badge">{{ user.role }}</span></td>
-                <td>{{ user.description || '-' }}</td>
+
                 <td class="text-end">
                   <div class="d-inline-flex align-items-center flex-nowrap gap-2">
-                    <button class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified" type="button" title="Edit"
-                      (click)="onEditUser(user)" [disabled]="!canEditUser">
+                    <button class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified" type="button"
+                      title="Edit" (click)="onEditUser(user)" [disabled]="!canEditUser">
                       <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
                     </button>
-                    <button class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button" title="Delete"
-                      (click)="onDeleteUser(user)" [disabled]="!canDeleteUser">
+                    <button class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button"
+                      title="Delete" (click)="onDeleteUser(user)" [disabled]="!canDeleteUser">
                       <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
                     </button>
                   </div>
@@ -140,12 +148,31 @@
 
               @if (users.length === 0) {
               <tr>
-                <td colspan="5" class="text-center text-muted py-4">No users found</td>
+                <td colspan="4" class="text-center text-muted py-4">No users found</td>
               </tr>
               }
             </tbody>
           </table>
         </div>
+
+        @if (users.length > 0) {
+        <div class="table-pagination">
+          <span class="table-pagination__meta">
+            Showing {{ usersRangeStart }}-{{ usersRangeEnd }} of {{ users.length }}
+          </span>
+          <div class="table-pagination__actions">
+            <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="currentUserPage === 1"
+              (click)="onPrevUsersPage()">
+              Previous
+            </button>
+            <span class="table-pagination__page">Page {{ currentUserPage }} / {{ totalUserPages }}</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+              [disabled]="currentUserPage === totalUserPages" (click)="onNextUsersPage()">
+              Next
+            </button>
+          </div>
+        </div>
+        }
         }
 
       </div>

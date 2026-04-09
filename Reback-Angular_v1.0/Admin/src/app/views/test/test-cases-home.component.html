@@ -58,25 +58,20 @@
                   }">
                   {{ getCompletionLabel(plan.id) }}
                 </span>
-                @if ((testCasesByPlan[plan.id]?.length || 0) === 0) {
                 <button type="button" class="btn btn-sm btn-outline-primary"
                   (click)="onGenerateCases(plan, false); $event.stopPropagation()"
                   [disabled]="generating">
-                  Generate
+                  Generate test case
                 </button>
-                } @else {
                 <button type="button" class="btn btn-sm btn-outline-secondary"
                   (click)="onGenerateCases(plan, true); $event.stopPropagation()"
                   [disabled]="generating">
                   Regenerate
                 </button>
-                }
-                @if (generating && generatingPlanId === plan.id) {
                 <button type="button" class="btn btn-sm btn-outline-danger"
-                  (click)="onStopGeneration(); $event.stopPropagation()">
-                  Stop
+                  (click)="onCancelPlan(plan); $event.stopPropagation()">
+                  Cancel
                 </button>
-                }
                 <button class="btn btn-sm btn-icon expand-btn">
                   <iconify-icon [icon]="expandedPlans[plan.id] ? 'mdi:chevron-up' : 'mdi:chevron-down'"></iconify-icon>
                 </button>

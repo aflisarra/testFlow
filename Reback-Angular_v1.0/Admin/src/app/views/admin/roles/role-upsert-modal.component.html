@@ -1,137 +1,137 @@
-<div class="exec-upsert">
+<div class="exec-upsert" [class.exec-upsert--inline]="inlineMode">
   <div class="exec-upsert-body">
+    @if (!inlineMode) {
     <header class="exec-upsert-header">
       <div class="exec-upsert-headline">
         <h1 class="exec-upsert-title">{{ role ? 'Edit Role' : 'Create Role' }}</h1>
-        <button
-          class="exec-close-btn"
-          type="button"
-          aria-label="Close"
-          (click)="activeModal.dismiss(false)"
-        >
+        @if (!inlineMode) {
+        <button class="exec-close-btn" type="button" aria-label="Close" (click)="onCancel()">
           ×
         </button>
+        }
       </div>
       <p class="exec-upsert-subtitle">Modify permissions and identity for this user group.</p>
     </header>
+    }
 
     @if (error) {
-      <div class="alert alert-danger">{{ error }}</div>
+    <div class="alert alert-danger">{{ error }}</div>
     }
 
     <form class="exec-upsert-form" [formGroup]="roleForm">
+
+      <!-- Role Name -->
       <div class="exec-field">
         <label class="exec-label">Role name <span class="text-danger">*</span></label>
-        <input
-          class="exec-input"
-          [class.is-invalid]="roleForm.controls.name.touched && roleForm.controls.name.invalid"
-          formControlName="name"
-          placeholder="Enter role name..."
-        />
+        <input class="exec-input" [class.is-invalid]="roleForm.controls.name.touched && roleForm.controls.name.invalid"
+          formControlName="name" placeholder="Enter role name..." />
         @if (roleForm.controls.name.touched && roleForm.controls.name.errors?.['required']) {
-          <small class="text-danger">Role name is required.</small>
+        <small class="text-danger">Role name is required.</small>
         }
         @if (roleForm.controls.name.touched && roleForm.controls.name.errors?.['pattern']) {
-          <small class="text-danger">Role name cannot be empty spaces.</small>
+        <small class="text-danger">Role name cannot be empty spaces.</small>
         }
       </div>
 
+      <!-- Description -->
       <div class="exec-field">
-        <label class="exec-label">Description <span class="text-danger">*</span></label>
-        <textarea
-          class="exec-textarea"
-          [class.is-invalid]="roleForm.controls.description.touched && roleForm.controls.description.invalid"
-          rows="2"
-          formControlName="description"
-        ></textarea>
-        @if (roleForm.controls.description.touched && roleForm.controls.description.errors?.['required']) {
-          <small class="text-danger">Description is required.</small>
-        }
+        <label class="exec-label">Description</label>
+        <textarea class="exec-textarea"
+          [class.is-invalid]="roleForm.controls.description.touched && roleForm.controls.description.invalid" rows="2"
+          formControlName="description"></textarea>
         @if (roleForm.controls.description.touched && roleForm.controls.description.errors?.['pattern']) {
-          <small class="text-danger">Description cannot be empty spaces.</small>
+        <small class="text-danger">Description cannot be empty spaces.</small>
         }
       </div>
 
+      <!-- Actions -->
       <div class="exec-field">
         <div class="exec-actions-head">
           <div class="d-flex flex-column">
             <label class="exec-label mb-0">Actions <span class="text-danger">*</span></label>
             <span class="exec-selected-badge">{{ selectedCount }} selected</span>
           </div>
-
           <label class="exec-select-all">
             <span class="exec-select-all-text">Select All</span>
-            <input
-              class="exec-checkbox"
-              type="checkbox"
-              [checked]="allSelected"
-              (change)="toggleAll($any($event.target).checked)"
-            />
+            <input class="exec-checkbox" type="checkbox" [checked]="allSelected"
+              (change)="toggleAll($any($event.target).checked)" />
           </label>
         </div>
 
-        <div class="exec-actions-box" [class.is-invalid]="submitted && (roleForm.value.actions || []).length === 0">
-          <div class="exec-actions-scroll custom-scrollbar">
-            @if (actionGroups.length === 0) {
+        <!-- Wrapper dropdown -->
+        <div class="exec-actions-dropdown">
+
+          <!-- Trigger -->
+          <button type="button" class="exec-actions-trigger" [class.is-invalid]="submitted && selectedCount === 0"
+            (click)="actionsOpen = !actionsOpen; $event.stopPropagation()">
+            <span>
+              @if (selectedCount === 0) {
+              <span class="exec-trigger-placeholder">Select actions...</span>
+              } @else {
+              <span>{{ formatActionName(getActionById((roleForm.value.actions || [])[0])?.name) }}</span>
+              @if (selectedCount > 1) {
+              <span class="exec-additional-selection">
+                (+{{ selectedCount - 1 }} {{ selectedCount === 2 ? 'other' : 'others' }})
+              </span>
+              }
+              }
+            </span>
+            <span class="exec-trigger-arrow">{{ actionsOpen ? '▲' : '▼' }}</span>
+          </button>
+
+          <!-- Liste déroulante — s'ouvre vers le haut -->
+          @if (actionsOpen) {
+          <div class="exec-actions-box" [class.is-invalid]="submitted && selectedCount === 0"
+            (click)="$event.stopPropagation()">
+            <div class="exec-actions-scroll custom-scrollbar">
+              @if (actionGroups.length === 0) {
               <div class="text-muted px-2 py-2">No actions</div>
-            }
-            @for (group of actionGroups; track group.key) {
+              }
+              @for (group of actionGroups; track group.key) {
               <div class="mb-2">
                 <label class="exec-action-item">
-                  <span class="exec-action-name fw-semibold">{{ group.label }}</span>
-                  <input
-                    class="exec-checkbox exec-checkbox-lg"
-                    type="checkbox"
-                    [checked]="isGroupEnabled(group.key)"
-                    (change)="toggleGroup(group.key, $any($event.target).checked)"
-                  />
+                  <span class="exec-action-name fw-semibold">{{ group.label }} (All)</span>
+                  <input class="exec-checkbox exec-checkbox-lg" type="checkbox" [checked]="isGroupEnabled(group.key)"
+                    (change)="toggleGroup(group.key, $any($event.target).checked)" />
                 </label>
-
                 <div class="ms-3">
                   @for (action of group.actions; track action._id) {
-                    <label
-                      class="exec-action-item"
-                      [class.opacity-50]="!isGroupEnabled(group.key)"
-                    >
-                      <span class="exec-action-name">{{ formatActionName(action.name) }}</span>
-                      <input
-                        class="exec-checkbox exec-checkbox-lg"
-                        type="checkbox"
-                        [disabled]="!isGroupEnabled(group.key)"
-                        [checked]="isActionChecked(action._id)"
-                        (change)="onToggleAction(action._id, $any($event.target).checked)"
-                      />
-                    </label>
+                  <label class="exec-action-item" [class.opacity-50]="!isGroupEnabled(group.key)">
+                    <span class="exec-action-name">{{ formatActionName(action.name) }}</span>
+                    <input class="exec-checkbox exec-checkbox-lg" type="checkbox"
+                      [disabled]="!isGroupEnabled(group.key)" [checked]="isActionChecked(action._id)"
+                      (change)="onToggleAction(action._id, $any($event.target).checked)" />
+                  </label>
                   }
                 </div>
               </div>
-            }
+              }
+            </div>
           </div>
+          }
+
         </div>
-        @if (submitted && (roleForm.value.actions || []).length === 0) {
-          <small class="text-danger">Select at least one action.</small>
+
+        @if (submitted && selectedCount === 0) {
+        <small class="text-danger">Select at least one action.</small>
         }
 
+        <!-- Buttons -->
         <div class="exec-buttons">
-          <button
-            class="exec-btn exec-btn-cancel"
-            type="button"
-            (click)="activeModal.dismiss(false)"
-          >
+          <button class="exec-btn exec-btn-cancel" type="button" (click)="onCancel()">
             Cancel
           </button>
-          <button
-            class="exec-btn exec-btn-save"
-            type="button"
-            [disabled]="submitting"
-            (click)="save()"
-          >
+          <button class="exec-btn exec-btn-save" type="button" [disabled]="submitting" (click)="save()">
             {{ submitting ? 'Saving...' : 'Save' }}
           </button>
         </div>
       </div>
+
     </form>
   </div>
 
+  @if (!inlineMode) {
   <div class="exec-upsert-accent"></div>
+  }
 </div>
+

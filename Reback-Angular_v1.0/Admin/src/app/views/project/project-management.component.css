@@ -223,6 +223,40 @@
   background: #fff;
 }
 
+.elite-team-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.elite-team-search {
+  min-width: 220px;
+  height: 34px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+}
+
+.elite-team-toggle-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.elite-team-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.elite-team-field--open .team-grid {
+  order: -1;
+  margin-top: 0;
+  margin-bottom: 0.6rem;
+}
+
 .team-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -293,6 +327,274 @@
   border-radius: 11px;
   font-weight: 700;
   padding: 0.52rem 0.95rem;
+}
+
+.btn-unified {
+  border-radius: 10px !important;
+  font-weight: 400 !important;
+  padding: 0.58rem 0.9rem;
+  line-height: 1.2;
+}
+
+.btn-unified.btn-sm {
+  padding: 0.58rem 0.9rem;
+}
+
+.btn-icon-unified {
+  width: 38px;
+  height: 38px;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.exec-upsert {
+  position: relative;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 18px 44px rgba(12, 40, 70, 0.16);
+  overflow: visible;
+}
+
+.exec-upsert-body {
+  padding: 1.25rem 1.25rem 1.1rem;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 48%);
+}
+
+.exec-upsert-header {
+  margin-bottom: 1rem;
+}
+
+.exec-upsert-headline {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.exec-upsert-title {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #103a6f;
+}
+
+.exec-close-btn {
+  position: absolute;
+  right: 0;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid #d5e2f1;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #35597e;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.exec-upsert-form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.exec-field {
+  display: grid;
+  gap: 0.38rem;
+}
+
+.exec-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #274b73;
+}
+
+.exec-input,
+.exec-select,
+.exec-textarea {
+  width: 100%;
+  border: 1px solid #cfe0f1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1f3349;
+  padding: 0.58rem 0.72rem;
+}
+
+.exec-actions-box {
+  border: 1px solid #dce8f5;
+  border-radius: 12px;
+  background: #f9fcff;
+  padding: 0.5rem;
+}
+
+.exec-actions-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.3rem;
+}
+
+.exec-selected-badge {
+  font-size: 0.75rem;
+  color: #60758f;
+}
+
+.exec-select-all {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: #274b73;
+}
+
+.exec-select-all-text {
+  font-size: 0.82rem;
+}
+
+.edit-elite-dropdown {
+  display: flex;
+  flex-direction: column;
+}
+
+.exec-actions-dropdown {
+  position: relative;
+}
+
+.exec-actions-trigger {
+  width: 100%;
+  border: 1px solid #cfe0f1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1f3349;
+  padding: 0.58rem 0.72rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.exec-actions-trigger:hover {
+  border-color: #7aa9d9;
+  box-shadow: 0 0 0 3px rgba(122, 169, 217, 0.18);
+}
+
+.exec-actions-trigger.is-invalid {
+  border-color: #ef4444;
+}
+
+.edit-trigger-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.exec-trigger-placeholder {
+  color: #94a3b8;
+}
+
+.exec-additional-selection {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.exec-trigger-arrow {
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.edit-trigger-avatar,
+.edit-user-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid #dbe4f1;
+  flex-shrink: 0;
+}
+
+.edit-user-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.exec-actions-scroll {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.exec-action-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  border-radius: 10px;
+  padding: 0.3rem 0.35rem;
+  cursor: pointer;
+}
+
+.exec-action-item:hover {
+  background: #eef5fd;
+}
+
+.exec-action-name {
+  color: #1f3349;
+  font-size: 0.88rem;
+}
+
+.exec-checkbox {
+  width: 15px;
+  height: 15px;
+  accent-color: #ec8a00;
+  cursor: pointer;
+}
+
+.exec-checkbox-lg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.edit-elite-dropdown .exec-actions-box {
+  position: absolute;
+  bottom: calc(100% + 0.4rem);
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  box-shadow: 0 -6px 24px rgba(12, 40, 70, 0.15);
+}
+
+.exec-buttons {
+  margin-top: 0.6rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.exec-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 0.58rem 0.9rem;
+}
+
+.exec-btn-cancel {
+  background: #eef3f9;
+  color: #45688f;
+}
+
+.exec-btn-save {
+  background: #ec8a00;
+  border: 1px solid #ec8a00;
+  color: #ffffff;
+}
+
+.exec-upsert-accent {
+  height: 4px;
+  background: linear-gradient(90deg, #ec8a00 0%, #f7b75b 100%);
 }
 
 @media (max-width: 992px) {

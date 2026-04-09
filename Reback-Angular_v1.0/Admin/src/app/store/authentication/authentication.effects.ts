@@ -49,7 +49,7 @@ export class AuthenticationEffects {
       this.actions$.pipe(
         ofType(loginFailure),
         tap(() => {
-          this.toastr.error('Connexion échouée', '', { timeOut: 2500 })
+          this.toastr.error('Connection failed', '', { timeOut: 2500 })
         })
       ),
     { dispatch: false }
@@ -72,5 +72,5 @@ export class AuthenticationEffects {
     private router: Router,
     private route: ActivatedRoute,
     private toastr: ToastrService
-  ) {}
+  ) { }
 }

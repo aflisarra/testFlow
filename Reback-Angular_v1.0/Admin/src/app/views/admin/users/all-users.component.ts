@@ -56,6 +56,8 @@ export class AllUsersComponent implements OnInit {
   canEditUser = false
   canDeleteUser = false
   canViewUsers = false
+  readonly usersPerPage = 7
+  currentUserPage = 1
 
   async ngOnInit(): Promise<void> {
     this.clearCreateUserCredentials()
@@ -110,6 +112,7 @@ export class AllUsersComponent implements OnInit {
     this.adminService.getUsers().subscribe({
       next: (users) => {
         this.users = (users || []).filter((u) => !this.isCurrentUser(u))
+        this.clampUserPage()
         this.loading = false
       },
       error: (err) => {
@@ -254,5 +257,36 @@ export class AllUsersComponent implements OnInit {
       String(user?.email || '').trim().toLowerCase() !== '' &&
       String(user?.email || '').trim().toLowerCase() === this.currentUserEmail
     return idMatch || emailMatch
+  }
+
+  get totalUserPages(): number {
+    return Math.max(1, Math.ceil(this.users.length / this.usersPerPage))
+  }
+
+  get paginatedUsers(): AppUser[] {
+    const start = (this.currentUserPage - 1) * this.usersPerPage
+    return this.users.slice(start, start + this.usersPerPage)
+  }
+
+  get usersRangeStart(): number {
+    if (this.users.length === 0) return 0
+    return (this.currentUserPage - 1) * this.usersPerPage + 1
+  }
+
+  get usersRangeEnd(): number {
+    return Math.min(this.currentUserPage * this.usersPerPage, this.users.length)
+  }
+
+  onPrevUsersPage(): void {
+    if (this.currentUserPage > 1) this.currentUserPage--
+  }
+
+  onNextUsersPage(): void {
+    if (this.currentUserPage < this.totalUserPages) this.currentUserPage++
+  }
+
+  private clampUserPage(): void {
+    if (this.currentUserPage < 1) this.currentUserPage = 1
+    if (this.currentUserPage > this.totalUserPages) this.currentUserPage = this.totalUserPages
   }
 }

@@ -24,6 +24,8 @@ import {
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class TestCasesValidationComponent {
+  private readonly completeStatuses = new Set(['confirmed', 'completed', 'complete'])
+
   private store = inject(Store)
   private authService = inject(AuthenticationService)
   private testLabService = inject(TestLabService)
@@ -164,7 +166,13 @@ export class TestCasesValidationComponent {
 
   getSuiteStatus(suiteId: string): 'Complete' | 'Incomplete' {
     const suite = this.suites.find((s) => String(s._id || '').trim() === String(suiteId || '').trim())
-    if (suite?.sessionStatus === 'complete') return 'Complete'
+    const sessionStatus = String(suite?.sessionStatus || '').toLowerCase()
+    if (this.completeStatuses.has(sessionStatus)) return 'Complete'
+
+    const statuses = Array.isArray(suite?.planStatuses) ? suite.planStatuses : []
+    if (statuses.length && statuses.every((row) => this.completeStatuses.has(String(row?.status || '').toLowerCase()))) {
+      return 'Complete'
+    }
     return 'Incomplete'
   }
 
@@ -177,7 +185,7 @@ export class TestCasesValidationComponent {
     }
     return plans.filter((p) => {
       const status = byPlan.get(p.id) || 'pending'
-      return status !== 'confirmed' && status !== 'completed'
+      return !this.completeStatuses.has(status)
     })
   }
 

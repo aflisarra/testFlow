@@ -19,7 +19,7 @@ import { loginSuccess } from '@/app/store/authentication/authentication.actions'
 @Component({
   selector: 'app-roles-management',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, NgbModalModule],
+  imports: [CommonModule, ReactiveFormsModule, NgbModalModule, RoleUpsertModalComponent],
   templateUrl: './roles-management.component.html',
   styleUrls: ['./roles-management.component.css'],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
@@ -46,6 +46,8 @@ export class RolesManagementComponent implements OnInit {
   canEditRole = false
   canDeleteRole = false
   canViewRoles = false
+  readonly rolesPerPage = 6
+  currentRolePage = 1
 
   async ngOnInit(): Promise<void> {
     await this.initPermissions()
@@ -82,6 +84,7 @@ export class RolesManagementComponent implements OnInit {
         this.adminService.getRoles().subscribe({
           next: (roles) => {
             this.roles = roles
+            this.clampRolePage()
             this.loading = false
           },
           error: (err) => {
@@ -97,27 +100,16 @@ export class RolesManagementComponent implements OnInit {
     })
   }
 
-  onCreateRole(): void {
-    if (!this.canAddRole) {
-      this.notifyPermissionDenied('Action non autorisee: Add Role.')
-      return
-    }
-
-    const ref = this.modalService.open(RoleUpsertModalComponent, {
-      size: 'lg',
-      centered: true,
-      windowClass: 'exec-upsert-modal-window',
-      backdropClass: 'exec-upsert-modal-backdrop',
-    })
-    ref.componentInstance.role = null
-    ref.componentInstance.actions = this.actions
-    ref.closed.subscribe((created) => {
-      if (created) {
-        this.showActionSuccess('created')
-        this.refreshCurrentUserPermissions()
-      }
+  onCreateRoleSaved(created: boolean): void {
+    if (created) {
+      this.showActionSuccess('created')
+      this.refreshCurrentUserPermissions()
       this.loadData()
-    })
+    }
+  }
+
+  onCreateRoleCancelled(): void {
+    // inline form handles its own reset
   }
 
   getActionNames(actionIds?: number[]): string {
@@ -232,5 +224,36 @@ export class RolesManagementComponent implements OnInit {
         // Ignore sync errors to avoid blocking role management actions
       },
     })
+  }
+
+  get totalRolePages(): number {
+    return Math.max(1, Math.ceil(this.roles.length / this.rolesPerPage))
+  }
+
+  get paginatedRoles(): AppRole[] {
+    const start = (this.currentRolePage - 1) * this.rolesPerPage
+    return this.roles.slice(start, start + this.rolesPerPage)
+  }
+
+  get rolesRangeStart(): number {
+    if (this.roles.length === 0) return 0
+    return (this.currentRolePage - 1) * this.rolesPerPage + 1
+  }
+
+  get rolesRangeEnd(): number {
+    return Math.min(this.currentRolePage * this.rolesPerPage, this.roles.length)
+  }
+
+  onPrevRolesPage(): void {
+    if (this.currentRolePage > 1) this.currentRolePage--
+  }
+
+  onNextRolesPage(): void {
+    if (this.currentRolePage < this.totalRolePages) this.currentRolePage++
+  }
+
+  private clampRolePage(): void {
+    if (this.currentRolePage < 1) this.currentRolePage = 1
+    if (this.currentRolePage > this.totalRolePages) this.currentRolePage = this.totalRolePages
   }
 }

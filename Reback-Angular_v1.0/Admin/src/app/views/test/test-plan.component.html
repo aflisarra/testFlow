@@ -106,7 +106,7 @@
         <div class="testlab-actions mt-4 w-100">
           <button type="button" class="btn btn-outline-secondary px-4" disabled>Cancel</button>
           <button type="button" class="btn btn-outline-primary px-4" disabled>Regenerate</button>
-          <button type="button" class="btn btn-brand px-4 fw-bold" disabled>Confirm Plan</button>
+          <button type="button" class="btn btn-brand px-4 fw-bold" disabled>Validate &amp; Next</button>
         </div>
       </div>
 
@@ -139,10 +139,10 @@
               </span>
               <button
                 type="button"
-                class="btn btn-sm btn-outline-success"
-                [disabled]="planStatuses[plan.id] === 'confirmed'"
-                (click)="onConfirmPlan(plan.id)">
-                Confirm
+                class="btn btn-sm btn-outline-primary"
+                [disabled]="generatingPlans || finishing"
+                (click)="onRegeneratePlan(plan, $index)">
+                Regenerate
               </button>
             </div>
           </div>
@@ -153,18 +153,11 @@
 
       <!-- Actions -->
       <div class="testlab-actions mt-4">
+        <button type="button" class="btn btn-outline-secondary px-4" (click)="onCancelPlans()">
+          Cancel
+        </button>
         <button type="button" class="btn btn-outline-primary px-4" (click)="onRegeneratePlans()">
-          Regenerate
-        </button>
-        <button type="button" class="btn btn-outline-success px-4" (click)="onValidatePlans()">
-          Validate
-        </button>
-        <button
-          type="button"
-          class="btn btn-success px-4 fw-bold"
-          [disabled]="sessionSaved"
-          (click)="onSaveSession()">
-          Save
+          Regenerate (All)
         </button>
         <button type="button" class="btn btn-brand px-4 fw-bold" [disabled]="finishing" (click)="onValidateAndGoToCases()">
           <iconify-icon icon="iconamoon:arrow-right-2-duotone" class="me-1"></iconify-icon>
