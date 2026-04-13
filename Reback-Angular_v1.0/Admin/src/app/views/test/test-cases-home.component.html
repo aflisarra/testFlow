@@ -1,135 +1,82 @@
-<div class="testlab-page">
-  <div class="testlab-container px-4 px-lg-5 pb-4 pb-lg-5 pt-0">
-    <div class="testlab-hero mb-4 mt-4">
-      <h2 class="testlab-hero-title mb-2">My Test Cases</h2>
-      <p class="testlab-hero-subtitle mb-0">
-        Generate test cases manually per plan. You can stop generation at any time.
-      </p>
+<div class="tc-page">
+
+  <!-- ═══ HEADER ═══ -->
+  <div class="tc-header px-4 px-lg-5 py-3">
+    <div>
+      <h2 class="tc-header-title mb-1">My Test Cases</h2>
+      <p class="tc-header-sub mb-0">Generate and manage test cases per plan.</p>
     </div>
-
-    @if (errorMessage) {
-    <div class="alert alert-danger mb-4">{{ errorMessage }}</div>
+    @if (testSuiteId && allPlans.length) {
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm btn-outline-secondary" (click)="onRegenerateAll()">
+        <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>Regenerate All
+      </button>
+      <button class="btn btn-sm btn-brand" (click)="onSaveAll()">
+        <iconify-icon icon="iconamoon:disk-duotone" class="me-1"></iconify-icon>Save All
+      </button>
+    </div>
     }
+  </div>
 
-    <div class="testlab-card p-4 mt-4">
+  @if (errorMessage) {
+  <div class="alert alert-danger mx-4 mx-lg-5 mt-2">{{ errorMessage }}</div>
+  }
+
+  <!-- ═══ SPLIT LAYOUT ═══ -->
+  <div class="tc-split">
+
+    <!-- ══ LEFT — Tree ══ -->
+    <aside class="tc-left custom-scrollbar">
       @if (loading) {
-      <div class="testlab-processing">
-        <div class="testlab-processing-icon">
-          <iconify-icon icon="iconamoon:settings-duotone"></iconify-icon>
-        </div>
-        <h4 class="mb-1">Loading Test Suites</h4>
-        <p class="mb-0 text-muted">Retrieving your test suites...</p>
-      </div>
-      } @else if (plans.length > 0) {
-      <div class="d-flex align-items-start justify-content-between gap-3 mb-4">
-        <div>
-          <h4 class="mb-1">Validated Test Plans</h4>
-          <p class="mb-0 text-muted">Generate test cases directly inside each plan card.</p>
-        </div>
-        <div class="d-flex align-items-center gap-2">
-          <span class="testlab-pill">{{ plans.length }} plans</span>
-          <button type="button" class="btn btn-sm btn-outline-danger"
-            [disabled]="!generating"
-            (click)="onStopAllGeneration()">
-            Stop All
-          </button>
-          <button type="button" class="btn btn-sm btn-brand"
-            [disabled]="!plans.length"
-            (click)="onSaveSession()">
-            Save
-          </button>
-        </div>
+      <div class="tc-empty-state">
+        <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin fs-2 text-muted"></iconify-icon>
+        <p class="mt-2 mb-0 text-muted small">Loading...</p>
       </div>
 
-      <div class="plans-accordion">
+      <!-- Plans directs (depuis /test-plan) -->
+      } @else if (plans.length) {
+      <div class="tc-tree-section">
+        <div class="tc-tree-suite-row">
+          <iconify-icon icon="lucide:folder-check" class="tc-tree-suite-icon"></iconify-icon>
+          <span class="tc-tree-suite-name">Current Suite</span>
+          <span class="tc-tree-badge">{{ plans.length }}</span>
+        </div>
+
         @for (plan of plans; track plan.id) {
-        <div class="plan-card mb-3" [class.is-expanded]="expandedPlans[plan.id]">
-          <div class="plan-header p-3 p-md-4" (click)="togglePlan(plan.id)">
-            <div class="d-flex justify-content-between align-items-start">
-              <div class="d-flex align-items-center gap-2">
-                <span class="testlab-plan-badge">{{ plan.id }}</span>
-                <strong>{{ plan.title }}</strong>
-              </div>
-              <div class="plan-actions d-flex align-items-center gap-2">
-                <span class="badge text-capitalize"
-                  [ngClass]="{
-                    'text-bg-success': getCompletionLabel(plan.id) === 'Complete',
-                    'text-bg-warning': getCompletionLabel(plan.id) === 'Incomplete'
-                  }">
-                  {{ getCompletionLabel(plan.id) }}
-                </span>
-                <button type="button" class="btn btn-sm btn-outline-primary"
-                  (click)="onGenerateCases(plan, false); $event.stopPropagation()"
-                  [disabled]="generating">
-                  Generate test case
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary"
-                  (click)="onGenerateCases(plan, true); $event.stopPropagation()"
-                  [disabled]="generating">
-                  Regenerate
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-danger"
-                  (click)="onCancelPlan(plan); $event.stopPropagation()">
-                  Cancel
-                </button>
-                <button class="btn btn-sm btn-icon expand-btn">
-                  <iconify-icon [icon]="expandedPlans[plan.id] ? 'mdi:chevron-up' : 'mdi:chevron-down'"></iconify-icon>
-                </button>
-              </div>
-            </div>
+        <div class="tc-tree-plan" [class.tc-tree-plan--active]="selectedPlanId === plan.id"
+          (click)="togglePlan(plan.id)">
+          <div class="tc-tree-plan-row">
+            <iconify-icon [icon]="expandedPlans[plan.id] ? 'mdi:chevron-down' : 'mdi:chevron-right'"
+              class="tc-tree-chevron">
+            </iconify-icon>
+            <span class="tc-tree-plan-id">{{ plan.id }}</span>
+            <span class="tc-tree-plan-title">{{ plan.title }}</span>
+            <span class="tc-tree-status-dot" [class.tc-tree-status-dot--ok]="getPlanStatus(plan.id) === 'completed'"
+              [class.tc-tree-status-dot--warn]="getPlanStatus(plan.id) === 'incomplete'"
+              [class.tc-tree-status-dot--spin]="getPlanStatus(plan.id) === 'generating'">
+            </span>
           </div>
 
           @if (expandedPlans[plan.id]) {
-          <div class="plan-body p-3 p-md-4 border-top">
-            <p class="mb-3 text-muted">{{ plan.description }}</p>
-            @if (generating && generatingPlanId === plan.id) {
-            <div class="testlab-processing py-4">
-              <div class="testlab-processing-icon">
-                <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin"></iconify-icon>
-              </div>
-              <p class="mb-0 text-muted">Generating test cases for this plan<span class="testlab-dots"></span></p>
-            </div>
-            } @else if (!testCasesByPlan[plan.id] || testCasesByPlan[plan.id].length === 0) {
-            <div class="empty-cases text-center py-4">
-              <p class="text-muted mb-0 small">No test cases generated.</p>
-            </div>
+          <div class="tc-tree-cases">
+            @if ((testCasesByPlan[plan.id] || []).length === 0) {
+            <button class="tc-tree-generate-btn" (click)="openModal(plan, $event)">
+              <iconify-icon icon="iconamoon:sparkles-duotone" class="me-1"></iconify-icon>
+              Generate test cases
+            </button>
             } @else {
-            <div class="cases-list">
-              @for (tc of testCasesByPlan[plan.id]; track tc.id; let i = $index) {
-              <div class="case-item mb-3">
-                <div class="case-header d-flex justify-content-between align-items-start mb-2">
-                  <div class="d-flex align-items-start gap-2">
-                    <span class="case-number">{{ i + 1 }}</span>
-                    <h6 class="case-title mb-0">{{ tc.title }}</h6>
-                  </div>
-                </div>
-                <div class="case-content ps-4 ms-2">
-                  <div class="row g-3">
-                    @if (tc.steps && tc.steps.length) {
-                    <div class="col-md-6">
-                      <div class="detail-box h-100">
-                        <span class="detail-label mb-1 d-block">Test Steps:</span>
-                        <ol class="step-list mb-0 ps-3">
-                          @for (step of tc.steps; track step) {
-                          <li>{{ step }}</li>
-                          }
-                        </ol>
-                      </div>
-                    </div>
-                    }
-
-                    @if (tc.expected_result) {
-                    <div class="col-md-6">
-                      <div class="detail-box h-100 success-box">
-                        <span class="detail-label text-success mb-1 d-block">Expected Result:</span>
-                        <span class="detail-value">{{ tc.expected_result }}</span>
-                      </div>
-                    </div>
-                    }
-                  </div>
-                </div>
-              </div>
-              }
+            @for (tc of testCasesByPlan[plan.id]; track tc.id) {
+            <div class="tc-tree-case" [class.tc-tree-case--live]="livePlanId === plan.id"
+              (click)="selectPlanForLive(plan.id); $event.stopPropagation()">
+              <span class="tc-tree-case-id">{{ tc.id }}</span>
+              <span class="tc-tree-case-title">{{ tc.title }}</span>
+            </div>
+            }
+            <div class="tc-tree-case-actions">
+              <button class="tc-tree-action-btn tc-tree-action-btn--primary" (click)="openModal(plan, $event)">
+                <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
+                Regenerate
+              </button>
             </div>
             }
           </div>
@@ -137,49 +84,248 @@
         </div>
         }
       </div>
-      } @else if (!suites.length) {
-      <p class="mb-0 text-muted">No test suites found.</p>
-      } @else {
-      <div class="d-flex align-items-start justify-content-between gap-3 mb-4">
-        <div>
-          <h4 class="mb-1">Available Test Suites</h4>
-          <p class="mb-0 text-muted">Open a suite to view and continue test case generation.</p>
-        </div>
-        <span class="testlab-pill">{{ suites.length }} suites</span>
-      </div>
 
-      <div class="tc-suite-grid mt-4">
-        @for (suite of suites; track suite._id) {
-        <div class="tc-suite-card" (click)="onOpenSuiteCard(suite)">
-          <div class="d-flex justify-content-between align-items-start gap-3">
-            <div class="d-flex align-items-start gap-2">
-              <div class="plan-icon">
-                <iconify-icon icon="lucide:folder-check"></iconify-icon>
-              </div>
-              <div>
-                <h5 class="plan-title mb-1">{{ suite.nom || 'Unnamed Suite' }}</h5>
-                <p class="plan-desc mb-1">{{ suite.nametest || 'No test name' }}</p>
-                <p class="plan-desc mb-0">
-                  {{ suite.createdAt ? (suite.createdAt | date:'dd MMM yyyy, HH:mm') : '-' }}
-                </p>
-              </div>
+      <!-- Suites (vue globale) -->
+      } @else if (suites.length) {
+      @for (suite of suites; track suite._id) {
+      <div class="tc-tree-section">
+        <div class="tc-tree-suite-row" (click)="toggleSuite(suite)">
+          <iconify-icon [icon]="expandedSuites[suite._id!] ? 'mdi:chevron-down' : 'mdi:chevron-right'"
+            class="tc-tree-chevron">
+          </iconify-icon>
+          <iconify-icon icon="lucide:folder-check" class="tc-tree-suite-icon"></iconify-icon>
+          <span class="tc-tree-suite-name">{{ suite.nom || 'Unnamed Suite' }}</span>
+          <span class="badge ms-auto"
+            [ngClass]="getSuiteCardStatus(suite) === 'Complete' ? 'text-bg-success' : 'text-bg-warning'">
+            {{ getSuiteCardStatus(suite) }}
+          </span>
+        </div>
+
+        @if (expandedSuites[suite._id!]) {
+        @if (loadingSuitePlans[suite._id!]) {
+        <div class="tc-tree-loading">
+          <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin"></iconify-icon>
+          Loading plans...
+        </div>
+        } @else {
+        @for (plan of (suitePlans[suite._id!] || []); track plan.id) {
+        <div class="tc-tree-plan" [class.tc-tree-plan--active]="selectedPlanId === plan.id"
+          (click)="togglePlan(plan.id)">
+          <div class="tc-tree-plan-row">
+            <iconify-icon [icon]="expandedPlans[plan.id] ? 'mdi:chevron-down' : 'mdi:chevron-right'"
+              class="tc-tree-chevron">
+            </iconify-icon>
+            <span class="tc-tree-plan-id">{{ plan.id }}</span>
+            <span class="tc-tree-plan-title">{{ plan.title }}</span>
+            <span class="tc-tree-status-dot" [class.tc-tree-status-dot--ok]="getPlanStatus(plan.id) === 'completed'"
+              [class.tc-tree-status-dot--warn]="getPlanStatus(plan.id) === 'incomplete'"
+              [class.tc-tree-status-dot--spin]="getPlanStatus(plan.id) === 'generating'">
+            </span>
+          </div>
+
+          @if (expandedPlans[plan.id]) {
+          <div class="tc-tree-cases">
+            @if ((testCasesByPlan[plan.id] || []).length === 0) {
+            <button class="tc-tree-generate-btn" (click)="testSuiteId = suite._id!; openModal(plan, $event)">
+              <iconify-icon icon="iconamoon:sparkles-duotone" class="me-1"></iconify-icon>
+              Generate test cases
+            </button>
+            } @else {
+            @for (tc of testCasesByPlan[plan.id]; track tc.id) {
+            <div class="tc-tree-case" [class.tc-tree-case--live]="livePlanId === plan.id"
+              (click)="selectPlanForLive(plan.id); $event.stopPropagation()">
+              <span class="tc-tree-case-id">{{ tc.id }}</span>
+              <span class="tc-tree-case-title">{{ tc.title }}</span>
             </div>
-            <div class="d-flex align-items-center gap-2">
-              <span class="badge"
-                [ngClass]="getSuiteCardStatus(suite) === 'Complete' ? 'text-bg-success' : 'text-bg-warning'">
-                {{ getSuiteCardStatus(suite) }}
-              </span>
-              <button type="button" class="btn btn-sm btn-outline-primary"
-                (click)="onOpenSuiteCard(suite); $event.stopPropagation()">
-                Open
+            }
+            <div class="tc-tree-case-actions">
+              <button class="tc-tree-action-btn tc-tree-action-btn--primary"
+                (click)="testSuiteId = suite._id!; openModal(plan, $event)">
+                <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
+                Regenerate
               </button>
             </div>
+            }
           </div>
+          }
+        </div>
+        }
+        }
+        }
+      </div>
+      }
+
+      } @else {
+      <div class="tc-empty-state">
+        <iconify-icon icon="lucide:folder-x" class="fs-2 text-muted"></iconify-icon>
+        <p class="mt-2 mb-0 text-muted small">No test suites found.</p>
+      </div>
+      }
+    </aside>
+
+    <!-- ══ RIGHT — Live Panel ══ -->
+    <main class="tc-right custom-scrollbar">
+      @if (!livePlanId) {
+      <div class="tc-right-empty">
+        <iconify-icon icon="iconamoon:lightning-2-duotone" class="tc-right-empty-icon"></iconify-icon>
+        <h5 class="mt-3 mb-1">Select a plan</h5>
+        <p class="text-muted small mb-0">Click a plan on the left to see its test cases here.</p>
+      </div>
+      } @else {
+      <div class="tc-right-header">
+        <div>
+          <span class="tc-right-plan-id">{{ livePlanId }}</span>
+          <h5 class="tc-right-plan-title mb-0">{{ livePlan?.title }}</h5>
+          <p class="tc-right-plan-desc mb-0">{{ livePlan?.description }}</p>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+          <span class="badge"
+            [ngClass]="getPlanStatus(livePlanId) === 'completed' ? 'text-bg-success' : getPlanStatus(livePlanId) === 'generating' ? 'text-bg-primary' : 'text-bg-warning'">
+            {{ getPlanStatus(livePlanId) }}
+          </span>
+          @if (livePlan) {
+          <button class="btn btn-sm btn-brand" (click)="openModal(livePlan, $event)">
+            <iconify-icon icon="iconamoon:sparkles-duotone" class="me-1"></iconify-icon>
+            {{ (testCasesByPlan[livePlanId] || []).length ? 'Regenerate' : 'Generate' }}
+          </button>
+          }
+        </div>
+      </div>
+
+      <!-- Generating live animation -->
+      @if (getPlanStatus(livePlanId) === 'generating') {
+      <div class="tc-live-generating">
+        <div class="tc-live-pulse"></div>
+        <span class="text-muted small">Generating test cases<span class="testlab-dots"></span></span>
+      </div>
+      }
+
+      <!-- Cases list -->
+      <div class="tc-right-cases">
+        @if ((liveCases || []).length === 0 && getPlanStatus(livePlanId) !== 'generating') {
+        <div class="tc-right-empty-cases">
+          <p class="text-muted small mb-0">No test cases yet. Click Generate to start.</p>
+        </div>
+        }
+        @for (tc of liveCases; track tc.id; let i = $index) {
+        <div class="tc-case-card">
+          <div class="tc-case-card-head">
+            <span class="tc-case-num">{{ i + 1 }}</span>
+            <span class="tc-case-id">{{ tc.id }}</span>
+            <span class="tc-case-title">{{ tc.title }}</span>
+          </div>
+          @if (tc.steps?.length) {
+          <div class="tc-case-steps">
+            <span class="tc-case-label">Steps</span>
+            <ol class="tc-case-step-list">
+              @for (step of tc.steps; track $index) {
+              <li>{{ step }}</li>
+              }
+            </ol>
+          </div>
+          }
+          @if (tc.expected_result) {
+          <div class="tc-case-expected">
+            <span class="tc-case-label text-success">Expected Result</span>
+            <p class="mb-0 small">{{ tc.expected_result }}</p>
+          </div>
+          }
+        </div>
+        }
+      </div>
+      }
+    </main>
+
+  </div><!-- end tc-split -->
+
+</div>
+
+<!-- ═══ MODAL ═══ -->
+@if (modalOpen && modalPlan) {
+<div class="tc-modal-backdrop" (click)="closeModal()">
+  <div class="tc-modal" (click)="$event.stopPropagation()">
+
+    <div class="tc-modal-header">
+      <div>
+        <span class="tc-modal-plan-id">{{ modalPlan.id }}</span>
+        <h5 class="tc-modal-title mb-0">{{ modalPlan.title }}</h5>
+        <p class="tc-modal-desc mb-0">{{ modalPlan.description }}</p>
+      </div>
+      <button class="tc-modal-close" (click)="closeModal()">×</button>
+    </div>
+
+    <!-- Actions top -->
+    <div class="tc-modal-actions-top">
+      @if (!modalGenerating && modalCases.length === 0) {
+      <button class="btn btn-brand px-4" (click)="onModalGenerate(false)">
+        <iconify-icon icon="iconamoon:sparkles-duotone" class="me-1"></iconify-icon>
+        Generate Test Cases
+      </button>
+      } @else if (!modalGenerating && modalCases.length > 0) {
+      <button class="btn btn-outline-primary px-4" (click)="onModalGenerate(true)">
+        <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
+        Regenerate
+      </button>
+      <button class="btn btn-brand px-4" (click)="onModalValidate()">
+        <iconify-icon icon="iconamoon:check-circle-1-duotone" class="me-1"></iconify-icon>
+        Validate & Save
+      </button>
+      <button class="btn btn-outline-secondary px-4" (click)="closeModal()">
+        Cancel
+      </button>
+      } @else {
+      <button class="btn btn-outline-danger px-4" (click)="closeModal()">
+        Stop Generation
+      </button>
+      }
+    </div>
+
+    <!-- Body -->
+    <div class="tc-modal-body custom-scrollbar">
+      @if (modalGenerating) {
+      <div class="tc-modal-generating">
+        <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin fs-2 text-primary"></iconify-icon>
+        <p class="mt-2 mb-0 text-muted">Generating test cases<span class="testlab-dots"></span></p>
+      </div>
+      } @else if (modalCases.length === 0) {
+      <div class="tc-modal-empty">
+        <iconify-icon icon="iconamoon:lightning-2-duotone" class="fs-2 text-muted"></iconify-icon>
+        <p class="mt-2 mb-0 text-muted small">Click Generate to start.</p>
+      </div>
+      } @else {
+      <div class="tc-modal-cases">
+        @for (tc of modalCases; track tc.id; let i = $index) {
+        <div class="tc-case-card">
+          <div class="tc-case-card-head">
+            <span class="tc-case-num">{{ i + 1 }}</span>
+            <span class="tc-case-id">{{ tc.id }}</span>
+            <span class="tc-case-title">{{ tc.title }}</span>
+            <button class="tc-case-delete" (click)="onModalDeleteCase(tc.id)" title="Remove">
+              <iconify-icon icon="iconamoon:trash-duotone"></iconify-icon>
+            </button>
+          </div>
+          @if (tc.steps?.length) {
+          <div class="tc-case-steps">
+            <span class="tc-case-label">Steps</span>
+            <ol class="tc-case-step-list">
+              @for (step of tc.steps; track $index) {
+              <li>{{ step }}</li>
+              }
+            </ol>
+          </div>
+          }
+          @if (tc.expected_result) {
+          <div class="tc-case-expected">
+            <span class="tc-case-label text-success">Expected Result</span>
+            <p class="mb-0 small">{{ tc.expected_result }}</p>
+          </div>
+          }
         </div>
         }
       </div>
       }
     </div>
+
   </div>
 </div>
-
+}

@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common'
+﻿import { CommonModule } from '@angular/common'
 import { Component, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core'
 import { ActivatedRoute, Router } from '@angular/router'
 import { Store } from '@ngrx/store'
@@ -42,260 +42,38 @@ export class TestCasesHomeComponent {
   errorMessage = ''
 
   suites: TestSuiteDto[] = []
+  expandedSuites: Record<string, boolean> = {}
+  suitePlans: Record<string, TestPlanDto[]> = {}
+  loadingSuitePlans: Record<string, boolean> = {}
 
   plans: TestPlanDto[] = []
   planStatuses: Record<string, PlanExecutionStatus> = {}
   testCasesByPlan: Record<string, TestCaseDto[]> = {}
   expandedPlans: Record<string, boolean> = {}
 
-  expandedSuites: Record<string, boolean> = {}
-  suitePlans: Record<string, TestPlanDto[]> = {}
-  loadingSuitePlans: Record<string, boolean> = {}
-
   testSuiteId = ''
   selectedPlanId = ''
 
+  // Modal state
+  modalOpen = false
+  modalPlan: TestPlanDto | null = null
+  modalGenerating = false
+  modalCases: TestCaseDto[] = []
+  private modalSubscription: Subscription | null = null
+
+  // Right panel live cases
+  livePlanId = ''
+  liveCases: TestCaseDto[] = []
+
   private generationSubscription: Subscription | null = null
 
-  get generatedCount(): number {
-    return this.plans.filter((p) => this.getPlanStatus(p.id) === 'completed').length
-  }
+  // ── Getters ──────────────────────────────────────────────────────────
 
-  get progressPercent(): number {
-    if (!this.plans.length) return 0
-    return (this.generatedCount / this.plans.length) * 100
-  }
-
-  get currentPlanNumber(): number {
-    if (!this.plans.length) return 0
-    const current = this.currentPlanPreview
-    if (!current) return 0
-    const idx = this.plans.findIndex((p) => p.id === current.id)
-    return idx >= 0 ? idx + 1 : 1
-  }
-
-  get currentPlanPreview(): TestPlanDto | null {
-    if (!this.plans.length) return null
-    if (this.selectedPlanId) {
-      const selected = this.plans.find((p) => p.id === this.selectedPlanId)
-      if (selected) return selected
-    }
-    const pending = this.plans.find((p) => this.getPlanStatus(p.id) !== 'completed')
-    return pending || this.plans[0]
-  }
-
-  get currentPlanCases(): TestCaseDto[] {
-    const plan = this.currentPlanPreview
-    if (!plan) return []
-    return this.testCasesByPlan[plan.id] || []
-  }
-
-  togglePlan(planId: string) {
-    this.expandedPlans[planId] = !this.expandedPlans[planId]
-    this.selectedPlanId = planId
-  }
-
-  async toggleSuite(suite: TestSuiteDto) {
-    const suiteId = suite._id
-    if (!suiteId) return
-
-    this.expandedSuites[suiteId] = !this.expandedSuites[suiteId]
-
-    if (this.expandedSuites[suiteId] && !this.suitePlans[suiteId] && !this.loadingSuitePlans[suiteId]) {
-      this.loadingSuitePlans[suiteId] = true
-      try {
-        const resp = await firstValueFrom(this.testLabService.getTestPlans(suiteId))
-        this.suitePlans[suiteId] = resp?.testPlans || []
-        this.initializePlanStatuses(this.suitePlans[suiteId])
-      } catch (err) {
-        console.error('Erreur chargement plans suite', err)
-      } finally {
-        this.loadingSuitePlans[suiteId] = false
-      }
-    }
-  }
-
-  async ngOnInit() {
-    this.testSuiteId =
-      String(this.route.snapshot.paramMap.get('id') || '').trim() ||
-      String(this.route.snapshot.queryParamMap.get('suiteId') || '').trim()
-    const requestedSuiteId = String(this.route.snapshot.queryParamMap.get('suiteId') || '').trim()
-
-    const state = history.state as { plans?: TestPlanDto[] }
-    this.plans = state?.plans || []
-    this.initializePlanStatuses(this.plans)
-
-    if (this.testSuiteId) {
-      await this.loadPlansForSuite(this.testSuiteId)
-    } else {
-      await this.loadSuites()
-    }
-    if (requestedSuiteId) {
-      const target = this.suites.find((s) => String(s._id || '').trim() === requestedSuiteId)
-      if (target) {
-        await this.onOpenSuiteCard(target)
-      }
-    }
-  }
-
-  async loadSuites() {
-    this.loading = true
-    this.errorMessage = ''
-
-    try {
-      const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
-
-      let userId = String((user as any)?.id || (user as any)?._id || '').trim()
-      const token = String((user as any)?.token || this.authService.session || '').trim()
-
-      if (!userId && token) {
-        userId = this.resolveUserIdFromToken(token)
-      }
-
-      if (!userId) {
-        this.errorMessage = 'Session expired. Please sign in again.'
-        return
-      }
-
-      this.suites = await firstValueFrom(this.testLabService.getTestSuitesByUser(userId))
-    } catch (err: unknown) {
-      this.errorMessage =
-        (err as any)?.error?.message ||
-        (err as any)?.message ||
-        'Unable to load test suites'
-    } finally {
-      this.loading = false
-    }
-  }
-
-  onGenerateCases(plan: TestPlanDto, regenerate = false) {
-    if (!this.testSuiteId || this.generating) return
-
-    this.generating = true
-    this.generatingPlanId = plan.id
-    this.errorMessage = ''
-    this.selectedPlanId = plan.id
-    this.expandedPlans[plan.id] = true
-    this.planStatuses[plan.id] = 'generating'
-    if (regenerate) {
-      this.testCasesByPlan[plan.id] = []
-    }
-
-    this.generationSubscription = this.testLabService
-      .generateTestCases({
-        testSuiteId: this.testSuiteId,
-        planId: plan.id,
-        planTitle: plan.title,
-        planDescription: plan.description,
-        regenerate,
-      })
-      .subscribe({
-        next: (resp) => {
-          this.testCasesByPlan[plan.id] = resp?.testCases || []
-          this.planStatuses[plan.id] = (resp?.testCases || []).length ? 'completed' : 'incomplete'
-          this.toastr.success(
-            regenerate ? `Test cases regenerated for ${plan.id}` : `Test cases generated for ${plan.id}`,
-            'AI'
-          )
-        },
-        error: (err: unknown) => {
-          this.planStatuses[plan.id] = 'incomplete'
-          this.errorMessage = (err as any)?.error?.message || 'Unable to generate test cases'
-        },
-        complete: () => {
-          this.generating = false
-          this.generatingPlanId = ''
-          this.generationSubscription = null
-        },
-      })
-  }
-
-  onStopGeneration() {
-    if (!this.generating || !this.generationSubscription) return
-    const planId = this.generatingPlanId
-
-    this.generationSubscription.unsubscribe()
-    this.generationSubscription = null
-    this.generating = false
-    this.generatingPlanId = ''
-
-    if (planId) {
-      this.planStatuses[planId] = 'incomplete'
-      this.toastr.warning(`Generation stopped for ${planId}. Status is now incomplete.`, 'Stopped')
-    }
-  }
-
-  onStopAllGeneration() {
-    this.onStopGeneration()
-  }
-
-  onCancelPlan(plan: TestPlanDto) {
-    if (!plan?.id) return
-    if (this.generating && this.generatingPlanId === plan.id) {
-      this.onStopGeneration()
-      return
-    }
-
-    this.testCasesByPlan[plan.id] = []
-    this.planStatuses[plan.id] = 'incomplete'
-    this.expandedPlans[plan.id] = false
-    this.toastr.info(`Plan ${plan.id} cancelled.`, 'Cancel')
-  }
-
-  onSaveSession() {
-    if (!this.testSuiteId || !this.plans.length) return
-
-    const normalizedPlanStatuses: Record<string, PlanExecutionStatus> = { ...this.planStatuses }
-    for (const plan of this.plans) {
-      const status = this.getPlanStatus(plan.id)
-      normalizedPlanStatuses[plan.id] = status === 'generating' ? 'incomplete' : status
-    }
-
-    const suiteStatus: SuiteSessionStatus = this.plans.every((p) => normalizedPlanStatuses[p.id] === 'completed')
-      ? 'complete'
-      : 'incomplete'
-
-    const testCasesByPlan = this.plans.map((p) => ({
-      planId: p.id,
-      planTitle: p.title,
-      testCases: this.testCasesByPlan[p.id] || [],
-    }))
-
-    this.testLabService.saveSuiteSession(this.testSuiteId, {
-      suiteStatus,
-      planStatuses: normalizedPlanStatuses,
-      testCasesByPlan,
-    }).subscribe({
-      next: () => this.toastr.success('Session saved successfully.', 'Save'),
-      error: (err) => this.toastr.error(err?.error?.message || 'Unable to save session', 'Save'),
-    })
-  }
-
-  onDeleteTestCase(planId: string, testCaseId: string) {
-    this.testCasesByPlan[planId] = (this.testCasesByPlan[planId] || []).filter((tc) => tc.id !== testCaseId)
-    if (!this.testCasesByPlan[planId]?.length && this.planStatuses[planId] === 'completed') {
-      this.planStatuses[planId] = 'incomplete'
-    }
-  }
-
-  openSuite(suite: TestSuiteDto) {
-    const id = String(suite?._id || '').trim()
-    if (!id) return
-
-    void this.router.navigate(['/test-cases', id])
-  }
-
-  async onOpenSuiteCard(suite: TestSuiteDto) {
-    const suiteId = String(suite?._id || '').trim()
-    if (!suiteId) return
-
-    this.testSuiteId = suiteId
-    await this.router.navigate(['/test-cases'], { queryParams: { suiteId } })
-    await this.loadPlansForSuite(suiteId)
-  }
-
-  getSuiteCardStatus(suite: TestSuiteDto): 'Complete' | 'Incomplete' {
-    return suite?.sessionStatus === 'complete' ? 'Complete' : 'Incomplete'
+  get allPlans(): TestPlanDto[] {
+    if (this.plans.length) return this.plans
+    const all: TestPlanDto[] = []
+    for (const plans of Object.values(this.suitePlans)) all.push(...plans)
+    return all
   }
 
   getPlanStatus(planId: string): PlanExecutionStatus {
@@ -307,6 +85,223 @@ export class TestCasesHomeComponent {
   getCompletionLabel(planId: string): 'Complete' | 'Incomplete' {
     return this.getPlanStatus(planId) === 'completed' ? 'Complete' : 'Incomplete'
   }
+
+  getSuiteCardStatus(suite: TestSuiteDto): 'Complete' | 'Incomplete' {
+    return suite?.sessionStatus === 'complete' ? 'Complete' : 'Incomplete'
+  }
+
+  get livePlan(): TestPlanDto | null {
+    return this.allPlans.find(p => p.id === this.livePlanId) || null
+  }
+
+  // ── Lifecycle ─────────────────────────────────────────────────────────
+
+  async ngOnInit() {
+    this.testSuiteId =
+      String(this.route.snapshot.paramMap.get('id') || '').trim() ||
+      String(this.route.snapshot.queryParamMap.get('suiteId') || '').trim()
+
+    const state = history.state as { plans?: TestPlanDto[] }
+    this.plans = state?.plans || []
+    this.initializePlanStatuses(this.plans)
+
+    if (this.testSuiteId) {
+      await this.loadPlansForSuite(this.testSuiteId)
+    } else {
+      await this.loadSuites()
+    }
+  }
+
+  // ── Suite tree ────────────────────────────────────────────────────────
+
+  async loadSuites() {
+    this.loading = true
+    this.errorMessage = ''
+    try {
+      const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
+      let userId = String((user as any)?.id || (user as any)?._id || '').trim()
+      const token = String((user as any)?.token || this.authService.session || '').trim()
+      if (!userId && token) userId = this.resolveUserIdFromToken(token)
+      if (!userId) { this.errorMessage = 'Session expired.'; return }
+      this.suites = await firstValueFrom(this.testLabService.getTestSuitesByUser(userId))
+    } catch (err: unknown) {
+      this.errorMessage = (err as any)?.error?.message || 'Unable to load test suites'
+    } finally {
+      this.loading = false
+    }
+  }
+
+  async toggleSuite(suite: TestSuiteDto) {
+    const suiteId = suite._id
+    if (!suiteId) return
+    this.expandedSuites[suiteId] = !this.expandedSuites[suiteId]
+
+    if (this.expandedSuites[suiteId] && !this.suitePlans[suiteId] && !this.loadingSuitePlans[suiteId]) {
+      this.loadingSuitePlans[suiteId] = true
+      try {
+        const resp = await firstValueFrom(this.testLabService.getTestPlans(suiteId))
+        this.suitePlans[suiteId] = resp?.testPlans || []
+        for (const block of resp?.testCasesByPlan || []) {
+          if (block?.planId) this.testCasesByPlan[block.planId] = block?.testCases || []
+        }
+        this.initializePlanStatuses(this.suitePlans[suiteId])
+      } catch (err) {
+        console.error('Error loading plans', err)
+      } finally {
+        this.loadingSuitePlans[suiteId] = false
+      }
+    }
+  }
+
+  togglePlan(planId: string) {
+    this.expandedPlans[planId] = !this.expandedPlans[planId]
+    this.selectedPlanId = planId
+    if (this.expandedPlans[planId] && (this.testCasesByPlan[planId] || []).length) {
+      this.livePlanId = planId
+      this.liveCases = this.testCasesByPlan[planId]
+    }
+  }
+
+  selectPlanForLive(planId: string) {
+    this.livePlanId = planId
+    this.liveCases = this.testCasesByPlan[planId] || []
+  }
+
+  // ── Modal ─────────────────────────────────────────────────────────────
+
+  openModal(plan: TestPlanDto, event: Event) {
+    event.stopPropagation()
+    this.modalPlan = plan
+    this.modalCases = [...(this.testCasesByPlan[plan.id] || [])]
+    this.modalGenerating = false
+    this.modalOpen = true
+  }
+
+  closeModal() {
+    if (this.modalGenerating) {
+      this.modalSubscription?.unsubscribe()
+      this.modalSubscription = null
+      this.modalGenerating = false
+      if (this.modalPlan) this.planStatuses[this.modalPlan.id] = 'incomplete'
+    }
+    this.modalOpen = false
+    this.modalPlan = null
+    this.modalCases = []
+  }
+
+  onModalGenerate(regenerate = false) {
+    const plan = this.modalPlan
+    if (!plan || !this.testSuiteId || this.modalGenerating) return
+
+    this.modalGenerating = true
+    this.modalCases = []
+    this.planStatuses[plan.id] = 'generating'
+    this.livePlanId = plan.id
+    this.liveCases = []
+
+    this.modalSubscription = this.testLabService.generateTestCases({
+      testSuiteId: this.testSuiteId,
+      planId: plan.id,
+      planTitle: plan.title,
+      planDescription: plan.description,
+      regenerate,
+    }).subscribe({
+      next: (resp) => {
+        this.modalCases = resp?.testCases || []
+        this.liveCases = [...this.modalCases]
+        this.testCasesByPlan[plan.id] = this.modalCases
+        this.planStatuses[plan.id] = this.modalCases.length ? 'completed' : 'incomplete'
+        this.toastr.success(`Test cases ${regenerate ? 'regenerated' : 'generated'} for ${plan.id}`, 'AI')
+      },
+      error: (err: unknown) => {
+        this.planStatuses[plan.id] = 'incomplete'
+        this.errorMessage = (err as any)?.error?.message || 'Unable to generate test cases'
+        this.modalGenerating = false
+      },
+      complete: () => {
+        this.modalGenerating = false
+        this.modalSubscription = null
+      },
+    })
+  }
+
+  onModalValidate() {
+    const plan = this.modalPlan
+    if (!plan || !this.testSuiteId) return
+
+    const testCasesByPlan = [{
+      planId: plan.id,
+      planTitle: plan.title,
+      testCases: this.modalCases,
+    }]
+
+    const normalizedStatuses = { ...this.planStatuses }
+    normalizedStatuses[plan.id] = 'completed'
+
+    const suiteStatus: SuiteSessionStatus = this.allPlans.every(
+      p => (normalizedStatuses[p.id] || this.getPlanStatus(p.id)) === 'completed'
+    ) ? 'complete' : 'incomplete'
+
+    this.testLabService.saveSuiteSession(this.testSuiteId, {
+      suiteStatus,
+      planStatuses: normalizedStatuses,
+      testCasesByPlan,
+    }).subscribe({
+      next: () => {
+        this.testCasesByPlan[plan.id] = [...this.modalCases]
+        this.planStatuses[plan.id] = 'completed'
+        this.toastr.success(`Plan ${plan.id} saved successfully.`, 'Saved')
+        this.closeModal()
+      },
+      error: (err) => this.toastr.error(err?.error?.message || 'Unable to save', 'Save'),
+    })
+  }
+
+  onModalDeleteCase(caseId: string) {
+    this.modalCases = this.modalCases.filter(tc => tc.id !== caseId)
+    this.liveCases = [...this.modalCases]
+  }
+
+  // ── Save All ──────────────────────────────────────────────────────────
+
+  onSaveAll() {
+    if (!this.testSuiteId) return
+
+    const normalizedStatuses: Record<string, PlanExecutionStatus> = {}
+    for (const plan of this.allPlans) {
+      const s = this.getPlanStatus(plan.id)
+      normalizedStatuses[plan.id] = s === 'generating' ? 'incomplete' : s
+    }
+
+    const suiteStatus: SuiteSessionStatus = this.allPlans.every(
+      p => normalizedStatuses[p.id] === 'completed'
+    ) ? 'complete' : 'incomplete'
+
+    const testCasesByPlan = this.allPlans.map(p => ({
+      planId: p.id,
+      planTitle: p.title,
+      testCases: this.testCasesByPlan[p.id] || [],
+    }))
+
+    this.testLabService.saveSuiteSession(this.testSuiteId, {
+      suiteStatus,
+      planStatuses: normalizedStatuses,
+      testCasesByPlan,
+    }).subscribe({
+      next: () => this.toastr.success('All test cases saved.', 'Save'),
+      error: (err) => this.toastr.error(err?.error?.message || 'Unable to save', 'Save'),
+    })
+  }
+
+  onRegenerateAll() {
+    for (const plan of this.allPlans) {
+      this.openModal(plan, new MouseEvent('click'))
+      this.onModalGenerate(true)
+      break
+    }
+  }
+
+  // ── Private ───────────────────────────────────────────────────────────
 
   private initializePlanStatuses(plans: TestPlanDto[]) {
     for (const plan of plans || []) {
@@ -326,12 +321,10 @@ export class TestCasesHomeComponent {
       for (const block of resp?.testCasesByPlan || []) {
         if (block?.planId) this.testCasesByPlan[block.planId] = block?.testCases || []
       }
-
       this.initializePlanStatuses(this.plans)
-      const persistedStatuses = Array.isArray(resp?.planStatuses) ? resp.planStatuses : []
-      for (const row of persistedStatuses) {
-        if (!row?.planId) continue
-        this.planStatuses[row.planId] = String(row.status || 'pending') as PlanExecutionStatus
+
+      for (const row of Array.isArray(resp?.planStatuses) ? resp.planStatuses : []) {
+        if (row?.planId) this.planStatuses[row.planId] = String(row.status || 'pending') as PlanExecutionStatus
       }
       for (const p of this.plans) {
         if ((this.testCasesByPlan[p.id] || []).length > 0 && !this.planStatuses[p.id]) {
@@ -339,14 +332,10 @@ export class TestCasesHomeComponent {
         }
       }
 
-      const requestedPlanId = String(this.route.snapshot.queryParamMap.get('planId') || '').trim()
-      const defaultPlanId =
-        requestedPlanId && this.plans.some((p) => p.id === requestedPlanId)
-          ? requestedPlanId
-          : (this.plans[0]?.id || '')
-      if (defaultPlanId) {
-        this.selectedPlanId = defaultPlanId
-        this.expandedPlans[defaultPlanId] = true
+      if (this.plans[0]) {
+        this.selectedPlanId = this.plans[0].id
+        this.livePlanId = this.plans[0].id
+        this.liveCases = this.testCasesByPlan[this.plans[0].id] || []
       }
     } catch (err: unknown) {
       this.errorMessage = (err as any)?.error?.message || 'Unable to load test plans'
@@ -359,11 +348,7 @@ export class TestCasesHomeComponent {
     try {
       const decoded = jwt_decode<Record<string, unknown>>(token)
       const userLike = (decoded?.['user'] as Record<string, unknown>) || decoded || {}
-
       return String(userLike['userId'] || userLike['id'] || userLike['_id'] || userLike['sub'] || '').trim()
-    } catch {
-      return ''
-    }
+    } catch { return '' }
   }
 }
-

@@ -123,6 +123,7 @@ export class TestSuiteConfigurationComponent {
     this.toastr.success('Test plans validated successfully.', 'Validation')
   }
 
+  // Remplacer onSaveSession() — retourne false si erreur et affiche toastr
   async onSaveSession(): Promise<boolean> {
     if (!this.testPlans.length || !this.currentTestSuiteId) return false
     const suiteStatus = this.allPlansConfirmed ? 'complete' : 'incomplete'
@@ -134,14 +135,15 @@ export class TestSuiteConfigurationComponent {
         })
       )
       this.sessionSaved = true
+      this.toastr.success('Test plan saved successfully.', 'Save')
       return true
     } catch (err: any) {
-      this.toastr.error(err?.error?.message || 'Unable to save session', 'Save')
+      this.toastr.error(err?.error?.message || 'Unable to save test plan', 'Save')
       return false
     }
   }
 
-  async onValidateAndGoToCases() {
+  /*async onValidateAndGoToCases() {
     if (!this.testPlans.length) {
       this.toastr.warning('Generate at least one test plan first.', 'Validation')
       return
@@ -165,10 +167,37 @@ export class TestSuiteConfigurationComponent {
     } finally {
       this.finishing = false
     }
-  }
+  }*/
 
+  // Remplacer onValidateAndGoToCases()
+  async onValidateAndGoToCases() {
+    if (!this.testPlans.length) {
+      this.toastr.warning('Generate at least one test plan first.', 'Validation')
+      return
+    }
+
+    // Valider tous les plans
+    this.onValidatePlans()
+
+    // Sauvegarder obligatoirement
+    if (this.currentTestSuiteId) {
+      const saved = await this.onSaveSession()
+      if (!saved) return  // bloquer la navigation si la sauvegarde échoue
+    }
+
+    // Naviguer vers /test-cases
+    this.finishing = true
+    try {
+      await this.router.navigate(['/test-cases'], {
+        queryParams: this.currentTestSuiteId ? { suiteId: this.currentTestSuiteId } : undefined,
+        state: { plans: this.testPlans },
+      })
+    } finally {
+      this.finishing = false
+    }
+  }
   // 🔹 Annuler / reset complet
-  onCancelPlans() {
+  /*onCancelPlans() {
     this.errorMessage = ''
     this.generatingPlans = false
     this.generatingCases = false
@@ -182,10 +211,33 @@ export class TestSuiteConfigurationComponent {
     this.planStatuses = {}
     this.plansValidated = false
     this.sessionSaved = false
+  }*/
+  // Remplacer onCancelPlans()
+  onCancelPlans() {
+    // Annule tout sans sauvegarder
+    this.errorMessage = ''
+    this.generatingPlans = false
+    this.generatingCases = false
+    this.finishing = false
+    this.nameTest = ''
+    this.uploadedFileName = ''
+    this.selectedFile = null
+    this.currentTestSuiteId = ''
+    this.testPlans = []
+    this.testCasesByPlan = {}
+    this.currentPlanIndex = -1
+    this.planStatuses = {}
+    this.plansValidated = false
+    this.sessionSaved = false
+    // Aucune sauvegarde, aucune navigation
   }
 
   // 🔹 Régénérer tous les plans depuis le début
+  // Remplacer onRegeneratePlans()
   onRegeneratePlans() {
+    // Régénère sans sauvegarder l'état actuel
+    this.sessionSaved = false
+    this.plansValidated = false
     void this.generatePlans(true)
   }
 
