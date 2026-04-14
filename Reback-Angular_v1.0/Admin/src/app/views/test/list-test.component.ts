@@ -24,7 +24,8 @@ import {
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class TestCasesValidationComponent {
-  private readonly completeStatuses = new Set(['confirmed', 'completed', 'complete'])
+  readonly defaultAvatar = 'assets/images/users/default-user.svg'
+  private readonly backendOrigin = 'http://localhost:3000'
 
   private store = inject(Store)
   private authService = inject(AuthenticationService)
@@ -104,7 +105,10 @@ export class TestCasesValidationComponent {
     const id = String(suite._id || '').trim()
     if (!id) return
     await this.router.navigate(['/testcases'], {
-      queryParams: { suiteId: id },
+      queryParams: {
+        suiteId: id,
+        suiteName: String(suite.nametest || suite.nom || '').trim(),
+      },
     })
   }
 
@@ -164,37 +168,64 @@ export class TestCasesValidationComponent {
     ) || 0
   }
 
-  getSuiteStatus(suiteId: string): 'Complete' | 'Incomplete' {
+  getSuiteStatus(suiteId: string): 'Validated' | 'Not validated' {
     const suite = this.suites.find((s) => String(s._id || '').trim() === String(suiteId || '').trim())
-    const sessionStatus = String(suite?.sessionStatus || '').toLowerCase()
-    if (this.completeStatuses.has(sessionStatus)) return 'Complete'
-
-    const statuses = Array.isArray(suite?.planStatuses) ? suite.planStatuses : []
-    if (statuses.length && statuses.every((row) => this.completeStatuses.has(String(row?.status || '').toLowerCase()))) {
-      return 'Complete'
-    }
-    return 'Incomplete'
+    if (!suite) return 'Not validated'
+    return this.isSuiteValidated(suite) ? 'Validated' : 'Not validated'
   }
 
   getIncompletePlans(suite: TestSuiteDto): TestPlanDto[] {
     const plans = (suite?.testPlans || []) as TestPlanDto[]
-    const statuses = Array.isArray(suite?.planStatuses) ? suite.planStatuses : []
-    const byPlan = new Map<string, string>()
-    for (const row of statuses) {
-      if (row?.planId) byPlan.set(row.planId, String(row.status || '').toLowerCase())
-    }
     return plans.filter((p) => {
-      const status = byPlan.get(p.id) || 'pending'
-      return !this.completeStatuses.has(status)
+      return this.getPlanCaseCount(suite, p.id) === 0
     })
+  }
+
+  private isSuiteValidated(suite: TestSuiteDto): boolean {
+    const plans = Array.isArray(suite?.testPlans) ? suite.testPlans : []
+    if (!plans.length) return false
+
+    const hasDetailedCases = Array.isArray((suite as any)?.testCasesByPlan) && (suite as any).testCasesByPlan.length > 0
+    if (hasDetailedCases) {
+      return plans.every((p) => this.getPlanCaseCount(suite, p.id) > 0)
+    }
+
+    if (typeof suite.totalTestCases === 'number') {
+      return suite.totalTestCases >= plans.length
+    }
+    return false
+  }
+
+  private getPlanCaseCount(suite: TestSuiteDto, planId: string): number {
+    const blocks = Array.isArray((suite as any)?.testCasesByPlan) ? (suite as any).testCasesByPlan : []
+    const block = blocks.find((b: any) => String(b?.planId || '').trim() === String(planId || '').trim())
+    return Array.isArray(block?.testCases) ? block.testCases.length : 0
   }
 
   onCompleteTest(suite: TestSuiteDto, plan: TestPlanDto) {
     const suiteId = String(suite?._id || '').trim()
     if (!suiteId || !plan?.id) return
     void this.router.navigate(['/testcases'], {
-      queryParams: { suiteId, planId: plan.id },
+      queryParams: {
+        suiteId,
+        planId: plan.id,
+        suiteName: String(suite.nametest || suite.nom || '').trim(),
+      },
     })
+  }
+
+  resolveAvatarUrl(picture?: string | null): string {
+    const raw = String(picture || '').trim()
+    if (!raw) return this.defaultAvatar
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw
+    if (raw.startsWith('/')) return `${this.backendOrigin}${raw}`
+    return raw
+  }
+
+  onAvatarError(event: Event) {
+    const img = event.target as HTMLImageElement | null
+    if (!img) return
+    img.src = this.defaultAvatar
   }
 
   private async generateTestCases(plan: TestPlanDto, regenerate: boolean) {

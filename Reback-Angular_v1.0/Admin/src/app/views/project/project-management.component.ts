@@ -170,6 +170,10 @@ export class ProjectManagementComponent implements OnInit {
     })
   }
 
+  applyEliteTeamSelection(modal: any): void {
+    modal.close()
+  }
+
   get filteredEliteUsers(): AppUser[] {
     const q = this.eliteTeamSearch.trim().toLowerCase()
     if (!q) return this.users

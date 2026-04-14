@@ -51,11 +51,6 @@
             <label class="exec-label mb-0">Actions <span class="text-danger">*</span></label>
             <span class="exec-selected-badge">{{ selectedCount }} selected</span>
           </div>
-          <label class="exec-select-all">
-            <span class="exec-select-all-text">Select All</span>
-            <input class="exec-checkbox" type="checkbox" [checked]="allSelected"
-              (change)="toggleAll($any($event.target).checked)" />
-          </label>
         </div>
 
         <!-- Wrapper dropdown -->
@@ -87,6 +82,13 @@
               @if (actionGroups.length === 0) {
               <div class="text-muted px-2 py-2">No actions</div>
               }
+              <div class="mb-2">
+                <label class="exec-action-item exec-action-item--all">
+                  <span class="exec-action-name fw-semibold">Select All</span>
+                  <input class="exec-checkbox exec-checkbox-lg" type="checkbox" [checked]="allSelected"
+                    (change)="toggleAll($any($event.target).checked)" />
+                </label>
+              </div>
               @for (group of actionGroups; track group.key) {
               <div class="mb-2">
                 <label class="exec-action-item">

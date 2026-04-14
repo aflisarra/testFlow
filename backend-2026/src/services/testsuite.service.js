@@ -422,7 +422,7 @@ async function getTestSuitesByUser(userId) {
     // Keep the same function signature/endpoint for frontend compatibility.
     const suites = await TestSuite.find({})
         .select('_id nom nametest description specFileName urlCible testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt createdAt userId')
-        .populate('userId', 'name email')
+        .populate('userId', 'name email picture')
         .sort({ createdAt: -1 })
         .lean()
 
@@ -433,7 +433,7 @@ async function getTestSuitesByUser(userId) {
 
         return {
             ...suite,
-            creatorName: suite?.userId?.name || suite?.userId?.email || 'Unknown User',
+            creatorName: suite?.userId?.name || suite?.userId?.email || suite?.userId?.picture || 'Unknown User',
             totalTestCases,
         }
     })

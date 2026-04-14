@@ -40,6 +40,7 @@ export class TestCasesHomeComponent {
   generating = false
   generatingPlanId = ''
   errorMessage = ''
+  currentSuiteName = ''
 
   suites: TestSuiteDto[] = []
   expandedSuites: Record<string, boolean> = {}
@@ -54,14 +55,12 @@ export class TestCasesHomeComponent {
   testSuiteId = ''
   selectedPlanId = ''
 
-  // Modal state
   modalOpen = false
   modalPlan: TestPlanDto | null = null
   modalGenerating = false
   modalCases: TestCaseDto[] = []
   private modalSubscription: Subscription | null = null
 
-  // Right panel live cases
   livePlanId = ''
   liveCases: TestCaseDto[] = []
 
@@ -77,17 +76,16 @@ export class TestCasesHomeComponent {
   }
 
   getPlanStatus(planId: string): PlanExecutionStatus {
-    if (this.planStatuses[planId]) return this.planStatuses[planId]
-    if ((this.testCasesByPlan[planId] || []).length > 0) return 'completed'
-    return 'pending'
+    if (this.planStatuses[planId] === 'generating') return 'generating'
+    return (this.testCasesByPlan[planId] || []).length > 0 ? 'completed' : 'incomplete'
   }
 
-  getCompletionLabel(planId: string): 'Complete' | 'Incomplete' {
-    return this.getPlanStatus(planId) === 'completed' ? 'Complete' : 'Incomplete'
+  getCompletionLabel(planId: string): 'Validated' | 'Not validated' {
+    return this.getPlanStatus(planId) === 'completed' ? 'Validated' : 'Not validated'
   }
 
-  getSuiteCardStatus(suite: TestSuiteDto): 'Complete' | 'Incomplete' {
-    return suite?.sessionStatus === 'complete' ? 'Complete' : 'Incomplete'
+  getSuiteCardStatus(suite: TestSuiteDto): 'Validated' | 'Not validated' {
+    return this.isSuiteValidated(suite) ? 'Validated' : 'Not validated'
   }
 
   get livePlan(): TestPlanDto | null {
@@ -100,6 +98,7 @@ export class TestCasesHomeComponent {
     this.testSuiteId =
       String(this.route.snapshot.paramMap.get('id') || '').trim() ||
       String(this.route.snapshot.queryParamMap.get('suiteId') || '').trim()
+    this.currentSuiteName = String(this.route.snapshot.queryParamMap.get('suiteName') || '').trim()
 
     const state = history.state as { plans?: TestPlanDto[] }
     this.plans = state?.plans || []
@@ -110,6 +109,22 @@ export class TestCasesHomeComponent {
     } else {
       await this.loadSuites()
     }
+  }
+
+  // ── Navigation ────────────────────────────────────────────────────────
+
+  onBackToSuites() {
+    this.testSuiteId = ''
+    this.plans = []
+    this.planStatuses = {}
+    this.testCasesByPlan = {}
+    this.expandedPlans = {}
+    this.livePlanId = ''
+    this.liveCases = []
+    this.selectedPlanId = ''
+    this.currentSuiteName = ''
+    void this.router.navigate(['/test-cases'])
+    void this.loadSuites()
   }
 
   // ── Suite tree ────────────────────────────────────────────────────────
@@ -177,6 +192,13 @@ export class TestCasesHomeComponent {
     this.modalOpen = true
   }
 
+  onRegeneratePlan(plan: TestPlanDto, event: Event, suiteId?: string) {
+    event.stopPropagation()
+    if (suiteId) this.testSuiteId = suiteId
+    this.openModal(plan, event)
+    this.onModalGenerate(true)
+  }
+
   closeModal() {
     if (this.modalGenerating) {
       this.modalSubscription?.unsubscribe()
@@ -211,7 +233,7 @@ export class TestCasesHomeComponent {
         this.liveCases = [...this.modalCases]
         this.testCasesByPlan[plan.id] = this.modalCases
         this.planStatuses[plan.id] = this.modalCases.length ? 'completed' : 'incomplete'
-        this.toastr.success(`Test cases ${regenerate ? 'regenerated' : 'generated'} for ${plan.id}`, 'AI')
+        this.toastr.success(`Test cases ${regenerate ? 'regenerated' : 'generated'} for ${plan.id}`, 'Generation')
       },
       error: (err: unknown) => {
         this.planStatuses[plan.id] = 'incomplete'
@@ -228,6 +250,10 @@ export class TestCasesHomeComponent {
   onModalValidate() {
     const plan = this.modalPlan
     if (!plan || !this.testSuiteId) return
+    if (!this.modalCases.length) {
+      this.toastr.warning('Generate test cases first before validation.', 'Validation')
+      return
+    }
 
     const testCasesByPlan = [{
       planId: plan.id,
@@ -236,7 +262,7 @@ export class TestCasesHomeComponent {
     }]
 
     const normalizedStatuses = { ...this.planStatuses }
-    normalizedStatuses[plan.id] = 'completed'
+    normalizedStatuses[plan.id] = this.modalCases.length ? 'completed' : 'incomplete'
 
     const suiteStatus: SuiteSessionStatus = this.allPlans.every(
       p => (normalizedStatuses[p.id] || this.getPlanStatus(p.id)) === 'completed'
@@ -249,7 +275,7 @@ export class TestCasesHomeComponent {
     }).subscribe({
       next: () => {
         this.testCasesByPlan[plan.id] = [...this.modalCases]
-        this.planStatuses[plan.id] = 'completed'
+        this.planStatuses[plan.id] = this.modalCases.length ? 'completed' : 'incomplete'
         this.toastr.success(`Plan ${plan.id} saved successfully.`, 'Saved')
         this.closeModal()
       },
@@ -301,6 +327,33 @@ export class TestCasesHomeComponent {
     }
   }
 
+  getPlanValidationLabel(planId: string): 'Validated' | 'Not validated' | 'Generating...' {
+    const status = this.getPlanStatus(planId)
+    if (status === 'generating') return 'Generating...'
+    return (this.testCasesByPlan[planId] || []).length > 0 ? 'Validated' : 'Not validated'
+  }
+
+  private isSuiteValidated(suite: TestSuiteDto): boolean {
+    const suiteId = String(suite?._id || '').trim()
+    const loadedPlans = this.suitePlans[suiteId]
+    const plans = (loadedPlans?.length ? loadedPlans : (suite?.testPlans || [])) as TestPlanDto[]
+    if (!plans.length) return false
+
+    const hasAllCases = plans.every((p) => (this.testCasesByPlan[p.id] || []).length > 0)
+    if (hasAllCases) return true
+
+    const suiteBlocks = Array.isArray((suite as any)?.testCasesByPlan) ? (suite as any).testCasesByPlan : []
+    if (suiteBlocks.length) {
+      const byPlan = new Map<string, number>()
+      for (const block of suiteBlocks) {
+        byPlan.set(String(block?.planId || '').trim(), Array.isArray(block?.testCases) ? block.testCases.length : 0)
+      }
+      return plans.every((p) => (byPlan.get(String(p.id || '').trim()) || 0) > 0)
+    }
+
+    return false
+  }
+
   // ── Private ───────────────────────────────────────────────────────────
 
   private initializePlanStatuses(plans: TestPlanDto[]) {
@@ -317,6 +370,14 @@ export class TestCasesHomeComponent {
     try {
       const resp = await firstValueFrom(this.testLabService.getTestPlans(testSuiteId))
       this.plans = resp?.testPlans || []
+
+      const matched = this.suites.find(s => s._id === testSuiteId)
+      this.currentSuiteName =
+        this.currentSuiteName ||
+        matched?.nametest ||
+        matched?.nom ||
+        testSuiteId
+
       this.testCasesByPlan = {}
       for (const block of resp?.testCasesByPlan || []) {
         if (block?.planId) this.testCasesByPlan[block.planId] = block?.testCases || []

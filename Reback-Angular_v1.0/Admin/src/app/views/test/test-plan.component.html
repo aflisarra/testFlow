@@ -135,14 +135,19 @@
             <div class="d-flex align-items-center gap-2">
               <span class="badge text-capitalize"
                 [ngClass]="planStatuses[plan.id] === 'confirmed' ? 'text-bg-success' : 'text-bg-warning'">
-                {{ planStatuses[plan.id] === 'confirmed' ? 'Complete' : 'Incomplete' }}
+                {{ planStatuses[plan.id] === 'confirmed' ? 'Validated' : 'Not validated' }}
               </span>
               <button
                 type="button"
                 class="btn btn-sm btn-outline-primary"
-                [disabled]="generatingPlans || finishing"
+                [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
                 (click)="onRegeneratePlan(plan, $index)">
+                @if (regeneratingPlanId === plan.id) {
+                <iconify-icon icon="iconamoon:settings-duotone" class="me-1 testlab-spin"></iconify-icon>
+                Regenerating...
+                } @else {
                 Regenerate
+                }
               </button>
             </div>
           </div>

@@ -38,6 +38,7 @@ export class TestSuiteConfigurationComponent {
   selectedFile: File | null = null
 
   generatingPlans = false
+  regeneratingPlanId: string | null = null
   errorMessage = ''
 
   currentTestSuiteId = ''
@@ -243,10 +244,8 @@ export class TestSuiteConfigurationComponent {
 
   async onRegeneratePlan(plan: TestPlanDto, index: number) {
     if (!plan?.id || !this.currentTestSuiteId) return
-    if (!this.selectedFile) {
-      this.toastr.warning('Upload the specification document first.', 'Regenerate')
-      return
-    }
+    this.errorMessage = ''
+    this.regeneratingPlanId = plan.id
 
     try {
       const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
@@ -259,11 +258,16 @@ export class TestSuiteConfigurationComponent {
       }
 
       const formData = new FormData()
-      formData.append('file', this.selectedFile)
+      if (this.selectedFile) formData.append('file', this.selectedFile)
       formData.append('styleConfig', this.styleConfig.trim())
       formData.append('description', this.styleConfig.trim())
       formData.append('userId', userId)
       formData.append('testSuiteId', this.currentTestSuiteId)
+      formData.append(
+        'nom',
+        `Test Suite - ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`
+      )
+      if (this.nameTest.trim()) formData.append('nametest', this.nameTest.trim())
       formData.append('planId', plan.id)
       formData.append('regenerate', 'true')
 
@@ -286,9 +290,16 @@ export class TestSuiteConfigurationComponent {
       this.planStatuses[updated.id] = 'pending'
       this.sessionSaved = false
       this.plansValidated = false
-      this.toastr.success(`Plan ${plan.id} regenerated successfully.`, 'Regenerate')
     } catch (err: any) {
-      this.toastr.error(err?.error?.message || 'Unable to regenerate this plan', 'Regenerate')
+      const status = err?.status
+      if (status === 502) {
+        this.errorMessage =
+          'Regenerate failed (502 Bad Gateway). Please verify FastAPI/Ollama and retry.'
+      } else {
+        this.errorMessage = err?.error?.message || 'Unable to regenerate this plan'
+      }
+    } finally {
+      this.regeneratingPlanId = null
     }
   }
 
@@ -464,7 +475,6 @@ export class TestSuiteConfigurationComponent {
     this.sessionSaved = false
 
     try {
-      this.toastr.info('Generation du test plan en cours. Vous pouvez changer de page.', 'AI')
       if (!this.selectedFile) {
         this.errorMessage = 'Veuillez uploader un fichier (.docx / .md / .txt)'
         this.toastr.warning(this.errorMessage, 'Test Plan')
@@ -505,8 +515,6 @@ export class TestSuiteConfigurationComponent {
       if (!this.testPlans.length) {
         this.errorMessage = 'Aucun test plan généré.'
         this.toastr.warning(this.errorMessage, 'Test Plan')
-      } else {
-        this.toastr.success('Test plans générés avec succès.', 'AI')
       }
     } catch (err: unknown) {
       const status = (err as any)?.status

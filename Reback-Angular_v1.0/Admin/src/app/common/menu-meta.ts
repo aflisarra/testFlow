@@ -60,14 +60,14 @@ export const MENU: MenuItem[] = [
 
   //project management 
   {
-    key: 'project Management',
+    key: 'Project Management',
     icon: 'iconamoon:folder-duotone',
-    label: 'project Management',
+    label: 'Project Management',
     collapsed: true,
     subMenu: [
       {
         key: 'project',
-        label: 'project',
+        label: 'Project',
         link: '/project',
         parentKey: 'project',
       }

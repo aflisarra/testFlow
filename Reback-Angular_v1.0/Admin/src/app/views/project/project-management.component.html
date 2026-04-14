@@ -1,14 +1,10 @@
 <div class="project-page container-fluid py-3">
   <div class="project-hero d-flex justify-content-between align-items-start mb-3">
-    <div>
-      <h4 class="project-hero-title mb-1">Project Management</h4>
-      <p class="project-hero-subtitle mb-2">Create projects and build your delivery team with precision.</p>
-      <div class="project-hero-metrics">
-        <span class="metric-pill">{{ projects.length }} Projects</span>
-        <span class="metric-pill metric-pill--soft">{{ users.length }} Specialists</span>
-      </div>
+    <h4 class="project-hero-title mb-0">Project Management</h4>
+    <div class="project-hero-metrics">
+      <span class="metric-pill">{{ projects.length }} Projects</span>
+      <span class="metric-pill metric-pill--soft">{{ users.length }} Specialists</span>
     </div>
-    <button class="btn btn-brand btn-hero" type="button" (click)="onNewProject()">New Project</button>
   </div>
 
   @if (error) {
@@ -19,7 +15,7 @@
     <div class="col-lg-7">
       <div class="card shadow-sm pm-panel">
         <div class="card-body">
-          <form [formGroup]="projectForm" (ngSubmit)="saveProject()" class="row g-3">
+          <form [formGroup]="projectForm" (ngSubmit)="saveProject()" class="row g-2">
 
             <!-- Project Title -->
             <div class="col-12">
@@ -37,12 +33,11 @@
 
 
 
-            <!-- Date Range -->
+            <!-- Dates -->
             <div class="col-12">
-              <label class="form-label pm-label">Date Range</label>
-              <div class="date-range-field">
-
-                <div class="date-range-item">
+              <label class="form-label pm-label">Dates</label>
+              <div class="date-triple-field">
+                <div class="date-triple-item">
                   <label class="date-range-label">Start Date <span class="text-danger">*</span></label>
                   <input type="date" class="form-control"
                     [class.is-invalid]="projectForm.controls.startDate.touched && projectForm.controls.startDate.invalid"
@@ -52,9 +47,7 @@
                   }
                 </div>
 
-                <div class="date-range-sep">to</div>
-
-                <div class="date-range-item">
+                <div class="date-triple-item">
                   <label class="date-range-label">End Date <span class="text-danger">*</span></label>
                   <input type="date" class="form-control"
                     [class.is-invalid]="projectForm.controls.endDate.touched && projectForm.controls.endDate.invalid"
@@ -64,31 +57,26 @@
                   }
                 </div>
 
+                <div class="date-triple-item">
+                  <label class="date-range-label">Milestone Date <span class="text-danger">*</span></label>
+                  <input type="date" class="form-control"
+                    [class.is-invalid]="projectForm.controls.milestoneDate.touched && projectForm.controls.milestoneDate.invalid"
+                    formControlName="milestoneDate" />
+                  @if (projectForm.controls.milestoneDate.touched &&
+                  projectForm.controls.milestoneDate.errors?.['required']) {
+                  <div class="invalid-feedback d-block">Milestone date is required.</div>
+                  }
+                </div>
               </div>
               @if (hasInvalidDateOrder()) {
-              <div class="invalid-feedback d-block">End date cannot be before start date.</div>
-              }
-            </div>
-
-            <!-- Milestone Date -->
-            <div class="col-md-6">
-              <label class="form-label pm-label">Milestone Date <span class="text-danger">*</span></label>
-              <input type="date" class="form-control"
-                [class.is-invalid]="projectForm.controls.milestoneDate.touched && projectForm.controls.milestoneDate.invalid"
-                formControlName="milestoneDate" />
-              @if (projectForm.controls.milestoneDate.touched &&
-              projectForm.controls.milestoneDate.errors?.['required']) {
-              <div class="invalid-feedback d-block">Milestone date is required.</div>
-              }
-              @if (hasInvalidDateOrder()) {
-              <div class="invalid-feedback d-block">Milestone date cannot be before start date.</div>
+              <div class="invalid-feedback d-block">End/Milestone date cannot be before start date.</div>
               }
             </div>
 
             <!-- Project Description -->
             <div class="col-12">
               <label class="form-label pm-label">Project Description</label>
-              <textarea class="form-control" rows="3" formControlName="description"></textarea>
+              <textarea class="form-control pm-description" rows="5" formControlName="description"></textarea>
             </div>
 
             <!-- Elite Team -->
@@ -149,6 +137,9 @@
 
                   <div class="exec-buttons">
                     <button class="exec-btn exec-btn-cancel" type="button" (click)="modal.dismiss()">Close</button>
+                    <button class="exec-btn exec-btn-save" type="button" (click)="applyEliteTeamSelection(modal)">
+                      Submit
+                    </button>
                   </div>
                 </div>
                 <div class="exec-upsert-accent"></div>
@@ -263,11 +254,6 @@
               <label class="exec-label mb-0">Elite Team</label>
               <span class="exec-selected-badge">{{ editSelectedCount }} selected</span>
             </div>
-            <label class="exec-select-all">
-              <span class="exec-select-all-text">Select All</span>
-              <input class="exec-checkbox" type="checkbox" [checked]="editAllSelected"
-                (change)="toggleEditAll($any($event.target).checked)" />
-            </label>
           </div>
 
           <div class="edit-elite-dropdown">
@@ -288,7 +274,15 @@
                   }
                   }
                 </span>
-                <span class="exec-trigger-arrow">{{ editEliteTeamOpen ? '▲' : '▼' }}</span>
+                <span class="edit-trigger-tools">
+                  <label class="exec-select-all exec-select-all--inline" (click)="$event.stopPropagation()">
+                    <span class="exec-select-all-text">Select All</span>
+                    <input class="exec-checkbox" type="checkbox" [checked]="editAllSelected"
+                      (click)="$event.stopPropagation()"
+                      (change)="toggleEditAll($any($event.target).checked)" />
+                  </label>
+                  <span class="exec-trigger-arrow">{{ editEliteTeamOpen ? '▲' : '▼' }}</span>
+                </span>
               </button>
 
               @if (editEliteTeamOpen) {

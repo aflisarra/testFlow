@@ -59,6 +59,7 @@ export interface TestSuiteDto {
   nom?: string
   nametest?: string
   creatorName?: string
+  picture?: string
   totalTestCases?: number
   description?: string
   specFileName?: string

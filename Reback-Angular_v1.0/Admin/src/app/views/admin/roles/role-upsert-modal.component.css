@@ -130,7 +130,7 @@
 .exec-actions-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   margin-bottom: 0.3rem;
 }
 
@@ -192,6 +192,11 @@
   font-size: 0.7rem;
   color: #60758f;
   margin-left: 0.5rem;
+}
+
+.exec-action-item--all {
+  border: 1px solid #dce8f5;
+  background: #f5f9ff;
 }
 
 .exec-actions-dropdown {
