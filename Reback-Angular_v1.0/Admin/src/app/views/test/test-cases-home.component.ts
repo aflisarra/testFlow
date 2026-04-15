@@ -376,7 +376,7 @@ export class TestCasesHomeComponent {
         this.currentSuiteName ||
         matched?.nametest ||
         matched?.nom ||
-        testSuiteId
+        'Suite sans nom'
 
       this.testCasesByPlan = {}
       for (const block of resp?.testCasesByPlan || []) {

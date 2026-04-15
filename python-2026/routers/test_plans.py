@@ -73,7 +73,7 @@ def _truncate_spec(text: str, max_chars: int = 2400) -> str:
 
 
 # ── Prompt optimisé pour Mistral/Mixtral ────────────────────
-def _build_prompt(spec_text: str, style_config: str) -> str:
+def _build_prompt(spec_text: str, style_config: str, project_title: str = "") -> str:
     spec_short = _truncate_spec(spec_text, max_chars=2400)
 
     style_block = (
@@ -91,6 +91,8 @@ def _build_prompt(spec_text: str, style_config: str) -> str:
         ']'
     )
 
+    project_block = f"Project: {project_title}" if (project_title or "").strip() else "Project: (not provided)"
+
     return (
         "<s>[INST]\n"
         "You are a senior QA engineer. Your only task is to output a JSON array of test plan objects.\n\n"
@@ -104,6 +106,7 @@ def _build_prompt(spec_text: str, style_config: str) -> str:
         "- Include a Visual/UI plan only if UI Design Config is provided.\n\n"
         "### Example output\n"
         f"{example}\n\n"
+        f"### {project_block}\n\n"
         f"### {style_block}\n\n"
         "### Specification\n"
         f"{spec_short}\n"
@@ -187,6 +190,8 @@ MOCK_TEST_PLANS = [
 class GeneratePlanRequest(BaseModel):
     spec_text: str = Field(..., description="Text extracted from the Word document")
     style_config: Optional[str] = Field(default=None, description="UI style config (colors, shapes, fonts...)")
+    project_title: Optional[str] = Field(default=None, description="Optional project name/title (context only)")
+    project_id: Optional[str] = Field(default=None, description="Optional project id (context only)")
 
 
 class TestPlan(BaseModel):
@@ -235,6 +240,7 @@ def generate_plan(payload: GeneratePlanRequest):
 
     spec_text = (payload.spec_text or "").strip()
     style_config = (payload.style_config or "").strip()
+    project_title = (payload.project_title or "").strip()
 
     if not spec_text:
         return JSONResponse(status_code=400, content={"error": "spec_text is required"})
@@ -242,7 +248,7 @@ def generate_plan(payload: GeneratePlanRequest):
     if _use_mock():
         return {"test_plans": MOCK_TEST_PLANS}
 
-    prompt = _build_prompt(spec_text, style_config)
+    prompt = _build_prompt(spec_text, style_config, project_title=project_title)
 
     try:
         reply = run_ollama(prompt, timeout=_test_plans_timeout())

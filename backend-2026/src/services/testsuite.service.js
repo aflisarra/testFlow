@@ -421,7 +421,7 @@ async function getTestSuitesByUser(userId) {
     // Public listing mode: return all suites regardless of connected user.
     // Keep the same function signature/endpoint for frontend compatibility.
     const suites = await TestSuite.find({})
-        .select('_id nom nametest description specFileName urlCible testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt createdAt userId')
+        .select('_id nom nametest description specFileName urlCible testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt createdAt userId projectId')
         .populate('userId', 'name email picture')
         .sort({ createdAt: -1 })
         .lean()

@@ -155,6 +155,15 @@ const testSuiteSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
+    },
+
+    // A test suite belongs to a single project.
+    // One project can own many test suites.
+    projectId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Project',
+        default: null,
+        index: true
     }
 
 }, { timestamps: true });

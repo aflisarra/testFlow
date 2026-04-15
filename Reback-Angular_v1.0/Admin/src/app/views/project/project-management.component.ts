@@ -48,6 +48,8 @@ export class ProjectManagementComponent implements OnInit {
   editSubmitting = false
   editAssignedUserIds = new Set<string>()
   editEliteTeamOpen = false
+  private eliteTeamSelectionBeforeOpen = new Set<string>()
+  private eliteTeamApplied = false
 
   projectForm = this.fb.group({
     title: ['', [Validators.required, Validators.pattern(/\S+/)]],
@@ -162,16 +164,50 @@ export class ProjectManagementComponent implements OnInit {
   }
 
   openEliteTeamModal(content: any): void {
-    this.modalService.open(content, {
+    this.eliteTeamSelectionBeforeOpen = new Set(this.assignedUserIds)
+    this.eliteTeamApplied = false
+    const ref = this.modalService.open(content, {
       size: 'lg',
       centered: true,
       windowClass: 'exec-upsert-modal-window',
       backdropClass: 'exec-upsert-modal-backdrop',
     })
+    ref.result.finally(() => {
+      if (!this.eliteTeamApplied) {
+        this.assignedUserIds = new Set(this.eliteTeamSelectionBeforeOpen)
+      }
+      this.eliteTeamSelectionBeforeOpen.clear()
+    })
   }
 
   applyEliteTeamSelection(modal: any): void {
+    this.eliteTeamApplied = true
     modal.close()
+    this.toastr.success('Team selection updated.', 'Team')
+  }
+
+  get selectedTeamUsers(): AppUser[] {
+    const byId = new Map(this.users.map((u) => [u._id, u]))
+    return Array.from(this.assignedUserIds)
+      .map((id) => byId.get(id))
+      .filter((u): u is AppUser => !!u)
+  }
+
+  get teamPreviewUsers(): AppUser[] {
+    return this.selectedTeamUsers.slice(0, 4)
+  }
+
+  get teamExtraCount(): number {
+    const count = this.selectedTeamUsers.length - this.teamPreviewUsers.length
+    return count > 0 ? count : 0
+  }
+
+  getUserInitials(name?: string | null): string {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean)
+    if (!parts.length) return 'U'
+    const first = parts[0]?.[0] || ''
+    const second = parts[1]?.[0] || ''
+    return `${first}${second}`.toUpperCase()
   }
 
   get filteredEliteUsers(): AppUser[] {
@@ -205,9 +241,9 @@ export class ProjectManagementComponent implements OnInit {
     const payload = {
       title: trimmedTitle,
       description: String(this.projectForm.value.description || '').trim(),
-      startDate: this.projectForm.value.startDate || null,
-      endDate: this.projectForm.value.endDate || null,
-      milestoneDate: this.projectForm.value.milestoneDate || null,
+      startDate: this.normalizeDateForApi(this.projectForm.value.startDate),
+      endDate: this.normalizeDateForApi(this.projectForm.value.endDate),
+      milestoneDate: this.normalizeDateForApi(this.projectForm.value.milestoneDate),
       status: this.projectForm.value.status || 'draft',
       assignedUsers: Array.from(this.assignedUserIds),
     }
@@ -370,10 +406,22 @@ export class ProjectManagementComponent implements OnInit {
     return String(value).slice(0, 10)
   }
 
+  private normalizeDateForApi(value: unknown): string | null {
+    if (!value) return null
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10)
+    }
+    const raw = String(value).trim()
+    if (!raw) return null
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10)
+    const dt = new Date(raw)
+    return Number.isNaN(dt.getTime()) ? null : dt.toISOString().slice(0, 10)
+  }
+
   hasInvalidDateOrder(): boolean {
-    const start = this.projectForm.value.startDate || ''
-    const end = this.projectForm.value.endDate || ''
-    const milestone = this.projectForm.value.milestoneDate || ''
+    const start = this.normalizeDateForApi(this.projectForm.value.startDate) || ''
+    const end = this.normalizeDateForApi(this.projectForm.value.endDate) || ''
+    const milestone = this.normalizeDateForApi(this.projectForm.value.milestoneDate) || ''
 
     if (start && end && end < start) return true
     if (start && milestone && milestone < start) return true

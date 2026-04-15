@@ -1,5 +1,9 @@
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import {
+  AdminManagementService,
+  type AppProject,
+} from '@/app/core/services/admin-management.service'
+import {
   TestLabService,
   type TestCaseDto,
   type TestPlanDto,
@@ -8,6 +12,7 @@ import { jwt_decode } from '@/app/core/utils/jwt-decode'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import { CommonModule } from '@angular/common'
 import { Component, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core'
+import { FormsModule } from '@angular/forms'
 import { Router } from '@angular/router'
 import { Store } from '@ngrx/store'
 import { firstValueFrom } from 'rxjs'
@@ -20,7 +25,7 @@ export type PlanStatus = 'pending' | 'generating' | 'reviewing' | 'confirmed'
 @Component({
   selector: 'app-test-suite-configuration',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './test-plan.component.html',
   styleUrl: './test-plan.component.css',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
@@ -29,8 +34,13 @@ export class TestSuiteConfigurationComponent {
   private store = inject(Store)
   private testLabService = inject(TestLabService)
   private authService = inject(AuthenticationService)
+  private adminManagementService = inject(AdminManagementService)
   private router = inject(Router)
   private toastr = inject(ToastrService)
+
+  projects: AppProject[] = []
+  selectedProjectId = ''
+  loadingProjects = false
 
   styleConfig = ''
   nameTest = ''
@@ -59,6 +69,27 @@ export class TestSuiteConfigurationComponent {
   finishing = false
   plansValidated = false
   sessionSaved = false
+
+  constructor() {
+    void this.loadProjects()
+  }
+
+  private async loadProjects() {
+    this.loadingProjects = true
+    try {
+      const projects = await firstValueFrom(this.adminManagementService.getProjects(false))
+      this.projects = Array.isArray(projects) ? projects : []
+    } catch {
+      this.projects = []
+    } finally {
+      this.loadingProjects = false
+    }
+  }
+
+  get selectedProjectTitle(): string {
+    const match = this.projects.find((p) => String(p?._id || '') === String(this.selectedProjectId || ''))
+    return String(match?.title || '').trim()
+  }
 
   // ──────────────────────────────────────────────────────────────────────────
 
@@ -481,6 +512,12 @@ export class TestSuiteConfigurationComponent {
         return
       }
 
+      if (!this.selectedProjectId.trim()) {
+        this.errorMessage = 'Veuillez choisir un projet.'
+        this.toastr.warning(this.errorMessage, 'Projet')
+        return
+      }
+
       const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
       let userId = String((user as any)?.id || (user as any)?._id || '').trim()
       const token = String((user as any)?.token || this.authService.session || '').trim()
@@ -502,11 +539,15 @@ export class TestSuiteConfigurationComponent {
       )
       if (this.nameTest.trim()) formData.append('nametest', this.nameTest.trim())
       if (this.currentTestSuiteId) formData.append('testSuiteId', this.currentTestSuiteId)
+      formData.append('projectId', this.selectedProjectId.trim())
       formData.append('regenerate', regenerate ? 'true' : 'false')
 
       const result = await firstValueFrom(this.testLabService.generatePlanFromDocx(formData))
 
       this.currentTestSuiteId = String(result?.testSuiteId || '')
+      if (String(result?.projectId || '').trim()) {
+        this.selectedProjectId = String(result?.projectId || '').trim()
+      }
       this.testPlans = Array.isArray(result?.testPlans) ? result.testPlans : []
 
       // Initialiser tous les plans à "pending"

@@ -90,6 +90,8 @@ class GenerateTestCasesRequest(BaseModel):
     plan_description: str = Field(..., description="Description of the confirmed plan")
     spec_text: str = Field(..., description="Original spec text")
     style_config: Optional[str] = Field(default=None, description="UI style config")
+    project_title: Optional[str] = Field(default=None, description="Optional project name/title (context only)")
+    project_id: Optional[str] = Field(default=None, description="Optional project id (context only)")
 
 
 class TestCase(BaseModel):
@@ -144,7 +146,7 @@ def _truncate_spec(text: str, max_chars: int = 800) -> str:
 
 
 def _build_prompt(plan_id: str, plan_title: str, plan_description: str,
-                  spec_text: str, style_config: str) -> str:
+                  spec_text: str, style_config: str, project_title: str = "") -> str:
 
     plan_number = re.search(r"\d+", plan_id)
     tc_prefix   = f"TC-{plan_number.group()}" if plan_number else "TC"
@@ -155,6 +157,8 @@ def _build_prompt(plan_id: str, plan_title: str, plan_description: str,
         if style_config
         else "UI Design Config: (none)"
     )
+
+    project_block = f"Project: {project_title}" if (project_title or "").strip() else "Project: (not provided)"
 
     # Exemple few-shot avec le bon préfixe TC
     example = (
@@ -186,6 +190,7 @@ def _build_prompt(plan_id: str, plan_title: str, plan_description: str,
         f"ID: {plan_id}\n"
         f"Title: {plan_title}\n"
         f"Description: {plan_description}\n\n"
+        f"### {project_block}\n\n"
         f"### {style_block}\n\n"
         "### Specification\n"
         f"{spec_short}\n"
@@ -202,6 +207,7 @@ def generate_test_cases(payload: GenerateTestCasesRequest):
     plan_description = (payload.plan_description or "").strip()
     spec_text        = (payload.spec_text or "").strip()
     style_config     = (payload.style_config or "").strip()
+    project_title    = (payload.project_title or "").strip()
 
     if not plan_id:
         return JSONResponse(status_code=400, content={"error": "plan_id is required"})
@@ -216,7 +222,14 @@ def generate_test_cases(payload: GenerateTestCasesRequest):
         mock["plan_title"] = plan_title
         return mock
 
-    prompt = _build_prompt(plan_id, plan_title, plan_description, spec_text, style_config)
+    prompt = _build_prompt(
+        plan_id,
+        plan_title,
+        plan_description,
+        spec_text,
+        style_config,
+        project_title=project_title
+    )
 
     try:
         reply  = run_ollama(prompt, timeout=_test_cases_timeout())

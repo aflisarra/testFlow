@@ -25,6 +25,47 @@
         (input)="onNameTestChange($any($event.target).value)" />
     </div>
 
+    <div class="testlab-card p-4 mb-4">
+      <div class="testlab-card-title mb-1">
+        <iconify-icon icon="iconamoon:folder-duotone" class="testlab-title-icon"></iconify-icon>
+        <span>Project</span>
+      </div>
+      <p class="testlab-card-subtitle mb-3">Select the project to link with this test suite</p>
+
+      <div class="testlab-project-row">
+        <div class="testlab-project-select-wrap">
+          <select class="form-select testlab-project-select" [(ngModel)]="selectedProjectId"
+            [disabled]="loadingProjects || generatingPlans">
+          <option value="">-- Select a project --</option>
+          @for (p of projects; track p._id) {
+          <option [value]="p._id">{{ p.title }}</option>
+          }
+          </select>
+        </div>
+
+        <div class="testlab-project-indicator" [class.is-selected]="!!selectedProjectId"
+          [class.is-loading]="loadingProjects" title="Project status">
+          @if (loadingProjects) {
+          <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin"></iconify-icon>
+          } @else if (selectedProjectId) {
+          <iconify-icon icon="iconamoon:check-circle-1-duotone"></iconify-icon>
+          } @else {
+          <iconify-icon icon="iconamoon:information-circle-duotone"></iconify-icon>
+          }
+        </div>
+      </div>
+
+      @if (selectedProjectId && selectedProjectTitle) {
+      <p class="testlab-project-selected mb-0 mt-2">
+        Linked to: <span class="fw-semibold">{{ selectedProjectTitle }}</span>
+      </p>
+      }
+
+      @if (!projects.length && !loadingProjects) {
+      <p class="small text-muted mb-0 mt-2">No projects found.</p>
+      }
+    </div>
+
     <div class="row g-4 align-items-stretch">
       <!-- Style config -->
       <div class="col-12 col-lg-6">

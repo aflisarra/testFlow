@@ -22,7 +22,8 @@
     <div class="suites-toolbar">
       <div class="suites-search-wrap">
         <iconify-icon icon="iconamoon:search-duotone" class="suites-search-icon"></iconify-icon>
-        <input type="text" class="suites-search" placeholder="Search suites by name..." [(ngModel)]="searchQuery" />
+        <input type="text" class="suites-search" placeholder="Search suites by name..." [(ngModel)]="searchQuery"
+          (ngModelChange)="onSearchQueryChange()" />
       </div>
       <div class="suites-toolbar-actions">
         <button type="button" class="suites-icon-btn" title="Filter">
@@ -61,7 +62,7 @@
           </tr>
         </thead>
         <tbody>
-          @for (suite of filteredSuites; track suite._id) {
+          @for (suite of paginatedSuites; track suite._id) {
 
           <!-- Row principale -->
           <tr class="suite-row" [class.suite-row--expanded]="expandedSuiteId === suite._id"
@@ -199,11 +200,15 @@
 
     <!-- Pagination -->
     <div class="suites-pagination">
-      <span>Showing {{ filteredSuites.length }} of {{ suites.length }} suites</span>
+      <span>Showing {{ visibleStart }}-{{ visibleEnd }} of {{ filteredSuites.length }} suites</span>
       <div class="suites-pagination-btns">
-        <button type="button"><iconify-icon icon="iconamoon:arrow-left-2-duotone"></iconify-icon></button>
-        <span class="suites-page-current">1</span>
-        <button type="button"><iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon></button>
+        <button type="button" [disabled]="currentPage === 1" (click)="goToPreviousPage()">
+          <iconify-icon icon="iconamoon:arrow-left-2-duotone"></iconify-icon>
+        </button>
+        <span class="suites-page-current">{{ currentPage }} / {{ totalPages }}</span>
+        <button type="button" [disabled]="currentPage === totalPages" (click)="goToNextPage()">
+          <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
+        </button>
       </div>
     </div>
   </div>

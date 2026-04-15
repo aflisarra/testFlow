@@ -41,6 +41,8 @@ export class TestCasesValidationComponent {
   suites: TestSuiteDto[] = []
   searchQuery = ''
   expandedSuiteId: string | null = null
+  readonly suitesPerPage = 6
+  currentPage = 1
 
   // Détail
   testSuiteId = ''
@@ -58,6 +60,29 @@ export class TestCasesValidationComponent {
       (s.nametest || '').toLowerCase().includes(q) ||
       (s.description || '').toLowerCase().includes(q)
     )
+  }
+
+  get totalPages(): number {
+    const total = Math.ceil(this.filteredSuites.length / this.suitesPerPage)
+    return total > 0 ? total : 1
+  }
+
+  get paginatedSuites(): TestSuiteDto[] {
+    const safePage = Math.min(Math.max(this.currentPage, 1), this.totalPages)
+    if (safePage !== this.currentPage) this.currentPage = safePage
+    const start = (safePage - 1) * this.suitesPerPage
+    const end = start + this.suitesPerPage
+    return this.filteredSuites.slice(start, end)
+  }
+
+  get visibleStart(): number {
+    if (!this.filteredSuites.length) return 0
+    return (this.currentPage - 1) * this.suitesPerPage + 1
+  }
+
+  get visibleEnd(): number {
+    if (!this.filteredSuites.length) return 0
+    return Math.min(this.currentPage * this.suitesPerPage, this.filteredSuites.length)
   }
 
   get selectedPlan(): TestPlanDto | null {
@@ -98,6 +123,23 @@ export class TestCasesValidationComponent {
   // Toggle expand/collapse d'une row
   onToggleSuite(suite: TestSuiteDto) {
     this.expandedSuiteId = this.expandedSuiteId === suite._id ? null : suite._id
+  }
+
+  onSearchQueryChange() {
+    this.currentPage = 1
+    this.expandedSuiteId = null
+  }
+
+  goToPreviousPage() {
+    if (this.currentPage <= 1) return
+    this.currentPage -= 1
+    this.expandedSuiteId = null
+  }
+
+  goToNextPage() {
+    if (this.currentPage >= this.totalPages) return
+    this.currentPage += 1
+    this.expandedSuiteId = null
   }
 
   // Ouvrir la vue détail

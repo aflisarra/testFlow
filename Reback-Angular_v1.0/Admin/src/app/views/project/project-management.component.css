@@ -298,6 +298,58 @@
   gap: 0.45rem;
 }
 
+.team-preview {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.15rem;
+}
+
+.team-preview-item {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid #dbe4f1;
+  background: #eef3f9;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-left: -8px;
+}
+
+.team-preview-item:first-child {
+  margin-left: 0;
+}
+
+.team-preview-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.team-preview-initials {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #ffffff;
+  background: #198754;
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.team-preview-item--count {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #1e3a8a;
+  background: #e6efff;
+}
+
+.team-preview-item--empty {
+  color: #7b8aa2;
+}
+
 .elite-team-search {
   min-width: 220px;
   height: 34px;

@@ -12,7 +12,7 @@
         <span class="tc-breadcrumb-sep">
           <iconify-icon icon="mdi:chevron-right"></iconify-icon>
         </span>
-        <span class="tc-breadcrumb-current">{{ currentSuiteName || testSuiteId }}</span>
+        <span class="tc-breadcrumb-current">{{ currentSuiteName }}</span>
         } @else {
         <span class="tc-breadcrumb-home">
           <iconify-icon icon="lucide:layout-list" class="me-1"></iconify-icon>
@@ -21,7 +21,7 @@
         }
       </div>
       <h2 class="tc-header-title mb-0">
-        @if (testSuiteId) { {{ currentSuiteName || testSuiteId }} }
+        @if (testSuiteId) { {{ currentSuiteName }} }
         @else { My Test Cases }
       </h2>
       <p class="tc-header-sub mb-0">Generate and manage test cases per plan.</p>

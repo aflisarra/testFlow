@@ -24,6 +24,7 @@ export interface TestPlanDto {
 
 export interface GeneratePlanResponse {
   testSuiteId: string
+  projectId?: string
   testPlans?: TestPlanDto[]
   steps?: string[]
   plans?: PlanTestDto[]
@@ -56,6 +57,7 @@ export interface GetTestPlansResponse {
 
 export interface TestSuiteDto {
   _id: string
+  projectId?: string
   nom?: string
   nametest?: string
   creatorName?: string

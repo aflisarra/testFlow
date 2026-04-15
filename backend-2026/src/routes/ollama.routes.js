@@ -10,6 +10,7 @@ const jwt = require("jsonwebtoken");
 
 const TestSuite = require("../models/testsuite");
 const PlanTest = require("../models/plantest.model"); // legacy (backward-compat migration only)
+const Project = require("../models/project.model");
 
 const router = express.Router();
 
@@ -292,6 +293,7 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
     const providedTestSuiteId = String(req.body?.testSuiteId || "").trim();
     const suiteName = String(req.body?.nom || "").trim();
     const testName = String(req.body?.nametest || req.body?.nameTest || "").trim();
+    const projectId = String(req.body?.projectId || "").trim();
     const styleConfig = String(
       req.body?.styleConfig ||
       req.body?.style_config ||
@@ -332,6 +334,7 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
       .slice(0, 20_000);
 
     let suite = null;
+    let projectTitle = "";
 
     if (providedTestSuiteId) {
       suite = await TestSuite.findById(providedTestSuiteId);
@@ -347,12 +350,30 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
       };
       if (suiteName) updates.nom = suiteName;
       if (testName) updates.nametest = testName;
+      if (projectId) {
+        const project = await Project.findById(projectId).select("_id title").lean();
+        if (!project) return res.status(404).json({ message: "Project not found" });
+        updates.projectId = projectId;
+        projectTitle = String(project?.title || "");
+      } else if (suite?.projectId) {
+        const project = await Project.findById(suite.projectId).select("_id title").lean();
+        projectTitle = String(project?.title || "");
+      }
 
       suite = await TestSuite.findByIdAndUpdate(providedTestSuiteId, updates, { new: true });
     } else {
       if (!userId) {
         return res.status(400).json({ message: "userId is required to create a TestSuite" });
       }
+      if (!projectId) {
+        return res.status(400).json({ message: "projectId is required to create a TestSuite" });
+      }
+      const project = await Project.findById(projectId).select("_id title ownerId").lean();
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      projectTitle = String(project?.title || "");
+
       const now = new Date();
       const defaultName = `Test Suite - ${now.toISOString().slice(0, 19).replace("T", " ")}`;
       suite = await TestSuite.create({
@@ -365,6 +386,7 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
         styleConfig,
         specFileName: req.file?.originalname || null,
         specFilePath: req.file?.filename ? `uploads/specs/${req.file.filename}` : null,
+        projectId,
       });
     }
 
@@ -402,7 +424,14 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
     const baseUrl = getFastApiBaseUrl();
     const fastApiResponse = await axios.post(
       `${baseUrl}/generate-plan`,
-      { spec_text: specText, url_cible: urlCible, style_config: styleConfig, description: styleConfig },
+      {
+        spec_text: specText,
+        url_cible: urlCible,
+        style_config: styleConfig,
+        description: styleConfig,
+        project_id: projectId || undefined,
+        project_title: projectTitle || undefined,
+      },
       { timeout: 185_000 }
     );
 
@@ -423,6 +452,7 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
     return res.json({
       testSuiteId,
       testPlans: suite.testPlans,
+      projectId: String(suite.projectId || projectId || ""),
       reused: false,
     });
   } catch (error) {
@@ -465,6 +495,9 @@ router.post("/generate-test-cases", async (req, res) => {
     }
 
     const baseUrl = getFastApiBaseUrl();
+    const project = suite?.projectId
+      ? await Project.findById(suite.projectId).select("_id title").lean()
+      : null;
     const fastApiResponse = await axios.post(
       `${baseUrl}/generate-test-cases`,
       {
@@ -473,6 +506,8 @@ router.post("/generate-test-cases", async (req, res) => {
         plan_description: planDescription || "",
         spec_text: truncateSpecText(suite.specText, 800),
         style_config: String(suite.styleConfig || ""),
+        project_id: project ? String(project._id) : undefined,
+        project_title: project ? String(project.title || "") : undefined,
       },
       { timeout: 185_000, headers: getFastApiHeaders() }
     );
