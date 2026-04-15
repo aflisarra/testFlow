@@ -1,39 +1,83 @@
-/////////////////////////importation des dependences///////
+/*
+================================================================================
+ EXPRESS SERVER ENTRY POINT (index.js)
+================================================================================
+
+ PURPOSE:
+ This file is the main entry point for the backend Express.js server.
+ It sets up middleware, connects to MongoDB, and registers all API routes.
+
+ KEY FUNCTIONS:
+ 1. Load environment variables from .env file
+ 2. Initialize Express app with CORS and JSON parsing middleware
+ 3. Register all route modules (auth, users, roles, projects, test suites, etc.)
+ 4. Connect to MongoDB database
+ 5. Start the HTTP server on the specified port
+
+ DEPENDENCIES:
+ - express: Web framework for creating HTTP server
+ - mongoose: MongoDB ODM for database operations
+ - cors: Cross-Origin Resource Sharing middleware
+ - jsonwebtoken: JWT token generation and verification
+ - dotenv: Environment variable management
+
+ CONFIGURATION:
+ - PORT: Server listening port (default 3000)
+ - MONGODB_URI: MongoDB connection string
+ - JWT_SECRET: Secret key for signing JWT tokens
+
+ ================================================================================*/
+
 const path = require('path')
+
+// Load environment variables from .env file
+// This must happen before any other module that uses env vars
 require('dotenv').config({
   path: path.join(__dirname, '..', '.env'),
   override: true,
 })
+
+// Import core Express.js framework
 const express = require('express');
+
+// Import mongoose for MongoDB ODM (Object Document Mapper)
 const mongoose = require('mongoose');
+
+// CORS allows cross-origin requests from frontend apps
 const cors = require('cors');
+
+// JWT for stateless authentication - generates and verifies tokens
 const jwt = require('jsonwebtoken');
+
+// Import token generation from auth service
 const { generateToken } = require('../src/services/auth.service');
+
+/*
+ ROUTE MODULE IMPORTS
+ These files contain route handlers for different API endpoints:
+ - testsuite.routes: Test suite management (create, read, update, delete)
+ - planTest.routes: Test plan CRUD operations
+ - ai.routes: AI-powered test generation endpoints
+ - auth.magic.routes: Magic link authentication
+ - ollama.routes: Ollama AI integration (connects to Python FastAPI)
+*/
 const testSuiteRoutes = require('./routes/testsuite.routes');
 const plantestRoutes = require("./routes/planTest.routes");
 const aiRoutes = require("./routes/ai.routes");
 const authMagic = require("./routes/auth.magic.routes");
-// Routes
-const ollamaRoutes = require('./routes/ollama.routes')
-///////////////////////////////////////////////
+const ollamaRoutes = require('./routes/ollama.routes');
 
-
-
-//const User = require('./src/models/user.model');
-//const db = require('./src/database/config/db');
+// Additional route modules
 const roleRoutes = require('../src/routes/role.routes');
-//const userRoutes = require('./src/routes/user.routes');
 const authRedirectRoute = require('../src/routes/authRedirect');
 const actionRoutes = require('../src/routes/action.routes');
 const projectRoutes = require('../src/routes/project.routes');
 
 
-
 const app = express();
 const port = Number(process.env.PORT || 3000);
 console.log('MONGO URI =', process.env.MONGODB_URI);
-//app.use(cors());
-app.use(express.json()); ///parser les données au format JSON
+app.use(express.json());
 
 
 
@@ -42,7 +86,7 @@ const allowedOrigins = ['http://localhost:4200', 'http://localhost:3000'];
 
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // accepter Postman/CURL, etc.
+    if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) === -1) {
       const msg = `L'origine ${origin} n'est pas autorisée par CORS.`;
       return callback(new Error(msg), false);
@@ -55,7 +99,6 @@ const corsOptions = {
 };
 
 app.use((req, res, next) => {
-  // Permet la communication entre fenêtres popup/parent mais reste sécuritaire
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
   next();
@@ -64,35 +107,8 @@ app.use((req, res, next) => {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Test route
-
 app.use('/ollama', ollamaRoutes);
-// Configuration CORS dynamique avec gestion des credentials
-/*app.use(cors({
-  origin: function(origin, callback) {
-    console.log('Origine demandée pour CORS :', origin);
-    
-  
-    // Les requêtes sans origine (Postman, CURL) sont acceptées
-    if (!origin) return callback(null, true);
 
-    // Vérifier si l'origine est dans la whitelist
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = `Origine ${origin} non autorisée par CORS.`;
-      console.error(msg);
-      return callback(new Error(msg), false);
-    }
-
-    // Origine autorisée
-    callback(null, origin);
-  },
-  methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true, // Autoriser envoi cookie & headers authentication
-}));*/
-
-
-//app.use('/api', userRoutes);
 app.use('/api/uploads', express.static('uploads'));
 app.use('/api', authRedirectRoute);
 app.use('/api/auth', require('../src/routes/auth.routes'));
@@ -105,7 +121,8 @@ app.use("/api/plantest", plantestRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/ollama", ollamaRoutes);
 app.use("/auth", authMagic);
-// 2️⃣ Middleware global pour rafraîchir le token si valide
+
+// Middleware global pour rafraîchir le token si valide
 app.use((req, res, next) => {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return next();
@@ -132,4 +149,3 @@ mongoose.connect(process.env.MONGODB_URI, {
   .catch(err => {
     console.error('❌ Erreur connexion MongoDB:', err);
   });
-//////////////////////////////////////////////////////////////////////////:
