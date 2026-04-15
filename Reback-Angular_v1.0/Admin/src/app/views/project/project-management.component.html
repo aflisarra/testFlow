@@ -1,0 +1,353 @@
+<div class="project-page container-fluid">
+  <div class="project-hero d-flex justify-content-between align-items-start">
+    <div>
+      <h4 class="project-hero-title mb-0">Project Management</h4>
+      <p class="project-hero-subtitle mb-1">Create projects and build your delivery team with precision.</p>
+      <div class="project-hero-metrics">
+        <span class="metric-pill">{{ projects.length }} Projects</span>
+        <span class="metric-pill metric-pill--soft">{{ users.length }} Specialists</span>
+      </div>
+    </div>
+    <button class="btn btn-brand btn-hero" type="button" (click)="onNewProject()">New Project</button>
+  </div>
+
+  @if (error) {
+  <div class="alert alert-danger">{{ error }}</div>
+  }
+
+  <div class="row g-1">
+    <div class="col-lg-7">
+      <div class="card shadow-sm pm-panel h-100">
+        <div class="card-body">
+          <form [formGroup]="projectForm" (ngSubmit)="saveProject()" class="row g-1">
+
+            <!-- Project Title -->
+            <div class="col-12 mb-1">
+              <label class="form-label pm-label">Project Title <span class="text-danger">*</span></label>
+              <input class="form-control"
+                [class.is-invalid]="projectForm.controls.title.touched && projectForm.controls.title.invalid"
+                formControlName="title" placeholder="e.g. QA infrastructure modernization" />
+              @if (projectForm.controls.title.touched && projectForm.controls.title.errors?.['required']) {
+              <div class="invalid-feedback d-block">Project title is required.</div>
+              }
+              @if (projectForm.controls.title.touched && projectForm.controls.title.errors?.['pattern']) {
+              <div class="invalid-feedback d-block">Project title cannot be empty spaces.</div>
+              }
+            </div>
+
+
+
+            <!-- Date Range -->
+            <div class="col-12 mb-1">
+              <label class="form-label pm-label">Date Range</label>
+              <div class="date-range-field">
+
+                <div class="date-range-item">
+                  <label class="date-range-label">Start Date <span class="text-danger">*</span></label>
+                  <input type="date" class="form-control"
+                    [class.is-invalid]="projectForm.controls.startDate.touched && projectForm.controls.startDate.invalid"
+                    formControlName="startDate" />
+                  @if (projectForm.controls.startDate.touched && projectForm.controls.startDate.errors?.['required']) {
+                  <div class="invalid-feedback d-block">Start date is required.</div>
+                  }
+                </div>
+
+                <div class="date-range-sep">to</div>
+
+                <div class="date-range-item">
+                  <label class="date-range-label">End Date <span class="text-danger">*</span></label>
+                  <input type="date" class="form-control"
+                    [class.is-invalid]="projectForm.controls.endDate.touched && projectForm.controls.endDate.invalid"
+                    formControlName="endDate" />
+                  @if (projectForm.controls.endDate.touched && projectForm.controls.endDate.errors?.['required']) {
+                  <div class="invalid-feedback d-block">End date is required.</div>
+                  }
+                </div>
+
+              </div>
+              @if (hasInvalidDateOrder()) {
+              <div class="invalid-feedback d-block">End date cannot be before start date.</div>
+              }
+            </div>
+
+            <!-- Milestone Date and Description -->
+            <div class="row mb-1">
+              <div class="col-md-4">
+                <label class="form-label pm-label">Milestone Date <span class="text-danger">*</span></label>
+                <input type="date" class="form-control"
+                  [class.is-invalid]="projectForm.controls.milestoneDate.touched && projectForm.controls.milestoneDate.invalid"
+                  formControlName="milestoneDate" />
+                @if (projectForm.controls.milestoneDate.touched &&
+                projectForm.controls.milestoneDate.errors?.['required']) {
+                <div class="invalid-feedback d-block">Milestone date is required.</div>
+                }
+                @if (hasInvalidDateOrder()) {
+                <div class="invalid-feedback d-block">Milestone date cannot be before start date.</div>
+                }
+              </div>
+              <div class="col-md-8">
+                <label class="form-label pm-label">Project Description</label>
+                <textarea class="form-control" rows="1" formControlName="description"></textarea>
+              </div>
+            </div>
+
+            <!-- Choose Your Team -->
+            <div class="col-12 elite-team-field">
+              <div class="elite-team-head">
+                <div>
+                  <label class="form-label mb-0 elite-team-title">Choose Your Team</label>
+                  <div class="small text-muted">Select your specialists</div>
+                </div>
+                <div class="elite-team-tools">
+
+                  <button type="button" class="btn btn-sm btn-outline-secondary elite-team-toggle-icon"
+                    title="View users list" (click)="openEliteTeamModal(eliteTeamModal)">
+                    <iconify-icon icon="iconamoon:eye-duotone"></iconify-icon>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <ng-template #eliteTeamModal let-modal>
+              <div class="exec-upsert">
+                <div class="exec-upsert-body">
+                  <header class="exec-upsert-header">
+                    <div class="exec-upsert-headline">
+                      <h1 class="exec-upsert-title">Choose Your Team</h1>
+                      <button class="exec-close-btn" type="button" aria-label="Close"
+                        (click)="modal.dismiss()">&times;</button>
+                    </div>
+                  </header>
+
+                  <div class="exec-field">
+                    <label class="exec-label">Search</label>
+                    <input type="text" class="exec-input" placeholder="Search by name, role, email..."
+                      [(ngModel)]="eliteTeamSearch" [ngModelOptions]="{ standalone: true }" />
+                  </div>
+
+                  <div class="exec-actions-box mt-2">
+                    <div class="exec-actions-scroll custom-scrollbar">
+                      @if (usersLoading) {
+                      <p class="text-muted small mb-0">Loading users...</p>
+                      } @else if (!filteredEliteUsers.length) {
+                      <p class="text-muted small mb-0">No users found.</p>
+                      } @else {
+                      @for (user of filteredEliteUsers; track user._id) {
+                      <label class="exec-action-item">
+                        <span class="edit-user-option">
+                          <img [src]="resolveAvatarUrl(user.picture)" (error)="onAvatarError($event)"
+                            class="edit-user-avatar" alt="avatar" />
+                          <span class="exec-action-name">{{ user.name }}</span>
+                        </span>
+                        <input class="exec-checkbox exec-checkbox-lg" type="checkbox" [checked]="isAssigned(user._id)"
+                          (change)="toggleAssignUser(user._id, $any($event.target).checked)" />
+                      </label>
+                      }
+                      }
+                    </div>
+                  </div>
+
+                  <div class="exec-buttons">
+                    <button class="exec-btn exec-btn-cancel" type="button" (click)="modal.dismiss()">Close</button>
+                  </div>
+                </div>
+                <div class="exec-upsert-accent"></div>
+              </div>
+            </ng-template>
+
+            <!-- Submit -->
+            <div class="col-12 d-flex justify-content-end gap-2">
+              <button type="submit" class="btn btn-brand" [disabled]="submitting">
+                {{ submitting ? 'Saving...' : 'Save Project' }}
+              </button>
+            </div>
+
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card h-100 shadow-sm pm-panel">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <h6 class="mb-0 panel-title">List de Projets</h6>
+            <span class="panel-badge">{{ projects.length }}</span>
+          </div>
+
+          @if (loading) {
+          <p class="text-muted mb-0">Loading...</p>
+          } @else if (!projects.length) {
+          <p class="text-muted mb-0">No projects yet.</p>
+          } @else {
+          <div class="project-list">
+            @for (project of paginatedProjects; track project._id) {
+            <div class="project-item" [class.project-item--active]="selectedProjectId === project._id">
+              <div class="d-flex justify-content-between align-items-start gap-2">
+                <div>
+                  <div class="project-item-title">{{ project.title }}</div>
+                </div>
+                <div class="d-inline-flex align-items-center flex-nowrap gap-2">
+                  <span class="project-users-chip">{{ project.assignedUsers?.length || 0 }} users</span>
+                  <button class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified" type="button"
+                    title="Edit" (click)="openEditProjectModal(project, editProjectModal)">
+                    <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
+                  </button>
+                  <button class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button"
+                    title="Delete" (click)="deleteProject(project)">
+                    <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
+                  </button>
+                </div>
+              </div>
+            </div>
+            }
+          </div>
+
+          @if (projects.length > 0) {
+          <div class="projects-pagination">
+            <div class="pagination-info">
+              <span class="pagination-text">Showing <strong>{{ projectsRangeStart }}-{{ projectsRangeEnd }}</strong> of <strong>{{ projects.length }}</strong> projects</span>
+            </div>
+            <div class="pagination-controls">
+              <button type="button" class="btn btn-pagination" 
+                [disabled]="currentProjectPage === 1"
+                (click)="onPrevProjectsPage()"
+                title="Previous page">
+                <iconify-icon icon="iconamoon:arrow-left-2-duotone"></iconify-icon>
+              </button>
+              <div class="pagination-counter">
+                <span class="counter-text">{{ currentProjectPage }} / {{ totalProjectPages }}</span>
+              </div>
+              <button type="button" class="btn btn-pagination"
+                [disabled]="currentProjectPage === totalProjectPages" 
+                (click)="onNextProjectsPage()"
+                title="Next page">
+                <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
+              </button>
+            </div>
+          </div>
+          }
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<ng-template #editProjectModal let-modal>
+  <div class="exec-upsert">
+    <div class="exec-upsert-body">
+      <header class="exec-upsert-header">
+        <div class="exec-upsert-headline">
+          <h1 class="exec-upsert-title">Edit Project</h1>
+          <button class="exec-close-btn" type="button" aria-label="Close" (click)="modal.dismiss()">&times;</button>
+        </div>
+      </header>
+
+      <form [formGroup]="editProjectForm" class="exec-upsert-form">
+        <div class="exec-field">
+          <label class="exec-label">Project title <span class="text-danger">*</span></label>
+          <input class="exec-input"
+            [class.is-invalid]="editProjectForm.controls.title.touched && editProjectForm.controls.title.invalid"
+            formControlName="title" />
+        </div>
+
+        <div class="exec-field">
+          <label class="exec-label">Start Date <span class="text-danger">*</span></label>
+          <input type="date" class="exec-input" formControlName="startDate" />
+        </div>
+        <div class="exec-field">
+          <label class="exec-label">End Date <span class="text-danger">*</span></label>
+          <input type="date" class="exec-input" formControlName="endDate" />
+        </div>
+        <div class="exec-field">
+          <label class="exec-label">Milestone Date <span class="text-danger">*</span></label>
+          <input type="date" class="exec-input" formControlName="milestoneDate" />
+          @if (hasInvalidEditDateOrder()) {
+          <small class="text-danger">Invalid date order.</small>
+          }
+        </div>
+        <div class="exec-field">
+          <label class="exec-label">Description</label>
+          <textarea class="exec-textarea" rows="1" formControlName="description"></textarea>
+        </div>
+        <div class="exec-field">
+          <label class="exec-label">Status</label>
+          <select class="exec-select" formControlName="status">
+            <option value="draft">Draft</option>
+            <option value="active">Active</option>
+            <option value="paused">Paused</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+
+        <div class="exec-field">
+          <div class="exec-actions-head">
+            <div class="d-flex flex-column">
+              <label class="exec-label mb-0">Choose Your Team</label>
+              <span class="exec-selected-badge">{{ editSelectedCount }} selected</span>
+            </div>
+            <label class="exec-select-all">
+              <span class="exec-select-all-text">Select All</span>
+              <input class="exec-checkbox" type="checkbox" [checked]="editAllSelected"
+                (change)="toggleEditAll($any($event.target).checked)" />
+            </label>
+          </div>
+
+          <div class="edit-elite-dropdown">
+            <div class="exec-actions-dropdown">
+              <button type="button" class="exec-actions-trigger" [class.is-invalid]="editSelectedCount === 0"
+                (click)="toggleEditEliteTeamDropdown(); $event.stopPropagation()">
+                <span class="edit-trigger-content">
+                  @if (editSelectedCount === 0) {
+                  <span class="exec-trigger-placeholder">Select specialists...</span>
+                  } @else {
+                  @if (editFirstSelectedUser) {
+                  <img [src]="resolveAvatarUrl(editFirstSelectedUser.picture)" (error)="onAvatarError($event)"
+                    class="edit-trigger-avatar" alt="avatar" />
+                  }
+                  <span>{{ editFirstSelectedUser?.name }}</span>
+                  @if (editSelectedCount > 1) {
+                  <span class="exec-additional-selection">(+{{ editSelectedCount - 1 }} others)</span>
+                  }
+                  }
+                </span>
+                <span class="exec-trigger-arrow">{{ editEliteTeamOpen ? '▲' : '▼' }}</span>
+              </button>
+
+              @if (editEliteTeamOpen) {
+              <div class="exec-actions-box" (click)="$event.stopPropagation()">
+                <div class="exec-actions-scroll custom-scrollbar">
+                  @for (user of users; track user._id) {
+                  <label class="exec-action-item">
+                    <span class="edit-user-option">
+                      <img [src]="resolveAvatarUrl(user.picture)" (error)="onAvatarError($event)"
+                        class="edit-user-avatar" alt="avatar" />
+                      <span class="exec-action-name">{{ user.name }}</span>
+                    </span>
+                    <input class="exec-checkbox exec-checkbox-lg" type="checkbox" [checked]="isEditAssigned(user._id)"
+                      (change)="toggleEditAssignUser(user._id, $any($event.target).checked)" />
+                  </label>
+                  }
+                </div>
+              </div>
+              }
+            </div>
+          </div>
+          @if (editSelectedCount === 0) {
+          <small class="text-muted">No specialist selected.</small>
+          }
+        </div>
+
+        <div class="exec-buttons">
+          <button class="exec-btn exec-btn-cancel" type="button" (click)="modal.dismiss()">Cancel</button>
+          <button class="exec-btn exec-btn-save" type="button" [disabled]="editSubmitting"
+            (click)="saveEditedProject(modal)">
+            {{ editSubmitting ? 'Saving...' : 'Save' }}
+          </button>
+        </div>
+      </form>
+    </div>
+    <div class="exec-upsert-accent"></div>
+  </div>
+</ng-template>

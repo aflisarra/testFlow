@@ -1,0 +1,187 @@
+<div class="row g-4 management-page">
+  <div class="col-xl-5">
+    <div class="card h-100 panel-card">
+      <div class="card-header">
+        <h4 class="card-title mb-0 brand-title panel-title">Sign Up</h4>
+      </div>
+      <div class="card-body">
+        <form [formGroup]="createUserForm" (ngSubmit)="submitCreateUser()" autocomplete="off">
+          <div class="mb-3">
+            <label class="form-label">Name <span class="text-danger">*</span></label>
+            <input class="form-control"
+              [class.is-invalid]="(createSubmitted || createUserForm.controls.name.touched) && createUserForm.controls.name.invalid"
+              formControlName="name" placeholder="ex: John Doe" [disabled]="!canAddUser" autocomplete="off" />
+            @if ((createSubmitted || createUserForm.controls.name.touched) &&
+            createUserForm.controls.name.errors?.['required']) {
+            <div class="invalid-feedback d-block">Name is required.</div>
+            }
+            @if ((createSubmitted || createUserForm.controls.name.touched) &&
+            createUserForm.controls.name.errors?.['pattern']) {
+            <div class="invalid-feedback d-block">Name cannot be empty spaces.</div>
+            }
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Email <span class="text-danger">*</span></label>
+            <input class="form-control" type="email"
+              [class.is-invalid]="(createSubmitted || createUserForm.controls.email.touched) && createUserForm.controls.email.invalid"
+              formControlName="email" placeholder="ex: john@example.com" [disabled]="!canAddUser" autocomplete="off" />
+            @if ((createSubmitted || createUserForm.controls.email.touched) &&
+            createUserForm.controls.email.errors?.['required']) {
+            <div class="invalid-feedback d-block">Email is required.</div>
+            }
+            @if ((createSubmitted || createUserForm.controls.email.touched) &&
+            createUserForm.controls.email.errors?.['email']) {
+            <div class="invalid-feedback d-block">Enter a valid email address.</div>
+            }
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Password <span class="text-danger">*</span></label>
+            <input class="form-control" type="password"
+              [class.is-invalid]="(createSubmitted || createUserForm.controls.password.touched) && createUserForm.controls.password.invalid"
+              formControlName="password" placeholder="******" [disabled]="!canAddUser" autocomplete="new-password" />
+            @if ((createSubmitted || createUserForm.controls.password.touched) &&
+            createUserForm.controls.password.errors?.['required']) {
+            <div class="invalid-feedback d-block">Password is required.</div>
+            }
+            @if ((createSubmitted || createUserForm.controls.password.touched) &&
+            createUserForm.controls.password.errors?.['minlength']) {
+            <div class="invalid-feedback d-block">Password must be at least 6 characters.</div>
+            }
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Role <span class="text-danger">*</span></label>
+            <select class="form-select"
+              [class.is-invalid]="(createSubmitted || createUserForm.controls.role.touched) && createUserForm.controls.role.invalid"
+              formControlName="role" [disabled]="!canAddUser">
+              <option value="" disabled>Select role</option>
+              @for (role of roles; track role._id) {
+              <option [value]="role.name">{{ role.name }}</option>
+              }
+            </select>
+            @if ((createSubmitted || createUserForm.controls.role.touched) &&
+            createUserForm.controls.role.errors?.['required']) {
+            <div class="invalid-feedback d-block">Role is required.</div>
+            }
+            @if ((createSubmitted || createUserForm.controls.role.touched) &&
+            createUserForm.controls.role.errors?.['pattern']) {
+            <div class="invalid-feedback d-block">Role cannot be empty spaces.</div>
+            }
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <input class="form-control" formControlName="description" placeholder="Optional..."
+              [disabled]="!canAddUser" />
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Picture (optional)</label>
+            <input class="form-control" type="file" accept="image/*" (change)="onPictureSelected($event)"
+              [disabled]="!canAddUser" />
+          </div>
+
+          <button class="btn btn-brand btn-unified w-100" type="submit" [disabled]="submitting || !canAddUser">
+            {{ submitting ? 'Creating...' : 'Create User' }}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-7">
+    <div class="card h-100 panel-card users-list-card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h4 class="card-title mb-0 brand-title panel-title">Users List</h4>
+
+      </div>
+      <div class="card-body">
+        @if (loading) {
+        <p class="text-muted mb-0">Loading users...</p>
+        }
+
+        @if (error) {
+        <div class="alert alert-danger mb-0">{{ error }}</div>
+        }
+
+        @if (!loading && !error && canViewUsers) {
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Email</th>
+                <th>Role</th>
+
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (user of paginatedUsers; track user._id) {
+              <tr>
+                <td>
+                  <div class="d-flex align-items-center">
+                    <img [src]="resolveAvatarUrl(user.picture)" (error)="onAvatarError($event)" alt="avatar"
+                      class="rounded-circle me-2 border" style="width:32px;height:32px;object-fit:cover;" />
+                    <span class="fw-medium">{{ user.name }}</span>
+                  </div>
+                </td>
+                <td>{{ user.email }}</td>
+                <td><span class="badge brand-badge">{{ user.role }}</span></td>
+
+                <td class="text-end">
+                  <div class="d-inline-flex align-items-center flex-nowrap gap-2">
+                    <button class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified" type="button"
+                      title="Edit" (click)="onEditUser(user)" [disabled]="!canEditUser">
+                      <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
+                    </button>
+                    <button class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button"
+                      title="Delete" (click)="onDeleteUser(user)" [disabled]="!canDeleteUser">
+                      <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              }
+
+              @if (users.length === 0) {
+              <tr>
+                <td colspan="4" class="text-center text-muted py-4">No users found</td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        @if (users.length > 0) {
+        <div class="users-pagination">
+          <div class="pagination-info">
+            <span class="pagination-text">You have <strong>{{ users.length }}</strong> users</span>
+          </div>
+          <div class="pagination-controls">
+            <button type="button" class="btn btn-pagination" 
+              [disabled]="currentUserPage === 1"
+              (click)="onPrevUsersPage()"
+              title="Previous page">
+              <iconify-icon icon="iconamoon:arrow-left-2-duotone"></iconify-icon>
+            </button>
+            <div class="pagination-counter">
+              <span class="counter-text">{{ currentUserPage }} / {{ totalUserPages }}</span>
+            </div>
+            <button type="button" class="btn btn-pagination"
+              [disabled]="currentUserPage === totalUserPages" 
+              (click)="onNextUsersPage()"
+              title="Next page">
+              <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
+            </button>
+          </div>
+        </div>
+        }
+        }
+
+      </div>
+    </div>
+  </div>
+</div>

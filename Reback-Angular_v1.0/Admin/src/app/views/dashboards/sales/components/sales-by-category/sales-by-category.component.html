@@ -1,0 +1,85 @@
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h4 class="card-title">Sales By Category</h4>
+    <div ngbDropdown class="dropdown">
+      <a
+        ngbDropdownToggle
+        class="dropdown-toggle arrow-none card-drop"
+        data-bs-toggle="dropdown"
+        aria-expanded="false"
+      >
+        <iconify-icon
+          icon="iconamoon:menu-kebab-vertical-circle-duotone"
+          class="fs-20 align-middle text-muted"
+        ></iconify-icon>
+      </a>
+      <div ngbDropdownMenu class="dropdown-menu dropdown-menu-end">
+        <!-- item-->
+        <a href="javascript:void(0);" class="dropdown-item">Sales Report</a>
+        <!-- item-->
+        <a href="javascript:void(0);" class="dropdown-item">Export Report</a>
+        <!-- item-->
+        <a href="javascript:void(0);" class="dropdown-item">Profit</a>
+        <!-- item-->
+        <a href="javascript:void(0);" class="dropdown-item">Action</a>
+      </div>
+    </div>
+  </div>
+  <!-- end card-header-->
+  <div class="card-body">
+    <div dir="ltr">
+      <div id="sales-category-chart" class="apex-charts">
+        <apx-chart
+          [chart]="categoryChart.chart!"
+          [series]="categoryChart.series!"
+          [legend]="categoryChart.legend!"
+          [stroke]="categoryChart.stroke!"
+          [plotOptions]="categoryChart.plotOptions!"
+          [labels]="categoryChart.labels!"
+          [colors]="categoryChart.colors!"
+          [dataLabels]="categoryChart.dataLabels!"
+        ></apx-chart>
+      </div>
+    </div>
+    <div class="table-responsive mb-n1 mt-2">
+      <table
+        class="table table-nowrap table-borderless table-sm table-centered mb-0"
+      >
+        <thead class="bg-light bg-opacity-50 thead-sm">
+          <tr>
+            <th class="py-1">Category</th>
+            <th class="py-1">Orders</th>
+            <th class="py-1">Perc.</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Grocery</td>
+            <td>187,232</td>
+            <td>
+              48.63%
+              <span class="badge badge-soft-success ms-1">2.5% Up</span>
+            </td>
+          </tr>
+          <tr>
+            <td>Electonics</td>
+            <td>126,874</td>
+            <td>
+              36.08%
+              <span class="badge badge-soft-success ms-1">8.5% Up</span>
+            </td>
+          </tr>
+          <tr>
+            <td>Other</td>
+            <td>90,127</td>
+            <td>
+              23.41%
+              <span class="badge badge-soft-danger ms-1">10.98% Down</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- end table-responsive-->
+  </div>
+</div>

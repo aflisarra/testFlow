@@ -1,0 +1,139 @@
+<app-page-title title="Invoice" subtitle="Invoices List" />
+
+<div class="row">
+  <div class="col">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between gap-3">
+          <div class="search-bar">
+            <span><i class="bx bx-search-alt"></i></span>
+            <input
+              type="search"
+              class="form-control"
+              id="search"
+              [(ngModel)]="tableService.searchTerm"
+              placeholder="Search invoice..."
+            />
+          </div>
+          <div>
+            <a href="javascript:void(0);" class="btn btn-success">
+              <i class="bx bx-plus me-1"></i>Create Invoice
+            </a>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="table-responsive table-centered">
+          <table class="table text-nowrap mb-0">
+            <thead class="bg-light bg-opacity-50">
+              <tr>
+                <th class="border-0 py-2">Invoice ID</th>
+                <th class="border-0 py-2">Customer</th>
+                <th class="border-0 py-2">Created Date</th>
+                <th class="border-0 py-2">Due Date</th>
+                <th class="border-0 py-2">Amount</th>
+                <th class="border-0 py-2">Payment Status</th>
+                <th class="border-0 py-2">Via</th>
+                <th class="border-0 py-2">Action</th>
+              </tr>
+            </thead>
+            <!-- end thead-->
+            <tbody>
+              @for (item of invoices$ | async; track $index) {
+                <tr>
+                  <td>
+                    <a
+                      routerLink="/invoice/{{ item.invoice_number }}"
+                      class="fw-medium"
+                      >#{{ item.invoice_number }}</a
+                    >
+                  </td>
+                  <td>
+                    @if (item.client) {
+                      <div class="d-flex align-items-center">
+                        <img
+                          [src]="item.client.avatar"
+                          alt=""
+                          class="avatar-xs rounded-circle me-2"
+                        />
+                        <div>
+                          <h5 class="fs-14 mt-1 fw-normal">
+                            {{ item.client.name }}
+                          </h5>
+                        </div>
+                      </div>
+                    }
+                  </td>
+                  <td>
+                    {{ item.issue_date | date: 'dd MMM, YYYY' }}
+                    <small>{{ item.issue_date | date: 'hh:mm a' }}</small>
+                  </td>
+                  <td>{{ item.due_date | date: 'dd MMM, YYYY' }}</td>
+                  @if (item.amount) {
+                    <td>${{ item.amount.toFixed(2) }}</td>
+                  }
+                  <td>
+                    <span
+                      class="badge"
+                      [ngClass]="{
+                        'badge-soft-primary': item.status == 'Send',
+                        'badge-soft-warning': item.status == 'Unpaid',
+                        'badge-soft-success': item.status == 'Paid',
+                      }"
+                      >{{ item.status }}</span
+                    >
+                  </td>
+                  <td>{{ item.payment_method }}</td>
+                  <td>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-soft-secondary me-1"
+                    >
+                      <i class="bx bx-edit fs-16"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-soft-danger ms-1"
+                    >
+                      <i class="bx bx-trash fs-16"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div
+          class="align-items-center justify-content-between row g-0 text-center text-sm-start p-3 border-top"
+        >
+          <div class="col-sm">
+            <div class="text-muted">
+              Showing
+              <span class="fw-semibold">{{ (total$ | async)! }}</span>
+              of
+              <span class="fw-semibold">{{ tableService.endIndex }}</span>
+              invoices
+            </div>
+          </div>
+          <div class="col-sm-auto mt-3 mt-sm-0">
+            <ul class="pagination pagination-rounded m-0">
+              <ngb-pagination
+                [collectionSize]="(total$ | async)!"
+                [(page)]="tableService.page"
+                [pageSize]="tableService.pageSize"
+              >
+                <ng-template ngbPaginationPrevious
+                  ><i class="bx bx-left-arrow-alt"></i
+                ></ng-template>
+                <ng-template ngbPaginationNext
+                  ><i class="bx bx-right-arrow-alt"></i
+                ></ng-template>
+              </ngb-pagination>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

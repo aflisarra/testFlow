@@ -1,0 +1,96 @@
+<div class="card">
+  <div class="card-body">
+    <div class="d-flex align-items-center justify-content-between">
+      <h4 class="card-title">Recent Orders</h4>
+
+      <a href="javascript:void(0);" class="btn btn-sm btn-primary">
+        <i class="bx bx-plus me-1"></i>Create Order
+      </a>
+    </div>
+  </div>
+
+  <div class="table-responsive table-centered">
+    <table class="table mb-0">
+      <thead class="bg-light bg-opacity-50">
+        <tr>
+          <th class="border-0 py-2">Order ID.</th>
+          <th class="border-0 py-2">Date</th>
+          <th class="border-0 py-2">Product</th>
+          <th class="border-0 py-2">Customer Name</th>
+          <th class="border-0 py-2">Email ID</th>
+          <th class="border-0 py-2">Phone No.</th>
+          <th class="border-0 py-2">Address</th>
+          <th class="border-0 py-2">Payment Type</th>
+          <th class="border-0 py-2">Status</th>
+        </tr>
+      </thead>
+      <!-- end thead-->
+      <tbody>
+        @for (data of order$ | async; track $index) {
+          <tr>
+            <td>
+              <a routerLink="/ecommerce/orders/{{ data.orderId }}">{{
+                data.orderId
+              }}</a>
+            </td>
+            <td>{{ data.date }}</td>
+            <td>
+              <img
+                [src]="data.productImage"
+                alt="product-1(1)"
+                class="img-fluid avatar-sm"
+              />
+            </td>
+            <td>
+              <a href="javascript:void(0);">{{ data.name }}</a>
+            </td>
+            <td>{{ data.email }}</td>
+            <td>{{ data.phone }}</td>
+            <td>{{ data.address }}</td>
+            <td>{{ data.paymentType }}</td>
+            <td>
+              <i
+                class="bx bxs-circle me-1"
+                [ngClass]="{
+                  'text-success': data.status == 'Completed',
+                  'text-primary': data.status == 'Processing',
+                }"
+              ></i
+              >{{ data.status }}
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div
+    class="align-items-center justify-content-between row g-0 text-center text-sm-start p-3 border-top"
+  >
+    <div class="col-sm">
+      <div class="text-muted">
+        Showing
+        <span class="fw-semibold"> {{ (total$ | async)! }}</span>
+        of
+        <span class="fw-semibold"> {{ tableService.endIndex }}</span>
+        orders
+      </div>
+    </div>
+    <div class="col-sm-auto mt-3 mt-sm-0">
+      <ul class="pagination pagination-rounded m-0">
+        <ngb-pagination
+          [collectionSize]="(total$ | async)!"
+          [(page)]="tableService.page"
+          [pageSize]="tableService.pageSize"
+        >
+          <ng-template ngbPaginationPrevious
+            ><i class="bx bx-left-arrow-alt"></i
+          ></ng-template>
+          <ng-template ngbPaginationNext
+            ><i class="bx bx-right-arrow-alt"></i
+          ></ng-template>
+        </ngb-pagination>
+      </ul>
+    </div>
+  </div>
+</div>

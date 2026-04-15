@@ -1,0 +1,6 @@
+#requirement.txt
+fastapi
+uvicorn[standard]
+python-dotenv
+python-docx
+python-multipart

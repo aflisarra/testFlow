@@ -1,0 +1,156 @@
+<div class="card h-100" data-simplebar>
+  <div class="card-body pb-2">
+    <div class="d-flex flex-column text-center justify-content-center mb-3">
+      <div class="mx-auto border border-2 border-primary rounded-circle">
+        <img
+          class="avatar-md rounded-circle border border-2 border-transparent"
+          [src]="profileDetail.image"
+          alt="Generic placeholder"
+        />
+      </div>
+      <h5 class="mt-2 mb-1">
+        {{ profileDetail.name }}
+      </h5>
+      <p class="text-muted">
+        {{ profileDetail.location }}
+      </p>
+      <p class="text-muted fst-italic">
+        {{ profileDetail.about }}
+      </p>
+    </div>
+
+    <div class="hstack gap-3 text-center justify-content-evenly">
+      <div>
+        <h5 class="mb-0">{{ profileDetail.post }}</h5>
+        <small>Post</small>
+      </div>
+      <div>
+        <h5 class="mb-0">{{ profileDetail.followers }}</h5>
+        <small>Followers</small>
+      </div>
+      <div>
+        <h5 class="mb-0">{{ profileDetail.following }}</h5>
+        <small>Following</small>
+      </div>
+    </div>
+
+    <div
+      class="nav flex-column mt-3"
+      id="social-tab"
+      role="tablist"
+      aria-orientation="vertical"
+    >
+      <div>
+        <a
+          (click)="changeTab('feed')"
+          class="nav-link px-0 fs-14 fw-medium"
+          [class.active]="activeTab == 'feed'"
+          id="social-feed-tab"
+          href="javascript:void(0);"
+          aria-controls="social-feed"
+          aria-selected="true"
+        >
+          <i class="align-middle bx bx-rss fs-15 me-1"></i>
+          Feed
+        </a>
+      </div>
+
+      <div>
+        <a
+          (click)="changeTab('friends')"
+          class="nav-link px-0 fs-14 fw-medium"
+          id="social-friends-tab"
+          [class.active]="activeTab == 'friends'"
+          href="javascript:void(0);"
+          role="tab"
+          aria-controls="social-friends"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <i class="align-middle bx bx-user-circle fs-15 me-1"></i>
+          Friends
+        </a>
+      </div>
+
+      <div>
+        <a
+          (click)="changeTab('events')"
+          class="nav-link px-0 fs-14 fw-medium"
+          id="social-events-tab"
+          [class.active]="activeTab == 'events'"
+          href="javascript:void(0);"
+          role="tab"
+          aria-controls="social-events"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <i class="align-middle bx bx-calendar-heart fs-15 me-1"></i>
+          Events
+        </a>
+      </div>
+
+      <div>
+        <a
+          (click)="changeTab('groups')"
+          class="nav-link px-0 fs-14 fw-medium"
+          id="social-groups-tab"
+          [class.active]="activeTab == 'groups'"
+          href="javascript:void(0);"
+          role="tab"
+          aria-controls="social-groups"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <i class="align-middle bx bx-group fs-15 me-1"></i>
+          Groups
+        </a>
+      </div>
+
+      <div>
+        <a
+          (click)="changeTab('saved')"
+          class="nav-link px-0 fs-14 fw-medium"
+          id="social-saved-tab"
+          [class.active]="activeTab == 'saved'"
+          href="javascript:void(0);"
+          role="tab"
+          aria-controls="social-saved"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          <i class="align-middle bx bx-save fs-15 me-1"></i>
+          Saved
+        </a>
+      </div>
+
+      <div>
+        <a
+          (click)="changeTab('memories')"
+          class="nav-link px-0 fs-14 fw-medium"
+          id="social-memories-tab"
+          [class.active]="activeTab == 'memories'"
+          href="javascript:void(0);"
+          role="tab"
+          aria-controls="social-memories"
+          aria-selected="true"
+        >
+          <i class="align-middle bx bx-history fs-15 me-1"></i>
+          Memories
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="border-top">
+    <h6 class="text-uppercase px-3 py-2 mb-0">Events</h6>
+    <div class="list-group list-group-flush">
+      @for (event of eventList; track $index) {
+        <a
+          href="javascript:void(0);"
+          class="list-group-item list-group-item-action border-0"
+          ><i class="bx {{ event.icon }} align-middle me-1"></i>
+          {{ event.title }}</a
+        >
+      }
+    </div>
+  </div>
+</div>

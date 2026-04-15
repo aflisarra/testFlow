@@ -1,0 +1,41 @@
+<div
+  class="tab-pane fade show"
+  id="social-events"
+  role="tabpanel"
+  aria-labelledby="social-events-tab"
+>
+  <div class="row">
+    @for (data of events; track $index) {
+      <div class="col-lg-6">
+        <div class="card">
+          <img
+            class="card-img-top img-fluid"
+            [src]="data.image"
+            alt="group-2"
+          />
+          <div class="card-body">
+            <h6>
+              {{ data.date }}
+            </h6>
+            <h5 class="card-title fs-16 lh-base mb-1">
+              <a href="javascript:void(0);" class="text-reset">{{
+                data.title
+              }}</a>
+            </h5>
+            <p class="card-text text-muted">
+              {{ data.location }}
+            </p>
+            <div class="d-flex">
+              <a href="javascript:void(0);" class="btn btn-primary w-100 me-1"
+                ><i class="bx bxs-star me-1"></i>Interested</a
+              >
+              <a href="javascript:void(0);" class="btn btn-primary"
+                ><i class="bx bxl-telegram"></i
+              ></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</div>

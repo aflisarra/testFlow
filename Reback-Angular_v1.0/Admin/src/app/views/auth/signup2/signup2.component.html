@@ -1,0 +1,78 @@
+<div class="row justify-content-center">
+  <div class="col-xl-5">
+    <div class="card auth-card">
+      <div class="card-body px-3 py-5">
+        <app-logo-box
+          className="mx-auto mb-4 text-center auth-logo"
+          height="24"
+          logoHeight="30"
+        />
+
+        <h2 class="fw-bold text-center fs-18">Sign Up</h2>
+        <p class="text-muted text-center mt-1 mb-4">
+          New to our platform? Sign up now! It only takes a minute.
+        </p>
+
+        <div class="px-4">
+          <form class="authentication-form">
+            <div class="mb-3">
+              <label class="form-label" for="example-name">Name</label>
+              <input
+                type="name"
+                id="example-name"
+                name="example-name"
+                class="form-control"
+                placeholder="Enter your name"
+              />
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="example-email">Email</label>
+              <input
+                type="email"
+                id="example-email"
+                name="example-email"
+                class="form-control"
+                placeholder="Enter your email"
+              />
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="example-password">Password</label>
+              <input
+                type="password"
+                id="example-password"
+                class="form-control"
+                placeholder="Enter your password"
+              />
+            </div>
+            <div class="mb-3">
+              <div class="form-check">
+                <input
+                  type="checkbox"
+                  class="form-check-input"
+                  id="checkbox-signin"
+                />
+                <label class="form-check-label" for="checkbox-signin"
+                  >I accept Terms and Condition</label
+                >
+              </div>
+            </div>
+
+            <div class="mb-1 text-center d-grid">
+              <button class="btn btn-primary" type="button" routerLink="/">
+                Sign Up
+              </button>
+            </div>
+          </form>
+          <app-social-btn />
+        </div>
+      </div>
+    </div>
+
+    <p class="text-white mb-0 text-center">
+      I already have an account
+      <a routerLink="/auth/sign-in-2" class="text-white fw-bold ms-1"
+        >Sign In</a
+      >
+    </p>
+  </div>
+</div>

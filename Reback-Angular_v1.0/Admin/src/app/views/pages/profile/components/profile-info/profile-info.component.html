@@ -1,0 +1,127 @@
+<div class="card">
+  <div class="position-relative">
+    <img
+      [src]="profileInfo.cover"
+      alt=""
+      class="card-img rounded-bottom-0"
+      height="200"
+    />
+    <img
+      [src]="profileInfo.profile"
+      alt=""
+      class="avatar-lg rounded-circle position-absolute top-100 start-0 translate-middle-y ms-3 border border-light border-3"
+    />
+  </div>
+  <div class="card-body mt-4">
+    <div class="">
+      <div class="d-flex align-items-center">
+        <div class="d-block">
+          <h4 class="mb-1">
+            {{ profileInfo.name }}
+          </h4>
+          <p class="fs-14 mb-0">
+            {{ profileInfo.post }}
+          </p>
+        </div>
+        <div class="ms-auto">
+          <div ngbDropdown class="dropdown">
+            <a
+              ngbDropdownToggle
+              href="javascript:void(0);"
+              class="dropdown-toggle arrow-none"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
+              <i class="bx bx-dots-vertical-rounded fs-18 text-dark"></i>
+            </a>
+            <div ngbDropdownMenu class="dropdown-menu dropdown-menu-end">
+              <a href="javascript:void(0);" class="dropdown-item">
+                <i class="bx bx-edit-alt me-2"></i>Edit Profile
+              </a>
+              <a href="javascript:void(0);" class="dropdown-item">
+                <i class="bx bx-export me-2"></i>Export Profile
+              </a>
+              <a href="javascript:void(0);" class="dropdown-item">
+                <i class="bx bxs-hand-up me-2"></i>Action
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row mt-3">
+        <div class="col-12">
+          <h5
+            class="card-title badge bg-light text-secondary py-1 px-2 fs-13 mb-3 border-start border-secondary border-2 rounded-1"
+          >
+            About Me
+          </h5>
+          <p class="fs-15 mb-0 text-muted">
+            {{ profileInfo.about }}
+          </p>
+          <div class="mt-3">
+            <div class="d-flex gap-2 flex-wrap">
+              @for (skill of profileInfo.skill; track $index) {
+                <span
+                  class="badge text-secondary py-1 px-2 fs-12 border rounded-1"
+                  >{{ skill }}</span
+                >
+              }
+            </div>
+          </div>
+          <div class="mt-4">
+            <h5 class="text-dark fw-medium">Links :</h5>
+            @for (link of profileInfo.link; track $index; let first = $first) {
+              @if (first) {
+                <a
+                  href="javascript:void(0);"
+                  class="text-primary text-decoration-underline"
+                  >{{ link }}</a
+                >
+              } @else {
+                <p class="mb-0 mt-1">
+                  <a
+                    href="javascript:void(0);"
+                    class="text-primary text-decoration-underline"
+                    >{{ link }}</a
+                  >
+                </p>
+              }
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- end card body-->
+  <div class="card-footer bg-light-subtle">
+    <div class="row g-2 mb-1">
+      <div class="col-lg-4">
+        <button
+          type="button"
+          class="btn btn-primary d-flex align-items-center justify-content-center gap-1 w-100"
+        >
+          <iconify-icon icon="iconamoon:profile-duotone"></iconify-icon>
+          Follow
+        </button>
+      </div>
+      <div class="col-lg-4">
+        <button
+          type="button"
+          class="btn btn-success d-flex align-items-center justify-content-center gap-1 w-100"
+        >
+          <iconify-icon icon="iconamoon:comment-dots-duotone"></iconify-icon
+          >Message
+        </button>
+      </div>
+      <div class="col-lg-4">
+        <button
+          type="button"
+          class="btn btn-danger d-flex align-items-center justify-content-center gap-1 w-100"
+        >
+          <iconify-icon icon="iconamoon:share-1-duotone"></iconify-icon>
+          Share
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

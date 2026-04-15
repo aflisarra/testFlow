@@ -1,0 +1,375 @@
+<div class="testlab-suites-page">
+
+  @if (errorMessage) {
+  <div class="alert alert-danger mb-4">{{ errorMessage }}</div>
+  }
+
+  <!-- ══════════════════════════════════════════
+       VUE LISTE DES TEST SUITES
+  ══════════════════════════════════════════ -->
+  @if (view === 'list') {
+  <div class="suites-header mb-4">
+    <div>
+      <h2 class="suites-title">List of Test Suites</h2>
+      <p class="suites-subtitle">Manage and monitor your automated test suite runs.</p>
+    </div>
+
+  </div>
+
+  <div class="suites-table-card">
+
+    <!-- Toolbar -->
+    <div class="suites-toolbar">
+      <div class="suites-search-wrap">
+        <iconify-icon icon="iconamoon:search-duotone" class="suites-search-icon"></iconify-icon>
+        <input type="text" class="suites-search" placeholder="Search suites by name..." [(ngModel)]="searchQuery" />
+      </div>
+      <div class="suites-toolbar-actions">
+        <button type="button" class="suites-icon-btn" title="Filter">
+          <iconify-icon icon="iconamoon:filter-duotone"></iconify-icon>
+        </button>
+        <button type="button" class="suites-icon-btn" title="Download">
+          <iconify-icon icon="iconamoon:cloud-download-duotone"></iconify-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="suites-table-wrap">
+      @if (loading) {
+      <div class="suites-loading">
+        <iconify-icon icon="iconamoon:settings-duotone" class="suites-loading-icon"></iconify-icon>
+        <p>Loading suites…</p>
+      </div>
+      } @else if (!filteredSuites.length) {
+      <div class="suites-empty">
+        <iconify-icon icon="iconamoon:folder-duotone"></iconify-icon>
+        <p>No test suites found.</p>
+      </div>
+      } @else {
+      <table class="suites-table">
+        <thead>
+          <tr>
+            <th>User Name</th>
+            <th>Test Name</th>
+            <th>Spec File</th>
+            <th>Plans</th>
+            <th>Cases</th>
+            <th>Status</th>
+            <th>Created At</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (suite of filteredSuites; track suite._id) {
+
+          <!-- Row principale -->
+          <tr class="suite-row" [class.suite-row--expanded]="expandedSuiteId === suite._id"
+            (click)="onToggleSuite(suite)">
+            <td>
+              <div class="suite-name-cell">
+                <div class="suite-avatar">
+                  {{ getSuiteInitials(suite) }}
+                </div>
+                <span class="suite-name">{{ suite.creatorName || 'Unknown User' }}</span>
+              </div>
+            </td>
+            <td class="suite-file">{{ suite.nametest || '—' }}</td>
+            <td class="suite-file">
+              <iconify-icon icon="iconamoon:file-document-duotone" class="me-1"></iconify-icon>
+              {{ suite.specFileName || '—' }}
+            </td>
+            <td class="suite-plans-count">
+              {{ suite.testPlans?.length || 0 }}
+            </td>
+            <td class="suite-plans-count">
+              {{ getTotalCases(suite) }}
+            </td>
+            <td>
+              <span class="badge"
+                [ngClass]="getSuiteStatus(suite._id) === 'Valid' ? 'text-bg-success' : 'text-bg-warning'">
+                {{ getSuiteStatus(suite._id) }}
+              </span>
+            </td>
+            <td class="suite-date">
+              {{ suite.createdAt ? (suite.createdAt | date:'dd MMM yyyy, HH:mm') : '—' }}
+            </td>
+            <td class="suite-expand-icon">
+              <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 me-2"
+                (click)="onOpenSuite(suite); $event.stopPropagation()" title="Open in Test Cases Validation view">
+                <iconify-icon icon="lucide:external-link" class="me-1"></iconify-icon> Open
+              </button>
+              <iconify-icon [icon]="expandedSuiteId === suite._id
+                        ? 'iconamoon:arrow-up-2-duotone'
+                        : 'iconamoon:arrow-down-2-duotone'">
+              </iconify-icon>
+            </td>
+          </tr>
+
+          <!-- Detail panel (expandable) -->
+          @if (expandedSuiteId === suite._id) {
+          <tr class="suite-detail-row">
+            <td colspan="8">
+              <div class="suite-detail-panel">
+                <div class="suite-detail-grid">
+
+                  <!-- Colonne 1 : Info -->
+                  <div class="suite-detail-col">
+                    <div class="suite-detail-field">
+                      <label class="suite-detail-label">Internal ID</label>
+                      <code class="suite-detail-id">{{ suite._id }}</code>
+                    </div>
+
+                    @if (suite.description) {
+                    <div class="suite-detail-field">
+
+                    </div>
+                    }
+
+                    <!-- Spec File + Upload -->
+                    <div class="suite-detail-field">
+                      <label class="suite-detail-label">Spec File</label>
+                      <div class="suite-file-row">
+                        @if (suite.specFileName) {
+                        <div class="suite-file-chip">
+                          <iconify-icon icon="iconamoon:file-document-duotone"></iconify-icon>
+                          <span>{{ suite.specFileName }}</span>
+                        </div>
+                        } @else {
+                        <span class="suite-no-file">No file attached</span>
+                        }
+                        <!-- Upload bouton -->
+                        <label class="btn-upload-word" [for]="'upload-' + suite._id" title="Upload Word spec">
+                          <iconify-icon icon="iconamoon:cloud-upload-duotone"></iconify-icon>
+                          Upload Word
+                          <input [id]="'upload-' + suite._id" type="file" accept=".docx,.doc" style="display:none"
+                            (change)="onUploadSpec($event, suite._id)" />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Colonne 2 : Stats + Actions -->
+                  <div class="suite-detail-col">
+                    <div class="suite-stats-grid">
+                      <div class="suite-stat-card">
+                        <span class="suite-stat-value">{{ suite.testPlans?.length || 0 }}</span>
+                        <span class="suite-stat-label">Test Plans</span>
+                      </div>
+                      <div class="suite-stat-card">
+                        <span class="suite-stat-value">{{ getTotalCases(suite) }}</span>
+                        <span class="suite-stat-label">Test Cases</span>
+                      </div>
+                    </div>
+
+                    <div class="suite-detail-actions">
+                      <button type="button" class="btn-suite-primary"
+                        (click)="onOpenSuite(suite); $event.stopPropagation()">
+                        <iconify-icon icon="iconamoon:eye-duotone"></iconify-icon>
+                        View Plans & Cases
+                      </button>
+                      @if (getUnvalidPlans(suite).length) {
+                      <div class="mt-3">
+                        <div class="small fw-semibold mb-2">Unvalid tests</div>
+                        @for (plan of getUnvalidPlans(suite); track plan.id) {
+                          <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small">{{ plan.id }} - {{ plan.title }}</span>
+                            <button type="button" class="btn btn-sm btn-outline-success"
+                              (click)="onCompleteTest(suite, plan); $event.stopPropagation()">
+                              Validate Test
+                            </button>
+                          </div>
+                        }
+                      </div>
+                      }
+
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </td>
+          </tr>
+          }
+
+          }
+        </tbody>
+      </table>
+      }
+    </div>
+
+    <!-- Pagination -->
+    <div class="suites-pagination">
+      <span>Showing {{ filteredSuites.length }} of {{ suites.length }} suites</span>
+      <div class="suites-pagination-btns">
+        <button type="button"><iconify-icon icon="iconamoon:arrow-left-2-duotone"></iconify-icon></button>
+        <span class="suites-page-current">1</span>
+        <button type="button"><iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon></button>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- ══════════════════════════════════════════
+       VUE DÉTAIL (plans + test cases)
+  ══════════════════════════════════════════ -->
+  @if (view === 'detail') {
+  <div class="testlab-card p-4 mt-4 testlab-plan-card">
+
+    <button type="button" class="btn tc-btn tc-btn-ghost mb-3" (click)="onBackToList()">
+      <iconify-icon icon="iconamoon:arrow-left-2-duotone" class="me-1"></iconify-icon>
+      Back to suites
+    </button>
+
+    <div class="testlab-output">
+      @if (loading) {
+      <div class="testlab-processing">
+        <div class="testlab-processing-icon">
+          <iconify-icon icon="iconamoon:settings-duotone"></iconify-icon>
+        </div>
+        <h4 class="mb-1">Loading Validation</h4>
+        <p class="mb-0 text-muted">Fetching test plans and test cases…</p>
+      </div>
+      } @else if (!testPlans.length) {
+      <p class="mb-0 text-muted">No test plans yet.</p>
+      } @else {
+
+      <div class="tc-head mb-3">
+        <div>
+          <h3 class="tc-title mb-1">Validation</h3>
+          <p class="tc-subtitle mb-0">Review and confirm the generated test structures.</p>
+        </div>
+      </div>
+
+      <div class="tc-plan-picker mb-3">
+        @for (plan of testPlans; track plan.id) {
+        <button type="button" class="tc-plan-pill" [class.tc-plan-pill--active]="selectedPlanId === plan.id"
+          (click)="onSelectPlan(plan)">
+          {{ plan.id }}
+        </button>
+        }
+      </div>
+
+      @if (!selectedPlan) {
+      <p class="mb-0 text-muted">Select a test plan above.</p>
+      } @else {
+      <!-- Bloc ajouté depuis test-plan : état génération / liste cases / empty -->
+      @if (generatingCasesPlanId === selectedPlan.id) {
+      <div class="testlab-processing py-4">
+        <div class="testlab-processing-icon">
+          <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin"></iconify-icon>
+        </div>
+        <p class="mb-0 text-muted">Generating test cases for this plan<span class="testlab-dots"></span></p>
+      </div>
+      } @else if (selectedTestCases.length) {
+      <div class="testlab-case-list mt-2 mb-4">
+        @for (tc of selectedTestCases; track tc.id) {
+        <div class="testlab-case-item">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <span class="testlab-case-id me-2">{{ tc.id }}</span>
+              <span class="fw-semibold">{{ tc.title }}</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger testlab-delete-btn"
+              (click)="onDeleteTestCase(selectedPlan.id, tc.id)" title="Remove test case">
+              <iconify-icon icon="iconamoon:trash-duotone"></iconify-icon>
+            </button>
+          </div>
+
+          @if (tc.steps.length) {
+          <ul class="testlab-steps mt-2 mb-1">
+            @for (step of tc.steps; track $index) {
+            <li>{{ step }}</li>
+            }
+          </ul>
+          }
+          <div class="testlab-expected">
+            <span class="text-muted small">Expected: </span>{{ tc.expected_result }}
+          </div>
+        </div>
+        }
+      </div>
+      } @else {
+      <p class="text-muted py-3">No test cases generated yet.</p>
+      }
+
+      <div class="tc-layout">
+        <div class="tc-main">
+          <div class="tc-section-head">
+            <div>
+              <div class="tc-kicker">LOGIC MODULE</div>
+              <h4 class="tc-module-title mb-1">{{ selectedPlan.title }}</h4>
+              @if (selectedPlan.description) {
+              <p class="tc-module-desc mb-0">{{ selectedPlan.description }}</p>
+              }
+            </div>
+            <div class="tc-actions">
+              <button type="button" class="btn tc-btn tc-btn-ghost"
+                [disabled]="generatingCasesPlanId === selectedPlan.id" (click)="onRegenerate(selectedPlan)">
+                <iconify-icon icon="iconamoon:refresh-2-duotone" class="me-1"></iconify-icon>
+                Regenerate
+              </button>
+              <button type="button" class="btn tc-btn tc-btn-primary" [disabled]="!selectedTestCases.length">
+                <iconify-icon icon="iconamoon:check-circle-2-duotone" class="me-1"></iconify-icon>
+                Confirm
+              </button>
+            </div>
+          </div>
+
+          @if (generatingCasesPlanId === selectedPlan.id) {
+          <div class="tc-inline-processing">
+            <span class="tc-pill">
+              <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin"></iconify-icon>
+              Processing AI<span class="testlab-dots"></span>
+            </span>
+          </div>
+          }
+
+          <div class="tc-grid">
+            @for (tc of selectedTestCases; track tc.id) {
+            <div class="tc-card">
+              <div class="tc-card-top">
+                <div class="tc-chip">{{ tc.id }}</div>
+                <button type="button" class="tc-icon" title="Remove" (click)="onDeleteTestCase(selectedPlan.id, tc.id)">
+                  <iconify-icon icon="iconamoon:trash-duotone"></iconify-icon>
+                </button>
+              </div>
+              <div class="tc-card-body">
+                <div class="tc-card-title">{{ tc.title }}</div>
+                @if (tc.expected_result) {
+                <div class="tc-card-sub">{{ tc.expected_result }}</div>
+                }
+              </div>
+            </div>
+            }
+          </div>
+
+          <div class="tc-footer">
+            <button type="button" class="btn btn-brand tc-finalize" [disabled]="!selectedTestCases.length">
+              <iconify-icon icon="iconamoon:code-duotone" class="me-2"></iconify-icon>
+              Finalize &amp; Generate Scripts
+              <span class="tc-count">{{ selectedTestCases.length }} Test Cases</span>
+            </button>
+          </div>
+        </div>
+
+        <aside class="tc-side">
+          <div class="tc-metrics">
+            <div class="tc-metrics-title">EFFICIENCY METRICS</div>
+            <div class="tc-metrics-row">
+              <div class="tc-metrics-label">VALIDATION COVERAGE</div>
+              <div class="tc-metrics-value">82%</div>
+            </div>
+            <div class="tc-bar">
+              <div class="tc-bar-fill" style="width: 82%"></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+      }
+      }
+    </div>
+  </div>
+  }
+
+</div>

@@ -1,0 +1,51 @@
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h4 class="card-title">New Accounts</h4>
+    <a href="javascript:void(0);" class="btn btn-sm btn-light"> View All </a>
+  </div>
+  <!-- end card-header-->
+
+  <div class="card-body pb-1">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 table-centered">
+        <thead>
+          <tr>
+            <th class="py-1">ID</th>
+            <th class="py-1">Date</th>
+            <th class="py-1">User</th>
+            <th class="py-1">Account</th>
+            <th class="py-1">Username</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (data of accountList; track $index) {
+            <tr>
+              <td>{{ data.id }}</td>
+              <td>{{ data.date }}</td>
+              <td>
+                <img
+                  [src]="data.user.avatar"
+                  alt="avatar-2"
+                  class="img-fluid avatar-xs rounded-circle"
+                />
+                <span class="align-middle ms-2">{{ data.user.name }}</span>
+              </td>
+              <td>
+                <span
+                  class="badge"
+                  [ngClass]="{
+                    'badge-soft-success': data.status == 'Verified',
+                    'badge-soft-warning': data.status == 'Pending',
+                    'badge-soft-danger': data.status == 'Blocked',
+                  }"
+                  >{{ data.status }}</span
+                >
+              </td>
+              <td>{{ data.username }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

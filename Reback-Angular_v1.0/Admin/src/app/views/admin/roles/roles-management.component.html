@@ -1,0 +1,116 @@
+<div class="row g-4 management-page">
+  <div class="col-xl-4">
+    <div class="card h-100 panel-card">
+      <div class="card-header">
+        <h4 class="card-title mb-0 brand-title panel-title">Create Role</h4>
+      </div>
+      <div class="card-body">
+        @if (canAddRole) {
+        <app-role-upsert-modal
+          [inlineMode]="true"
+          [role]="null"
+          [actions]="actions"
+          (saved)="onCreateRoleSaved($event)"
+          (cancelled)="onCreateRoleCancelled()">
+        </app-role-upsert-modal>
+        } @else {
+        <div class="alert alert-warning mb-0">Unauthorized action: Add Role.</div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-8">
+    <div class="card h-100 panel-card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h4 class="card-title mb-0 brand-title panel-title">Roles List</h4>
+
+      </div>
+      <div class="card-body">
+        @if (loading) {
+        <p class="text-muted mb-0">Loading roles...</p>
+        }
+
+        @if (error) {
+        <div class="alert alert-danger">{{ error }}</div>
+        }
+
+        @if (!loading && canViewRoles) {
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Actions</th>
+                <th class="text-end col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (role of paginatedRoles; track role._id) {
+              <tr>
+                <td>{{ role.name }}</td>
+                <td>{{ role.description }}</td>
+                <td>
+                  <div class="dropdown">
+                    <span class="role-actions-truncated" data-bs-toggle="dropdown" aria-expanded="false">
+                      {{ getTruncatedActionNames(role.actions) }}
+                    </span>
+                    <ul class="dropdown-menu role-actions-popover">
+                      @for (actionName of getAllActionsArray(role.actions); track actionName) {
+                      <li><span class="dropdown-item">{{ actionName }}</span></li>
+                      }
+                    </ul>
+                  </div>
+                </td>
+                <td class="text-end col-actions">
+                  <button class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified me-2" type="button" title="Edit"
+                    (click)="onEditRole(role)" [disabled]="!canEditRole">
+                    <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
+                  </button>
+                  <button class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button" title="Delete"
+                    (click)="onDeleteRole(role)" [disabled]="!canDeleteRole">
+                    <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
+                  </button>
+                </td>
+              </tr>
+              }
+              @if (roles.length === 0) {
+              <tr>
+                <td colspan="4" class="text-center text-muted py-4">No roles found</td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        @if (roles.length > 0) {
+        <div class="roles-pagination">
+          <div class="pagination-info">
+            <span class="pagination-text">Showing <strong>{{ rolesRangeStart }}-{{ rolesRangeEnd }}</strong> of <strong>{{ roles.length }}</strong> roles</span>
+          </div>
+          <div class="pagination-controls">
+            <button type="button" class="btn btn-pagination" 
+              [disabled]="currentRolePage === 1"
+              (click)="onPrevRolesPage()"
+              title="Previous page">
+              <iconify-icon icon="iconamoon:arrow-left-2-duotone"></iconify-icon>
+            </button>
+            <div class="pagination-counter">
+              <span class="counter-text">{{ currentRolePage }} / {{ totalRolePages }}</span>
+            </div>
+            <button type="button" class="btn btn-pagination"
+              [disabled]="currentRolePage === totalRolePages" 
+              (click)="onNextRolesPage()"
+              title="Next page">
+              <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
+            </button>
+          </div>
+        </div>
+        }
+        }
+
+      </div>
+    </div>
+  </div>
+</div>

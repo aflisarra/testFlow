@@ -1,0 +1,497 @@
+/* You can add global styles to this file, and also import other style files */
+
+:root {
+  --brand-orange: #ec8a00;
+  --brand-blue: #003a70;
+}
+
+html[data-bs-theme='dark'],
+[data-bs-theme='dark'] {
+  --bs-body-bg: #191f2f;
+  --bs-body-bg-rgb: 25, 31, 47;
+  --bs-body-color: #ffffff;
+}
+
+html[data-bs-theme='dark'] body {
+  background-color: #191f2f;
+}
+
+html[data-bs-theme='dark'] .page-content {
+  background-color: #191f2f;
+}
+
+html[data-bs-theme='dark'] .form-control,
+html[data-bs-theme='dark'] .form-select,
+html[data-bs-theme='dark'] textarea.form-control {
+  background-color: #020c22;
+  color: #e2e8f0;
+  border-color: #1e293b;
+}
+
+html[data-bs-theme='dark'] .form-control::placeholder,
+html[data-bs-theme='dark'] textarea.form-control::placeholder {
+  color: #64748b;
+}
+
+html[data-bs-theme='dark'] .form-control:focus,
+html[data-bs-theme='dark'] .form-select:focus,
+html[data-bs-theme='dark'] textarea.form-control:focus {
+  background-color: #020c22;
+  color: #3a82e0;
+  border-color: rgba(236, 138, 0, 0.7);
+  box-shadow: 0 0 0 4px rgba(236, 138, 0, 0.15);
+}
+
+.brand-title {
+  color: var(--brand-blue);
+}
+
+/* Sidebar: keep Test icon gray (not primary blue) */
+.main-nav .navbar-nav .nav-link[aria-controls='test'] .nav-icon,
+.main-nav .navbar-nav .nav-link[aria-controls='test'].active .nav-icon,
+.main-nav .navbar-nav .nav-link[aria-controls='test'].show .nav-icon,
+.main-nav .navbar-nav .nav-link[aria-controls='test']:hover .nav-icon,
+.main-nav .navbar-nav .nav-link[aria-controls='test']:focus .nav-icon,
+.main-nav .navbar-nav .nav-link[aria-controls='test']:active .nav-icon {
+  color: #94a3b8 !important;
+}
+
+.btn-brand {
+  background-color: var(--brand-orange);
+  border-color: var(--brand-orange);
+  color: #fff;
+}
+
+.btn-brand:hover,
+.btn-brand:focus {
+  background-color: #d97c00;
+  border-color: #d97c00;
+  color: #fff;
+}
+
+.btn-brand:disabled {
+  background-color: var(--brand-orange);
+  border-color: var(--brand-orange);
+  opacity: 0.7;
+}
+
+.brand-badge {
+  background: rgba(0, 58, 112, 0.12);
+  color: var(--brand-blue);
+  border: 1px solid rgba(0, 58, 112, 0.25);
+}
+
+.btn-action {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+}
+
+.btn-action-edit {
+  border: 1px solid rgba(0, 58, 112, 0.35);
+  background: rgba(0, 58, 112, 0.08);
+  color: var(--brand-blue);
+}
+
+.btn-action-edit:hover {
+  border-color: var(--brand-blue);
+  background: rgba(0, 58, 112, 0.14);
+}
+
+.btn-action-delete {
+  border: 1px solid rgba(236, 138, 0, 0.45);
+  background: rgba(236, 138, 0, 0.12);
+  color: var(--brand-orange);
+}
+
+.btn-action-delete:hover {
+  border-color: var(--brand-orange);
+  background: rgba(236, 138, 0, 0.18);
+}
+
+.action-icon {
+  font-size: 18px;
+}
+
+.col-actions {
+  width: 1%;
+  white-space: nowrap;
+  padding-left: 0.35rem !important;
+  padding-right: 0.35rem !important;
+}
+
+.confirm-modal-window .modal-content {
+  border: 0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.12);
+}
+
+.confirm-modal-window .modal-dialog {
+  max-width: 360px;
+}
+
+.confirm-modal-backdrop {
+  backdrop-filter: blur(8px);
+}
+
+.confirm-dialog {
+  background: #fff;
+}
+
+.confirm-top {
+  display: flex;
+  justify-content: flex-end;
+  padding: 1rem 1rem 0;
+}
+
+.confirm-close {
+  opacity: 0.7;
+}
+
+.confirm-body {
+  padding: 1rem 1.25rem 1.25rem;
+  text-align: center;
+}
+
+.confirm-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 1.25rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(236, 138, 0, 0.1);
+}
+
+.confirm-icon-svg {
+  font-size: 38px;
+  color: var(--brand-orange);
+}
+
+.confirm-title {
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.75rem;
+}
+
+.confirm-message {
+  color: rgba(67, 71, 80, 1);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.confirm-entity {
+  font-weight: 400;
+  color: rgba(26, 28, 31, 1);
+  margin-left: 0.25rem;
+}
+
+.confirm-details {
+  display: block;
+  margin-top: 0.5rem;
+}
+
+.confirm-actions {
+  margin-top: 1.25rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.confirm-actions .btn {
+  border-radius: 10px !important;
+  font-weight: 400 !important;
+  padding: 0.58rem 0.9rem !important;
+  line-height: 1.2;
+}
+
+.btn-confirm-cancel {
+  background: transparent;
+  border: 1px solid rgba(115, 119, 129, 0.6);
+  color: rgba(115, 119, 129, 1);
+}
+
+.btn-confirm-cancel:hover {
+  background: rgba(243, 243, 248, 1);
+}
+
+.confirm-tonal {
+  height: 8px;
+  background: rgba(243, 243, 248, 1);
+  opacity: 0.5;
+}
+
+.exec-upsert-modal-window .modal-content {
+  border: 0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.12);
+}
+
+.exec-upsert-modal-window .modal-dialog {
+  max-width: 520px;
+}
+
+.exec-upsert-modal-backdrop {
+  backdrop-filter: blur(12px);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(195, 198, 209, 1);
+  border-radius: 10px;
+}
+
+.exec-upsert {
+  background: #fff;
+}
+
+.exec-upsert-body {
+  padding: 1.5rem;
+}
+
+.exec-upsert-header {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.exec-upsert-headline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  position: relative;
+}
+
+.exec-upsert-title {
+  font-family: Manrope, Inter, system-ui, -apple-system, Segoe UI, sans-serif;
+  font-weight: normal;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+  color: var(--brand-blue);
+  margin: 0;
+}
+
+.exec-close-btn {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid #d5e2f1;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #35597e;
+  font-size: 1.35rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.exec-close-btn:hover {
+  background: #eef5fd;
+  border-color: #b6cbdf;
+}
+
+.exec-upsert-subtitle {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: rgba(67, 71, 80, 1);
+}
+
+.exec-upsert-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.exec-field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.exec-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  color: rgba(67, 71, 80, 1);
+  margin-left: 0.25rem;
+}
+
+.exec-input,
+.exec-select,
+.exec-textarea {
+  width: 100%;
+  background: rgba(243, 243, 248, 1);
+  border: 1px solid rgba(195, 198, 209, 0.15);
+  border-radius: 1.25rem;
+  padding: 0.95rem 1.25rem;
+  outline: none;
+  transition: background 150ms ease, box-shadow 150ms ease;
+}
+
+.exec-textarea {
+  resize: none;
+}
+
+.exec-input:focus,
+.exec-select:focus,
+.exec-textarea:focus {
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(236, 138, 0, 0.15);
+}
+
+.exec-actions-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0.25rem 0.25rem;
+}
+
+.exec-selected-badge {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: rgba(106, 59, 0, 1);
+  background: rgba(255, 220, 191, 1);
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.5rem;
+  width: fit-content;
+  text-transform: uppercase;
+}
+
+.exec-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.exec-select-all-text {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 800;
+  color: var(--brand-blue);
+}
+
+.exec-actions-box {
+  background: rgba(243, 243, 248, 1);
+  border-radius: 1.5rem;
+  padding: 0.5rem;
+  border: 1px solid rgba(195, 198, 209, 0.1);
+}
+
+.exec-actions-scroll {
+  max-height: 220px;
+  overflow: auto;
+  padding: 0.25rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.exec-action-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.9rem;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.exec-action-item:hover {
+  background: rgba(226, 226, 231, 1);
+}
+
+.exec-action-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(26, 28, 31, 1);
+}
+
+.exec-checkbox {
+  width: 20px;
+  height: 20px;
+  accent-color: rgba(254, 152, 27, 1);
+  border-radius: 0.5rem;
+}
+
+.exec-checkbox-lg {
+  width: 24px;
+  height: 24px;
+  border-radius: 0.75rem;
+}
+
+.exec-buttons {
+  display: flex;
+  gap: 1rem;
+  padding-top: 0.25rem;
+}
+
+.exec-btn {
+  flex: 1;
+  padding: 1rem 1.25rem;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.875rem;
+  transition: transform 120ms ease, background 150ms ease, border-color 150ms ease;
+}
+
+.exec-btn:active {
+  transform: scale(0.98);
+}
+
+.exec-btn-cancel {
+  background: transparent;
+  border: 1px solid rgba(195, 198, 209, 0.7);
+  color: rgba(26, 28, 31, 1);
+}
+
+.exec-btn-cancel:hover {
+  background: rgba(238, 237, 243, 1);
+}
+
+.exec-btn-save {
+  background: #ec8a00;
+  border: 1px solid #ec8a00;
+  color: #fff;
+  box-shadow: 0 12px 20px rgba(236, 138, 0, 0.24);
+}
+
+.exec-btn-save:hover {
+  background: #d97c00;
+  border-color: #d97c00;
+}
+
+.exec-btn-save:disabled {
+  opacity: 0.7;
+}
+
+.exec-upsert-accent {
+  height: 6px;
+  width: 100%;
+  background: linear-gradient(90deg,
+      rgba(0, 58, 112, 1),
+      rgba(236, 138, 0, 1),
+      rgba(0, 58, 112, 1));
+  opacity: 0.18;
+}
