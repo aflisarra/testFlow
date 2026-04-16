@@ -1,6 +1,7 @@
 const Role = require('../models/role.model');
 //const roleService = require('../services/role.service');
 const RoleAction = require('../models/roleAction.model');
+const User = require('../models/user.model')
 
 // ✅ Create a new role
 // Input: { name: String, description: String, actions: [ObjectId] }
@@ -64,5 +65,28 @@ exports.updateRole = async (id, updateData) => {
 // Input: id (ObjectId)
 // Output: Deleted Role object or null if not found
 exports.deleteRole = async (id) => {
-  return await Role.findByIdAndDelete(id);
+  const role = await Role.findById(id)
+  if (!role) return null
+
+  const roleId = role._id
+  const roleName = String(role.name || '').trim()
+
+  const assignedCount = await User.countDocuments({
+    $or: [
+      { roleId: roleId },
+      ...(roleName ? [{ role: roleName }] : []),
+    ],
+  })
+
+  if (assignedCount > 0) {
+    const err = new Error(
+      `Vous ne pouvez pas supprimer ce rôle car ${assignedCount} utilisateur(s) sont assignés à ce rôle.`
+    )
+    err.statusCode = 409
+    err.code = 'ROLE_IN_USE'
+    throw err
+  }
+
+  await RoleAction.deleteMany({ roleId: roleId })
+  return await Role.findByIdAndDelete(id)
 };

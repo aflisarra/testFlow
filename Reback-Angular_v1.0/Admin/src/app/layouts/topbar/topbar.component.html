@@ -33,6 +33,85 @@
           </button>
         </div>
 
+        <!-- Project invitations -->
+        <div
+          ngbDropdown
+          class="dropdown topbar-item"
+          (openChange)="onInvitationsOpenChange($event)"
+        >
+          <button
+            type="button"
+            ngbDropdownToggle
+            class="topbar-button arrow-none topbar-notif-btn"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            <span class="topbar-notif-wrap">
+              <iconify-icon
+                icon="iconamoon:notification-duotone"
+                class="fs-24 align-middle"
+              ></iconify-icon>
+              @if (pendingInvitationsCount > 0) {
+                <span class="topbar-notif-badge">{{ pendingInvitationsCount }}</span>
+              }
+            </span>
+          </button>
+
+          <div ngbDropdownMenu class="dropdown-menu dropdown-menu-end topbar-notif-menu">
+            <div class="topbar-notif-head">
+              <div>
+                <div class="topbar-notif-title">Invitations</div>
+                <div class="topbar-notif-subtitle">Project collaboration requests</div>
+              </div>
+              <div class="topbar-notif-pill">
+                @if (invitationsLoading) { Loading } @else { {{ pendingInvitationsCount }} pending }
+              </div>
+            </div>
+
+            <div class="dropdown-divider my-1"></div>
+
+            @if (invitationsLoading) {
+              <div class="px-3 py-3 text-muted small">Loading invitations...</div>
+            } @else if (!invitations.length) {
+              <div class="px-3 py-3 text-muted small">No invitations.</div>
+            } @else {
+              <div class="topbar-notif-list custom-scrollbar">
+                @for (inv of invitations; track inv._id) {
+                  <div class="topbar-invite-item">
+                    <div class="topbar-invite-meta">
+                      <div class="topbar-invite-project">
+                        {{ inv?.projectId?.title || 'Project' }}
+                      </div>
+                      <div class="topbar-invite-from text-muted">
+                        Invited by {{ inv?.invitedBy?.name || inv?.invitedBy?.email || 'User' }}
+                      </div>
+                    </div>
+
+                    <div class="topbar-invite-actions">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-brand"
+                        [disabled]="acceptingId === inv._id || ignoringId === inv._id"
+                        (click)="acceptInvite(inv)"
+                      >
+                        @if (acceptingId === inv._id) { Accepting... } @else { Accept }
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary"
+                        [disabled]="acceptingId === inv._id || ignoringId === inv._id"
+                        (click)="ignoreInvite(inv)"
+                      >
+                        @if (ignoringId === inv._id) { Ignoring... } @else { Ignore }
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+
         <div ngbDropdown class="dropdown topbar-item">
           <a
             type="button"

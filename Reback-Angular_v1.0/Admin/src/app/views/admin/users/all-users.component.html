@@ -6,7 +6,7 @@
       </div>
       <div class="card-body">
         <form [formGroup]="createUserForm" (ngSubmit)="submitCreateUser()" autocomplete="off">
-          <div class="mb-3">
+          <div class="mb-2">
             <label class="form-label">Name <span class="text-danger">*</span></label>
             <input class="form-control"
               [class.is-invalid]="(createSubmitted || createUserForm.controls.name.touched) && createUserForm.controls.name.invalid"
@@ -70,13 +70,6 @@
             <div class="invalid-feedback d-block">Role cannot be empty spaces.</div>
             }
           </div>
-
-          <div class="mb-3">
-            <label class="form-label">Description</label>
-            <input class="form-control" formControlName="description" placeholder="Optional..."
-              [disabled]="!canAddUser" />
-          </div>
-
           <div class="mb-3">
             <label class="form-label">Picture (optional)</label>
             <input class="form-control" type="file" accept="image/*" (change)="onPictureSelected($event)"

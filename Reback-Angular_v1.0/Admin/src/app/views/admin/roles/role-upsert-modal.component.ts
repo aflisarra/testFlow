@@ -202,7 +202,7 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges, OnDestroy {
 
   private getGroupLabel(groupKey: string): string {
     switch (groupKey) {
-      case 'manage_roles': return 'Action role'
+      case 'manage_roles': return 'Manage role'
       case 'manage_users': return 'Manage user'
       case 'dashboard': return 'Dashboard'
       default: return 'Other actions'

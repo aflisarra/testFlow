@@ -9,8 +9,15 @@ import { TestSuiteConfigurationComponent } from './test/test-plan.component'
 import { TestCasesValidationComponent } from './test/list-test.component'
 import { TestCasesHomeComponent } from './test/test-cases-home.component'
 import { ProjectManagementComponent } from './project/project-management.component'
+import { UnauthorizedComponent } from './pages/unauthorized/unauthorized.component'
+import { requireAnyAction } from '@/app/core/guards/require-action.guard'
 
 export const VIEW_ROUTES: Route[] = [
+  {
+    path: 'unauthorized',
+    component: UnauthorizedComponent,
+    data: { title: 'Unauthorized' },
+  },
   {
     path: 'pages',
     loadChildren: () =>
@@ -52,16 +59,19 @@ export const VIEW_ROUTES: Route[] = [
   {
     path: 'admin/users',
     component: AllUsersComponent,
+    canActivate: [requireAnyAction([4])],
     data: { title: 'Manage Users' },
   },
   {
     path: 'admin/users/invite',
     component: InviteUserComponent,
+    canActivate: [requireAnyAction([2])],
     data: { title: 'Invite User' },
   },
   {
     path: 'admin/roles',
     component: RolesManagementComponent,
+    canActivate: [requireAnyAction([8])],
     data: { title: 'Roles' },
   },
   {

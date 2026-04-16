@@ -15,6 +15,7 @@ import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { ToastrService } from 'ngx-toastr'
 import { loginSuccess } from '@/app/store/authentication/authentication.actions'
+import { Router } from '@angular/router'
 
 @Component({
   selector: 'app-roles-management',
@@ -29,6 +30,7 @@ export class RolesManagementComponent implements OnInit {
   private modalService = inject(NgbModal)
   private store = inject(Store)
   private toastr = inject(ToastrService)
+  private router = inject(Router)
 
   roles: AppRole[] = []
   actions: AppAction[] = []
@@ -55,6 +57,7 @@ export class RolesManagementComponent implements OnInit {
       this.loadData()
     } else {
       this.notifyPermissionDenied("Acces refuse: vous n'avez pas l'action View Role.")
+      await this.router.navigate(['/unauthorized'], { replaceUrl: true })
     }
   }
 
@@ -184,7 +187,9 @@ export class RolesManagementComponent implements OnInit {
           this.loadData()
         },
         error: (err) => {
-          this.error = err?.error?.message || 'Unable to delete role'
+          const message = err?.error?.message || 'Unable to delete role'
+          this.error = message
+          this.toastr.warning(message, 'Role')
         },
       })
     })

@@ -85,7 +85,7 @@ exports.deleteRole = async (req, res) => {
     res.json({ message: 'Role deleted successfully' });
   } catch (err) {
     console.error('Delete role error:', err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(err.statusCode || 500).json({ message: err.message || 'Server error' });
   }
 };
 
@@ -108,7 +108,6 @@ exports.deleteRole = async (req, res) => {
 
   return savedRole;
 };*/
-
 
 
 

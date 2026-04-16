@@ -17,6 +17,9 @@ import { logout } from '@/app/store/authentication/authentication.actions'
 import { Router, RouterLink } from '@angular/router'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import { AuthenticationService } from '@/app/core/services/auth.service'
+import { ProjectInvitationsService, type ProjectInvitationDto } from '@/app/core/services/project-invitations.service'
+import { ToastrService } from 'ngx-toastr'
+import { firstValueFrom } from 'rxjs'
 
 @Component({
   selector: 'app-topbar',
@@ -27,6 +30,7 @@ import { AuthenticationService } from '@/app/core/services/auth.service'
     CommonModule,
   ],
   templateUrl: './topbar.component.html',
+  styleUrl: './topbar.component.scss',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class TopbarComponent {
@@ -35,12 +39,19 @@ export class TopbarComponent {
   router = inject(Router)
   store = inject(Store)
   authService = inject(AuthenticationService)
+  private invitationsService = inject(ProjectInvitationsService)
+  private toastr = inject(ToastrService)
   destroyRef = inject(DestroyRef)
 
   userName = ''
   userPicture: string | null = null
   readonly defaultAvatar = 'assets/images/users/default-user.svg'
   private readonly backendOrigin = 'http://localhost:3000'
+
+  invitations: ProjectInvitationDto[] = []
+  invitationsLoading = false
+  acceptingId: string | null = null
+  ignoringId: string | null = null
 
   constructor(@Inject(DOCUMENT) private document: any) {}
   @Output() mobileMenuButtonClicked = new EventEmitter()
@@ -54,6 +65,59 @@ export class TopbarComponent {
         this.userName = user?.username || this.authService.currentUserName || ''
         this.userPicture = (user as any)?.picture || this.authService.currentUserPicture
       })
+
+    void this.refreshInvitations()
+  }
+
+  get pendingInvitationsCount(): number {
+    return Array.isArray(this.invitations) ? this.invitations.length : 0
+  }
+
+  async refreshInvitations(): Promise<void> {
+    this.invitationsLoading = true
+    try {
+      const invites = await firstValueFrom(this.invitationsService.getMyPendingInvitations())
+      this.invitations = Array.isArray(invites) ? invites : []
+    } catch {
+      this.invitations = []
+    } finally {
+      this.invitationsLoading = false
+    }
+  }
+
+  async onInvitationsOpenChange(open: boolean) {
+    if (!open) return
+    await this.refreshInvitations()
+  }
+
+  async acceptInvite(invite: ProjectInvitationDto) {
+    const id = String(invite?._id || '').trim()
+    if (!id) return
+    this.acceptingId = id
+    try {
+      await firstValueFrom(this.invitationsService.acceptInvitation(id))
+      this.toastr.success('Project invitation accepted.', 'Project')
+      await this.refreshInvitations()
+    } catch (err: any) {
+      this.toastr.error(err?.error?.message || 'Unable to accept invitation', 'Project')
+    } finally {
+      this.acceptingId = null
+    }
+  }
+
+  async ignoreInvite(invite: ProjectInvitationDto) {
+    const id = String(invite?._id || '').trim()
+    if (!id) return
+    this.ignoringId = id
+    try {
+      await firstValueFrom(this.invitationsService.ignoreInvitation(id))
+      this.toastr.info('Invitation ignored.', 'Project')
+      await this.refreshInvitations()
+    } catch (err: any) {
+      this.toastr.error(err?.error?.message || 'Unable to ignore invitation', 'Project')
+    } finally {
+      this.ignoringId = null
+    }
   }
 
   /**

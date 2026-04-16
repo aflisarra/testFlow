@@ -11,13 +11,13 @@ import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap'
 })
 export class ConfirmModalComponent {
   @Input() title = 'Confirm'
-  @Input() message = 'Are you sure?'
+  @Input() message = 'Are you sure you want to delete it?'
   @Input() entityName = ''
   @Input() details = ''
   @Input() confirmText = 'Confirm'
   @Input() cancelText = 'Cancel'
   @Input() confirmButtonClass = 'btn-brand'
-  @Input() icon = 'iconamoon:attention-circle-fill'
+  @Input() icon = 'iconamoon:trash-duotone';
 
-  constructor(public activeModal: NgbActiveModal) {}
+  constructor(public activeModal: NgbActiveModal) { }
 }

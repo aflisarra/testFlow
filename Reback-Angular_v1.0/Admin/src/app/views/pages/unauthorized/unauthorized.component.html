@@ -1,0 +1,36 @@
+<app-page-title title="Security" subtitle="403" />
+
+<div class="row justify-content-center">
+  <div class="col-xl-6 col-lg-7">
+    <div class="card authz-card">
+      <div class="card-body px-3 py-5">
+        <div class="p-4">
+          <div class="authz-icon mx-auto mb-3">
+            <iconify-icon icon="iconamoon:lock-keyhole-duotone"></iconify-icon>
+          </div>
+
+          <div class="text-center">
+            <div class="authz-code">403</div>
+            <h2 class="authz-title">Access denied</h2>
+            <p class="text-muted mt-2 mb-4 authz-subtitle">
+              You don’t have permission to view this page.
+              If you believe this is a mistake, contact your administrator.
+            </p>
+
+            <div class="d-flex gap-2 justify-content-center flex-wrap">
+              <a routerLink="/dashboard/analytics" class="btn btn-brand px-4">
+                <iconify-icon icon="iconamoon:home-duotone" class="me-1"></iconify-icon>
+                Dashboard
+              </a>
+              <a routerLink="/" class="btn btn-outline-secondary px-4">
+                <iconify-icon icon="iconamoon:arrow-left-2-duotone" class="me-1"></iconify-icon>
+                Go back
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+

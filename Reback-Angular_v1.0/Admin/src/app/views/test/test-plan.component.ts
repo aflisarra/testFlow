@@ -151,8 +151,18 @@ export class TestSuiteConfigurationComponent {
     this.testPlans.forEach((p) => {
       this.planStatuses[p.id] = 'confirmed'
     })
-    this.plansValidated = true
+    this.plansValidated = this.allPlansConfirmed
+    this.sessionSaved = false
     this.toastr.success('Test plans validated successfully.', 'Validation')
+  }
+
+  onTogglePlanValidation(planId: string) {
+    const current = this.planStatuses[planId]
+    if (current !== 'pending' && current !== 'confirmed') return
+
+    this.planStatuses[planId] = current === 'confirmed' ? 'pending' : 'confirmed'
+    this.plansValidated = this.allPlansConfirmed
+    this.sessionSaved = false
   }
 
   // Remplacer onSaveSession() — retourne false si erreur et affiche toastr
@@ -208,8 +218,10 @@ export class TestSuiteConfigurationComponent {
       return
     }
 
-    // Valider tous les plans
-    this.onValidatePlans()
+    if (!this.allPlansConfirmed) {
+      this.toastr.warning('Please validate all test plans to continue.', 'Validation')
+      return
+    }
 
     // Sauvegarder obligatoirement
     if (this.currentTestSuiteId) {

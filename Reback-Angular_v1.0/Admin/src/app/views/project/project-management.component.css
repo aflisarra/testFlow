@@ -472,8 +472,9 @@
 
 .exec-upsert {
   position: relative;
-  border-radius: 16px;
+  border-radius: 18px;
   background: #ffffff;
+  border: 1px solid #dce8f5;
   box-shadow: 0 18px 44px rgba(12, 40, 70, 0.16);
   overflow: visible;
 }
@@ -498,6 +499,7 @@
   margin: 0;
   font-size: 1.2rem;
   color: #103a6f;
+  font-weight: 600;
 }
 
 .exec-close-btn {
@@ -516,6 +518,12 @@
 .exec-upsert-form {
   display: grid;
   gap: 0.8rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.exec-field--full {
+  grid-column: 1 / -1;
 }
 
 .exec-field {
@@ -525,7 +533,7 @@
 
 .exec-label {
   font-size: 0.82rem;
-  font-weight: 700;
+  font-weight: 600;
   color: #274b73;
 }
 
@@ -707,6 +715,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 0.55rem;
+  grid-column: 1 / -1;
 }
 
 .exec-btn {
@@ -751,6 +760,10 @@
   }
 
   .date-triple-field {
+    grid-template-columns: 1fr;
+  }
+
+  .exec-upsert-form {
     grid-template-columns: 1fr;
   }
 }

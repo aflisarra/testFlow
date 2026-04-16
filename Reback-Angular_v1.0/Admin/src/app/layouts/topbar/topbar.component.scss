@@ -1,0 +1,125 @@
+/* Project invitations dropdown (light/dark) */
+
+.topbar-notif-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.topbar-notif-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: #0b1220;
+  background: rgba(236, 138, 0, 0.95);
+  border: 1px solid rgba(236, 138, 0, 0.95);
+  box-shadow: 0 10px 18px rgba(236, 138, 0, 0.22);
+}
+
+.topbar-notif-menu {
+  width: min(420px, calc(100vw - 1.5rem));
+  padding: 0.5rem 0;
+}
+
+.topbar-notif-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+}
+
+.topbar-notif-title {
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.topbar-notif-subtitle {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.topbar-notif-pill {
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  color: #7a4a05;
+  background: #ffe8c9;
+  border: 1px solid #ffd39f;
+  white-space: nowrap;
+}
+
+.topbar-notif-list {
+  max-height: 320px;
+  overflow: auto;
+  padding: 0.25rem 0.5rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.topbar-invite-item {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 14px;
+  padding: 0.75rem 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.topbar-invite-project {
+  font-weight: 900;
+  color: #0f172a;
+  line-height: 1.1;
+}
+
+.topbar-invite-from {
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.topbar-invite-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+html[data-bs-theme='dark'] .topbar-notif-title {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+html[data-bs-theme='dark'] .topbar-notif-subtitle {
+  color: rgba(226, 232, 240, 0.7);
+}
+
+html[data-bs-theme='dark'] .topbar-notif-pill {
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(236, 138, 0, 0.14);
+  border-color: rgba(236, 138, 0, 0.28);
+}
+
+html[data-bs-theme='dark'] .topbar-invite-item {
+  background: rgba(2, 6, 23, 0.34);
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+html[data-bs-theme='dark'] .topbar-invite-project {
+  color: rgba(255, 255, 255, 0.92);
+}

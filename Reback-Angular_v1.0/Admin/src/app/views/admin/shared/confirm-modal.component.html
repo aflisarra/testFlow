@@ -1,6 +1,7 @@
 <div class="confirm-dialog">
   <div class="confirm-top">
-    <button type="button" class="btn-close confirm-close" aria-label="Close" (click)="activeModal.dismiss(false)"></button>
+    <button type="button" class="btn-close confirm-close" aria-label="Close"
+      (click)="activeModal.dismiss(false)"></button>
   </div>
 
   <div class="confirm-body">
@@ -13,18 +14,19 @@
     <p class="confirm-message">
       {{ message }}
       @if (entityName) {
-        <span class="confirm-entity">{{ entityName }}</span>.
+      <span class="confirm-entity">{{ entityName }}</span>.
       }
       @if (details) {
-        <span class="confirm-details">{{ details }}</span>
+      <span class="confirm-details">{{ details }}</span>
       }
     </p>
 
-    <div class="confirm-actions">
-      <button type="button" class="btn btn-lg w-100" [ngClass]="confirmButtonClass" (click)="activeModal.close(true)">
+    <div class="confirm-actions d-flex justify-content-center gap-2">
+      <button type="button" class="btn btn-lg" [ngClass]="confirmButtonClass" (click)="activeModal.close(true)">
         {{ confirmText }}
       </button>
-      <button type="button" class="btn btn-lg w-100 btn-confirm-cancel" (click)="activeModal.dismiss(false)">
+
+      <button type="button" class="btn btn-lg btn-confirm-cancel" (click)="activeModal.dismiss(false)">
         {{ cancelText }}
       </button>
     </div>

@@ -80,7 +80,7 @@
             (click)="$event.stopPropagation()">
             <div class="exec-actions-scroll custom-scrollbar">
               @if (actionGroups.length === 0) {
-              <div class="text-muted px-2 py-2">No actions</div>
+              <div class="text-muted px-2 py-2">No permissions</div>
               }
               <div class="mb-2">
                 <label class="exec-action-item exec-action-item--all">
@@ -92,7 +92,7 @@
               @for (group of actionGroups; track group.key) {
               <div class="mb-2">
                 <label class="exec-action-item">
-                  <span class="exec-action-name fw-semibold">{{ group.label }} (All)</span>
+                  <span class="exec-action-name fw-semibold">{{ group.label }}</span>
                   <input class="exec-checkbox exec-checkbox-lg" type="checkbox" [checked]="isGroupEnabled(group.key)"
                     (change)="toggleGroup(group.key, $any($event.target).checked)" />
                 </label>
@@ -136,4 +136,3 @@
   <div class="exec-upsert-accent"></div>
   }
 </div>
-

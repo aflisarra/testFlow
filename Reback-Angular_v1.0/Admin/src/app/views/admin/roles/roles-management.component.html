@@ -6,11 +6,7 @@
       </div>
       <div class="card-body">
         @if (canAddRole) {
-        <app-role-upsert-modal
-          [inlineMode]="true"
-          [role]="null"
-          [actions]="actions"
-          (saved)="onCreateRoleSaved($event)"
+        <app-role-upsert-modal [inlineMode]="true" [role]="null" [actions]="actions" (saved)="onCreateRoleSaved($event)"
           (cancelled)="onCreateRoleCancelled()">
         </app-role-upsert-modal>
         } @else {
@@ -42,7 +38,7 @@
               <tr>
                 <th>Name</th>
                 <th>Description</th>
-                <th>Actions</th>
+                <th>Permissions</th>
                 <th class="text-end col-actions">Actions</th>
               </tr>
             </thead>
@@ -53,12 +49,12 @@
                 <td>{{ role.description }}</td>
                 <td>{{ getActionNames(role.actions) }}</td>
                 <td class="text-end col-actions">
-                  <button class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified me-2" type="button" title="Edit"
-                    (click)="onEditRole(role)" [disabled]="!canEditRole">
+                  <button class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified me-2" type="button"
+                    title="Edit" (click)="onEditRole(role)" [disabled]="!canEditRole">
                     <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
                   </button>
-                  <button class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button" title="Delete"
-                    (click)="onDeleteRole(role)" [disabled]="!canDeleteRole">
+                  <button class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button"
+                    title="Delete" (click)="onDeleteRole(role)" [disabled]="!canDeleteRole">
                     <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
                   </button>
                 </td>

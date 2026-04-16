@@ -232,14 +232,14 @@
       </header>
 
       <form [formGroup]="editProjectForm" class="exec-upsert-form">
-        <div class="exec-field">
+        <div class="exec-field exec-field--full">
           <label class="exec-label">Project title <span class="text-danger">*</span></label>
           <input class="exec-input"
             [class.is-invalid]="editProjectForm.controls.title.touched && editProjectForm.controls.title.invalid"
             formControlName="title" />
         </div>
 
-        <div class="exec-field">
+        <div class="exec-field exec-field--full">
           <label class="exec-label">Description</label>
           <textarea class="exec-textarea" rows="2" formControlName="description"></textarea>
         </div>
@@ -269,7 +269,7 @@
           </select>
         </div>
 
-        <div class="exec-field">
+        <div class="exec-field exec-field--full">
           <div class="exec-actions-head">
             <div class="d-flex flex-column">
               <label class="exec-label mb-0">Elite Team</label>
@@ -305,7 +305,7 @@
                 <div class="exec-actions-scroll custom-scrollbar">
                   <div class="mb-2">
                     <label class="exec-action-item exec-action-item--all">
-                      <span class="exec-action-name fw-semibold">Select All</span>
+                      <span class="exec-action-name">Select All</span>
                       <input class="exec-checkbox exec-checkbox-lg" type="checkbox" [checked]="editAllSelected"
                         (change)="toggleEditAll($any($event.target).checked)" />
                     </label>

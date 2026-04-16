@@ -10,6 +10,7 @@ import { getUser } from '@/app/store/authentication/authentication.selector'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { ToastrService } from 'ngx-toastr'
+import { Router } from '@angular/router'
 
 @Component({
   selector: 'app-all-users',
@@ -25,6 +26,7 @@ export class AllUsersComponent implements OnInit {
   private modalService = inject(NgbModal)
   private store = inject(Store)
   private toastr = inject(ToastrService)
+  private router = inject(Router)
 
   users: AppUser[] = []
   readonly defaultAvatar = 'assets/images/users/default-user.svg'
@@ -67,6 +69,7 @@ export class AllUsersComponent implements OnInit {
       this.loadUsers()
     } else {
       this.notifyPermissionDenied("Acces refuse: vous n'avez pas l'action View User.")
+      await this.router.navigate(['/unauthorized'], { replaceUrl: true })
     }
   }
 

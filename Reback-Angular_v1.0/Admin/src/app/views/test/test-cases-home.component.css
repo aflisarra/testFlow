@@ -804,3 +804,21 @@
     max-height: 260px;
   }
 }
+
+.tc-modal-actions-bottom {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px;
+  border-top: 1px solid #eee;
+  background: #fff;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
+/* Pour que le scroll fonctionne bien */
+.tc-modal-body {
+  max-height: 60vh;
+  overflow-y: auto;
+}

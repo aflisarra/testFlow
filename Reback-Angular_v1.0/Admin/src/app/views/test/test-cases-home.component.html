@@ -258,6 +258,7 @@
 <div class="tc-modal-backdrop" (click)="closeModal()">
   <div class="tc-modal" (click)="$event.stopPropagation()">
 
+    <!-- HEADER -->
     <div class="tc-modal-header">
       <div>
         <span class="tc-modal-plan-id">{{ modalPlan.id }}</span>
@@ -267,54 +268,38 @@
       <button class="tc-modal-close" (click)="closeModal()">×</button>
     </div>
 
-    <div class="tc-modal-actions-top">
-      @if (!modalGenerating && modalCases.length === 0) {
-      <button class="btn btn-brand px-4" (click)="onModalGenerate(false)">
-        <iconify-icon icon="iconamoon:sparkles-duotone" class="me-1"></iconify-icon>
-        Generate Test Cases
-      </button>
-      } @else if (!modalGenerating && modalCases.length > 0) {
-      <button class="btn btn-outline-primary px-4" (click)="onModalGenerate(true)">
-        <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
-        Regenerate
-      </button>
-      <button class="btn btn-brand px-4" (click)="onModalValidate()">
-        <iconify-icon icon="iconamoon:check-circle-1-duotone" class="me-1"></iconify-icon>
-        Validate & Save
-      </button>
-      <button class="btn btn-outline-secondary px-4" (click)="closeModal()">
-        Cancel
-      </button>
-      } @else {
-      <button class="btn btn-outline-danger px-4" (click)="closeModal()">
-        Stop Generation
-      </button>
-      }
-    </div>
-
+    <!-- BODY -->
     <div class="tc-modal-body custom-scrollbar">
+
       @if (modalGenerating) {
       <div class="tc-modal-generating">
         <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin fs-2 text-primary"></iconify-icon>
-        <p class="mt-2 mb-0 text-muted">Generating test cases<span class="testlab-dots"></span></p>
+        <p class="mt-2 mb-0 text-muted">
+          Generating test cases<span class="testlab-dots"></span>
+        </p>
       </div>
+
       } @else if (modalCases.length === 0) {
       <div class="tc-modal-empty">
         <iconify-icon icon="iconamoon:lightning-2-duotone" class="fs-2 text-muted"></iconify-icon>
         <p class="mt-2 mb-0 text-muted small">Click Generate to start.</p>
       </div>
+
       } @else {
       <div class="tc-modal-cases">
         @for (tc of modalCases; track tc.id; let i = $index) {
         <div class="tc-case-card">
+
           <div class="tc-case-card-head">
             <span class="tc-case-num">{{ i + 1 }}</span>
             <span class="tc-case-id">{{ tc.id }}</span>
             <span class="tc-case-title">{{ tc.title }}</span>
+
             <button class="tc-case-delete" (click)="onModalDeleteCase(tc.id)" title="Remove">
               <iconify-icon icon="iconamoon:trash-duotone"></iconify-icon>
             </button>
           </div>
+
           @if (tc.steps?.length) {
           <div class="tc-case-steps">
             <span class="tc-case-label">Steps</span>
@@ -325,16 +310,51 @@
             </ol>
           </div>
           }
+
           @if (tc.expected_result) {
           <div class="tc-case-expected">
             <span class="tc-case-label text-success">Expected Result</span>
             <p class="mb-0 small">{{ tc.expected_result }}</p>
           </div>
           }
+
         </div>
         }
       </div>
       }
+
+    </div>
+
+    <!-- ✅ BUTTONS MOVED TO BOTTOM -->
+    <div class="tc-modal-actions-bottom">
+
+      @if (!modalGenerating && modalCases.length === 0) {
+      <button class="btn btn-brand px-4" (click)="onModalGenerate(false)">
+        <iconify-icon icon="iconamoon:sparkles-duotone" class="me-1"></iconify-icon>
+        Generate Test Cases
+      </button>
+
+      } @else if (!modalGenerating && modalCases.length > 0) {
+      <button class="btn btn-outline-primary px-4" (click)="onModalGenerate(true)">
+        <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
+        Regenerate
+      </button>
+
+      <button class="btn btn-brand px-4" (click)="onModalValidate()">
+        <iconify-icon icon="iconamoon:check-circle-1-duotone" class="me-1"></iconify-icon>
+        Validate & Save
+      </button>
+
+      <button class="btn btn-outline-secondary px-4" (click)="closeModal()">
+        Cancel
+      </button>
+
+      } @else {
+      <button class="btn btn-outline-danger px-4" (click)="closeModal()">
+        Stop Generation
+      </button>
+      }
+
     </div>
 
   </div>
