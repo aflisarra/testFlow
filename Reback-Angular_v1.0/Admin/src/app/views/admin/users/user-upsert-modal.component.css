@@ -1,4 +1,10 @@
 .exec-upsert {
+  --font-display: 'Poppins', 'Segoe UI', sans-serif;
+  --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--font-body);
+}
+
+.exec-upsert {
   position: relative;
   border-radius: 16px;
   background: #ffffff;
@@ -25,9 +31,6 @@
 
 .exec-upsert-title {
   margin: 0;
-  font-size: 1.3rem;
-  font-weight: normal;
-  letter-spacing: 0.01em;
   color: #103a6f;
 }
 
@@ -73,8 +76,8 @@
 }
 
 .exec-label {
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: 0.85rem;
+  font-weight: 500;
   color: #274b73;
 }
 

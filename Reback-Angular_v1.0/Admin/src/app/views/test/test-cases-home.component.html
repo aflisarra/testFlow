@@ -1,7 +1,7 @@
 <div class="tc-page">
 
   <!-- ═══ HEADER ═══ -->
-  <div class="tc-header px-4 px-lg-5 py-3">
+  <div class="tc-header px-3 px-lg-4 py-2">
     <div>
       <div class="tc-breadcrumb mb-1">
         @if (testSuiteId) {
@@ -21,8 +21,11 @@
         }
       </div>
       <h2 class="tc-header-title mb-0">
-        @if (testSuiteId) { {{ currentSuiteName }} }
-        @else { My Test Cases }
+        <iconify-icon icon="iconamoon:file-check-duotone" class="tc-header-title-icon"></iconify-icon>
+        <span>
+          @if (testSuiteId) { {{ currentSuiteName }} }
+          @else { My Test Cases }
+        </span>
       </h2>
       <p class="tc-header-sub mb-0">Generate and manage test cases per plan.</p>
     </div>

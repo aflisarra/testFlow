@@ -7,6 +7,7 @@ const projectSchema = new mongoose.Schema(
     startDate: { type: Date, default: null },
     endDate: { type: Date, default: null },
     milestoneDate: { type: Date, default: null },
+    //efface ça
     status: {
       type: String,
       enum: ['draft', 'active', 'paused', 'completed'],

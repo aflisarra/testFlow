@@ -59,7 +59,7 @@ export const VIEW_ROUTES: Route[] = [
   {
     path: 'admin/users',
     component: AllUsersComponent,
-    canActivate: [requireAnyAction([4])],
+    canActivate: [requireAnyAction([10, 4])],
     data: { title: 'Manage Users' },
   },
   {
@@ -77,6 +77,7 @@ export const VIEW_ROUTES: Route[] = [
   {
     path: 'project',
     component: ProjectManagementComponent,
+    canActivate: [requireAnyAction([11])],
     data: { title: 'Project Management' },
   },
   {

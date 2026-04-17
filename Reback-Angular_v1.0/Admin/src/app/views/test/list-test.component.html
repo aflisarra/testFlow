@@ -8,9 +8,12 @@
        VUE LISTE DES TEST SUITES
   ══════════════════════════════════════════ -->
   @if (view === 'list') {
-  <div class="suites-header mb-4">
+  <div class="suites-header mb-2">
     <div>
-      <h2 class="suites-title">List of Test Suites</h2>
+      <h2 class="suites-title">
+        <iconify-icon icon="iconamoon:file-check-duotone" class="suites-title-icon"></iconify-icon>
+        <span>List of Test Suites</span>
+      </h2>
       <p class="suites-subtitle">Manage and monitor your automated test suite runs.</p>
     </div>
 
@@ -53,6 +56,7 @@
           <tr>
             <th>User Name</th>
             <th>Test Name</th>
+            <th>Project</th>
             <th>Spec File</th>
             <th>Plans</th>
             <th>Cases</th>
@@ -75,6 +79,7 @@
               </div>
             </td>
             <td class="suite-file">{{ suite.nametest || '—' }}</td>
+            <td class="suite-file">{{ suite.projectTitle || '-' }}</td>
             <td class="suite-file">
               <iconify-icon icon="iconamoon:file-document-duotone" class="me-1"></iconify-icon>
               {{ suite.specFileName || '—' }}
@@ -109,7 +114,7 @@
           <!-- Detail panel (expandable) -->
           @if (expandedSuiteId === suite._id) {
           <tr class="suite-detail-row">
-            <td colspan="8">
+            <td colspan="9">
               <div class="suite-detail-panel">
                 <div class="suite-detail-grid">
 

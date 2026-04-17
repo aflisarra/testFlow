@@ -38,7 +38,7 @@
    GENERAL STYLES
    ═══════════════════════════════════════════════════════════════════ */
 .testlab-page {
-    padding: 1.25rem 0;
+    padding: 0.65rem 0;
     background:
         radial-gradient(1200px 500px at 88% -12%, rgba(236, 138, 0, 0.14), transparent 55%),
         radial-gradient(900px 380px at -12% 8%, rgba(59, 130, 246, 0.1), transparent 65%),
@@ -70,6 +70,15 @@
     line-height: 1;
     margin: 0;
     padding: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.testlab-hero-icon {
+    font-size: 1.15rem;
+    color: var(--pm-brand-primary);
+    flex-shrink: 0;
 }
 
 .testlab-hero-subtitle {
@@ -212,8 +221,8 @@
 }
 
 .testlab-form-grid {
-    margin-top: var(--space-md);
-    margin-bottom: var(--space-lg);
+    margin-top: 0;
+    margin-bottom: var(--space-md);
 
 }
 

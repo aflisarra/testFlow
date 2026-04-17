@@ -221,6 +221,7 @@ export class SidebarComponent {
     // Map UI pages to backend action IDs (seed.actions.js)
     const roleActionIds = new Set([6, 7, 8, 9])
     const userActionIds = new Set([10, 2, 3, 4, 5])
+    const projectActionIds = new Set([11, 12, 13, 14, 15, 16])
 
     const usersMenu = clonedMenu.find((m) => m.key === 'users')
     if (usersMenu?.subMenu?.length) {
@@ -230,6 +231,18 @@ export class SidebarComponent {
         }
         if (child.link === '/admin/users') {
           return [...userActionIds].some((id) => ids.has(id))
+        }
+        return true
+      })
+    }
+
+    const projectMenu = clonedMenu.find((m) =>
+      Array.isArray(m.subMenu) && (m.subMenu as MenuItem[]).some((c) => c.link === '/project')
+    )
+    if (projectMenu?.subMenu?.length) {
+      projectMenu.subMenu = (projectMenu.subMenu as MenuItem[]).filter((child) => {
+        if (child.link === '/project') {
+          return [...projectActionIds].some((id) => ids.has(id))
         }
         return true
       })

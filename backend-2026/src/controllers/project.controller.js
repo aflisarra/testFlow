@@ -72,10 +72,8 @@ exports.updateProject = async (req, res) => {
     const currentUserId = req.user?.userId
     if (!currentUserId) return res.status(401).json({ message: 'Unauthorized' })
 
-    const existing = await projectService.getProjectById(req.params.id)
+    const existing = req.project || (await projectService.getProjectById(req.params.id))
     if (!existing) return res.status(404).json({ message: 'Project not found' })
-    const isOwner = String(existing?.ownerId?._id || existing?.ownerId || '') === String(currentUserId)
-    if (!isOwner) return res.status(403).json({ message: 'Forbidden' })
 
     const project = await projectService.updateProject(req.params.id, req.body)
     res.json({ message: 'Project updated successfully', project })
@@ -89,10 +87,8 @@ exports.assignUsers = async (req, res) => {
     const currentUserId = req.user?.userId
     if (!currentUserId) return res.status(401).json({ message: 'Unauthorized' })
 
-    const existing = await projectService.getProjectById(req.params.id)
+    const existing = req.project || (await projectService.getProjectById(req.params.id))
     if (!existing) return res.status(404).json({ message: 'Project not found' })
-    const isOwner = String(existing?.ownerId?._id || existing?.ownerId || '') === String(currentUserId)
-    if (!isOwner) return res.status(403).json({ message: 'Forbidden' })
 
     const project = await projectService.assignUsers(req.params.id, req.body?.assignedUsers || [])
     res.json({ message: 'Users assigned successfully', project })
@@ -106,10 +102,8 @@ exports.deleteProject = async (req, res) => {
     const currentUserId = req.user?.userId
     if (!currentUserId) return res.status(401).json({ message: 'Unauthorized' })
 
-    const existing = await projectService.getProjectById(req.params.id)
+    const existing = req.project || (await projectService.getProjectById(req.params.id))
     if (!existing) return res.status(404).json({ message: 'Project not found' })
-    const isOwner = String(existing?.ownerId?._id || existing?.ownerId || '') === String(currentUserId)
-    if (!isOwner) return res.status(403).json({ message: 'Forbidden' })
 
     const project = await projectService.deleteProject(req.params.id)
     res.json({ message: 'Project deleted successfully' })

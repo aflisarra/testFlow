@@ -58,6 +58,7 @@ export interface GetTestPlansResponse {
 export interface TestSuiteDto {
   _id: string
   projectId?: string
+  projectTitle?: string
   nom?: string
   nametest?: string
   creatorName?: string

@@ -19,12 +19,31 @@ const actions = [
   { _id: 7, name: 'edit role', path: '/dashboard/roles/edit/:id' },
   { _id: 8, name: 'view role', path: '/dashboard/roles/view/:id' },
   { _id: 9, name: 'delete role', path: '/dashboard/roles/delete/:id' },
+
+
+  // Actions Projet — accessibles à tous les users (même sans projet)
+  { _id: 11, name: 'list-projects', path: '/projects' },
+  { _id: 12, name: 'create-project', path: '/projects/create' },
+  { _id: 13, name: 'view-project', path: '/projects/view/:id' },
+
+  // Actions Projet — réservées au owner/membre
+  { _id: 14, name: 'edit-project', path: '/projects/edit/:id' },
+  { _id: 15, name: 'delete-project', path: '/projects/delete/:id' },
+  { _id: 16, name: 'invite-project', path: '/projects/invite/:id' },
+
 ];
 
 // --- Mapping RoleActions ---
 const mapping = [
   { roleName: 'admin', actionIds: actions.map((a) => a._id) }, // admin: toutes les actions
-  { roleName: 'user', actionIds: [1] }, // user: dashboard seulement (ajouter selon besoin)
+  {
+    roleName: 'user', actionIds: [1, 11, 12, 13],
+
+  }, // user: dashboard seulement (ajouter selon besoin)
+  {
+    roleName: 'management',
+    actionIds: [1, 10, 11, 12, 13, 14, 15, 16],
+  },
 ];
 
 async function seedDatabase() {

@@ -4,7 +4,7 @@ const AutoIncrement = require('mongoose-sequence')(mongoose);
 const roleSchema = new mongoose.Schema({
   _id: { type: Number },
   name: { type: String, required: true },
-  description: { type: String, required: true },
+  description: { type: String },
   actions: [{ type: Number, ref: 'Action', default: [] }]
 
 }, { _id: false });

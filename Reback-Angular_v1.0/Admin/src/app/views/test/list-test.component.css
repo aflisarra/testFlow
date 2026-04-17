@@ -11,6 +11,9 @@
     --pm-brand: #ec8a00;
     --pm-brand-soft: rgba(236, 138, 0, 0.14);
 
+    --font-display: 'Poppins', 'Segoe UI', sans-serif;
+    --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+
     --tc-text-primary: #0f172a;
     --tc-text-secondary: #334155;
     --tc-text-muted: #64748b;
@@ -51,7 +54,7 @@
    PAGE
 ══════════════════════════════════════════ */
 .testlab-suites-page {
-    padding: 1.75rem 2rem;
+    padding: 1.15rem 1.25rem;
     background:
         radial-gradient(900px 350px at 95% -5%, rgba(236, 138, 0, 0.1), transparent 55%),
         radial-gradient(700px 280px at -5% 10%, rgba(59, 130, 246, 0.08), transparent 60%),
@@ -69,15 +72,26 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 1rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.75rem;
 }
 
 .suites-title {
-    font-size: 1.4rem;
-    font-weight: 800;
-    letter-spacing: 0.01em;
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
     color: var(--pm-text);
     margin: 0;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.suites-title-icon {
+    font-size: 1.1rem;
+    color: var(--pm-brand);
+    flex-shrink: 0;
 }
 
 .suites-subtitle {

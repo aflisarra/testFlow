@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common'
+import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import {
   Component,
   ElementRef,
@@ -27,6 +28,7 @@ import { map, type Observable } from 'rxjs'
   imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './role-upsert-modal.component.html',
   styleUrls: ['./role-upsert-modal.component.css'],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class RoleUpsertModalComponent implements OnInit, OnChanges, OnDestroy {
   private fb = inject(FormBuilder)
@@ -170,7 +172,7 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges, OnDestroy {
       actions: [...groupActions].sort((a, b) => a.name.localeCompare(b.name)),
     }))
 
-    const order = ['manage_roles', 'manage_users', 'dashboard', 'other']
+    const order = ['manage_roles', 'manage_users', 'manage_projects', 'dashboard', 'other']
     groups.sort((a, b) => {
       const ai = order.indexOf(a.key)
       const bi = order.indexOf(b.key)
@@ -196,6 +198,7 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges, OnDestroy {
 
     if (path.includes('/roles') || name.includes('role')) return 'manage_roles'
     if (path.includes('/users') || name.includes('user')) return 'manage_users'
+    if (path.includes('/project') || name.includes('project')) return 'manage_projects'
     if (name === 'dashboard' || path === '/dashboard') return 'dashboard'
     return 'other'
   }
@@ -204,6 +207,7 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges, OnDestroy {
     switch (groupKey) {
       case 'manage_roles': return 'Manage role'
       case 'manage_users': return 'Manage user'
+      case 'manage_projects': return 'Project management'
       case 'dashboard': return 'Dashboard'
       default: return 'Other actions'
     }

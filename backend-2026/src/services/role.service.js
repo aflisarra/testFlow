@@ -7,8 +7,8 @@ const User = require('../models/user.model')
 // Input: { name: String, description: String, actions: [ObjectId] }
 // Output: saved Role object
 exports.createRole = async ({ name, description, actions }) => {
-  if (!name || !description) {
-    throw new Error('Name and description are required');
+  if (!name) {
+    throw new Error('Name is required');
   }
 
   const exists = await Role.findOne({ name });

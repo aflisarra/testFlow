@@ -11,7 +11,7 @@ import {
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import { CommonModule } from '@angular/common'
-import { Component, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core'
+import { Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, NgZone, ViewChild, inject } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { Router } from '@angular/router'
 import { Store } from '@ngrx/store'
@@ -37,6 +37,9 @@ export class TestSuiteConfigurationComponent {
   private adminManagementService = inject(AdminManagementService)
   private router = inject(Router)
   private toastr = inject(ToastrService)
+  private zone = inject(NgZone)
+
+  @ViewChild('plansResult') private plansResultRef?: ElementRef<HTMLElement>
 
   projects: AppProject[] = []
   selectedProjectId = ''
@@ -516,6 +519,7 @@ export class TestSuiteConfigurationComponent {
     this.planStatuses = {}
     this.plansValidated = false
     this.sessionSaved = false
+    this.scrollToPlansResult()
 
     try {
       if (!this.selectedFile) {
@@ -568,6 +572,8 @@ export class TestSuiteConfigurationComponent {
       if (!this.testPlans.length) {
         this.errorMessage = 'Aucun test plan généré.'
         this.toastr.warning(this.errorMessage, 'Test Plan')
+      } else {
+        this.scrollToPlansResult()
       }
     } catch (err: unknown) {
       const status = (err as any)?.status
@@ -587,6 +593,23 @@ export class TestSuiteConfigurationComponent {
     } finally {
       this.generatingPlans = false
     }
+  }
+
+  private scrollToPlansResult(retries = 6): void {
+    const el = this.plansResultRef?.nativeElement
+    if (!el) {
+      if (retries <= 0) return
+      this.zone.runOutsideAngular(() => {
+        setTimeout(() => this.scrollToPlansResult(retries - 1), 50)
+      })
+      return
+    }
+
+    this.zone.runOutsideAngular(() => {
+      setTimeout(() => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 0)
+    })
   }
 
 }

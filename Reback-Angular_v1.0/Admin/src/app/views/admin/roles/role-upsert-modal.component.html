@@ -3,7 +3,10 @@
     @if (!inlineMode) {
     <header class="exec-upsert-header">
       <div class="exec-upsert-headline">
-        <h1 class="exec-upsert-title">{{ role ? 'Edit Role' : 'Create Role' }}</h1>
+        <h1 class="exec-upsert-title app-title">
+          <iconify-icon icon="iconamoon:shield-check-duotone" class="app-title-icon"></iconify-icon>
+          <span>{{ role ? 'Edit Role' : 'Create Role' }}</span>
+        </h1>
         @if (!inlineMode) {
         <button class="exec-close-btn" type="button" aria-label="Close" (click)="onCancel()">
           ×
@@ -36,9 +39,7 @@
       <!-- Description -->
       <div class="exec-field">
         <label class="exec-label">Description</label>
-        <textarea class="exec-textarea"
-          [class.is-invalid]="roleForm.controls.description.touched && roleForm.controls.description.invalid" rows="2"
-          formControlName="description"></textarea>
+        <textarea class="exec-textarea" rows="2" formControlName="description"></textarea>
         @if (roleForm.controls.description.touched && roleForm.controls.description.errors?.['pattern']) {
         <small class="text-danger">Description cannot be empty spaces.</small>
         }

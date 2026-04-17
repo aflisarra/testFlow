@@ -42,6 +42,20 @@ export class ProjectManagementComponent implements OnInit {
   private currentUserId = ''
   private currentUserEmail = ''
 
+  private readonly ACTION_LIST_PROJECTS = 11
+  private readonly ACTION_CREATE_PROJECT = 12
+  private readonly ACTION_VIEW_PROJECT = 13
+  private readonly ACTION_EDIT_PROJECT = 14
+  private readonly ACTION_DELETE_PROJECT = 15
+  private readonly ACTION_LIST_USERS = 10
+  private readonly ACTION_VIEW_USER = 4
+
+  canViewProjects = false
+  canCreateProject = false
+  canEditProject = false
+  canDeleteProject = false
+  canListUsers = false
+
   selectedProjectId: string | null = null
   assignedUserIds = new Set<string>()
   editingProjectId: string | null = null
@@ -80,11 +94,30 @@ export class ProjectManagementComponent implements OnInit {
 
   private async initializePage(): Promise<void> {
     await this.loadCurrentUserContext()
+    await this.initPermissions()
     this.loadUsers()
     this.loadProjects()
   }
 
+  private async initPermissions(): Promise<void> {
+    const current = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
+    const actions = Array.isArray((current as any)?.actions) ? (current as any).actions : []
+    const ids = new Set(actions.map((x: any) => Number(x)).filter((x: number) => Number.isFinite(x)))
+
+    this.canViewProjects = ids.has(this.ACTION_LIST_PROJECTS) || ids.has(this.ACTION_VIEW_PROJECT)
+    this.canCreateProject = ids.has(this.ACTION_CREATE_PROJECT)
+    this.canEditProject = ids.has(this.ACTION_EDIT_PROJECT)
+    this.canDeleteProject = ids.has(this.ACTION_DELETE_PROJECT)
+    this.canListUsers = ids.has(this.ACTION_LIST_USERS) || ids.has(this.ACTION_VIEW_USER)
+  }
+
   loadUsers(): void {
+    if (!this.canListUsers) {
+      this.users = []
+      this.usersLoading = false
+      return
+    }
+
     this.usersLoading = true
     this.adminService.getUsers().subscribe({
       next: (users) => {
@@ -99,6 +132,13 @@ export class ProjectManagementComponent implements OnInit {
   }
 
   loadProjects(): void {
+    if (!this.canViewProjects) {
+      this.projects = []
+      this.loading = false
+      this.error = "Acces refuse: vous n'avez pas l'action Projet."
+      return
+    }
+
     this.loading = true
     this.error = ''
 
@@ -222,6 +262,15 @@ export class ProjectManagementComponent implements OnInit {
   }
 
   saveProject(): void {
+    if (this.selectedProject && !this.canEditProject) {
+      this.toastr.warning("Acces refuse: vous n'avez pas l'action Edit Project.", 'Permission')
+      return
+    }
+    if (!this.selectedProject && !this.canCreateProject) {
+      this.toastr.warning("Acces refuse: vous n'avez pas l'action Create Project.", 'Permission')
+      return
+    }
+
     if (this.projectForm.invalid || this.hasInvalidDateOrder()) {
       this.projectForm.markAllAsTouched()
       if (this.hasInvalidDateOrder()) {
@@ -274,6 +323,11 @@ export class ProjectManagementComponent implements OnInit {
   }
 
   deleteProject(project: AppProject): void {
+    if (!this.canDeleteProject) {
+      this.toastr.warning("Acces refuse: vous n'avez pas l'action Delete Project.", 'Permission')
+      return
+    }
+
     const ref = this.modalService.open(ConfirmModalComponent, {
       centered: true,
       windowClass: 'confirm-modal-window',
@@ -299,6 +353,11 @@ export class ProjectManagementComponent implements OnInit {
   }
 
   openEditProjectModal(project: AppProject, content: any): void {
+    if (!this.canEditProject) {
+      this.toastr.warning("Acces refuse: vous n'avez pas l'action Edit Project.", 'Permission')
+      return
+    }
+
     this.editingProjectId = project._id
     this.editAssignedUserIds = new Set((project.assignedUsers || []).map((u) => u._id))
     this.editProjectForm.reset({
@@ -319,6 +378,11 @@ export class ProjectManagementComponent implements OnInit {
   }
 
   saveEditedProject(modal: any): void {
+    if (!this.canEditProject) {
+      this.toastr.warning("Acces refuse: vous n'avez pas l'action Edit Project.", 'Permission')
+      return
+    }
+
     if (!this.editingProjectId) return
     if (this.editProjectForm.invalid || this.hasInvalidEditDateOrder()) {
       this.editProjectForm.markAllAsTouched()
@@ -465,4 +529,8 @@ export class ProjectManagementComponent implements OnInit {
     const emailMatch = userEmail.length > 0 && userEmail === this.currentUserEmail
     return idMatch || emailMatch
   }
+
+
+
+
 }

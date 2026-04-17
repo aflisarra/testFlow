@@ -1,7 +1,9 @@
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-dotenv.config();
+const path = require('path');
 
+require('dotenv').config({
+  path: path.join(__dirname, '../../../.env')
+});
 const Role = require('../../models/role.model');
 const Action = require('../../models/action.model');
 
@@ -28,7 +30,7 @@ async function seedRoles() {
     await Role.create({
       name: 'user',
       description: 'Basic user with dashboard access',
-      actions: []
+      actions: allActionIds
     });
 
     console.log('✅ Seeded roles: admin, user');

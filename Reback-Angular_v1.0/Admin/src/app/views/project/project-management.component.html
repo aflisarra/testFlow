@@ -1,6 +1,9 @@
 <div class="project-page container-fluid py-3">
   <div class="project-hero d-flex justify-content-between align-items-start mb-3">
-    <h4 class="project-hero-title mb-0">Project Management</h4>
+    <h4 class="project-hero-title mb-0 app-title">
+      <span class="iconify app-title-icon" data-icon="iconamoon:folder-duotone"></span>
+      <span>Project Management</span>
+    </h4>
     <div class="project-hero-metrics">
       <span class="metric-pill">{{ projects.length }} Projects</span>
       <span class="metric-pill metric-pill--soft">{{ users.length }} Specialists</span>
@@ -104,14 +107,14 @@
                     }
                     } @else {
                     <span class="team-preview-item team-preview-item--empty">
-                      <iconify-icon icon="iconamoon:profile-circle-duotone"></iconify-icon>
+                      <span class="iconify" data-icon="iconamoon:profile-circle-duotone"></span>
                     </span>
                     }
                   </div>
 
                   <button type="button" class="btn btn-sm btn-outline-secondary elite-team-toggle-icon"
                     title="View users list" (click)="openEliteTeamModal(eliteTeamModal)">
-                    <iconify-icon icon="iconamoon:eye-duotone"></iconify-icon>
+                    <span class="iconify" data-icon="iconamoon:eye-duotone"></span>
                   </button>
                 </div>
               </div>
@@ -169,7 +172,8 @@
 
             <!-- Submit -->
             <div class="col-12 d-flex justify-content-end gap-2 pt-2">
-              <button type="submit" class="btn btn-brand" [disabled]="submitting">
+              <button type="submit" class="btn btn-brand"
+                [disabled]="submitting || (selectedProjectId ? !canEditProject : !canCreateProject)">
                 {{ submitting ? 'Saving...' : 'Save Project' }}
               </button>
             </div>
@@ -183,7 +187,10 @@
       <div class="card h-100 shadow-sm pm-panel">
         <div class="card-body">
           <div class="d-flex align-items-center justify-content-between mb-3">
-            <h6 class="mb-0 panel-title">Projects</h6>
+            <h6 class="mb-0 panel-title app-title app-title--sm">
+              <span class="iconify app-title-icon" data-icon="iconamoon:folder-open-duotone"></span>
+              <span>Projects</span>
+            </h6>
             <span class="panel-badge">{{ projects.length }}</span>
           </div>
 
@@ -201,14 +208,18 @@
                 </div>
                 <div class="d-inline-flex align-items-center flex-nowrap gap-2">
                   <span class="project-users-chip">{{ project.assignedUsers?.length || 0 }} users</span>
+                  @if (canEditProject) {
                   <button class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified" type="button"
                     title="Edit" (click)="openEditProjectModal(project, editProjectModal)">
-                    <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
+                    <span class="iconify action-icon" data-icon="iconamoon:edit-duotone"></span>
                   </button>
+                  }
+                  @if (canDeleteProject) {
                   <button class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button"
                     title="Delete" (click)="deleteProject(project)">
-                    <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
+                    <span class="iconify action-icon" data-icon="iconamoon:trash-duotone"></span>
                   </button>
+                  }
                 </div>
               </div>
             </div>

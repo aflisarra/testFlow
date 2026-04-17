@@ -11,9 +11,9 @@ const roleService = require('../services/role.service');
 exports.createRole = async (req, res) => {
   try {
     const { name, description, actions } = req.body;
-    
-    if (!name || !description) {
-      return res.status(400).json({ message: 'Name and description are required' });
+
+    if (!name) {
+      return res.status(400).json({ message: 'Name is required' });
     }
 
     const savedRole = await roleService.createRole({ name, description, actions });

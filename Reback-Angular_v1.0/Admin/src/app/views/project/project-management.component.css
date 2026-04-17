@@ -32,10 +32,7 @@
 
 .project-hero-title {
   color: var(--pm-text);
-  font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  line-height: 1.1;
+  line-height: 1;
 }
 
 .project-hero-subtitle {
@@ -114,8 +111,6 @@
 }
 
 .panel-title {
-  font-size: 0.96rem;
-  font-weight: 800;
   color: #0f172a;
 }
 
@@ -182,11 +177,12 @@
 }
 
 .pm-label {
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
   color: #475569;
+  margin-bottom: 3px;
 }
 
 .date-range-field {
@@ -766,4 +762,18 @@
   .exec-upsert-form {
     grid-template-columns: 1fr;
   }
+}
+
+.iconify {
+  font-size: 18px;
+  vertical-align: middle;
+}
+
+.app-title-icon {
+  font-size: 20px;
+  margin-right: 6px;
+}
+
+.action-icon {
+  font-size: 16px;
 }

@@ -12,6 +12,7 @@ const axios = require("axios");
 
 const TestSuite = require("../models/testsuite");
 const PlanTest = require("../models/plantest.model");
+const Project = require("../models/project.model");
 
 // ============================================================
 // HELPERS UTILITAIRES
@@ -225,6 +226,7 @@ async function callFastApiGeneratePlan(description, urlCible) {
 async function createOrUpdateTestSuite({
     providedTestSuiteId,
     userId,
+    projectId,
     suiteName,
     combinedDescription,
     urlCible,
@@ -254,6 +256,7 @@ async function createOrUpdateTestSuite({
         description: combinedDescription,
         urlCible,
         userId,
+        projectId,
         specText: specText ? String(specText).slice(0, 50_000) : null,
         specFileName: specFileName ? String(specFileName) : null,
         specFilePath: specFilePath ? String(specFilePath) : null,
@@ -418,11 +421,29 @@ async function getPlanByTestSuiteId(testSuiteId) {
 
 
 async function getTestSuitesByUser(userId) {
+    const safeUserId = String(userId || '').trim();
     // Public listing mode: return all suites regardless of connected user.
     // Keep the same function signature/endpoint for frontend compatibility.
-    const suites = await TestSuite.find({})
+
+    // 1️⃣ Trouver les projets accessibles
+    const projects = await Project.find({
+        $or: [
+            { ownerId: safeUserId },
+            { assignedUsers: safeUserId }
+        ]
+    }).select('_id title').lean();
+
+    const projectIds = (projects || []).map(p => p._id).filter(Boolean);
+
+    const suites = await TestSuite.find({
+        $or: [
+            { projectId: { $in: projectIds } },
+            { projectId: null, userId: safeUserId },
+        ],
+    })
         .select('_id nom nametest description specFileName urlCible testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt createdAt userId projectId')
         .populate('userId', 'name email picture')
+        .populate('projectId', 'title')
         .sort({ createdAt: -1 })
         .lean()
 
@@ -431,8 +452,14 @@ async function getTestSuitesByUser(userId) {
             return acc + ((plan?.testCases || []).length || 0)
         }, 0)
 
+        const populatedProject = suite?.projectId && typeof suite.projectId === 'object' ? suite.projectId : null
+        const normalizedProjectId = populatedProject ? populatedProject._id : suite?.projectId || null
+        const projectTitle = populatedProject ? String(populatedProject.title || '').trim() : ''
+
         return {
             ...suite,
+            projectId: normalizedProjectId,
+            projectTitle,
             creatorName: suite?.userId?.name || suite?.userId?.email || suite?.userId?.picture || 'Unknown User',
             totalTestCases,
         }

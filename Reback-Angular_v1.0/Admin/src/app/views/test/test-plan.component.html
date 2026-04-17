@@ -7,14 +7,17 @@
     @if (currentPlanIndex === -1) {
 
     <div class="testlab-hero mb-0">
-      <h1 class="testlab-hero-title">Generate Test Plan</h1>
+      <h1 class="testlab-hero-title">
+        <iconify-icon icon="iconamoon:file-check-duotone" class="testlab-hero-icon"></iconify-icon>
+        <span>Generate Test Plan</span>
+      </h1>
     </div>
 
     @if (errorMessage) {
     <div class="alert alert-danger mb-4">{{ errorMessage }}</div>
     }
     <!-- New layout (keep legacy block hidden below) -->
-    <div class="row g-4 align-items-stretch testlab-form-grid">
+    <div class="row g-3 align-items-stretch testlab-form-grid">
       <div class="col-12 col-lg-7">
         <div class="testlab-stack">
           <!-- Project Selection -->
@@ -151,7 +154,7 @@
 
     @if (false) {
     <!-- Test Name + Project Selection (side-by-side on large screens) -->
-    <div class="row g-4 align-items-stretch mb-4 testlab-top-fields">
+    <div class="row g-3 align-items-stretch mb-3 testlab-top-fields">
       <!-- Test Name Input -->
       <div class="col-12 col-lg-6">
         <div class="testlab-card testlab-field-card p-4 h-100">
@@ -224,7 +227,7 @@
       </div>
     </div>
 
-    <div class="row g-4 align-items-stretch">
+    <div class="row g-3 align-items-stretch">
       <!-- Style Configuration -->
       <div class="col-12 col-lg-6">
         <div class="testlab-card p-4 h-100">
@@ -288,8 +291,10 @@
     </div>
     }
 
+    @if (generatingPlans || testPlans.length) {
+
     <!-- Test Plans Result Zone -->
-    <div class="testlab-card p-4 mt-5">
+    <div #plansResult class="testlab-card p-4 mt-5">
       @if (generatingPlans) {
       <div class="d-flex align-items-start justify-content-between gap-3 mb-4">
         <div>
@@ -396,10 +401,10 @@
         </button>
       </div>
 
-      } @else {
-      <p class="text-muted text-center py-4">No plans generated yet.</p>
       }
     </div>
+
+    }
 
     }<!-- fin @if currentPlanIndex === -1 -->
 

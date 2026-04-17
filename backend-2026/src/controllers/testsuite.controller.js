@@ -29,7 +29,8 @@ exports.getById = async (req, res) => {
 
 exports.getByUser = async (req, res) => {
   try {
-    const suites = await testSuiteService.getTestSuitesByUser(req.params.userId);
+    const userId = String(req.user?.userId || req.user?.id || req.user?._id || '').trim()
+    const suites = await testSuiteService.getTestSuitesByUser(userId);
     res.json(suites);
   } catch (error) {
     res.status(500).json({ message: error.message });
