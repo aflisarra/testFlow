@@ -1,7 +1,4 @@
 import { Route } from '@angular/router'
-import { WidgetsComponent } from './apps/widgets/widgets.component'
-import { InvoiceDetailsComponent } from './invoices/invoice-details/invoice-details.component'
-import { InvoicesComponent } from './invoices/invoices/invoices.component'
 import { AllUsersComponent } from './admin/users/all-users.component'
 import { InviteUserComponent } from './admin/users/invite-user.component'
 import { RolesManagementComponent } from './admin/roles/roles-management.component'
@@ -12,43 +9,13 @@ import { ProjectManagementComponent } from './project/project-management.compone
 
 export const VIEW_ROUTES: Route[] = [
   {
-    path: 'pages',
-    loadChildren: () =>
-      import('./pages/pages.route').then((mod) => mod.PAGES_ROUTES),
-  },
-  {
     path: 'dashboard',
     loadChildren: () =>
       import('./dashboards/dashboards.route').then(
         (mod) => mod.DASHBOARD_ROUTES
       ),
   },
-  {
-    path: 'apps',
-    loadChildren: () =>
-      import('./apps/apps.route').then((mod) => mod.APPS_ROUTES),
-  },
-  {
-    path: 'calendar',
-    loadChildren: () =>
-      import('./calendar/calendar.route').then((mod) => mod.CALENDAR_ROUTES),
-  },
-  {
-    path: 'invoices',
-    component: InvoicesComponent,
-    data: { title: 'Invoices' },
-  },
-  {
-    path: 'invoice/:id',
-    component: InvoiceDetailsComponent,
-    data: { title: 'Invoice Details' },
-  },
-
-  {
-    path: 'widgets',
-    component: WidgetsComponent,
-    data: { title: 'Widgets' },
-  },
+  
   {
     path: 'admin/users',
     component: AllUsersComponent,

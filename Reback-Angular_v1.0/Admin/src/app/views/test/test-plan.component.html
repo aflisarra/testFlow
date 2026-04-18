@@ -44,7 +44,7 @@
         </div>
       </div>
  
-      <!-- Upload fichier -->
+      <!-- Upload file -->
       <div class="col-12 col-lg-6">
         <div class="testlab-card p-4 h-100">
           <div class="testlab-card-title mb-1">
@@ -279,7 +279,7 @@
               <span class="testlab-case-id me-2">{{ tc.id }}</span>
               <span class="fw-semibold">{{ tc.title }}</span>
             </div>
-            <!-- Supprimer un test case -->
+            <!-- Delete a test case -->
             <button type="button" class="btn btn-sm btn-outline-danger testlab-delete-btn"
               (click)="onDeleteTestCase(currentPlan.id, tc.id)" title="Remove test case">
               <iconify-icon icon="iconamoon:trash-duotone"></iconify-icon>
@@ -327,14 +327,14 @@
           <iconify-icon icon="iconamoon:download-duotone"></iconify-icon>
         </button>
  
-        <!-- Régénérer les test cases -->
+        <!-- Regenerate test cases -->
         <button type="button" class="btn btn-outline-primary px-4" [disabled]="generatingCases"
           (click)="onRegenerateCurrentCases()">
           <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
           Regenerate Cases
         </button>
  
-        <!-- Confirmer et passer au suivant (ou terminer) -->
+        <!-- Confirm and move to next (or finish) -->
         <button type="button" class="btn btn-brand px-4 fw-bold"
           [disabled]="generatingCases || !currentTestCases.length || finishing" (click)="onConfirmCurrentPlan()">
           @if (finishing) {

@@ -36,12 +36,12 @@ export class TestCasesValidationComponent {
   errorMessage = ''
   view: 'list' | 'detail' = 'list'
 
-  // Liste
+  // List
   suites: TestSuiteDto[] = []
   searchQuery = ''
   expandedSuiteId: string | null = null
 
-  // Détail
+  // Detail
   testSuiteId = ''
   testPlans: TestPlanDto[] = []
   selectedPlanId: string | null = null
@@ -94,12 +94,12 @@ export class TestCasesValidationComponent {
     }
   }
 
-  // Toggle expand/collapse d'une row
+  // Toggle expand/collapse of a row
   onToggleSuite(suite: TestSuiteDto) {
     this.expandedSuiteId = this.expandedSuiteId === suite._id ? null : suite._id
   }
 
-  // Ouvrir la vue détail
+  // Open detail view
   async onOpenSuite(suite: TestSuiteDto) {
     const id = String(suite._id || '').trim()
     if (!id) return
@@ -145,13 +145,13 @@ export class TestCasesValidationComponent {
 
     try {
       await firstValueFrom(this.testLabService.generatePlanFromDocx(formData))
-      await this.loadSuites() // rafraîchit la liste
+      await this.loadSuites() // refresh list
     } catch (err: unknown) {
       this.errorMessage = (err as any)?.error?.message || 'Upload failed'
     }
   }
 
-  // Helpers affichage
+  // Display helpers
   getSuiteInitials(suite: TestSuiteDto): string {
     const name = suite.creatorName || suite.nom || suite._id || '?'
     return name.slice(0, 2).toUpperCase()
