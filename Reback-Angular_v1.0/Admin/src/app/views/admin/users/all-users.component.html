@@ -9,54 +9,54 @@
       </div>
       <div class="card-body">
         <form [formGroup]="createUserForm" (ngSubmit)="submitCreateUser()" autocomplete="off">
-          <div class="mb-2">
-            <label class="form-label">Name <span class="text-danger">*</span></label>
-            <input class="form-control"
+          <div class="exec-field">
+            <label class="exec-label">Name <span class="text-danger">*</span></label>
+            <input class="exec-input"
               [class.is-invalid]="(createSubmitted || createUserForm.controls.name.touched) && createUserForm.controls.name.invalid"
               formControlName="name" placeholder="ex: John Doe" [disabled]="!canAddUser" autocomplete="off" />
             @if ((createSubmitted || createUserForm.controls.name.touched) &&
             createUserForm.controls.name.errors?.['required']) {
-            <div class="invalid-feedback d-block">Name is required.</div>
+            <small class="text-danger">Name is required.</small>
             }
             @if ((createSubmitted || createUserForm.controls.name.touched) &&
             createUserForm.controls.name.errors?.['pattern']) {
-            <div class="invalid-feedback d-block">Name cannot be empty spaces.</div>
+            <small class="text-danger">Name cannot be empty spaces.</small>
             }
           </div>
 
-          <div class="mb-3">
-            <label class="form-label">Email <span class="text-danger">*</span></label>
-            <input class="form-control" type="email"
+          <div class="exec-field">
+            <label class="exec-label">Email <span class="text-danger">*</span></label>
+            <input class="exec-input" type="email"
               [class.is-invalid]="(createSubmitted || createUserForm.controls.email.touched) && createUserForm.controls.email.invalid"
               formControlName="email" placeholder="ex: john@example.com" [disabled]="!canAddUser" autocomplete="off" />
             @if ((createSubmitted || createUserForm.controls.email.touched) &&
             createUserForm.controls.email.errors?.['required']) {
-            <div class="invalid-feedback d-block">Email is required.</div>
+            <small class="text-danger">Email is required.</small>
             }
             @if ((createSubmitted || createUserForm.controls.email.touched) &&
             createUserForm.controls.email.errors?.['email']) {
-            <div class="invalid-feedback d-block">Enter a valid email address.</div>
+            <small class="text-danger">Enter a valid email address.</small>
             }
           </div>
 
-          <div class="mb-3">
-            <label class="form-label">Password <span class="text-danger">*</span></label>
-            <input class="form-control" type="password"
+          <div class="exec-field">
+            <label class="exec-label">Password <span class="text-danger">*</span></label>
+            <input class="exec-input" type="password"
               [class.is-invalid]="(createSubmitted || createUserForm.controls.password.touched) && createUserForm.controls.password.invalid"
               formControlName="password" placeholder="******" [disabled]="!canAddUser" autocomplete="new-password" />
             @if ((createSubmitted || createUserForm.controls.password.touched) &&
             createUserForm.controls.password.errors?.['required']) {
-            <div class="invalid-feedback d-block">Password is required.</div>
+            <small class="text-danger">Password is required.</small>
             }
             @if ((createSubmitted || createUserForm.controls.password.touched) &&
             createUserForm.controls.password.errors?.['minlength']) {
-            <div class="invalid-feedback d-block">Password must be at least 6 characters.</div>
+            <small class="text-danger">Password must be at least 6 characters.</small>
             }
           </div>
 
-          <div class="mb-3">
-            <label class="form-label">Role <span class="text-danger">*</span></label>
-            <select class="form-select"
+          <div class="exec-field">
+            <label class="exec-label">Role <span class="text-danger">*</span></label>
+            <select class="exec-select"
               [class.is-invalid]="(createSubmitted || createUserForm.controls.role.touched) && createUserForm.controls.role.invalid"
               formControlName="role" [disabled]="!canAddUser">
               <option value="" disabled>Select role</option>
@@ -66,22 +66,24 @@
             </select>
             @if ((createSubmitted || createUserForm.controls.role.touched) &&
             createUserForm.controls.role.errors?.['required']) {
-            <div class="invalid-feedback d-block">Role is required.</div>
+            <small class="text-danger">Role is required.</small>
             }
             @if ((createSubmitted || createUserForm.controls.role.touched) &&
             createUserForm.controls.role.errors?.['pattern']) {
-            <div class="invalid-feedback d-block">Role cannot be empty spaces.</div>
+            <small class="text-danger">Role cannot be empty spaces.</small>
             }
           </div>
-          <div class="mb-3">
-            <label class="form-label">Picture (optional)</label>
-            <input class="form-control" type="file" accept="image/*" (change)="onPictureSelected($event)"
+          <div class="exec-field">
+            <label class="exec-label">Picture (optional)</label>
+            <input class="exec-input" type="file" accept="image/*" (change)="onPictureSelected($event)"
               [disabled]="!canAddUser" />
           </div>
 
-          <button class="btn btn-brand btn-unified w-100" type="submit" [disabled]="submitting || !canAddUser">
-            {{ submitting ? 'Creating...' : 'Create User' }}
-          </button>
+          <div class="exec-button-container">
+            <button class="btn btn-brand btn-unified w-100" type="submit" [disabled]="submitting || !canAddUser">
+              {{ submitting ? 'Creating...' : 'Create User' }}
+            </button>
+          </div>
         </form>
       </div>
     </div>

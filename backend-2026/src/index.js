@@ -9,6 +9,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const { generateToken } = require('../src/services/auth.service');
+const { getJwtSecret } = require('./utils/jwt-secrets');
 const testSuiteRoutes = require('./routes/testsuite.routes');
 const plantestRoutes = require("./routes/planTest.routes");
 const aiRoutes = require("./routes/ai.routes");
@@ -113,7 +114,14 @@ app.use((req, res, next) => {
   if (!authHeader) return next();
 
   const token = authHeader.split(' ')[1];
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  let secret = ''
+  try {
+    secret = getJwtSecret()
+  } catch {
+    return next()
+  }
+
+  jwt.verify(token, secret, (err, user) => {
     if (!err) {
       res.setHeader('x-new-token', generateToken({ id: user.id }));
     }

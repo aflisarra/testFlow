@@ -1,7 +1,7 @@
 const authService = require('../services/auth.service');
 const { registerUser, loginUser } = authService;
 const Role = require('../models/role.model');
-
+const MESSAGES = require('../constants/messages.js');
 // Register a new user
 exports.register = async (req, res) => {
   try {
@@ -13,10 +13,10 @@ exports.register = async (req, res) => {
     const userObj = typeof user?.toObject === 'function' ? user.toObject() : user;
     if (userObj && userObj.password) delete userObj.password;
 
-    res.status(201).json({ message: 'User registered successfully', user: userObj });
+    res.status(201).json({ message: MESSAGES.USER.REGISTERED, user: userObj });
   } catch (error) {
-    console.error('Signup error:', error);
-    const status = error.message === 'Cannot assign admin role on signup' ? 403 : 400;
+    console.error(MESSAGES.USER.SIGNUP_ERROR, error);
+    const status = error.message === MESSAGES.USER.CANNOT_ASSIGN_ADMIN_ROLE ? 403 : 400;
     res.status(status).json({ message: error.message });
   }
 };
@@ -27,20 +27,20 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: 'Email et mot de passe requis' });
+      return res.status(400).json({ message: MESSAGES.USER.EMAIL_AND_PASSWORD_REQUIRED });
     }
 
     const result = await loginUser({ email, password });
 
     res.status(200).json({
-      message: 'Connexion reussie',
+      message: MESSAGES.USER.LOGIN_SUCCESS,
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
       user: result.user,
     });
   } catch (err) {
-    console.error('Erreur login:', err);
-    res.status(400).json({ message: err.message || 'Erreur serveur' });
+    console.error(MESSAGES.USER.LOGIN_ERROR, err);
+    res.status(400).json({ message: err.message || MESSAGES.ERROR.SERVER });
   }
 };
 
@@ -59,7 +59,7 @@ exports.refreshTokenController = async (req, res) => {
       refreshToken: result.refreshToken,
     });
   } catch (error) {
-    return res.status(500).json({ message: error.message || 'Erreur serveur' });
+    return res.status(500).json({ message: error.message || MESSAGES.ERROR.SERVER });
   }
 };
 
@@ -68,7 +68,7 @@ exports.logout = async (req, res) => {
   try {
     const { userId } = req.body;
     await require('../models/user.model').updateOne({ _id: userId }, { $unset: { refreshToken: 1 } });
-    res.json({ message: 'Logged out successfully' });
+    res.json({ message: MESSAGES.USER.LOGGED_OUT });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -134,7 +134,7 @@ exports.getSignupRoles = async (req, res) => {
     const roles = await Role.find({ name: { $ne: 'admin' } }, { _id: 1, name: 1, description: 1 }).sort({ name: 1 });
     return res.json(roles);
   } catch (error) {
-    console.error('Error fetching signup roles:', error);
-    return res.status(500).json({ message: 'Server error' });
+    console.error(MESSAGES.USER.SIGNUP_ROLES_ERROR, error);
+    return res.status(500).json({ message: MESSAGES.ERROR.SERVER });
   }
 };

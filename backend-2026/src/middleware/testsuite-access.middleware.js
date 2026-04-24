@@ -1,5 +1,6 @@
 const TestSuite = require('../models/testsuite')
 const Project = require('../models/project.model')
+const mongoose = require('mongoose')
 
 /**
  * Guard d'accès à une TestSuite :
@@ -10,9 +11,18 @@ async function requireTestSuiteAccess(req, res, next) {
   try {
     const userId = String(req.user?.userId || req.user?.id || req.user?._id || '').trim()
     const suiteId = String(req.params?.id || '').trim()
+    const role = String(req.user?.role || '').toLowerCase().trim()
 
     if (!userId) return res.status(401).json({ message: 'Unauthorized' })
     if (!suiteId) return res.status(400).json({ message: 'Missing testSuite ID' })
+    if (!mongoose.Types.ObjectId.isValid(suiteId)) {
+      return res.status(400).json({ message: 'Invalid testSuite ID' })
+    }
+
+    // Admin can access any suite (useful for support/debug and avoids hard 403s in UI).
+    if (role === 'admin') {
+      return next()
+    }
 
     const suite = await TestSuite.findById(suiteId).select('_id userId projectId').lean()
     if (!suite) return res.status(404).json({ message: 'TestSuite not found' })
@@ -26,7 +36,12 @@ async function requireTestSuiteAccess(req, res, next) {
       return next()
     }
 
-    const project = await Project.findById(suite.projectId).select('ownerId assignedUsers').lean()
+    const projectId = String(suite.projectId || '').trim()
+    if (!mongoose.Types.ObjectId.isValid(projectId)) {
+      return res.status(400).json({ message: 'Invalid project ID' })
+    }
+
+    const project = await Project.findById(projectId).select('ownerId assignedUsers').lean()
     if (!project) return res.status(404).json({ message: 'Project not found' })
 
     const isOwner = String(project.ownerId) === String(userId)
@@ -47,4 +62,3 @@ async function requireTestSuiteAccess(req, res, next) {
 }
 
 module.exports = { requireTestSuiteAccess }
-

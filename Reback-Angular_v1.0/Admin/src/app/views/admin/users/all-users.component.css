@@ -79,6 +79,9 @@
   padding: 0.45rem 0.8rem;
   line-height: 1.2;
   font-size: 0.85rem;
+  margin-top: 0.6rem;
+  
+  
 }
 
 .btn-unified.btn-sm {
@@ -138,4 +141,57 @@
   text-align: center;
   font-size: 0.82rem;
   color: #334155;
+}
+
+/* Harmonized form styles */
+.exec-field {
+  display: grid;
+  gap: 0.38rem;
+  margin-bottom: 1rem;
+}
+
+.exec-label {
+   font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #475569;
+  margin-bottom: 3px;
+
+}
+
+.exec-input,
+.exec-select {
+  width: 100%;
+  border: 1px solid #cfe0f1;
+  border-radius: 10px;
+  background: #f5f7fa;
+  color: #1f3349;
+  padding: 0.58rem 0.72rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.exec-input:focus,
+.exec-select:focus {
+  border-color: #7aa9d9;
+  box-shadow: 0 0 0 3px rgba(122, 169, 217, 0.18);
+}
+
+.exec-input.is-invalid,
+.exec-select.is-invalid {
+  border-color: #dc3545;
+  background: #fef5f5;
+}
+
+/* Button spacing */
+.btn-brand {
+  margin-top: 1rem;
+}
+
+.exec-button-container {
+  margin-top: 0.6rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
 }

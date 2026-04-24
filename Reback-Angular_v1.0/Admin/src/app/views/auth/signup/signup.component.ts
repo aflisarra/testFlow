@@ -1,8 +1,8 @@
 import { LogoBoxComponent } from '@/app/components/logo-box.component'
 import { SocialBtnComponent } from '@/app/components/social-btn/social-btn.component'
 import { AuthenticationService, SignupRole } from '@/app/core/services/auth.service'
-import { Component, inject } from '@angular/core'
 import { CommonModule } from '@angular/common'
+import { Component, inject } from '@angular/core'
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms'
 import { Router, RouterLink } from '@angular/router'
 
@@ -11,7 +11,7 @@ import { Router, RouterLink } from '@angular/router'
   standalone: true,
   imports: [SocialBtnComponent, LogoBoxComponent, RouterLink, ReactiveFormsModule, CommonModule],
   templateUrl: './signup.component.html',
-  styles: ``,
+  styleUrls: ['./signup.component.css'],
 })
 export class SignupComponent {
   signupForm!: FormGroup

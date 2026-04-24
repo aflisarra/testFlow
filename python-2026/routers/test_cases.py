@@ -158,45 +158,83 @@ def _build_prompt(plan_id: str, plan_title: str, plan_description: str,
         else "UI Design Config: (none)"
     )
 
-    project_block = f"Project: {project_title}" if (project_title or "").strip() else "Project: (not provided)"
+    project_block = (
+        f"Project: {project_title}"
+        if (project_title or "").strip()
+        else "Project: (not provided)"
+    )
 
-    # Exemple few-shot avec le bon préfixe TC
     example = (
         '[\n'
-        f'  {{"id": "{tc_prefix}.1", "title": "Valid login redirects to dashboard", '
-        '"steps": ["Enter valid email", "Enter valid password", "Click Submit"], '
-        '"expected_result": "User is redirected to the dashboard"}},\n'
-        f'  {{"id": "{tc_prefix}.2", "title": "Empty fields show error messages", '
-        '"steps": ["Leave email empty", "Leave password empty", "Click Submit"], '
-        '"expected_result": "Required field errors are displayed"}}\n'
+        f'  {{\n'
+        f'    "id": "{tc_prefix}.1",\n'
+        f'    "title": "Successful login with valid email and password",\n'
+        f'    "steps": [\n'
+        f'      "Navigate to the login page",\n'
+        f'      "Enter a valid email address (e.g. user@example.com) in the Email field",\n'
+        f'      "Enter the correct password in the Password field",\n'
+        f'      "Click the Sign In button"\n'
+        f'    ],\n'
+        f'    "expected_result": "User is redirected to the dashboard and their name appears in the header"\n'
+        f'  }},\n'
+        f'  {{\n'
+        f'    "id": "{tc_prefix}.2",\n'
+        f'    "title": "Login fails with email missing @ symbol",\n'
+        f'    "steps": [\n'
+        f'      "Navigate to the login page",\n'
+        f'      "Enter an email without @ symbol (e.g. usergmail.com) in the Email field",\n'
+        f'      "Enter a valid password in the Password field",\n'
+        f'      "Click the Sign In button"\n'
+        f'    ],\n'
+        f'    "expected_result": "Error message Invalid email format is displayed and user stays on the login page"\n'
+        f'  }}\n'
         ']'
     )
 
     return (
         "<s>[INST]\n"
-        "You are a senior QA engineer. Your only task is to output a JSON array of test case objects.\n\n"
-        "### Output format\n"
-        "- A raw JSON array. No markdown, no backticks, no prose before or after.\n"
+        "You are a senior QA engineer following IEEE 829 and ISTQB standards.\n"
+        "Your only task is to output a JSON array of 4 test case objects.\n\n"
+
+        "### Scope enforcement (critical — read carefully)\n"
+        f"- You are writing test cases ONLY for: [{plan_id}] {plan_title} — {plan_description}\n"
+        "- Every test case MUST be directly related to this plan's scope. Nothing else.\n"
+        "- Do NOT write test cases for fields or behaviors that belong to a different plan.\n"
+        "  Example: if the plan is about password rules, do NOT test email format here.\n"
+        "- Each of the 4 test cases must cover a DIFFERENT scenario and root cause.\n"
+        "- No two test cases should have identical or near-identical steps.\n\n"
+
+        "### Test case quality rules\n"
+        "- ATOMIC: one scenario = one expected outcome.\n"
+        "- REPRODUCIBLE: steps must be clear enough for a junior tester to execute.\n"
+        "- Titles follow the pattern: <action> <with/when> <condition>.\n"
+        "  Good: 'Login fails with password below minimum length'\n"
+        "  Bad:  'Test password'\n"
+        "- Expected result must be SPECIFIC and VERIFIABLE (exact message, exact redirect).\n"
+        "- Include: 1 positive (happy path) + 1 negative (error) + 1 boundary/edge case.\n\n"
+
+        "### Output format (strict)\n"
+        "- A raw JSON array. No markdown, no backticks, no prose.\n"
         "- Each object has exactly 4 keys: \"id\", \"title\", \"steps\", \"expected_result\".\n"
-        f'- "id": string, format {tc_prefix}.N (e.g. {tc_prefix}.1, {tc_prefix}.2 ...)\n'
-        '- "title": string, max 8 words, describes what is being tested\n'
-        '- "steps": array of strings, each step starts with an imperative verb\n'
-        '- "expected_result": a plain string, max 15 words. NEVER an object or array.\n'
-        "- Generate exactly 4 test cases.\n"
-        "- Include at least 1 error/negative scenario.\n\n"
+        f'- "id": format {tc_prefix}.N\n'
+        '- "title": max 10 words, <action> <when/with> <condition> pattern\n'
+        '- "steps": array of 3 to 5 strings, each starts with an imperative verb\n'
+        '- "expected_result": plain string, specific and verifiable. NEVER an object or array.\n\n'
+
         "### Example output\n"
         f"{example}\n\n"
+
         f"### Test Plan\n"
         f"ID: {plan_id}\n"
         f"Title: {plan_title}\n"
         f"Description: {plan_description}\n\n"
+
         f"### {project_block}\n\n"
         f"### {style_block}\n\n"
         "### Specification\n"
         f"{spec_short}\n"
         "[/INST]"
     )
-
 
 @router.post("/generate-test-cases", response_model=TestCasesResponse)
 def generate_test_cases(payload: GenerateTestCasesRequest):
@@ -235,8 +273,16 @@ def generate_test_cases(payload: GenerateTestCasesRequest):
         reply  = run_ollama(prompt, timeout=_test_cases_timeout())
         parsed = parse_json_from_ollama(reply)
 
-        if not isinstance(parsed, list) or not parsed:
+        if not isinstance(parsed, list):
             print(f"Error: AI returned empty test cases or not a list. Parsed payload: {parsed}")
+            # Essayer de wrapper dans une liste si c'est un dict
+            if isinstance(parsed, dict):
+                parsed = [parsed]
+            else:
+                return JSONResponse(status_code=502, content={"error": "AI returned empty test cases"})
+        
+        if not parsed:
+            print(f"Error: AI returned empty list")
             return JSONResponse(status_code=502, content={"error": "AI returned empty test cases"})
 
         plan_number = re.search(r"\d+", plan_id)

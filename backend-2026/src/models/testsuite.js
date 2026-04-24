@@ -58,6 +58,22 @@ const planStatusSchema = new mongoose.Schema(
     { _id: false }
 );
 
+const validationPlanStatusSchema = new mongoose.Schema(
+    {
+        planId: { type: String, required: true, trim: true },
+        status: { type: String, enum: ['pending', 'generating', 'reviewing', 'confirmed', 'rejected'], default: 'pending' }
+    },
+    { _id: false }
+);
+
+const executionPlanStatusSchema = new mongoose.Schema(
+    {
+        planId: { type: String, required: true, trim: true },
+        status: { type: String, enum: ['completed', 'incomplete'], default: 'incomplete' }
+    },
+    { _id: false }
+);
+
 const testSuiteSchema = new mongoose.Schema({
 
     // Name of the test suite (auto-generated or user-defined)
@@ -140,6 +156,51 @@ const testSuiteSchema = new mongoose.Schema({
     },
 
     sessionSavedAt: {
+        type: Date,
+        default: null
+    },
+
+    // Manual validation of AI-generated plans/cases
+    validationStatus: {
+        type: String,
+        enum: ['validated', 'invalid'],
+        default: 'invalid'
+    },
+
+    validationPlanStatuses: {
+        type: [validationPlanStatusSchema],
+        default: []
+    },
+
+    validationSavedAt: {
+        type: Date,
+        default: null
+    },
+
+    // Selenium execution results (null means "not executed yet")
+    executionStatus: {
+        type: String,
+        default: null,
+        set: (value) => {
+            if (value === null || value === undefined) return null
+            const v = String(value || '').toLowerCase().trim()
+            return v || null
+        },
+        validate: {
+            validator: (value) => {
+                if (value === null || value === undefined) return true
+                return ['completed', 'incomplete'].includes(String(value).toLowerCase().trim())
+            },
+            message: 'executionStatus must be "completed", "incomplete", or null',
+        },
+    },
+
+    executionPlanStatuses: {
+        type: [executionPlanStatusSchema],
+        default: []
+    },
+
+    executionSavedAt: {
         type: Date,
         default: null
     },

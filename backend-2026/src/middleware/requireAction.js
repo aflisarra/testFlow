@@ -1,5 +1,6 @@
 const User = require('../models/user.model');
 const Role = require('../models/role.model');
+const { isMongoObjectId } = require('../utils/mongo-objectid');
 
 // Verifies user permissions against DB role actions (not only JWT payload),
 // so role/action updates are effective immediately without re-login.
@@ -15,7 +16,7 @@ module.exports = function requireAction(actionIdOrList) {
       if (userId) {
         const userDoc = await User.findById(userId).select('roleId role').lean();
         if (userDoc) {
-          const roleDoc = userDoc.roleId != null
+          const roleDoc = isMongoObjectId(userDoc.roleId)
             ? await Role.findById(userDoc.roleId).select('actions').lean()
             : await Role.findOne({ name: String(userDoc.role || '').trim() }).select('actions').lean();
 

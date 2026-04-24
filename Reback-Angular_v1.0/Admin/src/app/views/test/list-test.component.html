@@ -1,381 +1,474 @@
-<div class="testlab-suites-page">
+<!-- List -->
+<div class="container-fluid py-3 test-validation-page" *ngIf="view === 'list'">
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+    <div>
+      <h4 class="app-title mb-1">
+        <iconify-icon icon="iconamoon:task-duotone" class="app-title-icon"></iconify-icon>
+        <span>Test Validation</span>
+      </h4>
+      <p class="text-muted mb-0">Manage and monitor your test suites, plans, and cases.</p>
+    </div>
+
+    <div class="d-flex gap-2 align-items-center">
+      <span class="badge rounded-pill brand-badge tv-pill">{{ suites.length }} Suites</span>
+      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="loadSuites()" [disabled]="loading">
+        <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
+        Refresh
+      </button>
+    </div>
+  </div>
 
   @if (errorMessage) {
-  <div class="alert alert-danger mb-4">{{ errorMessage }}</div>
+  <div class="alert alert-danger">{{ errorMessage }}</div>
   }
 
-  <!-- ══════════════════════════════════════════
-       VUE LISTE DES TEST SUITES
-  ══════════════════════════════════════════ -->
-  @if (view === 'list') {
-  <div class="suites-header mb-2">
-    <div>
-      <h2 class="suites-title">
-        <iconify-icon icon="iconamoon:file-check-duotone" class="suites-title-icon"></iconify-icon>
-        <span>List of Test Suites</span>
-      </h2>
-      <p class="suites-subtitle">Manage and monitor your automated test suite runs.</p>
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="card shadow-sm tv-metric">
+        <div class="card-body">
+          <div class="tv-metric-value">{{ suites.length }}</div>
+          <div class="tv-metric-label">Total suites</div>
+        </div>
+      </div>
     </div>
-
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="card shadow-sm tv-metric tv-metric--success">
+        <div class="card-body">
+          <div class="tv-metric-value">{{ countByStatus('validated') }}</div>
+          <div class="tv-metric-label">Validated</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="card shadow-sm tv-metric tv-metric--warning">
+        <div class="card-body">
+          <div class="tv-metric-value">{{ countByStatus('invalid') }}</div>
+          <div class="tv-metric-label">Invalid</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg-3">
+      <div class="card shadow-sm tv-metric tv-metric--danger">
+        <div class="card-body">
+          <div class="tv-metric-value">{{ countByStatus('incomplete') }}</div>
+          <div class="tv-metric-label">Incomplete</div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="suites-table-card">
+  <div class="card shadow-sm panel-card">
+    <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center">
+      <span class="text-muted small">
+        Showing {{ visibleStart }}-{{ visibleEnd }} of {{ filteredSuites.length }}
+      </span>
 
-    <!-- Toolbar -->
-    <div class="suites-toolbar">
-      <div class="suites-search-wrap">
-        <iconify-icon icon="iconamoon:search-duotone" class="suites-search-icon"></iconify-icon>
-        <input type="text" class="suites-search" placeholder="Search suites by name..." [(ngModel)]="searchQuery"
-          (ngModelChange)="onSearchQueryChange()" />
-      </div>
-      <div class="suites-toolbar-actions">
-        <button type="button" class="suites-icon-btn" title="Filter">
-          <iconify-icon icon="iconamoon:filter-duotone"></iconify-icon>
-        </button>
-        <button type="button" class="suites-icon-btn" title="Download">
-          <iconify-icon icon="iconamoon:cloud-download-duotone"></iconify-icon>
-        </button>
+      <div class="input-group input-group-sm tv-search">
+        <span class="input-group-text">
+          <iconify-icon icon="iconamoon:search-duotone"></iconify-icon>
+        </span>
+        <input
+          class="form-control"
+          type="text"
+          placeholder="Search by name, description..."
+          [value]="searchQuery"
+          (input)="searchQuery = $any($event.target).value"
+        />
       </div>
     </div>
 
-    <!-- Table -->
-    <div class="suites-table-wrap">
+    <div class="px-3 pb-3">
+      <div class="d-flex flex-wrap align-items-center gap-2 tv-status-filter" role="group" aria-label="Status filter">
+        @for (f of statusFilters; track f.key) {
+        <button type="button" class="btn btn-sm tv-filter-pill"
+          [ngClass]="statusFilter === f.key ? 'tv-filter-pill--active' : ''" (click)="setStatusFilter(f.key)">
+          <span class="tv-filter-label">{{ f.label }}</span>
+          <span class="tv-filter-count">{{ countByStatus(f.key) }}</span>
+        </button>
+        }
+      </div>
+    </div>
+
+    <div class="card-body p-0">
       @if (loading) {
-      <div class="suites-loading">
-        <iconify-icon icon="iconamoon:settings-duotone" class="suites-loading-icon"></iconify-icon>
-        <p>Loading suites…</p>
-      </div>
-      } @else if (!filteredSuites.length) {
-      <div class="suites-empty">
-        <iconify-icon icon="iconamoon:folder-duotone"></iconify-icon>
-        <p>No test suites found.</p>
-      </div>
+      <div class="p-4 text-center text-muted small">Loading test suites...</div>
       } @else {
-      <table class="suites-table">
-        <thead>
-          <tr>
-            <th>User Name</th>
-            <th>Test Name</th>
-            <th>Project</th>
-            <th>Spec File</th>
-            <th>Plans</th>
-            <th>Cases</th>
-            <th>Status</th>
-            <th>Created At</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (suite of paginatedSuites; track suite._id) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 tv-table">
+          <thead>
+            <tr>
+              <th style="width: 20%;">Test name</th>
+              <th style="width: 30%;">Description</th>
+              <th style="width: 12%;">Status</th>
+              <th class="text-center" style="width: 10%;">Plans</th>
+              <th class="text-center" style="width: 10%;">Cases</th>
+              <th style="width: 14%;">Created</th>
+              <th class="text-end" style="width: 14%;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (paginatedSuites.length === 0) {
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">No test suites found.</td>
+            </tr>
+            }
 
-          <!-- Row principale -->
-          <tr class="suite-row" [class.suite-row--expanded]="expandedSuiteId === suite._id"
-            (click)="onToggleSuite(suite)">
-            <td>
-              <div class="suite-name-cell">
-                <img [src]="resolveAvatarUrl(suite.picture)" (error)="onAvatarError($event)" class="suite-avatar"
-                  alt="user avatar" />
-                <span class="suite-name">{{ suite.creatorName || 'Unknown User' }}</span>
+            @for (suite of paginatedSuites; track suite._id) {
+            <tr class="tv-row" [class.tv-row--expanded]="expandedSuiteId === suite._id" (click)="onToggleSuite(suite)">
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="tv-avatar">{{ getSuiteInitials(suite) }}</div>
+                  <div class="fw-semibold">{{ getSuiteDisplayName(suite) }}</div>
+                </div>
+              </td>
+              <td class="text-muted small">{{ getCleanDescription(suite) }}</td>
+              <td>
+                <span class="badge rounded-pill" [ngClass]="getBadgeClass(suite)">
+                  {{ getSuiteStatusLabel(suite) }}
+                </span>
+              </td>
+              <td class="text-center fw-semibold text-primary">{{ suite.testPlans?.length || 0 }}</td>
+              <td class="text-center text-muted">{{ getTotalCases(suite) }}</td>
+              <td class="text-muted small">{{ suite.createdAt ? (suite.createdAt | date:'dd MMM yyyy') : '—' }}</td>
+              <td class="text-end" (click)="$event.stopPropagation()">
+                <div class="d-inline-flex align-items-center gap-2 tv-actions">
+                  <button type="button" class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified"
+                    title="Open details" (click)="onOpenSuite(suite)" [disabled]="suite.canOpen === false">
+                    <iconify-icon icon="iconamoon:arrow-right-2-duotone" class="action-icon"></iconify-icon>
+                  </button>
+                 
+                </div>
+              </td>
+            </tr>
+
+          
+            }
+          </tbody>
+        </table>
+      </div>
+      }
+    </div>
+
+    <div class="card-footer d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <span class="text-muted small">Page {{ currentPage }} / {{ totalPages }}</span>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="goToPreviousPage()"
+          [disabled]="currentPage === 1">
+          Previous
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="goToNextPage()"
+          [disabled]="currentPage === totalPages">
+          Next
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     DETAIL VIEW
+════════════════════════════════════════ -->
+<div class="container-fluid py-3 test-validation-page" *ngIf="view === 'detail'">
+
+  <!-- Header -->
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-4">
+    <div>
+      <button type="button" class="btn btn-sm btn-outline-secondary mb-2" (click)="onBackToList()">
+        <iconify-icon icon="mdi:chevron-left" class="me-1"></iconify-icon>
+        Back to suites
+      </button>
+      <h4 class="app-title mb-1">
+        <iconify-icon icon="iconamoon:folder-check-duotone" class="app-title-icon"></iconify-icon>
+        <span>Suite: {{ currentSuiteName || testSuiteId }}</span>
+      </h4>
+      <p class="text-muted mb-0">{{ testPlans.length }} Test Plans</p>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      @if (suiteDetail && getSuiteStatusKey(suiteDetail) === 'validated') {
+      <button type="button" class="btn btn-sm btn-brand" (click)="onRunSuite()" [disabled]="loading">
+        <iconify-icon icon="iconamoon:play-circle-duotone" class="me-1"></iconify-icon>
+        Run
+      </button>
+      }
+    </div>
+  </div>
+
+  @if (errorMessage) {
+  <div class="alert alert-danger">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+  <div class="p-4 text-center text-muted small">Loading...</div>
+  } @else {
+
+  <!-- ── Test Details card (full width) ── -->
+  <div class="row g-3 mb-3">
+    <div class="col-12">
+      <div class="card shadow-sm panel-card tv-detail-card">
+
+        <!-- Card header -->
+        <div class="card-header tv-detail-header">
+          <div class="d-flex align-items-center gap-2">
+            <div class="tv-detail-header-icon">
+              <iconify-icon icon="iconamoon:task-duotone"></iconify-icon>
+            </div>
+            <span class="fw-semibold">Test Details</span>
+          </div>
+          @if (suiteDetail) {
+          <span class="badge rounded-pill tv-detail-status-badge" [ngClass]="getBadgeClass(suiteDetail)">
+            {{ getSuiteStatusLabel(suiteDetail) }}
+          </span>
+          }
+        </div>
+
+        <!-- Card body: 3-column grid -->
+        <div class="card-body p-0">
+          <div class="tv-detail-grid">
+
+            <!-- ── Column 1 : Identity ── -->
+            <div class="tv-detail-section">
+              <div class="tv-detail-section-title">
+                <iconify-icon icon="iconamoon:information-circle-duotone"></iconify-icon>
+                Identity
               </div>
-            </td>
-            <td class="suite-file">{{ suite.nametest || '—' }}</td>
-            <td class="suite-file">{{ suite.projectTitle || '-' }}</td>
-            <td class="suite-file">
-              <iconify-icon icon="iconamoon:file-document-duotone" class="me-1"></iconify-icon>
-              {{ suite.specFileName || '—' }}
-            </td>
-            <td class="suite-plans-count">
-              {{ suite.testPlans?.length || 0 }}
-            </td>
-            <td class="suite-plans-count">
-              {{ getTotalCases(suite) }}
-            </td>
-            <td>
-              <span class="badge"
-                [ngClass]="getSuiteStatus(suite._id) === 'Validated' ? 'text-bg-success' : 'text-bg-warning'">
-                {{ getSuiteStatus(suite._id) }}
-              </span>
-            </td>
-            <td class="suite-date">
-              {{ suite.createdAt ? (suite.createdAt | date:'dd MMM yyyy, HH:mm') : '—' }}
-            </td>
-            <td class="suite-expand-icon">
-              <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 me-2"
-                (click)="onOpenSuite(suite); $event.stopPropagation()" title="Open in Test Cases Validation view">
-                <iconify-icon icon="lucide:external-link" class="me-1"></iconify-icon> Open
-              </button>
-              <iconify-icon [icon]="expandedSuiteId === suite._id
-                        ? 'iconamoon:arrow-up-2-duotone'
-                        : 'iconamoon:arrow-down-2-duotone'">
-              </iconify-icon>
-            </td>
-          </tr>
 
-          <!-- Detail panel (expandable) -->
-          @if (expandedSuiteId === suite._id) {
-          <tr class="suite-detail-row">
-            <td colspan="9">
-              <div class="suite-detail-panel">
-                <div class="suite-detail-grid">
-
-                  <!-- Colonne 1 : Info -->
-                  <div class="suite-detail-col">
-
-
-                    @if (suite.description) {
-                    <div class="suite-detail-field">
-
-                    </div>
-                    }
-
-                    <!-- Spec File + Upload -->
-                    <div class="suite-detail-field">
-                      <label class="suite-detail-label">Spec File</label>
-                      <div class="suite-file-row">
-                        @if (suite.specFileName) {
-                        <div class="suite-file-chip">
-                          <iconify-icon icon="iconamoon:file-document-duotone"></iconify-icon>
-                          <span>{{ suite.specFileName }}</span>
-                        </div>
-                        } @else {
-                        <span class="suite-no-file">No file attached</span>
-                        }
-                        <!-- Upload bouton -->
-                        <label class="btn-upload-word" [for]="'upload-' + suite._id" title="Upload Word spec">
-                          <iconify-icon icon="iconamoon:cloud-upload-duotone"></iconify-icon>
-                          Upload Word
-                          <input [id]="'upload-' + suite._id" type="file" accept=".docx,.doc" style="display:none"
-                            (change)="onUploadSpec($event, suite._id)" />
-                        </label>
-                      </div>
-                    </div>
+              <!-- Project -->
+              <div class="tv-detail-row tv-detail-row--project">
+                <div class="tv-detail-row-icon">
+                  <iconify-icon icon="iconamoon:folder-duotone"></iconify-icon>
+                </div>
+                <div class="tv-detail-row-content">
+                  <div class="tv-meta-label">Project</div>
+                  <div class="tv-meta-value fw-bold">
+                    {{ projectDetail?.title || suiteDetail?.projectTitle || '—' }}
                   </div>
-
-                  <!-- Colonne 2 : Stats + Actions -->
-                  <div class="suite-detail-col">
-                    <div class="suite-stats-grid">
-                      <div class="suite-stat-card">
-                        <span class="suite-stat-value">{{ suite.testPlans?.length || 0 }}</span>
-                        <span class="suite-stat-label">Test Plans</span>
-                      </div>
-                      <div class="suite-stat-card">
-                        <span class="suite-stat-value">{{ getTotalCases(suite) }}</span>
-                        <span class="suite-stat-label">Test Cases</span>
-                      </div>
-                    </div>
-
-                    <div class="suite-detail-actions">
-                      <button type="button" class="btn-suite-primary"
-                        (click)="onOpenSuite(suite); $event.stopPropagation()">
-                        <iconify-icon icon="iconamoon:eye-duotone"></iconify-icon>
-                        View Plans & Cases
-                      </button>
-                      @if (getIncompletePlans(suite).length) {
-                      <div class="mt-3">
-                        <div class="small fw-semibold mb-2">Not validated tests</div>
-                        @for (plan of getIncompletePlans(suite); track plan.id) {
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                          <span class="small">{{ plan.id }} - {{ plan.title }}</span>
-                          <button type="button" class="btn btn-sm btn-outline-success"
-                            (click)="onCompleteTest(suite, plan); $event.stopPropagation()">
-                            Validate Test
-                          </button>
-                        </div>
-                        }
-                      </div>
-                      }
-
-                    </div>
-                  </div>
-
                 </div>
               </div>
-            </td>
-          </tr>
-          }
 
+              <!-- Test name -->
+              <div class="tv-detail-row">
+                <div class="tv-detail-row-icon">
+                  <iconify-icon icon="iconamoon:file-check-duotone"></iconify-icon>
+                </div>
+                <div class="tv-detail-row-content">
+                  <div class="tv-meta-label">Test name</div>
+                  <div class="tv-meta-value fw-semibold">{{ currentSuiteName || testSuiteId }}</div>
+                </div>
+              </div>
+
+              <!-- Creator -->
+              <div class="tv-detail-row">
+                <div class="tv-detail-row-icon">
+                  <iconify-icon icon="iconamoon:profile-duotone"></iconify-icon>
+                </div>
+                <div class="tv-detail-row-content">
+                  <div class="tv-meta-label">Creator</div>
+                  <div class="tv-meta-value">{{ suiteDetail?.creatorName || '—' }}</div>
+                </div>
+              </div>
+
+              <!-- Created at -->
+              <div class="tv-detail-row">
+                <div class="tv-detail-row-icon">
+                  <iconify-icon icon="iconamoon:calendar-duotone"></iconify-icon>
+                </div>
+                <div class="tv-detail-row-content">
+                  <div class="tv-meta-label">Created</div>
+                  <div class="tv-meta-value">
+                    {{ suiteDetail?.createdAt ? (suiteDetail?.createdAt | date:'dd MMM yyyy') : '—' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Vertical divider ── -->
+            <div class="tv-detail-divider"></div>
+
+            <!-- ── Column 2 : Files ── -->
+            <div class="tv-detail-section">
+              <div class="tv-detail-section-title">
+                <iconify-icon icon="iconamoon:file-document-duotone"></iconify-icon>
+                Files &amp; Links
+              </div>
+
+              <!-- Spec file -->
+              <div class="tv-detail-row">
+                <div class="tv-detail-row-icon">
+                  <iconify-icon icon="iconamoon:file-document-duotone"></iconify-icon>
+                </div>
+                <div class="tv-detail-row-content">
+                  <div class="tv-meta-label">Spec file</div>
+                  @if (suiteDetail?.specFileName) {
+                  <div class="tv-file-chip">
+                    <iconify-icon icon="mdi:file-word-outline"></iconify-icon>
+                    {{ suiteDetail?.specFileName }}
+                  </div>
+                  } @else {
+                  <div class="tv-meta-value">—</div>
+                  }
+                </div>
+              </div>
+
+              <!-- Target URL -->
+              <div class="tv-detail-row">
+                <div class="tv-detail-row-icon">
+                  <iconify-icon icon="iconamoon:link-duotone"></iconify-icon>
+                </div>
+                <div class="tv-detail-row-content">
+                  <div class="tv-meta-label">Target URL</div>
+                  @if (suiteDetail?.urlCible) {
+                  <a class="tv-url-link text-break" [href]="suiteDetail?.urlCible" target="_blank" rel="noopener">
+                    {{ suiteDetail?.urlCible }}
+                  </a>
+                  } @else {
+                  <div class="tv-meta-value">—</div>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Vertical divider ── -->
+            <div class="tv-detail-divider"></div>
+
+            <!-- ── Column 3 : Stats ── -->
+            <div class="tv-detail-section">
+              <div class="tv-detail-section-title">
+                <iconify-icon icon="iconamoon:trend-up-duotone"></iconify-icon>
+                Statistics
+              </div>
+
+              <div class="tv-stats-grid">
+                <div class="tv-stat-card">
+                  <div class="tv-stat-value">{{ testPlans.length }}</div>
+                  <div class="tv-stat-label">Test Plans</div>
+                </div>
+                <div class="tv-stat-card tv-stat-card--orange">
+                  <div class="tv-stat-value">{{ getTotalCases(suiteDetail) }}</div>
+                  <div class="tv-stat-label">Test Cases</div>
+                </div>
+              </div>
+
+              <!-- Status row -->
+              <div class="tv-detail-row mt-2">
+                <div class="tv-detail-row-icon">
+                  <iconify-icon icon="iconamoon:shield-check-duotone"></iconify-icon>
+                </div>
+                <div class="tv-detail-row-content">
+                  <div class="tv-meta-label">Status</div>
+                  @if (suiteDetail) {
+                  <span class="badge rounded-pill mt-1" [ngClass]="getBadgeClass(suiteDetail)">
+                    {{ getSuiteStatusLabel(suiteDetail) }}
+                  </span>
+                  } @else {
+                  <div class="tv-meta-value">—</div>
+                  }
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Card footer: toggle button -->
+        <div class="card-footer p-2">
+          <button
+            type="button"
+            class="btn btn-sm w-100 tv-jump-btn"
+            [class.tv-jump-btn--active]="showTestDetails"
+            (click)="toggleTestDetails()">
+            <iconify-icon
+              [icon]="showTestDetails ? 'mdi:chevron-up' : 'mdi:arrow-down-bold-circle-outline'"
+              class="me-1">
+            </iconify-icon>
+            {{ showTestDetails ? 'Hide test details' : 'Show test details' }}
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <!-- /Test Details card -->
+
+
+  <!-- ── Test Plans + Cases section ── -->
+  @if (showTestDetails) {
+  <div id="tv-test-section" class="tv-anchor"></div>
+  <div class="row g-3">
+    <div class="col-12 col-lg-3">
+      <div class="card shadow-sm panel-card h-100">
+        <div class="card-header">
+          <h6 class="mb-0">Test Plans</h6>
+        </div>
+        <div class="list-group list-group-flush tv-plans">
+          @for (plan of testPlans; track plan.id) {
+          <button type="button" class="list-group-item list-group-item-action"
+            [class.active]="selectedPlanId === plan.id" (click)="onSelectPlan(plan)">
+            <div class="fw-semibold">{{ plan.id }}</div>
+            <div class="small text-muted">{{ plan.title }}</div>
+          </button>
           }
-        </tbody>
-      </table>
-      }
+          @if (!testPlans.length) {
+          <div class="p-3 text-muted small">No plans available.</div>
+          }
+        </div>
+      </div>
     </div>
 
-    <!-- Pagination -->
-    <div class="suites-pagination">
-      <span>Showing {{ visibleStart }}-{{ visibleEnd }} of {{ filteredSuites.length }} suites</span>
-      <div class="suites-pagination-btns">
-        <button type="button" [disabled]="currentPage === 1" (click)="goToPreviousPage()">
-          <iconify-icon icon="iconamoon:arrow-left-2-duotone"></iconify-icon>
-        </button>
-        <span class="suites-page-current">{{ currentPage }} / {{ totalPages }}</span>
-        <button type="button" [disabled]="currentPage === totalPages" (click)="goToNextPage()">
-          <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
-        </button>
+    <div class="col-12 col-lg-9">
+      <div class="card shadow-sm panel-card mb-3">
+        <div class="card-body d-flex flex-wrap justify-content-between align-items-start gap-2">
+          <div>
+            <div class="fw-semibold">{{ selectedPlan?.title || 'Select a plan' }}</div>
+            <div class="text-muted small">{{ selectedPlan?.description }}</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="!selectedPlan"
+            (click)="selectedPlan && onRegenerate(selectedPlan)">
+            <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
+            @if (generatingCasesPlanId === selectedPlanId) { Generating... } @else { Regenerate }
+          </button>
+        </div>
       </div>
+
+      @if (generatingCasesPlanId === selectedPlanId) {
+      <div class="p-4 text-center text-muted small">Generating test cases...</div>
+      } @else {
+      <div class="row g-3">
+        @for (tc of selectedTestCases; track tc.id) {
+        <div class="col-12">
+          <div class="card shadow-sm tv-case">
+            <div class="card-header d-flex align-items-center gap-2">
+              <span class="badge rounded-pill brand-badge">{{ tc.id }}</span>
+              <div class="fw-semibold flex-grow-1">{{ tc.title }}</div>
+              <button type="button" class="btn btn-sm btn-action btn-action-delete" title="Remove"
+                (click)="onDeleteTestCase(selectedPlanId!, tc.id)">
+                <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
+              </button>
+            </div>
+            <div class="card-body">
+              <ol class="mb-2 ps-3">
+                @for (step of tc.steps; track $index) {
+                <li class="mb-1">{{ step }}</li>
+                }
+              </ol>
+              <div class="small">
+                <span class="fw-semibold">Expected:</span> {{ tc.expected_result }}
+              </div>
+            </div>
+          </div>
+        </div>
+        }
+
+        @if (!selectedTestCases.length) {
+        <div class="col-12">
+          <div class="p-4 text-center text-muted small">No test cases generated yet.</div>
+        </div>
+        }
+      </div>
+      }
     </div>
   </div>
   }
-
-  <!-- ══════════════════════════════════════════
-       VUE DÉTAIL (plans + test cases)
-  ══════════════════════════════════════════ -->
-  @if (view === 'detail') {
-  <div class="testlab-card p-4 mt-4 testlab-plan-card">
-
-    <button type="button" class="btn tc-btn tc-btn-ghost mb-3" (click)="onBackToList()">
-      <iconify-icon icon="iconamoon:arrow-left-2-duotone" class="me-1"></iconify-icon>
-      Back to suites
-    </button>
-
-    <div class="testlab-output">
-      @if (loading) {
-      <div class="testlab-processing">
-        <div class="testlab-processing-icon">
-          <iconify-icon icon="iconamoon:settings-duotone"></iconify-icon>
-        </div>
-        <h4 class="mb-1">Loading Validation</h4>
-        <p class="mb-0 text-muted">Fetching test plans and test cases…</p>
-      </div>
-      } @else if (!testPlans.length) {
-      <p class="mb-0 text-muted">No test plans yet.</p>
-      } @else {
-
-      <div class="tc-head mb-3">
-        <div>
-          <h3 class="tc-title mb-1">Validation</h3>
-          <p class="tc-subtitle mb-0">Review and confirm the generated test structures.</p>
-        </div>
-      </div>
-
-      <div class="tc-plan-picker mb-3">
-        @for (plan of testPlans; track plan.id) {
-        <button type="button" class="tc-plan-pill" [class.tc-plan-pill--active]="selectedPlanId === plan.id"
-          (click)="onSelectPlan(plan)">
-          {{ plan.id }}
-        </button>
-        }
-      </div>
-
-      @if (!selectedPlan) {
-      <p class="mb-0 text-muted">Select a test plan above.</p>
-      } @else {
-      <!-- Bloc ajouté depuis test-plan : état génération / liste cases / empty -->
-      @if (generatingCasesPlanId === selectedPlan.id) {
-      <div class="testlab-processing py-4">
-        <div class="testlab-processing-icon">
-          <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin"></iconify-icon>
-        </div>
-        <p class="mb-0 text-muted">Generating test cases for this plan<span class="testlab-dots"></span></p>
-      </div>
-      } @else if (selectedTestCases.length) {
-      <div class="testlab-case-list mt-2 mb-4">
-        @for (tc of selectedTestCases; track tc.id) {
-        <div class="testlab-case-item">
-          <div class="d-flex justify-content-between align-items-start">
-            <div>
-              <span class="testlab-case-id me-2">{{ tc.id }}</span>
-              <span class="fw-semibold">{{ tc.title }}</span>
-            </div>
-            <button type="button" class="btn btn-sm btn-outline-danger testlab-delete-btn"
-              (click)="onDeleteTestCase(selectedPlan.id, tc.id)" title="Remove test case">
-              <iconify-icon icon="iconamoon:trash-duotone"></iconify-icon>
-            </button>
-          </div>
-
-          @if (tc.steps?.length) {
-          <ul class="testlab-steps mt-2 mb-1">
-            @for (step of tc.steps; track $index) {
-            <li>{{ step }}</li>
-            }
-          </ul>
-          }
-          <div class="testlab-expected">
-            <span class="text-muted small">Expected: </span>{{ tc.expected_result }}
-          </div>
-        </div>
-        }
-      </div>
-      } @else {
-      <p class="text-muted py-3">No test cases generated yet.</p>
-      }
-
-      <div class="tc-layout">
-        <div class="tc-main">
-          <div class="tc-section-head">
-            <div>
-              <div class="tc-kicker">LOGIC MODULE</div>
-              <h4 class="tc-module-title mb-1">{{ selectedPlan.title }}</h4>
-              @if (selectedPlan.description) {
-              <p class="tc-module-desc mb-0">{{ selectedPlan.description }}</p>
-              }
-            </div>
-            <div class="tc-actions">
-              <button type="button" class="btn tc-btn tc-btn-ghost"
-                [disabled]="generatingCasesPlanId === selectedPlan.id" (click)="onRegenerate(selectedPlan)">
-                <iconify-icon icon="iconamoon:refresh-2-duotone" class="me-1"></iconify-icon>
-                Regenerate
-              </button>
-              <button type="button" class="btn tc-btn tc-btn-primary" [disabled]="!selectedTestCases.length">
-                <iconify-icon icon="iconamoon:check-circle-2-duotone" class="me-1"></iconify-icon>
-                Confirm
-              </button>
-            </div>
-          </div>
-
-          @if (generatingCasesPlanId === selectedPlan.id) {
-          <div class="tc-inline-processing">
-            <span class="tc-pill">
-              <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin"></iconify-icon>
-              Processing AI<span class="testlab-dots"></span>
-            </span>
-          </div>
-          }
-
-          <div class="tc-grid">
-            @for (tc of selectedTestCases; track tc.id) {
-            <div class="tc-card">
-              <div class="tc-card-top">
-                <div class="tc-chip">{{ tc.id }}</div>
-                <button type="button" class="tc-icon" title="Remove" (click)="onDeleteTestCase(selectedPlan.id, tc.id)">
-                  <iconify-icon icon="iconamoon:trash-duotone"></iconify-icon>
-                </button>
-              </div>
-              <div class="tc-card-body">
-                <div class="tc-card-title">{{ tc.title }}</div>
-                @if (tc.expected_result) {
-                <div class="tc-card-sub">{{ tc.expected_result }}</div>
-                }
-              </div>
-            </div>
-            }
-          </div>
-
-          <div class="tc-footer">
-            <button type="button" class="btn btn-brand tc-finalize" [disabled]="!selectedTestCases.length">
-              <iconify-icon icon="iconamoon:code-duotone" class="me-2"></iconify-icon>
-              Finalize &amp; Generate Scripts
-              <span class="tc-count">{{ selectedTestCases.length }} Test Cases</span>
-            </button>
-          </div>
-        </div>
-
-        <aside class="tc-side">
-          <div class="tc-metrics">
-            <div class="tc-metrics-title">EFFICIENCY METRICS</div>
-            <div class="tc-metrics-row">
-              <div class="tc-metrics-label">VALIDATION COVERAGE</div>
-              <div class="tc-metrics-value">82%</div>
-            </div>
-            <div class="tc-bar">
-              <div class="tc-bar-fill" style="width: 82%"></div>
-            </div>
-          </div>
-        </aside>
-      </div>
-      }
-      }
-    </div>
-  </div>
   }
 
 </div>

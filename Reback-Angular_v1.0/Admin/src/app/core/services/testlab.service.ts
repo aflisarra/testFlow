@@ -2,9 +2,10 @@
 // services/testlab.service.ts
 // ============================================================
 
-import { Injectable, inject } from '@angular/core'
 import { HttpClient } from '@angular/common/http'
+import { Injectable, inject } from '@angular/core'
 import { Observable } from 'rxjs'
+import { map } from 'rxjs/operators'
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -53,16 +54,41 @@ export interface GetTestPlansResponse {
   sessionStatus?: 'complete' | 'incomplete'
   planStatuses?: Array<{ planId: string; status: string }>
   sessionSavedAt?: string | null
+  validationStatus?: 'validated' | 'invalid'
+  validationPlanStatuses?: Array<{ planId: string; status: string }>
+  validationSavedAt?: string | null
+  executionStatus?: 'completed' | 'incomplete' | null
+  executionPlanStatuses?: Array<{ planId: string; status: string }>
+  executionSavedAt?: string | null
+}
+
+export interface TestLabProjectUserDto {
+  _id: string
+  name?: string
+  email?: string
+  picture?: string | null
+}
+
+export interface TestLabProjectDto {
+  _id: string
+  title: string
+  startDate?: string | null
+  endDate?: string | null
+  milestoneDate?: string | null
+  assignedUsers?: Array<TestLabProjectUserDto | string>
+  ownerId?: TestLabProjectUserDto | string
 }
 
 export interface TestSuiteDto {
   _id: string
-  projectId?: string
+  projectId?: string | TestLabProjectDto | null
   projectTitle?: string
   nom?: string
   nametest?: string
   creatorName?: string
   picture?: string
+  canOpen?: boolean
+  status?: 'completed' | 'incomplete' | 'validated' | 'invalid'
   totalTestCases?: number
   description?: string
   specFileName?: string
@@ -72,6 +98,12 @@ export interface TestSuiteDto {
   sessionStatus?: 'complete' | 'incomplete'
   planStatuses?: Array<{ planId: string; status: string }>
   sessionSavedAt?: string | null
+  validationStatus?: 'validated' | 'invalid'
+  validationPlanStatuses?: Array<{ planId: string; status: string }>
+  validationSavedAt?: string | null
+  executionStatus?: 'completed' | 'incomplete' | null
+  executionPlanStatuses?: Array<{ planId: string; status: string }>
+  executionSavedAt?: string | null
   createdAt?: string
   updatedAt?: string
 }
@@ -115,6 +147,32 @@ export class TestLabService {
     )
   }
 
+  // ✅ GET /api/testsuites
+  getAllTestSuites(): Observable<TestSuiteDto[]> {
+    return this.http.get<TestSuiteDto[]>(`${this.baseUrl}/testsuites`)
+  }
+
+  // ✅ GET /api/testsuites/:id
+  getTestSuiteById(testSuiteId: string): Observable<TestSuiteDto> {
+    return this.http.get<TestSuiteDto>(`${this.baseUrl}/testsuites/${testSuiteId}`)
+  }
+
+  // ✅ GET /api/test-plans/project/:projectId
+  getTestPlanByProject(projectId: string): Observable<TestSuiteDto | null> {
+    // Backend returns an array (most-recent first): GET /api/testsuites/project/:projectId
+    return this.http
+      .get<TestSuiteDto[] | TestSuiteDto | null>(
+        `${this.baseUrl}/testsuites/project/${projectId}`
+      )
+      .pipe(
+        map((resp) => {
+          if (!resp) return null
+          if (Array.isArray(resp)) return resp[0] || null
+          return resp
+        })
+      )
+  }
+
   // ✅ GET /api/testsuites/:id/plans
   getTestPlans(testSuiteId: string): Observable<GetTestPlansResponse> {
     return this.http.get<GetTestPlansResponse>(
@@ -125,7 +183,8 @@ export class TestLabService {
   saveSuiteSession(
     testSuiteId: string,
     payload: {
-      suiteStatus: 'complete' | 'incomplete'
+      sessionKind?: 'validation' | 'execution'
+      suiteStatus: 'validated' | 'invalid' | 'completed' | 'incomplete'
       planStatuses: Record<string, string>
       testCasesByPlan?: any[]
     }
@@ -136,6 +195,12 @@ export class TestLabService {
       sessionStatus: 'complete' | 'incomplete'
       planStatuses: Array<{ planId: string; status: string }>
       sessionSavedAt: string | null
+      validationStatus?: 'validated' | 'invalid'
+      validationPlanStatuses?: Array<{ planId: string; status: string }>
+      validationSavedAt?: string | null
+      executionStatus?: 'completed' | 'incomplete' | null
+      executionPlanStatuses?: Array<{ planId: string; status: string }>
+      executionSavedAt?: string | null
     }
   }> {
     return this.http.patch<{
@@ -145,6 +210,12 @@ export class TestLabService {
         sessionStatus: 'complete' | 'incomplete'
         planStatuses: Array<{ planId: string; status: string }>
         sessionSavedAt: string | null
+        validationStatus?: 'validated' | 'invalid'
+        validationPlanStatuses?: Array<{ planId: string; status: string }>
+        validationSavedAt?: string | null
+        executionStatus?: 'completed' | 'incomplete' | null
+        executionPlanStatuses?: Array<{ planId: string; status: string }>
+        executionSavedAt?: string | null
       }
     }>(`${this.baseUrl}/testsuites/${testSuiteId}/session`, payload)
   }

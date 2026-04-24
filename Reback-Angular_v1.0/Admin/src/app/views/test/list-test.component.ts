@@ -1,32 +1,37 @@
-import { CommonModule } from '@angular/common'
+import { AuthenticationService } from '@/app/core/services/auth.service'
+import {
+    TestLabService,
+    type TestCaseDto,
+    type TestLabProjectDto,
+    type TestPlanDto,
+    type TestSuiteDto,
+} from '@/app/core/services/testlab.service'
+import { jwt_decode } from '@/app/core/utils/jwt-decode'
+import { getUser } from '@/app/store/authentication/authentication.selector'
+import { CommonModule, DatePipe } from '@angular/common'
+import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, ViewEncapsulation } from '@angular/core'
 import { FormsModule } from '@angular/forms'
-import { Component, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core'
 import { ActivatedRoute, Router } from '@angular/router'
+import { Store } from '@ngrx/store'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
-import { Store } from '@ngrx/store'
-import { getUser } from '@/app/store/authentication/authentication.selector'
-import { AuthenticationService } from '@/app/core/services/auth.service'
-import { jwt_decode } from '@/app/core/utils/jwt-decode'
-import {
-  TestLabService,
-  type TestCaseDto,
-  type TestPlanDto,
-  type TestSuiteDto,
-} from '@/app/core/services/testlab.service'
+
+type TestSuiteStatusKey =
+  | 'completed'
+  | 'incomplete'
+  | 'validated'
+  | 'invalid'
 
 @Component({
   selector: 'app-test-cases-validation',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DatePipe],
   templateUrl: './list-test.component.html',
-  styleUrl: './list-test.component.css',
+  styleUrls: ['./list-test.component.css'],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  //encapsulation: ViewEncapsulation.None,
 })
 export class TestCasesValidationComponent {
-  readonly defaultAvatar = 'assets/images/users/default-user.svg'
-  private readonly backendOrigin = 'http://localhost:3000'
-
   private store = inject(Store)
   private authService = inject(AuthenticationService)
   private testLabService = inject(TestLabService)
@@ -37,68 +42,77 @@ export class TestCasesValidationComponent {
   errorMessage = ''
   view: 'list' | 'detail' = 'list'
 
-  // Liste
+  // List
   suites: TestSuiteDto[] = []
   searchQuery = ''
+  statusFilter: TestSuiteStatusKey = 'invalid'
   expandedSuiteId: string | null = null
-  readonly suitesPerPage = 6
-  currentPage = 1
 
-  // Détail
+  readonly statusFilters: ReadonlyArray<{ key: TestSuiteStatusKey; label: string }> = [
+    { key: 'completed', label: 'Completed' },
+    { key: 'incomplete', label: 'Incomplete' },
+    { key: 'validated', label: 'Validated' },
+    { key: 'invalid', label: 'Invalid' },
+  ]
+
+  // Pagination
+  currentPage = 1
+  pageSize = 10
+
+  // Detail
   testSuiteId = ''
+  currentSuiteName = ''
+  suiteDetail: TestSuiteDto | null = null
+  projectDetail: TestLabProjectDto | null = null
+  showTestDetails = false
+
   testPlans: TestPlanDto[] = []
   selectedPlanId: string | null = null
   generatingCasesPlanId: string | null = null
   testCasesByPlan: Record<string, TestCaseDto[]> = {}
 
+  // Computed
   get filteredSuites(): TestSuiteDto[] {
     const q = this.searchQuery.toLowerCase().trim()
-    if (!q) return this.suites
-    return this.suites.filter(s =>
-      (s.creatorName || '').toLowerCase().includes(q) ||
-      (s.nom || '').toLowerCase().includes(q) ||
-      (s.nametest || '').toLowerCase().includes(q) ||
-      (s.description || '').toLowerCase().includes(q)
-    )
-  }
+    const wantedStatus = this.statusFilter
 
-  get totalPages(): number {
-    const total = Math.ceil(this.filteredSuites.length / this.suitesPerPage)
-    return total > 0 ? total : 1
+    return this.suites.filter((suite) => {
+      const name = this.getSuiteDisplayName(suite).toLowerCase()
+      const description = String(suite.description || '').toLowerCase()
+      const matchesSearch = !q || name.includes(q) || description.includes(q)
+      const matchesStatus = this.getSuiteStatusKey(suite) === wantedStatus
+      return matchesSearch && matchesStatus
+    })
   }
 
   get paginatedSuites(): TestSuiteDto[] {
-    const safePage = Math.min(Math.max(this.currentPage, 1), this.totalPages)
-    if (safePage !== this.currentPage) this.currentPage = safePage
-    const start = (safePage - 1) * this.suitesPerPage
-    const end = start + this.suitesPerPage
-    return this.filteredSuites.slice(start, end)
+    const start = (this.currentPage - 1) * this.pageSize
+    return this.filteredSuites.slice(start, start + this.pageSize)
+  }
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredSuites.length / this.pageSize))
   }
 
   get visibleStart(): number {
-    if (!this.filteredSuites.length) return 0
-    return (this.currentPage - 1) * this.suitesPerPage + 1
+    return this.filteredSuites.length === 0
+      ? 0
+      : (this.currentPage - 1) * this.pageSize + 1
   }
 
   get visibleEnd(): number {
-    if (!this.filteredSuites.length) return 0
-    return Math.min(this.currentPage * this.suitesPerPage, this.filteredSuites.length)
+    return Math.min(this.currentPage * this.pageSize, this.filteredSuites.length)
   }
 
   get selectedPlan(): TestPlanDto | null {
-    return this.testPlans.find(p => p.id === this.selectedPlanId) || null
+    return this.testPlans.find((p) => p.id === this.selectedPlanId) ?? null
   }
 
   get selectedTestCases(): TestCaseDto[] {
-    return this.testCasesByPlan[this.selectedPlanId || ''] || []
+    return this.testCasesByPlan[this.selectedPlanId ?? ''] ?? []
   }
 
   async ngOnInit() {
-    const routeSuiteId = String(this.route.snapshot.paramMap.get('id') || '').trim()
-    if (routeSuiteId) {
-      await this.openSuiteById(routeSuiteId)
-      return
-    }
     await this.loadSuites()
   }
 
@@ -107,12 +121,12 @@ export class TestCasesValidationComponent {
     this.errorMessage = ''
     try {
       const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
-      let userId = String((user as any)?.id || (user as any)?._id || '').trim()
       const token = String((user as any)?.token || this.authService.session || '').trim()
-      if (!userId && token) userId = this.resolveUserIdFromToken(token)
-      if (!userId) { this.errorMessage = 'Session expirée.'; return }
-
-      this.suites = await firstValueFrom(this.testLabService.getTestSuitesByUser(userId))
+      if (!token) {
+        this.errorMessage = 'Session expirée.'
+        return
+      }
+      this.suites = await firstValueFrom(this.testLabService.getAllTestSuites())
     } catch (err: unknown) {
       this.errorMessage = (err as any)?.error?.message || 'Unable to load test suites'
     } finally {
@@ -120,43 +134,55 @@ export class TestCasesValidationComponent {
     }
   }
 
-  // Toggle expand/collapse d'une row
   onToggleSuite(suite: TestSuiteDto) {
     this.expandedSuiteId = this.expandedSuiteId === suite._id ? null : suite._id
   }
 
-  onSearchQueryChange() {
-    this.currentPage = 1
-    this.expandedSuiteId = null
-  }
-
-  goToPreviousPage() {
-    if (this.currentPage <= 1) return
-    this.currentPage -= 1
-    this.expandedSuiteId = null
-  }
-
-  goToNextPage() {
-    if (this.currentPage >= this.totalPages) return
-    this.currentPage += 1
-    this.expandedSuiteId = null
-  }
-
-  // Ouvrir la vue détail
   async onOpenSuite(suite: TestSuiteDto) {
-    const id = String(suite._id || '').trim()
-    if (!id) return
-    await this.router.navigate(['/testcases'], {
-      queryParams: {
-        suiteId: id,
-        suiteName: String(suite.nametest || suite.nom || '').trim(),
-      },
-    })
+    this.testSuiteId = String(suite._id).trim()
+    if (!this.testSuiteId) return
+
+    this.view = 'detail'
+    this.suiteDetail = null
+    this.projectDetail = null
+    this.showTestDetails = false
+    this.testPlans = []
+    this.selectedPlanId = null
+    this.testCasesByPlan = {}
+    this.loading = true
+    this.errorMessage = ''
+
+    try {
+      const detail = await firstValueFrom(this.testLabService.getTestSuiteById(this.testSuiteId))
+      this.suiteDetail = detail
+      this.currentSuiteName = this.getSuiteDisplayName(detail)
+      this.projectDetail =
+        detail?.projectId && typeof detail.projectId === 'object'
+          ? (detail.projectId as TestLabProjectDto)
+          : null
+
+      const resp = await firstValueFrom(this.testLabService.getTestPlans(this.testSuiteId))
+      this.testPlans = resp?.testPlans ?? []
+      if (!this.testPlans.length) {
+        this.errorMessage = 'No test plans found.'
+        return
+      }
+      this.selectedPlanId = this.testPlans[0].id
+      await this.generateTestCases(this.testPlans[0], false)
+    } catch (err: unknown) {
+      this.errorMessage = (err as any)?.error?.message || 'Unable to load plans'
+    } finally {
+      this.loading = false
+    }
   }
 
   onBackToList() {
     this.view = 'list'
     this.testSuiteId = ''
+    this.currentSuiteName = ''
+    this.suiteDetail = null
+    this.projectDetail = null
+    this.showTestDetails = false
     this.testPlans = []
     this.selectedPlanId = null
     this.testCasesByPlan = {}
@@ -174,11 +200,11 @@ export class TestCasesValidationComponent {
   }
 
   onDeleteTestCase(planId: string, testCaseId: string) {
-    this.testCasesByPlan[planId] = (this.testCasesByPlan[planId] || [])
-      .filter(tc => tc.id !== testCaseId)
+    this.testCasesByPlan[planId] = (this.testCasesByPlan[planId] ?? []).filter(
+      (tc) => tc.id !== testCaseId
+    )
   }
 
-  // Upload spec Word
   async onUploadSpec(event: Event, suiteId: string) {
     const input = event.target as HTMLInputElement
     const file = input?.files?.[0]
@@ -191,83 +217,163 @@ export class TestCasesValidationComponent {
 
     try {
       await firstValueFrom(this.testLabService.generatePlanFromDocx(formData))
-      await this.loadSuites() // rafraîchit la liste
+      await this.loadSuites()
     } catch (err: unknown) {
       this.errorMessage = (err as any)?.error?.message || 'Upload failed'
     }
   }
 
-  // Helpers affichage
+  onSearchQueryChange(): void {
+    this.currentPage = 1
+    this.expandedSuiteId = null
+  }
+
+  setStatusFilter(status: TestSuiteStatusKey): void {
+    this.statusFilter = status
+    this.currentPage = 1
+    this.expandedSuiteId = null
+  }
+
+  goToPreviousPage(): void {
+    if (this.currentPage > 1) this.currentPage--
+  }
+
+  goToNextPage(): void {
+    if (this.currentPage < this.totalPages) this.currentPage++
+  }
+
+  private normalizeStatusKey(value: unknown): string {
+    const v = String(value || '').toLowerCase().trim()
+    if (!v) return ''
+    return v
+  }
+
+  getSuiteStatusKey(suite: TestSuiteDto): TestSuiteStatusKey {
+    const raw = (suite as any).status ?? 'invalid'
+    const key = this.normalizeStatusKey(raw)
+    switch (key) {
+      case 'completed':
+      case 'incomplete':
+      case 'validated':
+      case 'invalid':
+        return key
+      default:
+        return 'invalid'
+    }
+  }
+
+  getSuiteStatusLabel(suite: TestSuiteDto): string {
+    const key = this.getSuiteStatusKey(suite)
+    const labels: Record<TestSuiteStatusKey, string> = {
+      completed: 'Completed',
+      incomplete: 'Incomplete',
+      validated: 'Validated',
+      invalid: 'Invalid',
+    }
+    return labels[key]
+  }
+
+  getBadgeClass(suite: TestSuiteDto): string {
+    const status = this.getSuiteStatusKey(suite)
+    const map: Record<TestSuiteStatusKey, string> = {
+      completed: 'text-bg-success',
+      incomplete: 'text-bg-danger',
+      validated: 'text-bg-primary',
+      invalid: 'text-bg-warning',
+    }
+    return map[status]
+  }
+
+  getSuiteDisplayName(suite: TestSuiteDto): string {
+    const userFacing = String((suite as any).nametest || '').trim()
+    if (userFacing) return userFacing
+    const name = String(suite.nom || '').trim()
+    return name || String(suite._id || '')
+  }
+
   getSuiteInitials(suite: TestSuiteDto): string {
-    const name = suite.creatorName || suite.nom || suite._id || '?'
+    const name = this.getSuiteDisplayName(suite) || '?'
     return name.slice(0, 2).toUpperCase()
   }
 
-  getTotalCases(suite: TestSuiteDto): number {
-    if (typeof suite.totalTestCases === 'number') return suite.totalTestCases
-    return (suite as any).testCasesByPlan?.reduce(
-      (acc: number, p: any) => acc + (p.testCases?.length || 0), 0
-    ) || 0
+  getTotalCases(suite: TestSuiteDto | null | undefined): number {
+    if (!suite) return 0
+    const localTotal = Object.values(this.testCasesByPlan).reduce(
+      (acc, cases) => acc + cases.length,
+      0
+    )
+    if (localTotal > 0) return localTotal
+
+    return (
+      (suite as any).totalCases ??
+      (suite as any).casesCount ??
+      (suite.testPlans?.reduce(
+        (acc: number, p: any) =>
+          acc + (p.testCases?.length ?? p.casesCount ?? 0),
+        0
+      ) ??
+        0)
+    )
   }
 
-  getSuiteStatus(suiteId: string): 'Validated' | 'Not validated' {
-    const suite = this.suites.find((s) => String(s._id || '').trim() === String(suiteId || '').trim())
-    if (!suite) return 'Not validated'
-    return this.isSuiteValidated(suite) ? 'Validated' : 'Not validated'
-  }
-
-  getIncompletePlans(suite: TestSuiteDto): TestPlanDto[] {
-    const plans = (suite?.testPlans || []) as TestPlanDto[]
-    return plans.filter((p) => {
-      return this.getPlanCaseCount(suite, p.id) === 0
-    })
-  }
-
-  private isSuiteValidated(suite: TestSuiteDto): boolean {
-    const plans = Array.isArray(suite?.testPlans) ? suite.testPlans : []
-    if (!plans.length) return false
-
-    const hasDetailedCases = Array.isArray((suite as any)?.testCasesByPlan) && (suite as any).testCasesByPlan.length > 0
-    if (hasDetailedCases) {
-      return plans.every((p) => this.getPlanCaseCount(suite, p.id) > 0)
+  resolveAvatarUrl(pictureUrl?: string): string {
+    if (!pictureUrl) return '/assets/images/users/default-user.svg'
+    try {
+      return new URL(pictureUrl).toString()
+    } catch {
+      return pictureUrl || '/assets/images/users/default-user.svg'
     }
+  }
 
-    if (typeof suite.totalTestCases === 'number') {
-      return suite.totalTestCases >= plans.length
+  scrollToSection(sectionId: string): void {
+    const id = String(sectionId || '').trim()
+    if (!id) return
+    try {
+      const el = typeof document !== 'undefined' ? document.getElementById(id) : null
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    } catch {
+      // ignore
     }
-    return false
   }
 
-  private getPlanCaseCount(suite: TestSuiteDto, planId: string): number {
-    const blocks = Array.isArray((suite as any)?.testCasesByPlan) ? (suite as any).testCasesByPlan : []
-    const block = blocks.find((b: any) => String(b?.planId || '').trim() === String(planId || '').trim())
-    return Array.isArray(block?.testCases) ? block.testCases.length : 0
+  toggleTestDetails(): void {
+    this.showTestDetails = !this.showTestDetails
+    if (!this.showTestDetails) return
+    setTimeout(() => this.scrollToSection('tv-test-section'), 0)
   }
 
-  onCompleteTest(suite: TestSuiteDto, plan: TestPlanDto) {
-    const suiteId = String(suite?._id || '').trim()
-    if (!suiteId || !plan?.id) return
-    void this.router.navigate(['/testcases'], {
-      queryParams: {
-        suiteId,
-        planId: plan.id,
-        suiteName: String(suite.nametest || suite.nom || '').trim(),
-      },
-    })
+  getMemberId(member: unknown): string {
+    if (!member) return ''
+    if (typeof member === 'string') return member
+    const m = member as any
+    return String(m?._id || m?.id || '').trim()
   }
 
-  resolveAvatarUrl(picture?: string | null): string {
-    const raw = String(picture || '').trim()
-    if (!raw) return this.defaultAvatar
-    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw
-    if (raw.startsWith('/')) return `${this.backendOrigin}${raw}`
-    return raw
+  getMemberDisplayName(member: unknown): string {
+    if (!member) return ''
+    if (typeof member === 'string') return member
+    const m = member as any
+    return String(m?.name || m?.email || '').trim()
   }
 
-  onAvatarError(event: Event) {
-    const img = event.target as HTMLImageElement | null
-    if (!img) return
-    img.src = this.defaultAvatar
+  getMemberPicture(member: unknown): string {
+    if (!member || typeof member === 'string') return ''
+    const m = member as any
+    return String(m?.picture || '').trim()
+  }
+
+  getUserInitials(value?: string): string {
+    const raw = String(value || '').trim()
+    if (!raw) return 'U'
+    const parts = raw.split(/\s+/).filter(Boolean)
+    if (parts.length >= 2) {
+      return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase()
+    }
+    return raw.slice(0, 2).toUpperCase()
+  }
+
+  onAvatarError(event: Event): void {
+    ;(event.target as HTMLImageElement).src = '/assets/images/users/default-user.svg'
   }
 
   private async generateTestCases(plan: TestPlanDto, regenerate: boolean) {
@@ -283,7 +389,7 @@ export class TestCasesValidationComponent {
           regenerate,
         })
       )
-      this.testCasesByPlan[plan.id] = resp?.testCases || []
+      this.testCasesByPlan[plan.id] = resp?.testCases ?? []
     } catch (err: unknown) {
       this.errorMessage = (err as any)?.error?.message || 'Unable to generate test cases'
     } finally {
@@ -294,39 +400,51 @@ export class TestCasesValidationComponent {
   private resolveUserIdFromToken(token: string): string {
     try {
       const decoded = jwt_decode<Record<string, unknown>>(token)
-      const u = (decoded?.['user'] as Record<string, unknown>) || decoded || {}
-      return String(u['userId'] || u['id'] || u['_id'] || u['sub'] || '').trim()
-    } catch { return '' }
+      const u = (decoded?.['user'] as Record<string, unknown>) ?? decoded ?? {}
+      return String(u['userId'] ?? u['id'] ?? u['_id'] ?? u['sub'] ?? '').trim()
+    } catch {
+      return ''
+    }
   }
 
-  private async openSuiteById(testSuiteId: string) {
-    this.testSuiteId = String(testSuiteId).trim()
-    if (!this.testSuiteId) return
+  countByStatus(status: string): number {
+    const wanted = this.normalizeStatusKey(status)
+    if (!wanted) return 0
+    return this.suites.filter((suite) => this.getSuiteStatusKey(suite) === wanted).length
+  }
 
-    this.view = 'detail'
-    this.testPlans = []
-    this.selectedPlanId = null
-    this.testCasesByPlan = {}
+  getSuiteSpecFile(suite: TestSuiteDto): string {
+    return (suite as any).specFile || (suite as any).spec_file || ''
+  }
+
+  getCleanDescription(suite: TestSuiteDto): string {
+    const raw = suite.description || ''
+    const cleaned = raw
+      .replace(/style\s*=\s*fontsize[^-]*/gi, '')
+      .replace(/----?\s*SPEC EXTRACT\s*----?/gi, '')
+      .trim()
+    return cleaned.length > 80 ? cleaned.slice(0, 80) + '…' : cleaned || '—'
+  }
+
+  async onRunSuite(): Promise<void> {
+    if (!this.suiteDetail) {
+      this.errorMessage = 'No test suite selected'
+      return
+    }
+
     this.loading = true
     this.errorMessage = ''
 
     try {
-      const resp = await firstValueFrom(this.testLabService.getTestPlans(this.testSuiteId))
-      this.testPlans = resp?.testPlans || []
-      for (const block of resp?.testCasesByPlan || []) {
-        if (block?.planId) this.testCasesByPlan[block.planId] = block?.testCases || []
-      }
-      if (!this.testPlans.length) { this.errorMessage = 'No test plans found.'; return }
-      const requestedPlanId = String(this.route.snapshot.queryParamMap.get('planId') || '').trim()
-      this.selectedPlanId =
-        requestedPlanId && this.testPlans.some((p) => p.id === requestedPlanId)
-          ? requestedPlanId
-          : this.testPlans[0].id
+      // TODO: Implement Selenium execution workflow
+      // For now, navigate to execution/run page or trigger execution
+      await this.router.navigate(['/test-cases/run'], {
+        queryParams: { suiteId: this.testSuiteId },
+      })
     } catch (err: unknown) {
-      this.errorMessage = (err as any)?.error?.message || 'Unable to load plans'
+      this.errorMessage = (err as any)?.error?.message || 'Unable to run test suite'
     } finally {
       this.loading = false
     }
   }
-
 }

@@ -1,7 +1,7 @@
 //const Role = require('../models/role.model');
 //const RoleAction = require('../models/roleAction.model');
 const roleService = require('../services/role.service');
-
+const MESSAGES = require('../constants/messages.js');
 // ✅ Create a new role
 // Input: req.body = { name: String, description: String, actions: [ObjectId] }
 // Output: 201 -> saved Role object
@@ -13,15 +13,15 @@ exports.createRole = async (req, res) => {
     const { name, description, actions } = req.body;
 
     if (!name) {
-      return res.status(400).json({ message: 'Name is required' });
+      return res.status(400).json({ message: MESSAGES.ROLE.ERROR_NAME });
     }
 
     const savedRole = await roleService.createRole({ name, description, actions });
 
     res.status(201).json(savedRole);
   } catch (error) {
-    console.error('Error creating role:', error);
-    const status = error.message === 'Role already exists' ? 409 : 500;
+    console.error(MESSAGES.ROLE.ERROR, error);
+    const status = error.message === MESSAGES.ROLE.ROLE_EXISTS ? 409 : 500;
     res.status(status).json({ message: error.message });
   }
 };
@@ -36,8 +36,8 @@ exports.getRoles = async (req, res) => {
     const roles = await roleService.getAllRoles();
     res.json(roles);
   } catch (err) {
-    console.error('Fetch roles error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error(MESSAGES.ROLE.ERROR, err);
+    res.status(500).json({ message: MESSAGES.ERROR.SERVER });
   }
 };
 
@@ -49,11 +49,11 @@ exports.getRoles = async (req, res) => {
 exports.getRole = async (req, res) => {
   try {
     const role = await roleService.getRoleById(req.params.id);
-    if (!role) return res.status(404).json({ message: 'Role not found' });
+    if (!role) return res.status(404).json({ message: MESSAGES.ROLE.NOT_FOUND });
     res.json(role);
   } catch (err) {
-    console.error('Get role error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error(MESSAGES.ROLE.ERROR, err);
+    res.status(500).json({ message: MESSAGES.ERROR.SERVER });
   }
 };
 
@@ -65,11 +65,11 @@ exports.getRole = async (req, res) => {
 exports.updateRole = async (req, res) => {
   try {
     const updatedRole = await roleService.updateRole(req.params.id, req.body);
-    if (!updatedRole) return res.status(404).json({ message: 'Role not found' });
-    res.json({ message: 'Role updated successfully', role: updatedRole });
+    if (!updatedRole) return res.status(404).json({ message: MESSAGES.ROLE.NOT_FOUND });
+    res.json({ message: MESSAGES.ROLE.UPDATED, role: updatedRole });
   } catch (err) {
-    console.error('Update role error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error(MESSAGES.ROLE.ERROR, err);
+    res.status(500).json({ message: MESSAGES.ERROR.SERVER });
   }
 };
 
@@ -81,11 +81,11 @@ exports.updateRole = async (req, res) => {
 exports.deleteRole = async (req, res) => {
   try {
     const deleted = await roleService.deleteRole(req.params.id);
-    if (!deleted) return res.status(404).json({ message: 'Role not found' });
-    res.json({ message: 'Role deleted successfully' });
+    if (!deleted) return res.status(404).json({ message: MESSAGES.ROLE.NOT_FOUND });
+    res.json({ message: MESSAGES.ROLE.DELETED });
   } catch (err) {
-    console.error('Delete role error:', err);
-    res.status(err.statusCode || 500).json({ message: err.message || 'Server error' });
+    console.error(MESSAGES.ROLE.ERROR, err);
+    res.status(500).json({ message: MESSAGES.ERROR.SERVER });
   }
 };
 

@@ -72,8 +72,8 @@
               class="tc-tree-chevron"></iconify-icon>
             <span class="tc-tree-plan-id">{{ plan.id }}</span>
             <span class="tc-tree-plan-title">{{ plan.title }}</span>
-            <span class="tc-tree-status-dot" [class.tc-tree-status-dot--ok]="getPlanStatus(plan.id) === 'completed'"
-              [class.tc-tree-status-dot--warn]="getPlanStatus(plan.id) === 'incomplete'"
+            <span class="tc-tree-status-dot" [class.tc-tree-status-dot--ok]="getPlanStatus(plan.id) === 'confirmed'"
+              [class.tc-tree-status-dot--warn]="getPlanStatus(plan.id) !== 'confirmed' && getPlanStatus(plan.id) !== 'generating'"
               [class.tc-tree-status-dot--spin]="getPlanStatus(plan.id) === 'generating'">
             </span>
           </div>
@@ -135,8 +135,8 @@
               class="tc-tree-chevron"></iconify-icon>
             <span class="tc-tree-plan-id">{{ plan.id }}</span>
             <span class="tc-tree-plan-title">{{ plan.title }}</span>
-            <span class="tc-tree-status-dot" [class.tc-tree-status-dot--ok]="getPlanStatus(plan.id) === 'completed'"
-              [class.tc-tree-status-dot--warn]="getPlanStatus(plan.id) === 'incomplete'"
+            <span class="tc-tree-status-dot" [class.tc-tree-status-dot--ok]="getPlanStatus(plan.id) === 'confirmed'"
+              [class.tc-tree-status-dot--warn]="getPlanStatus(plan.id) !== 'confirmed' && getPlanStatus(plan.id) !== 'generating'"
               [class.tc-tree-status-dot--spin]="getPlanStatus(plan.id) === 'generating'">
             </span>
           </div>
@@ -198,7 +198,7 @@
         </div>
         <div class="d-flex gap-2 align-items-center">
           <span class="badge"
-            [ngClass]="getPlanStatus(livePlanId) === 'completed' ? 'text-bg-success' : getPlanStatus(livePlanId) === 'generating' ? 'text-bg-primary' : 'text-bg-warning'">
+            [ngClass]="getPlanStatus(livePlanId) === 'confirmed' ? 'text-bg-success' : getPlanStatus(livePlanId) === 'generating' ? 'text-bg-primary' : 'text-bg-warning'">
             {{ getPlanValidationLabel(livePlanId) }}
           </span>
           @if (livePlan) {
@@ -338,18 +338,23 @@
       </button>
 
       } @else if (!modalGenerating && modalCases.length > 0) {
-      <button class="btn btn-outline-primary px-4" (click)="onModalGenerate(true)">
+
+       <button class="btn btn-cancel px-4" (click)="closeModal()">
+        Cancel
+      </button>
+      
+        <button class="btn btn-outline-primary px-4" (click)="onModalGenerate(true)">
         <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
         Regenerate
       </button>
 
-      <button class="btn btn-brand px-4" (click)="onModalValidate()">
+     
+
+     
+
+       <button class="btn btn-brand px-4" (click)="onModalValidate()">
         <iconify-icon icon="iconamoon:check-circle-1-duotone" class="me-1"></iconify-icon>
         Validate & Save
-      </button>
-
-      <button class="btn btn-outline-secondary px-4" (click)="closeModal()">
-        Cancel
       </button>
 
       } @else {

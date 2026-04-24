@@ -2,7 +2,7 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 const User = require('../../models/user.model'); // Mets le bon chemin vers ton modèle User
-
+const MESSAGES = require('../../constants/messages.js'); // Mets le bon chemin vers tes messages
 const migrateAddLanguageToUsers = async () => {
   try {
     // Connexion MongoDB
@@ -11,7 +11,7 @@ const migrateAddLanguageToUsers = async () => {
       useUnifiedTopology: true,
     });
 
-    console.log('✅ Connecté à MongoDB');
+    console.log(MESSAGES.DATABASEMIGRATION.MONGO);
 
     // Mettre "fr" pour tous les utilisateurs sans langue
     const result = await User.updateMany(
@@ -23,7 +23,7 @@ const migrateAddLanguageToUsers = async () => {
 
     process.exit();
   } catch (error) {
-    console.error('❌ Erreur lors de la migration :', error);
+    console.error(MESSAGES.DATABASEMIGRATION.MIGRATIONERROR, error);
     process.exit(1);
   }
 };

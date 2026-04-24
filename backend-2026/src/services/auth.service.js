@@ -1,22 +1,16 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 
 const User = require('../models/user.model');
 const Role = require('../models/role.model');
 const Action = require('../models/action.model');
-
-function getRequiredEnv(name) {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
+const { getJwtSecret, getJwtRefreshSecret } = require('../utils/jwt-secrets');
+const { isMongoObjectId } = require('../utils/mongo-objectid');
 
 function generateToken(payload) {
-  const secret = getRequiredEnv('JWT_SECRET');
-  return jwt.sign(payload, secret, { expiresIn: '1h' });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: '1h' });
 }
 
 function generateAccessToken(payload) {
@@ -24,8 +18,7 @@ function generateAccessToken(payload) {
 }
 
 function generateRefreshToken(payload) {
-  const refreshSecret = getRequiredEnv('JWT_REFRESH_SECRET');
-  return jwt.sign(payload, refreshSecret, { expiresIn: '7d' });
+  return jwt.sign(payload, getJwtRefreshSecret(), { expiresIn: '7d' });
 }
 
 async function sendEmail(to, subject, message) {
@@ -35,7 +28,8 @@ async function sendEmail(to, subject, message) {
 }
 
 const registerUser = async ({ name, email, password, picture, roleName }) => {
-  const existingUser = await User.findOne({ email });
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const existingUser = await User.findOne({ email: normalizedEmail });
   if (existingUser) throw new Error('Email already in use');
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -66,7 +60,7 @@ const registerUser = async ({ name, email, password, picture, roleName }) => {
 
   const newUser = new User({
     name,
-    email,
+    email: normalizedEmail,
     password: hashedPassword,
     picture: picture ? `/api/uploads/users/${picture}` : null,
     roleId: roleDoc._id,
@@ -83,15 +77,14 @@ async function refreshToken(refreshTokenValue) {
   }
 
   try {
-    const refreshSecret = getRequiredEnv('JWT_REFRESH_SECRET');
-    const decoded = jwt.verify(refreshTokenValue, refreshSecret);
+    const decoded = jwt.verify(refreshTokenValue, getJwtRefreshSecret());
     const user = await User.findById(decoded.userId);
 
     if (!user || user.refreshToken !== refreshTokenValue) {
       return { error: 'Invalid refresh token' };
     }
 
-    const roleData = user.roleId
+    const roleData = isMongoObjectId(user.roleId)
       ? await Role.findById(user.roleId)
       : await Role.findOne({ name: user.role });
     const actions = roleData?.actions || [];
@@ -101,15 +94,23 @@ async function refreshToken(refreshTokenValue) {
       name: user.name,
       email: user.email,
       picture: user.picture || null,
-      role: user.role,
-      roleId: user.roleId,
+      role: roleData?.name || user.role,
+      roleId: roleData?._id || user.roleId,
       actions
     };
     const newAccessToken = generateAccessToken(payload);
     const newRefreshToken = generateRefreshToken(payload);
 
-    user.refreshToken = newRefreshToken;
-    await user.save();
+    // Avoid failing refresh on legacy users that have an invalid roleId type (e.g. old numeric ids).
+    // Also opportunistically migrate roleId when possible.
+    const migrateRoleId = !isMongoObjectId(user.roleId) && roleData?._id
+      ? { roleId: roleData._id, role: roleData.name }
+      : {};
+
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { refreshToken: newRefreshToken, ...migrateRoleId } }
+    );
 
     return { accessToken: newAccessToken, refreshToken: newRefreshToken };
   } catch {
@@ -118,13 +119,14 @@ async function refreshToken(refreshTokenValue) {
 }
 
 const loginUser = async ({ email, password }) => {
-  const user = await User.findOne({ email });
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const user = await User.findOne({ email: normalizedEmail });
   if (!user) throw new Error('Invalid email or password');
 
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) throw new Error('Invalid email or password');
 
-  const roleData = user.roleId
+  const roleData = isMongoObjectId(user.roleId)
     ? await Role.findById(user.roleId)
     : await Role.findOne({ name: user.role });
   const actions = roleData?.actions || [];
@@ -134,16 +136,24 @@ const loginUser = async ({ email, password }) => {
     name: user.name,
     email: user.email,
     picture: user.picture || null,
-    role: user.role,
-    roleId: user.roleId,
+    role: roleData?.name || user.role,
+    roleId: roleData?._id || user.roleId,
     actions,
   };
 
   const accessToken = generateAccessToken(payload);
   const refreshTokenValue = generateRefreshToken(payload);
 
-  user.refreshToken = refreshTokenValue;
-  await user.save();
+  // Avoid failing login on legacy users that have an invalid roleId type (e.g. old numeric ids).
+  // Also opportunistically migrate roleId when possible.
+  const migrateRoleId = !isMongoObjectId(user.roleId) && roleData?._id
+    ? { roleId: roleData._id, role: roleData.name }
+    : {};
+
+  await User.updateOne(
+    { _id: user._id },
+    { $set: { refreshToken: refreshTokenValue, ...migrateRoleId } }
+  );
 
   return {
     accessToken,
@@ -153,8 +163,8 @@ const loginUser = async ({ email, password }) => {
       name: user.name,
       email: user.email,
       picture: user.picture || null,
-      role: user.role,
-      roleId: user.roleId,
+      role: migrateRoleId.role || user.role,
+      roleId: migrateRoleId.roleId || user.roleId,
       actions,
     },
   };

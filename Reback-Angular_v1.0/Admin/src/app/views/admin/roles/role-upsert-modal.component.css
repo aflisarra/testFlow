@@ -101,7 +101,7 @@
   width: 100%;
   border: 1px solid #cfe0f1;
   border-radius: 10px;
-  background: #ffffff;
+  background: #f5f7fa;
   color: #1f3349;
   padding: 0.58rem 0.72rem;
   outline: none;
@@ -126,14 +126,14 @@
 
 .exec-input.is-invalid {
   border-color: #ef4444;
-  background: #fff5f5;
+  background: #fef5f5;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.08);
 }
 
 .exec-select.is-invalid,
 .exec-textarea.is-invalid {
   border-color: #ef4444;
-  background: #fff7f7;
+  background: #fef5f5;
   box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.12);
 }
 
@@ -152,8 +152,12 @@
 }
 
 .exec-selected-badge {
-  font-size: 0.75rem;
-  color: #60758f;
+   font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #475569;
+  margin-bottom: 3px;
 }
 
 .exec-select-all {
@@ -176,7 +180,7 @@
   justify-content: space-between;
   border: 1px solid #cfe0f1;
   border-radius: 10px;
-  background: #ffffff;
+  background: #f5f7fa;
   color: #1f3349;
   padding: 0.58rem 0.72rem;
   cursor: pointer;
@@ -192,7 +196,7 @@
 
 .exec-actions-trigger.is-invalid {
   border-color: #ef4444;
-  background: #fff7f7;
+  background: #fef5f5;
 }
 
 .exec-trigger-placeholder {
@@ -213,7 +217,7 @@
 
 .exec-action-item--all {
   border: 1px solid #dce8f5;
-  background: #f5f9ff;
+  background: #f0f5fb;
 }
 
 .exec-actions-dropdown {
@@ -235,7 +239,7 @@
 
 .exec-actions-box.is-invalid {
   border-color: #ef4444;
-  background: #fff7f7;
+  background: #fef5f5;
 }
 
 .exec-actions-scroll {

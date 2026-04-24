@@ -86,7 +86,7 @@
   width: 100%;
   border: 1px solid #cfe0f1;
   border-radius: 10px;
-  background: #ffffff;
+  background: #f5f7fa;
   color: #1f3349;
   padding: 0.58rem 0.72rem;
   outline: none;
@@ -102,7 +102,7 @@
 .exec-input.is-invalid,
 .exec-select.is-invalid {
   border-color: #ef4444;
-  background: #fff7f7;
+  background: #fef5f5;
   box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.12);
 }
 

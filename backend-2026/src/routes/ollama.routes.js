@@ -13,6 +13,7 @@ const PlanTest = require("../models/plantest.model"); // legacy (backward-compat
 const Project = require("../models/project.model");
 
 const router = express.Router();
+const { getJwtSecret } = require("../utils/jwt-secrets");
 
 function getFastApiBaseUrl() {
   return String(process.env.FASTAPI_BASE_URL || "http://localhost:8000").replace(
@@ -39,8 +40,14 @@ function getUserIdFromAuthHeader(req) {
   if (!authHeader.toLowerCase().startsWith("bearer ")) return "";
 
   const token = authHeader.slice(7).trim();
-  const secret = process.env.JWT_SECRET;
-  if (!token || !secret) return "";
+  if (!token) return "";
+
+  let secret = "";
+  try {
+    secret = getJwtSecret();
+  } catch {
+    return "";
+  }
 
   try {
     const decoded = jwt.verify(token, secret);
@@ -55,6 +62,31 @@ function parseBoolean(value) {
   if (typeof value === "boolean") return value;
   if (typeof value !== "string") return false;
   return ["1", "true", "yes", "y", "on"].includes(value.trim().toLowerCase());
+}
+
+function normalizeUniqueTestPlans(rawPlans) {
+  const list = Array.isArray(rawPlans) ? rawPlans : [];
+  const used = new Set();
+
+  return list
+    .map((p, idx) => {
+      const fallbackId = `TP-${idx + 1}`;
+      const baseId = String(p?.id || p?.planId || "").trim() || fallbackId;
+
+      let nextId = baseId;
+      let suffix = 2;
+      while (!nextId || used.has(nextId)) {
+        nextId = `${baseId}-${suffix++}`;
+      }
+      used.add(nextId);
+
+      return {
+        id: nextId,
+        title: String(p?.title || `Test Plan ${idx + 1}`).trim(),
+        description: String(p?.description || "").trim(),
+      };
+    })
+    .slice(0, 20);
 }
 
 function ensureSpecFile(file, cb) {
@@ -394,9 +426,19 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
 
     if (!regenerate) {
       if (Array.isArray(suite.testPlans) && suite.testPlans.length) {
+        const normalized = normalizeUniqueTestPlans(suite.testPlans);
+        const changed =
+          normalized.length !== suite.testPlans.length ||
+          normalized.some((p, i) => String(suite.testPlans?.[i]?.id || "").trim() !== p.id);
+
+        if (changed) {
+          suite.testPlans = normalized;
+          await suite.save();
+        }
+
         return res.json({
           testSuiteId,
-          testPlans: suite.testPlans,
+          testPlans: changed ? normalized : suite.testPlans,
           reused: true,
         });
       }
@@ -440,13 +482,7 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
       return res.status(502).json({ message: "FastAPI returned empty test plans" });
     }
 
-    suite.testPlans = testPlans
-      .map((p, idx) => ({
-        id: String(p?.id || `TP-${idx + 1}`).trim(),
-        title: String(p?.title || `Test Plan ${idx + 1}`).trim(),
-        description: String(p?.description || "").trim(),
-      }))
-      .slice(0, 20);
+    suite.testPlans = normalizeUniqueTestPlans(testPlans);
     await suite.save();
 
     return res.json({

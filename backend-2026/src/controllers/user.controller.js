@@ -1,7 +1,8 @@
 const userService = require('../services/user.service');
 const User = require('../models/user.model');
 const Role = require('../models/role.model');
-
+const { isMongoObjectId } = require('../utils/mongo-objectid');
+const MESSAGES = require('../constants/messages.js');
 // ✅ Create a new user
 // Route: POST /api/users
 // Access: Private (admin only or similar logic)
@@ -16,21 +17,18 @@ exports.createUser = async (req, res) => {
     const userObj = typeof newUser?.toObject === 'function' ? newUser.toObject() : newUser;
     if (userObj && userObj.password) delete userObj.password;
 
-    res.status(201).json({ message: 'User created successfully', user: userObj });
+    res.status(201).json({ message: MESSAGES.USER.CREATED, user: userObj });
   } catch (err) {
-    console.error('Create user error:', err);
-    if (err.message === 'Email already in use') {
+    console.error(MESSAGES.ERROR.EMAIL_EXISTS, err);
+    if (err.message === MESSAGES.ERROR.EMAIL_EXISTS) {
       return res.status(400).json({ message: err.message });
     }
-    if (err.message === 'Role not found') {
+    if (err.message === MESSAGES.ROLE.NOT_FOUND) {
       return res.status(400).json({ message: err.message });
     }
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: MESSAGES.ERROR.SERVER });
   }
 };
-
-
-
 
 
 // ✅ Get all users
@@ -41,8 +39,8 @@ exports.getUsers = async (req, res) => {
     const users = await userService.getAllUsers();
     res.json(users);
   } catch (error) {
-    console.error('Get users error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error(MESSAGES.USER.ERROR, error);
+    res.status(500).json({ message: MESSAGES.ERROR.SERVER });
   }
 };
 
@@ -52,11 +50,11 @@ exports.getUsers = async (req, res) => {
 exports.getUser = async (req, res) => {
   try {
     const user = await userService.getUserById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) return res.status(404).json({ message: MESSAGES.USER.NOT_FOUND });
     res.json(user);
   } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error(MESSAGES.USER.ERROR, error);
+    res.status(500).json({ message: MESSAGES.ERROR.SERVER });
   }
 };
 
@@ -73,7 +71,7 @@ exports.updateUser = async (req, res) => {
 
     if (role) {
       const roleDoc = await Role.findOne({ name: String(role).trim() });
-      if (!roleDoc) return res.status(400).json({ message: 'Role not found' });
+      if (!roleDoc) return res.status(400).json({ message: MESSAGES.ROLE.NOT_FOUND });
       updatedFields.roleId = roleDoc._id;
       updatedFields.role = roleDoc.name;
     }
@@ -85,16 +83,16 @@ exports.updateUser = async (req, res) => {
     const updatedUser = await userService.updateUser(userId, updatedFields);
 
     if (!updatedUser) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message:MESSAGES.USER.NOT_FOUND });
     }
 
     res.status(200).json({
-      message: 'User updated successfully',
+      message: MESSAGES.USER.UPDATED,
       user: updatedUser,
     });
   } catch (error) {
-    console.error('Update user error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error(MESSAGES.USER.ERROR, error);
+    res.status(500).json({ message: MESSAGES.ERROR.SERVER });
   }
 };
 
@@ -104,11 +102,11 @@ exports.updateUser = async (req, res) => {
 exports.deleteUser = async (req, res) => {
   try {
     const deletedUser = await userService.deleteUser(req.params.id);
-    if (!deletedUser) return res.status(404).json({ message: 'User not found' });
-    res.json({ message: 'User deleted successfully' });
+    if (!deletedUser) return res.status(404).json({ message: MESSAGES.USER.NOT_FOUND });
+    res.json({ message: MESSAGES.USER.DELETED });
   } catch (error) {
-    console.error('Delete user error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error(MESSAGES.USER.ERROR, error);
+    res.status(500).json({ message: MESSAGES.ERROR.SERVER });
   }
 };
 
@@ -122,10 +120,10 @@ exports.getUserProfile = async (req, res) => {
     const user = await User.findById(userId).select('-password');
 
     if (!user) {
-      return res.status(404).json({ message: 'User Not Found' });
+      return res.status(404).json({ message: MESSAGES.USER.NOT_FOUND });
     }
 
-    const roleDoc = user.roleId != null
+    const roleDoc = isMongoObjectId(user.roleId)
       ? await Role.findById(user.roleId).select('actions')
       : await Role.findOne({ name: String(user.role || '').trim() }).select('actions');
 
@@ -134,7 +132,7 @@ exports.getUserProfile = async (req, res) => {
       actions: Array.isArray(roleDoc?.actions) ? roleDoc.actions : [],
     });
   } catch (error) {
-    console.error('Error fetching profile', error);
-    return res.status(500).json({ message: 'Server Error' });
+    console.error(MESSAGES.PROFILE.ERROR, error);
+    return res.status(500).json({ message: MESSAGES.ERROR.SERVER });
   }
 };

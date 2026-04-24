@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
+const { getJwtSecret } = require("../utils/jwt-secrets");
 
 const User = require("../models/user.model");
 const MagicToken = require("../models/magictoken.model");
@@ -40,7 +41,7 @@ router.post("/forgot-password", async (req, res) => {
 
         const token = jwt.sign(
             { userId: String(user._id), purpose: "magic-reset", jti },
-            process.env.JWT_SECRET,
+            getJwtSecret(),
             { expiresIn: "15m" }
         );
 
@@ -116,7 +117,7 @@ router.post("/verify-magic-token", async (req, res) => {
         // Vérifier la signature JWT
         let decoded;
         try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET);
+            decoded = jwt.verify(token, getJwtSecret());
         } catch {
             return res.status(400).json({ message: "Lien invalide ou expiré" });
         }
@@ -134,7 +135,7 @@ router.post("/verify-magic-token", async (req, res) => {
         // Token valide → retourner un resetToken court (5 min) pour l'étape suivante
         const resetToken = jwt.sign(
             { userId: decoded.userId, purpose: "reset-password", jti: decoded.jti },
-            process.env.JWT_SECRET,
+            getJwtSecret(),
             { expiresIn: "5m" }
         );
 
@@ -165,7 +166,7 @@ router.post("/verify-otp", async (req, res) => {
 
         const resetToken = jwt.sign(
             { userId: String(user._id), purpose: "reset-password", jti: record.jti },
-            process.env.JWT_SECRET,
+            getJwtSecret(),
             { expiresIn: "5m" }
         );
 
@@ -190,7 +191,7 @@ router.post("/reset-password", async (req, res) => {
     try {
         let decoded;
         try {
-            decoded = jwt.verify(resetToken, process.env.JWT_SECRET);
+            decoded = jwt.verify(resetToken, getJwtSecret());
         } catch {
             return res.status(400).json({ message: "Token expiré, recommencez" });
         }

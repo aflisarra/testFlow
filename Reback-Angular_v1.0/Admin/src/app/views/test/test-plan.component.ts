@@ -1,8 +1,8 @@
-import { AuthenticationService } from '@/app/core/services/auth.service'
 import {
   AdminManagementService,
   type AppProject,
 } from '@/app/core/services/admin-management.service'
+import { AuthenticationService } from '@/app/core/services/auth.service'
 import {
   TestLabService,
   type TestCaseDto,
@@ -11,13 +11,13 @@ import {
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import { CommonModule } from '@angular/common'
-import { Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, NgZone, ViewChild, inject } from '@angular/core'
-import { FormsModule } from '@angular/forms'
-import { Router } from '@angular/router'
+import { Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, inject, NgZone, ViewChild } from '@angular/core'
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms'
+import { ActivatedRoute, Router } from '@angular/router'
 import { Store } from '@ngrx/store'
+import { ToastrService } from 'ngx-toastr'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
-import { ToastrService } from 'ngx-toastr'
 
 // Statuts possibles pour chaque plan dans le flux séquentiel
 export type PlanStatus = 'pending' | 'generating' | 'reviewing' | 'confirmed'
@@ -25,7 +25,7 @@ export type PlanStatus = 'pending' | 'generating' | 'reviewing' | 'confirmed'
 @Component({
   selector: 'app-test-suite-configuration',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './test-plan.component.html',
   styleUrl: './test-plan.component.css',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
@@ -36,17 +36,29 @@ export class TestSuiteConfigurationComponent {
   private authService = inject(AuthenticationService)
   private adminManagementService = inject(AdminManagementService)
   private router = inject(Router)
+  private activatedRoute = inject(ActivatedRoute)
   private toastr = inject(ToastrService)
   private zone = inject(NgZone)
+  private fb = inject(FormBuilder)
 
   @ViewChild('plansResult') private plansResultRef?: ElementRef<HTMLElement>
 
   projects: AppProject[] = []
-  selectedProjectId = ''
   loadingProjects = false
+  private lastProjectId = ''
+
+  // Reactive Form
+  testPlanForm: FormGroup = this.fb.group({
+    name: ['', Validators.required],
+    specDocument: [''],
+    projectId: ['', Validators.required],
+  })
+
+  // Banner for existing test plan
+  showExistingBanner = false
+  existingTestPlan: { suiteId: string; name: string; specFileName: string } | null = null
 
   styleConfig = ''
-  nameTest = ''
   uploadedFileName = ''
   selectedFile: File | null = null
 
@@ -73,8 +85,41 @@ export class TestSuiteConfigurationComponent {
   plansValidated = false
   sessionSaved = false
 
+  // Getters for backward compatibility
+  get selectedProjectId(): string {
+    return this.testPlanForm.value.projectId || '';
+  }
+
+  get nameTest(): string {
+    return this.testPlanForm.value.name || '';
+  }
+
+  onNameTestChange(value: string): void {
+    this.testPlanForm.patchValue({ name: String(value || '') })
+  }
+
   constructor() {
     void this.loadProjects()
+    void this.initializeFromQueryParams()
+  }
+
+  private async initializeFromQueryParams(): Promise<void> {
+    this.activatedRoute.queryParams.subscribe(async (params) => {
+      const projectId = String(params['projectId'] || '').trim()
+      const projectName = String(params['projectName'] || '').trim()
+
+      if (!projectId) return
+
+      this.testPlanForm.patchValue({ projectId })
+      this.lastProjectId = projectId
+
+      // Default name if empty, then show existing banner (user decides to use it or not)
+      if (projectName && !String(this.testPlanForm.get('name')?.value || '').trim()) {
+        this.testPlanForm.patchValue({ name: `${projectName} Test Suite` })
+      }
+
+      await this.loadExistingTestPlanBanner(projectId)
+    })
   }
 
   private async loadProjects() {
@@ -90,8 +135,114 @@ export class TestSuiteConfigurationComponent {
   }
 
   get selectedProjectTitle(): string {
-    const match = this.projects.find((p) => String(p?._id || '') === String(this.selectedProjectId || ''))
+    const match = this.projects.find((p) => String(p?._id || '') === String(this.testPlanForm.value.projectId || ''))
     return String(match?.title || '').trim()
+  }
+
+  // ─── Project Change Handler ────────────────────────────────────────────────
+
+  async onProjectChange(): Promise<void> {
+    const projectId = this.testPlanForm.value.projectId
+    if (!projectId) {
+      this.lastProjectId = ''
+      this.showExistingBanner = false
+      this.existingTestPlan = null
+      this.currentTestSuiteId = ''
+      return
+    }
+
+    try {
+      const normalizedProjectId = String(projectId || '').trim()
+
+      // If project changed, reset file + suite context to avoid mixing projects
+      if (this.lastProjectId && normalizedProjectId !== this.lastProjectId) {
+        this.resetProjectContext()
+      }
+      this.lastProjectId = normalizedProjectId
+
+      // Default name if empty
+      const title = this.selectedProjectTitle
+      if (title && !String(this.testPlanForm.get('name')?.value || '').trim()) {
+        this.testPlanForm.patchValue({ name: `${title} Test Suite` })
+      }
+
+      await this.loadExistingTestPlanBanner(normalizedProjectId)
+    } catch (error) {
+      console.error('Error checking for existing test plan:', error)
+      this.showExistingBanner = false
+      this.existingTestPlan = null
+      this.currentTestSuiteId = ''
+    }
+  }
+
+  // ─── Banner Actions ───────────────────────────────────────────────────────
+
+  private resetProjectContext(): void {
+    this.currentTestSuiteId = ''
+    this.selectedFile = null
+    this.uploadedFileName = ''
+    this.testPlanForm.patchValue({ specDocument: '' })
+    // Keep "name" as-is; caller may set a new default name for the new project
+  }
+
+  private async loadExistingTestPlanBanner(projectId: string): Promise<void> {
+    if (!projectId) {
+      this.showExistingBanner = false
+      this.existingTestPlan = null
+      return
+    }
+
+    try {
+      const suite = await firstValueFrom(this.testLabService.getTestPlanByProject(projectId))
+      if (!suite) {
+        this.showExistingBanner = false
+        this.existingTestPlan = null
+        this.currentTestSuiteId = ''
+        return
+      }
+
+      this.existingTestPlan = {
+        suiteId: String(suite._id || '').trim(),
+        name: suite.nametest || suite.nom || 'Unnamed Test Plan',
+        specFileName: suite.specFileName || 'No spec document',
+      }
+      this.showExistingBanner = true
+    } catch (error) {
+      console.error('Error checking for existing test plan:', error)
+      this.showExistingBanner = false
+      this.existingTestPlan = null
+      this.currentTestSuiteId = ''
+    }
+  }
+
+  useExistingData(): void {
+    if (this.existingTestPlan) {
+      this.currentTestSuiteId = this.existingTestPlan.suiteId
+      this.testPlanForm.patchValue({
+        name: this.existingTestPlan.name,
+        specDocument: this.existingTestPlan.specFileName,
+      })
+      this.uploadedFileName = this.existingTestPlan.specFileName
+      this.selectedFile = null
+      this.toastr.info(
+        'Existing data loaded. Please re-upload the spec document file to generate plans.',
+        'Test Plan'
+      )
+    }
+    this.showExistingBanner = false
+  }
+
+  declineExistingData(): void {
+    const title = this.selectedProjectTitle
+    this.testPlanForm.patchValue({
+      name: title ? `${title} Test Suite` : '',
+      specDocument: ''
+    })
+    this.uploadedFileName = ''
+    this.selectedFile = null
+    this.showExistingBanner = false
+    this.existingTestPlan = null
+    this.currentTestSuiteId = ''
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -132,21 +283,21 @@ export class TestSuiteConfigurationComponent {
     this.styleConfig = value
   }
 
-  onNameTestChange(value: string) {
-    this.nameTest = value
-  }
-
   // 🔹 Sélection de fichier
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement | null
     const file = input?.files?.[0] || null
     this.selectedFile = file
     this.uploadedFileName = file?.name || ''
+    this.testPlanForm.patchValue({ specDocument: file?.name || '' })
   }
 
   // 🔹 Bouton "Generate Plan"
   onGeneratePlan() {
+    const hasProject = Boolean(String(this.testPlanForm.value.projectId || '').trim())
+    const hasFile = Boolean(this.selectedFile)
     void this.generatePlans()
+    if (hasProject && hasFile) this.scrollToPlansResult()
   }
 
   onValidatePlans() {
@@ -171,10 +322,11 @@ export class TestSuiteConfigurationComponent {
   // Remplacer onSaveSession() — retourne false si erreur et affiche toastr
   async onSaveSession(): Promise<boolean> {
     if (!this.testPlans.length || !this.currentTestSuiteId) return false
-    const suiteStatus = this.allPlansConfirmed ? 'complete' : 'incomplete'
+    const suiteStatus = this.allPlansConfirmed ? 'validated' : 'invalid'
     try {
       await firstValueFrom(
         this.testLabService.saveSuiteSession(this.currentTestSuiteId, {
+          sessionKind: 'validation',
           suiteStatus,
           planStatuses: this.planStatuses,
         })
@@ -229,7 +381,9 @@ export class TestSuiteConfigurationComponent {
     // Sauvegarder obligatoirement
     if (this.currentTestSuiteId) {
       const saved = await this.onSaveSession()
-      if (!saved) return  // bloquer la navigation si la sauvegarde échoue
+      if (!saved) {
+        this.toastr.warning('Unable to save session. Redirecting to test cases anyway.', 'Save')
+      }
     }
 
     // Naviguer vers /test-cases
@@ -266,7 +420,7 @@ export class TestSuiteConfigurationComponent {
     this.generatingPlans = false
     this.generatingCases = false
     this.finishing = false
-    this.nameTest = ''
+    this.testPlanForm.patchValue({ name: '' })
     this.uploadedFileName = ''
     this.selectedFile = null
     this.currentTestSuiteId = ''
@@ -519,7 +673,6 @@ export class TestSuiteConfigurationComponent {
     this.planStatuses = {}
     this.plansValidated = false
     this.sessionSaved = false
-    this.scrollToPlansResult()
 
     try {
       if (!this.selectedFile) {
@@ -528,7 +681,7 @@ export class TestSuiteConfigurationComponent {
         return
       }
 
-      if (!this.selectedProjectId.trim()) {
+      if (!this.testPlanForm.value.projectId?.trim()) {
         this.errorMessage = 'Veuillez choisir un projet.'
         this.toastr.warning(this.errorMessage, 'Projet')
         return
@@ -555,14 +708,14 @@ export class TestSuiteConfigurationComponent {
       )
       if (this.nameTest.trim()) formData.append('nametest', this.nameTest.trim())
       if (this.currentTestSuiteId) formData.append('testSuiteId', this.currentTestSuiteId)
-      formData.append('projectId', this.selectedProjectId.trim())
+      formData.append('projectId', this.testPlanForm.value.projectId.trim())
       formData.append('regenerate', regenerate ? 'true' : 'false')
 
       const result = await firstValueFrom(this.testLabService.generatePlanFromDocx(formData))
 
       this.currentTestSuiteId = String(result?.testSuiteId || '')
       if (String(result?.projectId || '').trim()) {
-        this.selectedProjectId = String(result?.projectId || '').trim()
+        this.testPlanForm.patchValue({ projectId: String(result?.projectId || '') })
       }
       this.testPlans = Array.isArray(result?.testPlans) ? result.testPlans : []
 
@@ -573,7 +726,6 @@ export class TestSuiteConfigurationComponent {
         this.errorMessage = 'Aucun test plan généré.'
         this.toastr.warning(this.errorMessage, 'Test Plan')
       } else {
-        this.scrollToPlansResult()
       }
     } catch (err: unknown) {
       const status = (err as any)?.status

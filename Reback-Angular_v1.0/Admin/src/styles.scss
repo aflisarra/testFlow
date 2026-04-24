@@ -500,7 +500,90 @@ body {
 .exec-btn-cancel:hover {
   background: rgba(238, 237, 243, 1);
 }
+/* ===========================================
+   CONSISTENT BUTTON STYLES
+   =========================================== */
 
+.btn-cancel {
+  background-color: #6c757d;
+  border-color: #6c757d;
+  color: #fff;
+  border-radius: 8px;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel:hover,
+.btn-cancel:focus {
+  background-color: #5a6268;
+  border-color: #5a6268;
+  color: #fff;
+}
+
+.btn-cancel:disabled {
+  background-color: #6c757d;
+  border-color: #6c757d;
+  opacity: 0.7;
+}
+
+.btn-generate,
+.btn-create,
+.btn-save,
+.btn-validate {
+  background-color: #ec8a00;
+  border-color: #ec8a00;
+  color: #fff;
+  border-radius: 8px;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.btn-generate:hover,
+.btn-create:hover,
+.btn-save:hover,
+.btn-validate:hover,
+.btn-generate:focus,
+.btn-create:focus,
+.btn-save:focus,
+.btn-validate:focus {
+  background-color: #e8680a;
+  border-color: #e8680a;
+  color: #fff;
+}
+
+.btn-generate:disabled,
+.btn-create:disabled,
+.btn-save:disabled,
+.btn-validate:disabled {
+  background-color: #fd7e14;
+  border-color: #fd7e14;
+  opacity: 0.7;
+}
+
+.btn-regenerate {
+  background-color: #3d8adde8;
+  border-color: #007bff;
+  color: #fff;
+  border-radius: 8px;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.btn-regenerate:hover,
+.btn-regenerate:focus {
+  background-color: #0056b3;
+  border-color: #0056b3;
+  color: #fff;
+}
+
+.btn-regenerate:disabled {
+  background-color: #007bff;
+  border-color: #007bff;
+  opacity: 0.7;
+}
 .exec-btn-save {
   background: #ec8a00;
   border: 1px solid #ec8a00;

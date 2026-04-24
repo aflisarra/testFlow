@@ -1,18 +1,19 @@
-import { CommonModule } from '@angular/common'
-import { CUSTOM_ELEMENTS_SCHEMA, Component, HostListener, OnInit, inject } from '@angular/core'
-import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms'
 import {
   AdminManagementService,
   AppProject,
   AppUser,
 } from '@/app/core/services/admin-management.service'
-import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
-import { ConfirmModalComponent } from '../admin/shared/confirm-modal.component'
-import { ToastrService } from 'ngx-toastr'
-import { Store } from '@ngrx/store'
 import { getUser } from '@/app/store/authentication/authentication.selector'
+import { CommonModule } from '@angular/common'
+import { CUSTOM_ELEMENTS_SCHEMA, Component, HostListener, OnInit, inject } from '@angular/core'
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms'
+import { Router } from '@angular/router'
+import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
+import { Store } from '@ngrx/store'
+import { ToastrService } from 'ngx-toastr'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
+import { ConfirmModalComponent } from '../admin/shared/confirm-modal.component'
 
 @Component({
   selector: 'app-project-management',
@@ -28,6 +29,7 @@ export class ProjectManagementComponent implements OnInit {
   private modalService = inject(NgbModal)
   private toastr = inject(ToastrService)
   private store = inject(Store)
+  private router = inject(Router)
 
   projects: AppProject[] = []
   users: AppUser[] = []
@@ -530,7 +532,14 @@ export class ProjectManagementComponent implements OnInit {
     return idMatch || emailMatch
   }
 
-
-
+  createTestPlanForProject(project: AppProject): void {
+    // Navigate to test-plan page with project pre-selected
+    this.router.navigate(['/test-plan'], {
+      queryParams: {
+        projectId: project._id,
+        projectName: project.title
+      }
+    })
+  }
 
 }

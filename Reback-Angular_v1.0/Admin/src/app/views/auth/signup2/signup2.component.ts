@@ -8,6 +8,6 @@ import { RouterLink } from '@angular/router'
   standalone: true,
   imports: [SocialBtnComponent, LogoBoxComponent, RouterLink],
   templateUrl: './signup2.component.html',
-  styles: ``,
+  styleUrls: ['./signup2.component.css'],
 })
 export class Signup2Component {}

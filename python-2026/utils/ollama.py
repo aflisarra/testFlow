@@ -135,6 +135,9 @@ def parse_json_from_ollama(text: str):
         for key in ("test_cases", "testCases", "cases", "results", "items"):
             if isinstance(obj.get(key), list):
                 return obj[key]
+        # Si c'est un objet unique avec les clés d'un test case, le wrapper dans une liste
+        if isinstance(obj, dict) and all(k in obj for k in ("id", "title", "steps", "expected_result")):
+            return [obj]
         return obj
 
     # ── Stratégie 5 : nettoyer les virgules finales (JSON5) ─

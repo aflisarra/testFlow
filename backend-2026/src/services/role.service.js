@@ -2,6 +2,7 @@ const Role = require('../models/role.model');
 //const roleService = require('../services/role.service');
 const RoleAction = require('../models/roleAction.model');
 const User = require('../models/user.model')
+const { isMongoObjectId } = require('../utils/mongo-objectid')
 
 // ✅ Create a new role
 // Input: { name: String, description: String, actions: [ObjectId] }
@@ -48,6 +49,7 @@ exports.getAllRoles = async () => {
 // Input: id (ObjectId)
 // Output: Role object or null if not found
 exports.getRoleById = async (id) => {
+  if (!isMongoObjectId(id)) return null
   return await Role.findById(id);
 };
 
@@ -55,6 +57,7 @@ exports.getRoleById = async (id) => {
 // Input: id (ObjectId), updateData (object with updated fields)
 // Output: Updated Role object or null if not found
 exports.updateRole = async (id, updateData) => {
+  if (!isMongoObjectId(id)) return null
   return await Role.findByIdAndUpdate(id, updateData, {
     new: true,
     runValidators: true
@@ -65,6 +68,7 @@ exports.updateRole = async (id, updateData) => {
 // Input: id (ObjectId)
 // Output: Deleted Role object or null if not found
 exports.deleteRole = async (id) => {
+  if (!isMongoObjectId(id)) return null
   const role = await Role.findById(id)
   if (!role) return null
 

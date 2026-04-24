@@ -3,29 +3,24 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
- password: {
-  type: String,
-  
-},
-
-
-  picture: { type: String },
-    language: {
+  password: {
     type: String,
-    enum: ['fr', 'en','es'], // pour éviter les valeurs invalides
-    default: 'fr'       // Français par défaut
   },
-  // Keep role name, but also store a reference to the Role document.
-  roleId: { type: Number, ref: 'Role' },
+  picture: { type: String },
+  language: {
+    type: String,
+    enum: ['fr', 'en', 'es'],
+    default: 'fr'
+  },
+  // Reference au document Role avec ObjectId (pas Number)
+  roleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Role' },
   role: {
     type: String,
     required: true,
   },
   description: String,
-  refreshToken: { type: String } ,// 👈 ajouté pour stocker le refresh
-
-
-   resetCode: { type: String }, // Code temporaire de réinitialisation du mot de passe
+  refreshToken: { type: String },
+  resetCode: { type: String },
   resetCodeExpires: { type: Date },
 });
 

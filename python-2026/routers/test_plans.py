@@ -82,37 +82,61 @@ def _build_prompt(spec_text: str, style_config: str, project_title: str = "") ->
         else "UI Design Config: (none — skip Visual/UI plan)"
     )
 
-    # Exemple concret avec descriptions courtes (max 10 mots)
-    # Mistral imite l'exemple → descriptions courtes garanties
+    project_block = (
+        f"Project: {project_title}"
+        if (project_title or "").strip()
+        else "Project: (not provided)"
+    )
+
     example = (
         '[\n'
-        '  {"id": "TP-1", "title": "Authentication", "description": "Login logout and session expiry"},\n'
-        '  {"id": "TP-2", "title": "Form Validation", "description": "Required fields format and error messages"}\n'
+        '  {"id": "TP-1", "title": "Authentication Flow", '
+        '"description": "Login logout and session expiry"},\n'
+        '  {"id": "TP-2", "title": "Input Validation", '
+        '"description": "Email format password rules and empty fields"},\n'
+        '  {"id": "TP-3", "title": "Security & Lockout", '
+        '"description": "Brute force account lock and HTTPS enforcement"},\n'
+        '  {"id": "TP-4", "title": "UI & Accessibility", '
+        '"description": "Labels keyboard navigation and error visibility"}\n'
         ']'
     )
 
-    project_block = f"Project: {project_title}" if (project_title or "").strip() else "Project: (not provided)"
-
     return (
         "<s>[INST]\n"
-        "You are a senior QA engineer. Your only task is to output a JSON array of test plan objects.\n\n"
-        "### Output format\n"
+        "You are a senior QA engineer following IEEE 829 and ISTQB standards.\n"
+        "Your only task is to output a JSON array of test plan objects.\n\n"
+
+        "### Scoping rules (critical — read carefully)\n"
+        "- Each plan must cover a DISTINCT, NON-OVERLAPPING area of the application.\n"
+        "- NEVER create two plans that test the same field or behavior from different angles.\n"
+        "  BAD example: 'Email Validation' + 'Password Validation' as two separate plans.\n"
+        "  GOOD example: 'Input Validation' covering both email and password rules.\n"
+        "- Plans must be at the FEATURE level, not the individual field level.\n"
+        "- A test scenario topic must appear in EXACTLY ONE plan.\n"
+        "- Between 4 and 6 plans total. Prefer broader, well-scoped plans.\n\n"
+
+        "### Real-world test plan areas to consider\n"
+        "Choose only areas relevant to the spec: Functional flow, Input validation, "
+        "Error handling & recovery, Security & access control, Performance, "
+        "UI & accessibility, Integration & data flow.\n\n"
+
+        "### Output format (strict)\n"
         "- A raw JSON array. No markdown, no backticks, no prose before or after.\n"
         "- Each object has exactly 3 keys: \"id\", \"title\", \"description\".\n"
-        "- \"id\": string, format TP-N (e.g. TP-1, TP-2 ...)\n"
-        "- \"title\": string, max 6 words, names a distinct test area\n"
-        "- \"description\": string, maximum 10 words, no punctuation at the end\n"
-        "- Between 4 and 10 objects total.\n"
+        "- \"id\": string, format TP-N\n"
+        "- \"title\": string, max 6 words, feature-level name\n"
+        "- \"description\": string, max 12 words, lists what is covered\n"
         "- Include a Visual/UI plan only if UI Design Config is provided.\n\n"
+
         "### Example output\n"
         f"{example}\n\n"
+
         f"### {project_block}\n\n"
         f"### {style_block}\n\n"
         "### Specification\n"
         f"{spec_short}\n"
         "[/INST]"
     )
-
 
 def _normalize_plan_id(value: object, index: int) -> str:
     text = str(value).strip() if value is not None else ""

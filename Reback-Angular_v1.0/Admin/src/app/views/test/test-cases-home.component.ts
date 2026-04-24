@@ -17,8 +17,8 @@ import {
   type TestSuiteDto,
 } from '@/app/core/services/testlab.service'
 
-type PlanExecutionStatus = 'pending' | 'generating' | 'completed' | 'incomplete'
-type SuiteSessionStatus = 'complete' | 'incomplete'
+type PlanValidationStatus = 'pending' | 'generating' | 'reviewing' | 'confirmed'
+type SuiteSessionStatus = 'validated' | 'invalid'
 
 @Component({
   selector: 'app-test-cases-home',
@@ -48,7 +48,7 @@ export class TestCasesHomeComponent {
   loadingSuitePlans: Record<string, boolean> = {}
 
   plans: TestPlanDto[] = []
-  planStatuses: Record<string, PlanExecutionStatus> = {}
+  planStatuses: Record<string, PlanValidationStatus> = {}
   testCasesByPlan: Record<string, TestCaseDto[]> = {}
   expandedPlans: Record<string, boolean> = {}
 
@@ -75,13 +75,15 @@ export class TestCasesHomeComponent {
     return all
   }
 
-  getPlanStatus(planId: string): PlanExecutionStatus {
-    if (this.planStatuses[planId] === 'generating') return 'generating'
-    return (this.testCasesByPlan[planId] || []).length > 0 ? 'completed' : 'incomplete'
+  getPlanStatus(planId: string): PlanValidationStatus {
+    const current = this.planStatuses[planId]
+    if (current === 'generating') return 'generating'
+    if (current === 'confirmed') return 'confirmed'
+    return (this.testCasesByPlan[planId] || []).length > 0 ? 'reviewing' : 'pending'
   }
 
   getCompletionLabel(planId: string): 'Validated' | 'Not validated' {
-    return this.getPlanStatus(planId) === 'completed' ? 'Validated' : 'Not validated'
+    return this.getPlanStatus(planId) === 'confirmed' ? 'Validated' : 'Not validated'
   }
 
   getSuiteCardStatus(suite: TestSuiteDto): 'Validated' | 'Not validated' {
@@ -204,7 +206,10 @@ export class TestCasesHomeComponent {
       this.modalSubscription?.unsubscribe()
       this.modalSubscription = null
       this.modalGenerating = false
-      if (this.modalPlan) this.planStatuses[this.modalPlan.id] = 'incomplete'
+      if (this.modalPlan) {
+        this.planStatuses[this.modalPlan.id] =
+          (this.testCasesByPlan[this.modalPlan.id] || []).length > 0 ? 'reviewing' : 'pending'
+      }
     }
     this.modalOpen = false
     this.modalPlan = null
@@ -232,11 +237,11 @@ export class TestCasesHomeComponent {
         this.modalCases = resp?.testCases || []
         this.liveCases = [...this.modalCases]
         this.testCasesByPlan[plan.id] = this.modalCases
-        this.planStatuses[plan.id] = this.modalCases.length ? 'completed' : 'incomplete'
+        this.planStatuses[plan.id] = this.modalCases.length ? 'reviewing' : 'pending'
         this.toastr.success(`Test cases ${regenerate ? 'regenerated' : 'generated'} for ${plan.id}`, 'Generation')
       },
       error: (err: unknown) => {
-        this.planStatuses[plan.id] = 'incomplete'
+        this.planStatuses[plan.id] = 'pending'
         this.errorMessage = (err as any)?.error?.message || 'Unable to generate test cases'
         this.modalGenerating = false
       },
@@ -261,21 +266,22 @@ export class TestCasesHomeComponent {
       testCases: this.modalCases,
     }]
 
-    const normalizedStatuses = { ...this.planStatuses }
-    normalizedStatuses[plan.id] = this.modalCases.length ? 'completed' : 'incomplete'
+    const normalizedStatuses: Record<string, PlanValidationStatus> = { ...this.planStatuses }
+    normalizedStatuses[plan.id] = 'confirmed'
 
-    const suiteStatus: SuiteSessionStatus = this.allPlans.every(
-      p => (normalizedStatuses[p.id] || this.getPlanStatus(p.id)) === 'completed'
-    ) ? 'complete' : 'incomplete'
+    const suiteStatus: SuiteSessionStatus = this.allPlans.length > 0 && this.allPlans.every(
+      p => (normalizedStatuses[p.id] || this.getPlanStatus(p.id)) === 'confirmed'
+    ) ? 'validated' : 'invalid'
 
     this.testLabService.saveSuiteSession(this.testSuiteId, {
+      sessionKind: 'validation',
       suiteStatus,
       planStatuses: normalizedStatuses,
       testCasesByPlan,
     }).subscribe({
       next: () => {
         this.testCasesByPlan[plan.id] = [...this.modalCases]
-        this.planStatuses[plan.id] = this.modalCases.length ? 'completed' : 'incomplete'
+        this.planStatuses[plan.id] = 'confirmed'
         this.toastr.success(`Plan ${plan.id} saved successfully.`, 'Saved')
         this.closeModal()
       },
@@ -293,15 +299,14 @@ export class TestCasesHomeComponent {
   onSaveAll() {
     if (!this.testSuiteId) return
 
-    const normalizedStatuses: Record<string, PlanExecutionStatus> = {}
+    const normalizedStatuses: Record<string, PlanValidationStatus> = {}
     for (const plan of this.allPlans) {
-      const s = this.getPlanStatus(plan.id)
-      normalizedStatuses[plan.id] = s === 'generating' ? 'incomplete' : s
+      normalizedStatuses[plan.id] = this.getPlanStatus(plan.id)
     }
 
-    const suiteStatus: SuiteSessionStatus = this.allPlans.every(
-      p => normalizedStatuses[p.id] === 'completed'
-    ) ? 'complete' : 'incomplete'
+    const suiteStatus: SuiteSessionStatus = this.allPlans.length > 0 && this.allPlans.every(
+      p => normalizedStatuses[p.id] === 'confirmed'
+    ) ? 'validated' : 'invalid'
 
     const testCasesByPlan = this.allPlans.map(p => ({
       planId: p.id,
@@ -310,6 +315,7 @@ export class TestCasesHomeComponent {
     }))
 
     this.testLabService.saveSuiteSession(this.testSuiteId, {
+      sessionKind: 'validation',
       suiteStatus,
       planStatuses: normalizedStatuses,
       testCasesByPlan,
@@ -330,28 +336,14 @@ export class TestCasesHomeComponent {
   getPlanValidationLabel(planId: string): 'Validated' | 'Not validated' | 'Generating...' {
     const status = this.getPlanStatus(planId)
     if (status === 'generating') return 'Generating...'
-    return (this.testCasesByPlan[planId] || []).length > 0 ? 'Validated' : 'Not validated'
+    return status === 'confirmed' ? 'Validated' : 'Not validated'
   }
 
   private isSuiteValidated(suite: TestSuiteDto): boolean {
-    const suiteId = String(suite?._id || '').trim()
-    const loadedPlans = this.suitePlans[suiteId]
-    const plans = (loadedPlans?.length ? loadedPlans : (suite?.testPlans || [])) as TestPlanDto[]
-    if (!plans.length) return false
-
-    const hasAllCases = plans.every((p) => (this.testCasesByPlan[p.id] || []).length > 0)
-    if (hasAllCases) return true
-
-    const suiteBlocks = Array.isArray((suite as any)?.testCasesByPlan) ? (suite as any).testCasesByPlan : []
-    if (suiteBlocks.length) {
-      const byPlan = new Map<string, number>()
-      for (const block of suiteBlocks) {
-        byPlan.set(String(block?.planId || '').trim(), Array.isArray(block?.testCases) ? block.testCases.length : 0)
-      }
-      return plans.every((p) => (byPlan.get(String(p.id || '').trim()) || 0) > 0)
-    }
-
-    return false
+    return (
+      String(suite?.status || '').toLowerCase().trim() === 'validated' ||
+      String(suite?.validationStatus || '').toLowerCase().trim() === 'validated'
+    )
   }
 
   // ── Private ───────────────────────────────────────────────────────────
@@ -384,12 +376,20 @@ export class TestCasesHomeComponent {
       }
       this.initializePlanStatuses(this.plans)
 
-      for (const row of Array.isArray(resp?.planStatuses) ? resp.planStatuses : []) {
-        if (row?.planId) this.planStatuses[row.planId] = String(row.status || 'pending') as PlanExecutionStatus
+      const rows = Array.isArray(resp?.validationPlanStatuses)
+        ? resp.validationPlanStatuses
+        : (Array.isArray(resp?.planStatuses) ? resp.planStatuses : [])
+      for (const row of rows) {
+        const planId = String((row as any)?.planId || '').trim()
+        const status = String((row as any)?.status || '').toLowerCase().trim()
+        if (!planId) continue
+        if (status === 'pending' || status === 'generating' || status === 'reviewing' || status === 'confirmed') {
+          this.planStatuses[planId] = status as PlanValidationStatus
+        }
       }
       for (const p of this.plans) {
         if ((this.testCasesByPlan[p.id] || []).length > 0 && !this.planStatuses[p.id]) {
-          this.planStatuses[p.id] = 'completed'
+          this.planStatuses[p.id] = 'reviewing'
         }
       }
 

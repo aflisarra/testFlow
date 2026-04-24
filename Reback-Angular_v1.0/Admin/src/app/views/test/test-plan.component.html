@@ -16,8 +16,41 @@
     @if (errorMessage) {
     <div class="alert alert-danger mb-4">{{ errorMessage }}</div>
     }
+
+    <!-- Existing Test Plan Banner -->
+    @if (showExistingBanner && existingTestPlan) {
+    <div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
+      <div class="d-flex align-items-center">
+        <iconify-icon icon="iconamoon:info-circle-duotone" class="me-2"></iconify-icon>
+        <div>
+          <strong>A test plan already exists for this project.</strong><br>
+          <small>
+            <iconify-icon icon="iconamoon:text-duotone" class="me-1"></iconify-icon>
+            Name: <strong>{{ existingTestPlan.name }}</strong><br>
+            <iconify-icon icon="iconamoon:document-duotone" class="me-1"></iconify-icon>
+            Spec Document: <strong>{{ existingTestPlan.specFileName }}</strong>
+          </small>
+        </div>
+      </div>
+      <div class="mt-3">
+        <strong>Do you want to use this recent data?</strong>
+      </div>
+      <div class="mt-2">
+        <button type="button" class="btn btn-primary btn-sm me-2" (click)="useExistingData()">
+          <iconify-icon icon="iconamoon:check-circle-duotone"></iconify-icon>
+          Yes, use it
+        </button>
+        <button type="button" class="btn btn-cancel btn-sm" (click)="declineExistingData()">
+          <iconify-icon icon="iconamoon:close-circle-duotone"></iconify-icon>
+          No, start fresh
+        </button>
+      </div>
+      <button type="button" class="btn-close" (click)="showExistingBanner = false" aria-label="Close"></button>
+    </div>
+    }
+
     <!-- New layout (keep legacy block hidden below) -->
-    <div class="row g-3 align-items-stretch testlab-form-grid">
+    <div class="row g-3 align-items-stretch testlab-form-grid" [formGroup]="testPlanForm">
       <div class="col-12 col-lg-7">
         <div class="testlab-stack">
           <!-- Project Selection -->
@@ -34,8 +67,8 @@
                 <div class="testlab-select-icon">
                   <iconify-icon icon="iconamoon:folder-open-duotone"></iconify-icon>
                 </div>
-                <select class="form-select testlab-project-select" [(ngModel)]="selectedProjectId"
-                  [disabled]="loadingProjects || generatingPlans">
+                <select class="form-select testlab-project-select" formControlName="projectId"
+                  [disabled]="loadingProjects || generatingPlans" (change)="onProjectChange()">
                   <option value="">-- Select a project --</option>
                   @for (p of projects; track p._id) {
                   <option [value]="p._id">{{ p.title }}</option>
@@ -77,12 +110,11 @@
               <span class="testlab-step-chip">STEP 2</span>
             </label>
             <div class="testlab-input-wrapper">
-              <iconify-icon icon="iconamoon:information-circle-duotone" class="testlab-input-icon-left"></iconify-icon>
+              <iconify-icon icon="iconamoon:text-duotone" class="testlab-input-icon-left"></iconify-icon>
               <input type="text" class="testlab-input testlab-input--with-icon"
-                placeholder="Enter a descriptive name for your test suite" [value]="nameTest"
-                (input)="onNameTestChange($any($event.target).value)" />
-              <iconify-icon icon="iconamoon:check-circle-1-duotone" class="testlab-input-icon-check"
-                *ngIf="nameTest"></iconify-icon>
+              placeholder="Enter a descriptive name for your test suite" formControlName="name" />
+            <iconify-icon icon="iconamoon:check-circle-1-duotone" class="testlab-input-icon-check"
+              *ngIf="testPlanForm.get('name')?.value"></iconify-icon>
             </div>
           </div>
 
@@ -134,6 +166,14 @@
               </div>
               }
             </div>
+
+            <div class="testlab-input-wrapper mt-3">
+              <iconify-icon icon="iconamoon:document-duotone" class="testlab-input-icon-left"></iconify-icon>
+              <input type="text" class="testlab-input testlab-input--with-icon" formControlName="specDocument"
+                placeholder="No spec document selected" readonly />
+              <iconify-icon icon="iconamoon:check-circle-1-duotone" class="testlab-input-icon-check"
+                *ngIf="testPlanForm.get('specDocument')?.value"></iconify-icon>
+            </div>
           </div>
 
           <!-- Finalize + CTA -->
@@ -142,7 +182,7 @@
             <div class="testlab-summary-title">Review your configurations and initiate test plan generation</div>
             <div class="testlab-summary-meta">Estimated time: 1-2 minutes</div>
 
-            <button class="btn btn-brand w-100 mt-3 py-3 testlab-generate-btn testlab-generate-btn--wide" type="button"
+            <button class="btn btn-generate w-100 mt-3 py-3 testlab-generate-btn testlab-generate-btn--wide" type="button"
               [disabled]="generatingPlans" (click)="onGeneratePlan()">
               <span>{{ generatingPlans ? 'Generating Test Plans...' : 'Generate Test Plan' }}</span>
               <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
@@ -192,8 +232,8 @@
               <div class="testlab-select-icon">
                 <iconify-icon icon="iconamoon:folder-open-duotone"></iconify-icon>
               </div>
-              <select class="form-select testlab-project-select" [(ngModel)]="selectedProjectId"
-                [disabled]="loadingProjects || generatingPlans">
+                <select class="form-select testlab-project-select" formControlName="projectId"
+                  [disabled]="loadingProjects || generatingPlans" (change)="onProjectChange()">
                 <option value="">-- Select a project --</option>
                 @for (p of projects; track p._id) {
                 <option [value]="p._id">{{ p.title }}</option>
@@ -283,7 +323,7 @@
 
     <!-- Generate Button -->
     <div class="testlab-cta justify-content-center mt-5">
-      <button class="btn btn-brand px-5 py-3 testlab-generate-btn" type="button" [disabled]="generatingPlans"
+      <button class="btn btn-generate px-5 py-3 testlab-generate-btn" type="button" [disabled]="generatingPlans"
         (click)="onGeneratePlan()">
         <iconify-icon icon="iconamoon:sparkles-duotone"></iconify-icon>
         <span>{{ generatingPlans ? 'Generating Test Plans...' : 'Generate Test Plan' }}</span>
@@ -294,7 +334,7 @@
     @if (generatingPlans || testPlans.length) {
 
     <!-- Test Plans Result Zone -->
-    <div #plansResult class="testlab-card p-4 mt-5">
+    <div #plansResult id="plansResult" class="testlab-card p-4 mt-5">
       @if (generatingPlans) {
       <div class="d-flex align-items-start justify-content-between gap-3 mb-4">
         <div>
@@ -321,9 +361,9 @@
         </div>
 
         <div class="testlab-actions mt-4 w-100">
-          <button type="button" class="btn btn-outline-secondary px-4" disabled>Cancel</button>
-          <button type="button" class="btn btn-outline-primary px-4" disabled>Regenerate</button>
-          <button type="button" class="btn btn-brand px-4" disabled>Validate &amp; Next</button>
+          <button type="button" class="btn btn-cancel px-4" disabled>Cancel</button>
+          <button type="button" class="btn btn-regenerate px-4" disabled>Regenerate</button>
+          <button type="button" class="btn btn-validate px-4" disabled>Validate &amp; Next</button>
         </div>
       </div>
 
@@ -354,7 +394,7 @@
                   [icon]="planStatuses[plan.id] === 'confirmed' ? 'iconamoon:check-circle-1-duotone' : 'iconamoon:clock-duotone'"></iconify-icon>
                 {{ planStatuses[plan.id] === 'confirmed' ? 'Validated' : 'Not validated' }}
               </span>
-              <button type="button" class="btn btn-sm testlab-validate-btn"
+              <button type="button" class="btn btn-sm btn-validate testlab-validate-btn"
                 [ngClass]="planStatuses[plan.id] === 'confirmed' ? 'btn-success' : 'btn-outline-success'"
                 [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
                 (click)="onTogglePlanValidation(plan.id)">
@@ -366,7 +406,7 @@
                 <span>Validate</span>
                 }
               </button>
-              <button type="button" class="btn btn-sm btn-outline-primary testlab-regenerate-btn"
+              <button type="button" class="btn btn-sm btn-regenerate testlab-regenerate-btn"
                 [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
                 (click)="onRegeneratePlan(plan, i)">
                 @if (regeneratingPlanId === plan.id) {
@@ -386,15 +426,15 @@
 
       <!-- Actions -->
       <div class="testlab-actions mt-4">
-        <button type="button" class="btn btn-outline-secondary px-4" (click)="onCancelPlans()">
+        <button type="button" class="btn btn-cancel px-4" (click)="onCancelPlans()">
           <iconify-icon icon="iconamoon:close-duotone"></iconify-icon>
           Cancel
         </button>
-        <button type="button" class="btn btn-outline-primary px-4" (click)="onRegeneratePlans()">
+        <button type="button" class="btn btn-regenerate px-4" (click)="onRegeneratePlans()">
           <iconify-icon icon="iconamoon:restart-duotone"></iconify-icon>
           Regenerate (All)
         </button>
-        <button type="button" class="btn btn-brand px-4" [disabled]="finishing || !allPlansConfirmed"
+        <button type="button" class="btn btn-validate px-4" [disabled]="finishing || !allPlansConfirmed"
           (click)="onValidateAndGoToCases()">
           <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
           Validate &amp; Generate test Case
@@ -533,7 +573,7 @@
               </div>
             </div>
             <!-- Delete Test Case -->
-            <button type="button" class="btn btn-sm btn-outline-danger testlab-delete-btn"
+            <button type="button" class="btn btn-sm btn-cancel testlab-delete-btn"
               (click)="onDeleteTestCase(currentPlan.id, tc.id)" title="Remove test case">
               <iconify-icon icon="iconamoon:trash-duotone"></iconify-icon>
             </button>
@@ -569,20 +609,20 @@
       <!-- Current Plan Actions -->
       <div class="testlab-actions mt-5">
         <!-- Previous Plan Button -->
-        <button type="button" class="btn btn-outline-secondary px-3"
-          [disabled]="currentPlanIndex === 0 || generatingCases" (click)="onGoToPreviousPlan()">
+        <button type="button" class="btn btn-cancel px-3"
+          [disabled]="generatingCases" (click)="onGoToPreviousPlan()">
           <iconify-icon icon="iconamoon:arrow-left-2-duotone"></iconify-icon>
           Previous
         </button>
 
         <!-- Tools: Copy / Download -->
-        <button type="button" class="btn btn-outline-secondary px-3"
+        <button type="button" class="btn btn-cancel px-3"
           [disabled]="generatingCases || !currentTestCases.length" (click)="onCopyCurrentPlan()"
           title="Copy to clipboard">
           <iconify-icon icon="iconamoon:copy-duotone"></iconify-icon>
           <span>Copy</span>
         </button>
-        <button type="button" class="btn btn-outline-secondary px-3"
+        <button type="button" class="btn btn-cancel px-3"
           [disabled]="generatingCases || !currentTestCases.length" (click)="onDownloadCurrentPlan()"
           title="Download .txt">
           <iconify-icon icon="iconamoon:download-duotone"></iconify-icon>

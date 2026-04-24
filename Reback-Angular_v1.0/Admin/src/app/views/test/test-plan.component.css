@@ -173,7 +173,7 @@
 .testlab-input {
     width: 100%;
     border: 1.5px solid #d8e1ee;
-    background: #fcfdff;
+    background: #f5f7fa;
     border-radius: 12px;
     padding: 1rem 1.2rem;
     padding-right: 2.5rem;
@@ -240,10 +240,12 @@
 }
 
 .testlab-card-title-left {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-sm);
-    min-width: 0;
+    font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #475569;
+  margin-bottom: 3px;
 }
 
 .testlab-step-chip {
@@ -360,7 +362,7 @@
     width: 100%;
     border-radius: 12px;
     border: 1.5px solid #d8e1ee;
-    background: #fcfdff;
+    background: #f5f7fa;
     padding: 0.95rem 1rem 0.95rem 2.8rem;
     font-family: var(--font-body);
     font-weight: 500;
@@ -444,7 +446,7 @@
 .testlab-textarea {
     width: 100%;
     border: 1.5px solid #d8e1ee;
-    background: #fcfdff;
+    background: #f5f7fa;
     border-radius: 12px;
     padding: 1rem 1.2rem 1rem 2.8rem;
     font-family: var(--font-mono);
@@ -513,8 +515,14 @@
 .testlab-validate-btn {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-sm);
+    gap: 0.55rem;
     white-space: nowrap;
+     background: #ec8a00;
+  border: 1px solid #ec8a00;
+  color: #ffffff;
+  font-weight: 400 !important;
+ margin-top: 0.6rem;
+
 }
 
 .testlab-dropzone::before {
@@ -674,6 +682,7 @@
 }
 
 .testlab-regenerate-btn {
+    background-color: #3d8adde8;
     display: inline-flex;
     align-items: center;
     gap: var(--space-sm);

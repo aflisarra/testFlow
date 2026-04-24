@@ -12,6 +12,8 @@ router.get('/', controller.getAll);
 
 router.get('/user/:userId', controller.getByUser);
 
+router.get('/project/:projectId', controller.getByProject);
+
 router.get('/:id/plans', requireTestSuiteAccess, controller.getPlans)
 
 router.patch('/:id/session', requireTestSuiteAccess, controller.saveSession);

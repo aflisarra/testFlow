@@ -1,12 +1,12 @@
+import {
+    AdminManagementService,
+    AppRole,
+    AppUser,
+} from '@/app/core/services/admin-management.service'
 import { CommonModule } from '@angular/common'
-import { Component, Input, OnInit, inject } from '@angular/core'
+import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, Input, OnInit } from '@angular/core'
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms'
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap'
-import {
-  AdminManagementService,
-  AppRole,
-  AppUser,
-} from '@/app/core/services/admin-management.service'
 
 @Component({
   selector: 'app-user-upsert-modal',
@@ -14,6 +14,7 @@ import {
   imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './user-upsert-modal.component.html',
   styleUrls: ['./user-upsert-modal.component.css'],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class UserUpsertModalComponent implements OnInit {
   private fb = inject(FormBuilder)

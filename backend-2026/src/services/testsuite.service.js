@@ -13,7 +13,84 @@ const axios = require("axios");
 const TestSuite = require("../models/testsuite");
 const PlanTest = require("../models/plantest.model");
 const Project = require("../models/project.model");
+const MESSAGES = require('../constants/messages.js');
 
+function computeSuiteStatusKey(suite) {
+    const normalized = normalizeSuiteSessionState(suite)
+    if (normalized.execution) return normalized.execution
+    return normalized.validation
+}
+
+function normalizePlanStatusRows(rows) {
+    return (Array.isArray(rows) ? rows : [])
+        .map((p) => ({
+            planId: String(p?.planId || '').trim(),
+            status: String(p?.status || '').toLowerCase().trim(),
+        }))
+        .filter((p) => p.planId && p.status)
+}
+
+function normalizeSuiteSessionState(suite) {
+    const validationPlanRows = normalizePlanStatusRows(suite?.validationPlanStatuses)
+    const executionPlanRows = normalizePlanStatusRows(suite?.executionPlanStatuses)
+
+    let validationStatus = String(suite?.validationStatus || '').toLowerCase().trim()
+    if (!['validated', 'invalid'].includes(validationStatus)) validationStatus = ''
+
+    let executionStatus = String(suite?.executionStatus || '').toLowerCase().trim()
+    if (!['completed', 'incomplete'].includes(executionStatus)) executionStatus = ''
+
+    const legacyPlanRows = normalizePlanStatusRows(suite?.planStatuses)
+    const legacySessionStatus = String(suite?.sessionStatus || '').toLowerCase().trim()
+
+    const legacyValidationRows = legacyPlanRows.filter((p) =>
+        ['pending', 'generating', 'reviewing', 'confirmed', 'rejected'].includes(p.status)
+    )
+    const legacyExecutionRows = legacyPlanRows.filter((p) =>
+        ['completed', 'incomplete'].includes(p.status)
+    )
+
+    const inferredValidationPlanRows =
+        validationPlanRows.length > 0 ? validationPlanRows : legacyValidationRows
+    const inferredExecutionPlanRows =
+        executionPlanRows.length > 0 ? executionPlanRows : legacyExecutionRows
+
+    const inferredExecution =
+        executionStatus ||
+        (inferredExecutionPlanRows.length > 0
+            ? inferredExecutionPlanRows.some((p) => p.status === 'incomplete')
+                ? 'incomplete'
+                : inferredExecutionPlanRows.every((p) => p.status === 'completed')
+                    ? 'completed'
+                    : ''
+            : '')
+
+    const inferredValidation =
+        validationStatus ||
+        (inferredValidationPlanRows.length > 0
+            ? inferredValidationPlanRows.every((p) => p.status === 'confirmed') ? 'validated' : 'invalid'
+            : '')
+
+    // Legacy fallback when we only have suite.sessionStatus
+    const legacyOnly =
+        !inferredExecution &&
+        !inferredValidation &&
+        (legacySessionStatus === 'complete' || legacySessionStatus === 'incomplete')
+
+    if (legacyOnly) {
+        // Old flows used `complete` to mean "validated" (plan config) or "completed" (execution).
+        // When we don't have per-plan rows, prefer treating it as validation.
+        return {
+            execution: '',
+            validation: legacySessionStatus === 'complete' ? 'validated' : 'invalid',
+        }
+    }
+
+    return {
+        execution: inferredExecution,
+        validation: inferredValidation || 'invalid',
+    }
+}
 // ============================================================
 // HELPERS UTILITAIRES
 // ============================================================
@@ -83,10 +160,10 @@ function normalizeFastApiError(error) {
         error?.response?.data?.reply ||
         error?.response?.data?.error ||
         error?.message ||
-        "FastAPI request failed";
+        MESSAGES.TESTSUITE.FAILED;
     const normalized = new Error(message);
     normalized.statusCode = status || 500;
-    normalized.code = error?.code || "FASTAPI_ERROR";
+    normalized.code = error?.code || MESSAGES.TESTSUITE.ERROR;
     return normalized;
 }
 
@@ -176,47 +253,6 @@ async function extractDocxText(buffer) {
         return extractTextFromDocumentXml(xml);
     } finally {
         await fs.rm(tempRoot, { recursive: true, force: true }).catch(() => { });
-    }
-}
-
-// ============================================================
-// FONCTION PRINCIPALE 2 : Appeler FastAPI → Ollama
-// Remplace generatePlanTest() de ai.service.js
-// ============================================================
-async function callFastApiGeneratePlan(description, urlCible) {
-    // Construit le prompt envoyé à Ollama llama3
-    const prompt = [
-        "Tu es un assistant QA.",
-        "Génère un plan de test E2E clair et actionnable.",
-        "Réponds uniquement par un JSON array de strings (sans texte autour).",
-        "Chaque élément est une étape concise (max 1 phrase).",
-        "Entre 6 et 15 étapes.",
-        "",
-        `Description: ${String(description || "").trim()}`,
-        `URL cible: ${String(urlCible || "").trim()}`,
-    ].join("\n");
-
-    try {
-        // Appelle FastAPI POST /chat (qui appelle Ollama en interne)
-        const client = axios.create({
-            baseURL: getFastApiBaseUrl(),
-            timeout: 125_000,
-            headers: { "Content-Type": "application/json" },
-        });
-
-        const response = await client.post("/chat", { message: prompt });
-        const content = response?.data?.reply;
-
-        const steps = parseStepsFromModel(content);
-        if (!steps.length) {
-            const error = new Error("AI returned empty plan");
-            error.statusCode = 502;
-            throw error;
-        }
-
-        return steps.slice(0, 50);
-    } catch (error) {
-        throw normalizeFastApiError(error);
     }
 }
 
@@ -378,18 +414,10 @@ async function generatePlan({
         await PlanTest.deleteMany({ testSuiteId });
     }
 
-    // Étape 5 : Appeler FastAPI → Ollama pour générer le plan
-    const steps = await callFastApiGeneratePlan(combinedDescription, urlCible);
-
-    // Étape 6 : Sauvegarder les steps dans MongoDB
-    const plans = await saveEmbeddedPlanSteps(steps, testSuiteId);
-
-    return {
-        testSuiteId,
-        steps: plans.map((p) => p.contenu),
-        plans,
-        reused: false,
-    };
+    // Étape 5 : La génération de plan a été déplacée vers le service Python FastAPI
+    const error = new Error("Plan generation has been moved to Python FastAPI service. Use /generate-plan endpoint instead.");
+    error.statusCode = 410; // Gone
+    throw error;
 }
 
 // ============================================================
@@ -441,7 +469,7 @@ async function getTestSuitesByUser(userId) {
             { projectId: null, userId: safeUserId },
         ],
     })
-        .select('_id nom nametest description specFileName urlCible testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt createdAt userId projectId')
+        .select('_id nom nametest description specFileName urlCible testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt createdAt userId projectId')
         .populate('userId', 'name email picture')
         .populate('projectId', 'title')
         .sort({ createdAt: -1 })
@@ -462,13 +490,82 @@ async function getTestSuitesByUser(userId) {
             projectTitle,
             creatorName: suite?.userId?.name || suite?.userId?.email || suite?.userId?.picture || 'Unknown User',
             totalTestCases,
+            status: computeSuiteStatusKey(suite),
         }
     })
 }
 
-async function getTestPlansByTestSuiteId(testSuiteId) {
-    const suite = await TestSuite.findById(testSuiteId)
-        .select('_id testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt')
+async function getAllTestSuites(viewerUserId) {
+    const safeUserId = String(viewerUserId || '').trim();
+
+    const projects = safeUserId
+        ? await Project.find({
+            $or: [
+                { ownerId: safeUserId },
+                { assignedUsers: safeUserId }
+            ]
+        }).select('_id').lean()
+        : [];
+
+    const accessibleProjectIds = new Set((projects || []).map((p) => String(p?._id || '').trim()).filter(Boolean));
+
+    const suites = await TestSuite.find({})
+        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt createdAt userId projectId')
+        .populate('userId', 'name email picture')
+        .populate('projectId', 'title')
+        .sort({ createdAt: -1 })
+        .lean()
+
+    return suites.map((suite) => {
+        const totalTestCases = (suite.testCasesByPlan || []).reduce((acc, plan) => {
+            return acc + ((plan?.testCases || []).length || 0)
+        }, 0)
+
+        const populatedProject = suite?.projectId && typeof suite.projectId === 'object' ? suite.projectId : null
+        const normalizedProjectId = populatedProject ? populatedProject._id : suite?.projectId || null
+        const projectTitle = populatedProject ? String(populatedProject.title || '').trim() : ''
+
+        const rawUser = suite?.userId && typeof suite.userId === 'object' ? suite.userId : null
+        const creatorName = rawUser?.name || rawUser?.email || 'Unknown User'
+        const picture = rawUser?.picture || null
+
+        const projectIdStr = normalizedProjectId ? String(normalizedProjectId) : ''
+        const canOpen = projectIdStr
+            ? accessibleProjectIds.has(projectIdStr)
+            : (safeUserId && String(rawUser?._id || suite?.userId || '').trim() === safeUserId)
+
+        return {
+            ...suite,
+            projectId: normalizedProjectId,
+            projectTitle,
+            creatorName,
+            picture,
+            canOpen: Boolean(canOpen),
+            totalTestCases,
+            status: computeSuiteStatusKey(suite),
+        }
+    })
+}
+
+async function getTestSuiteById(testSuiteId, viewerUserId) {
+    const safeTestSuiteId = String(testSuiteId || '').trim()
+    if (!safeTestSuiteId) {
+        const error = new Error('TestSuite id is required')
+        error.statusCode = 400
+        throw error
+    }
+
+    const suite = await TestSuite.findById(safeTestSuiteId)
+        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt createdAt userId projectId')
+        .populate('userId', 'name email picture')
+        .populate({
+            path: 'projectId',
+            select: 'title startDate endDate milestoneDate assignedUsers ownerId',
+            populate: [
+                { path: 'assignedUsers', select: 'name email picture' },
+                { path: 'ownerId', select: 'name email picture' },
+            ],
+        })
         .lean()
 
     if (!suite) {
@@ -477,37 +574,165 @@ async function getTestPlansByTestSuiteId(testSuiteId) {
         throw error
     }
 
+    const totalTestCases = (suite.testCasesByPlan || []).reduce((acc, plan) => {
+        return acc + ((plan?.testCases || []).length || 0)
+    }, 0)
+
+    const populatedProject = suite?.projectId && typeof suite.projectId === 'object' ? suite.projectId : null
+    const normalizedProjectId = populatedProject ? populatedProject._id : suite?.projectId || null
+    const projectTitle = populatedProject ? String(populatedProject.title || '').trim() : ''
+
+    const rawUser = suite?.userId && typeof suite.userId === 'object' ? suite.userId : null
+    const creatorName = rawUser?.name || rawUser?.email || 'Unknown User'
+    const picture = rawUser?.picture || null
+
+    // Middleware already validated access, but keep a safe canOpen flag for UI.
+    const safeViewerUserId = String(viewerUserId || '').trim()
+    const canOpen = Boolean(safeViewerUserId)
+
+    return {
+        ...suite,
+        projectId: normalizedProjectId ? populatedProject || normalizedProjectId : null,
+        projectTitle,
+        creatorName,
+        picture,
+        canOpen,
+        totalTestCases,
+        status: computeSuiteStatusKey(suite),
+    }
+}
+
+async function getTestPlansByTestSuiteId(testSuiteId) {
+    const suite = await TestSuite.findById(testSuiteId)
+        .select('_id testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt')
+
+    if (!suite) {
+        const error = new Error('TestSuite not found')
+        error.statusCode = 404
+        throw error
+    }
+
+    // Normalize plan IDs to prevent collisions (old suites may contain empty/duplicate ids).
+    const used = new Set()
+    let changed = false
+    const normalizedPlans = (Array.isArray(suite.testPlans) ? suite.testPlans : []).map((p, idx) => {
+        const fallbackId = `TP-${idx + 1}`
+        const baseId = String(p?.id || p?.planId || '').trim() || fallbackId
+        let nextId = baseId
+        let suffix = 2
+        while (!nextId || used.has(nextId)) {
+            nextId = `${baseId}-${suffix++}`
+        }
+        if (String(p?.id || '').trim() !== nextId) changed = true
+        used.add(nextId)
+        return {
+            id: nextId,
+            title: String(p?.title || `Test Plan ${idx + 1}`).trim(),
+            description: String(p?.description || '').trim(),
+        }
+    })
+
+    if (changed) {
+        suite.testPlans = normalizedPlans
+        await suite.save()
+    }
+
     return {
         testSuiteId: String(suite._id),
-        testPlans: suite.testPlans || [],
+        testPlans: normalizedPlans,
         testCasesByPlan: suite.testCasesByPlan || [],
         sessionStatus: suite.sessionStatus || 'incomplete',
         planStatuses: suite.planStatuses || [],
         sessionSavedAt: suite.sessionSavedAt || null,
+        validationStatus: suite.validationStatus || 'invalid',
+        validationPlanStatuses: suite.validationPlanStatuses || [],
+        validationSavedAt: suite.validationSavedAt || null,
+        executionStatus: suite.executionStatus || null,
+        executionPlanStatuses: suite.executionPlanStatuses || [],
+        executionSavedAt: suite.executionSavedAt || null,
     }
 }
 
 async function saveSuiteSession(testSuiteId, payload = {}) {
     const planStatusesInput = payload?.planStatuses || {}
-    const planStatuses = Object.entries(planStatusesInput)
+    const rawRows = Object.entries(planStatusesInput)
         .map(([planId, status]) => ({
             planId: String(planId || '').trim(),
-            status: String(status || '').trim(),
+            status: String(status || '').toLowerCase().trim(),
         }))
         .filter((item) => item.planId && item.status)
 
-    const suiteStatus = String(payload?.suiteStatus || 'incomplete').toLowerCase() === 'complete'
-        ? 'complete'
-        : 'incomplete'
+    const providedKind = String(payload?.sessionKind || payload?.kind || '').toLowerCase().trim()
+    const hasExecutionRows = rawRows.some((r) => ['completed', 'incomplete'].includes(r.status))
+    const sessionKind =
+        providedKind === 'validation' || providedKind === 'execution'
+            ? providedKind
+            : (hasExecutionRows ? 'execution' : 'validation')
 
-    const update = {
-        sessionStatus: suiteStatus,
-        planStatuses,
-        sessionSavedAt: new Date(),
+    const now = new Date()
+    const update = { sessionSavedAt: now }
+
+    // Fetch current suite to merge test cases (don't lose existing ones)
+    const currentSuite = await TestSuite.findById(testSuiteId).select('testCasesByPlan')
+    const existingCases = Array.isArray(currentSuite?.testCasesByPlan) ? currentSuite.testCasesByPlan : []
+
+    if (sessionKind === 'execution') {
+        const executionPlanStatuses = rawRows
+            .filter((r) => ['completed', 'incomplete'].includes(r.status))
+            .map((r) => ({ planId: r.planId, status: r.status }))
+
+        const executionStatus =
+            ['completed', 'incomplete'].includes(String(payload?.suiteStatus || '').toLowerCase().trim())
+                ? String(payload.suiteStatus).toLowerCase().trim()
+                : (executionPlanStatuses.length > 0 && executionPlanStatuses.every((r) => r.status === 'completed'))
+                    ? 'completed'
+                    : 'incomplete'
+
+        update.executionStatus = executionStatus
+        update.executionPlanStatuses = executionPlanStatuses
+        update.executionSavedAt = now
+
+        // Backward compatibility: keep old fields for execution only.
+        update.sessionStatus = executionStatus === 'completed' ? 'complete' : 'incomplete'
+        update.planStatuses = executionPlanStatuses
+    } else {
+        const validationPlanStatuses = rawRows
+            .filter((r) => ['pending', 'generating', 'reviewing', 'confirmed', 'rejected'].includes(r.status))
+            .map((r) => ({ planId: r.planId, status: r.status }))
+
+        const validationStatus =
+            ['validated', 'invalid'].includes(String(payload?.suiteStatus || '').toLowerCase().trim())
+                ? String(payload.suiteStatus).toLowerCase().trim()
+                : (validationPlanStatuses.length > 0 && validationPlanStatuses.every((r) => r.status === 'confirmed'))
+                    ? 'validated'
+                    : 'invalid'
+
+        update.validationStatus = validationStatus
+        update.validationPlanStatuses = validationPlanStatuses
+        update.validationSavedAt = now
     }
 
+    // Merge test cases instead of replacing (fix for losing test cases)
     if (payload?.testCasesByPlan && Array.isArray(payload.testCasesByPlan)) {
-        update.testCasesByPlan = payload.testCasesByPlan
+        const incomingCases = payload.testCasesByPlan
+        
+        // Create a map of existing cases by planId
+        const casesByPlanId = {}
+        existingCases.forEach(block => {
+            if (block?.planId) {
+                casesByPlanId[block.planId] = block
+            }
+        })
+        
+        // Merge incoming cases (update or add)
+        incomingCases.forEach(block => {
+            if (block?.planId) {
+                casesByPlanId[block.planId] = block
+            }
+        })
+        
+        // Convert back to array
+        update.testCasesByPlan = Object.values(casesByPlanId)
     }
 
     const suite = await TestSuite.findByIdAndUpdate(
@@ -525,10 +750,44 @@ async function saveSuiteSession(testSuiteId, payload = {}) {
     return suite
 }
 
+async function getTestSuitesByProject(projectId) {
+    const safeProjectId = String(projectId || '').trim();
+
+    const suites = await TestSuite.find({
+        projectId: safeProjectId,
+    })
+        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt createdAt userId projectId')
+        .populate('userId', 'name email picture')
+        .populate('projectId', 'title')
+        .sort({ createdAt: -1 })
+        .lean()
+
+    return suites.map((suite) => {
+        const totalTestCases = (suite.testCasesByPlan || []).reduce((acc, plan) => {
+            return acc + ((plan?.testCases || []).length || 0)
+        }, 0)
+
+        const populatedProject = suite?.projectId && typeof suite.projectId === 'object' ? suite.projectId : null
+        const normalizedProjectId = populatedProject ? populatedProject._id : suite?.projectId || null
+        const projectTitle = populatedProject ? String(populatedProject.title || '').trim() : ''
+
+        return {
+            ...suite,
+            totalTestCases,
+            projectTitle,
+            projectId: normalizedProjectId,
+            status: computeSuiteStatusKey(suite),
+        }
+    })
+}
+
 module.exports = {
     generatePlan,
     getPlanByTestSuiteId,
+    getAllTestSuites,
+    getTestSuiteById,
     getTestSuitesByUser,
+    getTestSuitesByProject,
     getTestPlansByTestSuiteId,
     saveSuiteSession,
     parseBoolean,

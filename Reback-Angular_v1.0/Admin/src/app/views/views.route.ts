@@ -143,6 +143,7 @@ export const VIEW_ROUTES: Route[] = [
     path: 'test-suites',
     loadComponent: () =>
       import('./test/list-test.component')
-        .then(m => m.TestCasesValidationComponent)
+        .then(m => m.TestCasesValidationComponent),
+    data: { title: 'List of Tests' },
   },
 ]
