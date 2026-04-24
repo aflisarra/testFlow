@@ -58,35 +58,69 @@
   </div>
 
   <div class="card shadow-sm panel-card">
-    <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center">
-      <span class="text-muted small">
-        Showing {{ visibleStart }}-{{ visibleEnd }} of {{ filteredSuites.length }}
+    <div class="card-header tv-toolbar">
+      <span class="tv-count-label">
+        Showing {{ visibleStart }}–{{ visibleEnd }} of {{ filteredSuites.length }}
       </span>
 
-      <div class="input-group input-group-sm tv-search">
-        <span class="input-group-text">
-          <iconify-icon icon="iconamoon:search-duotone"></iconify-icon>
-        </span>
+      <div class="tv-search-wrap">
+        <iconify-icon icon="iconamoon:search-duotone" class="tv-search-icon"></iconify-icon>
         <input
-          class="form-control"
+          class="tv-search-input"
           type="text"
           placeholder="Search by name, description..."
           [value]="searchQuery"
           (input)="searchQuery = $any($event.target).value"
         />
       </div>
+
+      <!-- Dropdown filtre -->
+      <div class="tv-filter-wrap" (click)="$event.stopPropagation()">
+        <button
+          type="button"
+          class="tv-filter-btn"
+          [class.tv-filter-btn--active]="statusFilter !== 'all'"
+          (click)="toggleFilterDropdown()">
+          <iconify-icon icon="iconamoon:filter-duotone"></iconify-icon>
+          <span>{{ statusFilter !== 'all' ? getFilterLabel(statusFilter) : 'Filter' }}</span>
+          <span class="tv-filter-badge" *ngIf="statusFilter !== 'all'">1</span>
+          <span class="tv-filter-arrow">{{ filterOpen ? '▴' : '▾' }}</span>
+        </button>
+
+        <div class="tv-dropdown" [class.tv-dropdown--open]="filterOpen">
+          <div class="tv-dd-header">Status</div>
+
+          @for (f of statusFilters; track f.key) {
+          <div
+            class="tv-dd-option"
+            [class.tv-dd-option--active]="statusFilter === f.key"
+            (click)="setStatusFilter(f.key); filterOpen = false">
+            <div class="tv-dd-left">
+              <span class="tv-dd-dot tv-dd-dot--{{ f.key }}"></span>
+              <span class="tv-dd-label">{{ f.label }}</span>
+            </div>
+            <span class="tv-dd-count">{{ countByStatus(f.key) }}</span>
+          </div>
+          }
+
+          <div class="tv-dd-footer">
+            <button type="button" class="tv-dd-clear"
+              (click)="setStatusFilter('all'); filterOpen = false">
+              Clear filter
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="px-3 pb-3">
-      <div class="d-flex flex-wrap align-items-center gap-2 tv-status-filter" role="group" aria-label="Status filter">
-        @for (f of statusFilters; track f.key) {
-        <button type="button" class="btn btn-sm tv-filter-pill"
-          [ngClass]="statusFilter === f.key ? 'tv-filter-pill--active' : ''" (click)="setStatusFilter(f.key)">
-          <span class="tv-filter-label">{{ f.label }}</span>
-          <span class="tv-filter-count">{{ countByStatus(f.key) }}</span>
-        </button>
-        }
-      </div>
+    <!-- Active tag -->
+    <div class="tv-active-tag-row" *ngIf="statusFilter !== 'all'">
+      <span class="tv-active-tag-label">Active:</span>
+      <span class="tv-active-tag">
+        {{ getFilterLabel(statusFilter) }}
+        <button type="button" class="tv-active-tag-x"
+          (click)="setStatusFilter('all')">✕</button>
+      </span>
     </div>
 
     <div class="card-body p-0">
@@ -176,7 +210,7 @@
     <div>
       <button type="button" class="btn btn-sm btn-outline-secondary mb-2" (click)="onBackToList()">
         <iconify-icon icon="mdi:chevron-left" class="me-1"></iconify-icon>
-        Back to suites
+        Back to list
       </button>
       <h4 class="app-title mb-1">
         <iconify-icon icon="iconamoon:folder-check-duotone" class="app-title-icon"></iconify-icon>

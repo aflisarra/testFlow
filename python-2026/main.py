@@ -24,11 +24,15 @@ from dotenv import load_dotenv
 
 load_dotenv()  # Must run before importing modules that read env vars.
 
-from routers import test_plans, test_cases          # noqa: E402
-from utils.ollama import run_ollama, get_ollama_model  # noqa: E402
+from core.config import get_settings  # noqa: E402
+from routers import test_plans, test_cases  # noqa: E402
+from routers.health import router as health_router  # noqa: E402
+from utils.ollama import run_ollama  # noqa: E402
+from utils.logger import get_logger, log_event  # noqa: E402
 
-OLLAMA_MODEL = get_ollama_model()
-USE_MOCK     = os.getenv("USE_MOCK", "false").lower() in ("1", "true", "yes")
+
+settings = get_settings()
+logger = get_logger("main")
 
 
 def _chat_timeout() -> int:
@@ -64,21 +68,24 @@ app.add_middleware(
 # ── Routers ────────────────────────────────────────────────
 app.include_router(test_plans.router)
 app.include_router(test_cases.router)
+app.include_router(health_router)
 
 
 # ── GET / — Health check ───────────────────────────────────
 @app.get("/")
 def root():
+    log_event(logger, "health_root_called")
     return {
         "status":    "running",
         "version":   "2.0.0",
-        "model":     OLLAMA_MODEL,
-        "mock_mode": USE_MOCK,
+        "model":     settings.model_name,
+        "mock_mode": settings.use_mock,
         "endpoints": {
             "upload_spec":         "POST /upload-spec",
             "generate_test_plans": "POST /generate-plan",
             "generate_test_cases": "POST /generate-test-cases",
             "chat":                "POST /chat",
+            "health":              "GET /health",
         }
     }
 
@@ -91,7 +98,7 @@ def chat(data: dict):
     if not message.strip():
         return JSONResponse(status_code=400, content={"reply": "Message is empty."})
 
-    if USE_MOCK:
+    if settings.use_mock:
         return JSONResponse({"reply": f"[MOCK] Received: {message[:100]}..."})
 
     try:

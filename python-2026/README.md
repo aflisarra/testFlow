@@ -34,6 +34,10 @@ Variables disponibles dans `.env`:
 - `OLLAMA_CHAT_TIMEOUT`: timeout pour `/chat` (fallback: `OLLAMA_TIMEOUT`)
 - `OLLAMA_TEST_PLANS_TIMEOUT`: timeout pour `/generate-plan` (fallback: `OLLAMA_TIMEOUT`)
 - `OLLAMA_TEST_CASES_TIMEOUT`: timeout pour `/generate-test-cases` (fallback: `OLLAMA_TIMEOUT`)
+- `MODEL_NAME`: alias optionnel pour `OLLAMA_MODEL`
+- `OLLAMA_HTTP_TIMEOUT`: timeout pour l'appel HTTP Ã  Ollama (defaut 20s)
+- `OLLAMA_NUM_PREDICT`: limite de tokens de sortie (optionnel, speed-up)
+- `OLLAMA_TEMPERATURE`: tempÃ©rature (defaut 0.2)
 
 Exemple:
 ```env

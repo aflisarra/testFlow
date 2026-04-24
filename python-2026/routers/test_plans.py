@@ -1,267 +1,61 @@
-# ============================================================
-# routers/test_plans.py
-#
-# POST /upload-spec         → Upload Word → retourne spec_text
-# POST /generate-plan       → spec_text + style_config → Test Plans
-#
-# FLOW :
-#   1. User uploade un fichier .docx
-#   2. /upload-spec extrait le texte → spec_text
-#   3. User entre style_config (couleurs, formes, fonts...)
-#   4. /generate-plan retourne :
-#      [
-#        { id: "TP-1", title: "Authentication",   description: "..." },
-#        { id: "TP-2", title: "Form Validation",  description: "..." },
-#        ...
-#      ]
-#   5. User confirme ✅ un plan → appel /generate-test-cases
-# ============================================================
+"""
+FastAPI routes for:
+- POST /upload-spec
+- POST /generate-plan
+
+This module intentionally contains no business logic.
+"""
+
+from __future__ import annotations
 
 import subprocess
-import os
-import re
-from typing import List, Optional
+from typing import Optional
 
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
 
-from utils.ollama import run_ollama, parse_json_from_ollama
-from utils.docx_reader import extract_text_from_docx
+from core.config import get_settings
+from schemas.test_plan_schema import GeneratePlanRequest, GeneratePlanResponse
+from services.plan_service import generate_test_plans
+from services.spec_service import extract_spec_text_from_docx_bytes
+
 
 router = APIRouter()
 
 
-def _use_mock() -> bool:
-    return os.getenv("USE_MOCK", "false").lower() in ("1", "true", "yes")
-
-
-def _debug_errors() -> bool:
-    return os.getenv("DEBUG_ERRORS", "false").lower() in ("1", "true", "yes")
-
-
-def _error_payload(message: str, detail: Optional[str] = None):
-    if detail and _debug_errors():
+def _error_payload(message: str, detail: Optional[str] = None) -> dict:
+    settings = get_settings()
+    if detail and settings.debug_errors:
         return {"error": message, "detail": detail}
     return {"error": message}
-
-
-def _test_plans_timeout() -> int:
-    """
-    Timeout dedie a la generation des test plans.
-    Priorite:
-      1) OLLAMA_TEST_PLANS_TIMEOUT
-      2) OLLAMA_TIMEOUT
-      3) 300s
-    """
-    raw = os.getenv("OLLAMA_TEST_PLANS_TIMEOUT", os.getenv("OLLAMA_TIMEOUT", "300"))
-    try:
-        return int(raw)
-    except ValueError:
-        return 300
-
-
-def _truncate_spec(text: str, max_chars: int = 2400) -> str:
-    text = (text or "").strip()
-    if len(text) <= max_chars:
-        return text
-    truncated = text[:max_chars]
-    last_period = truncated.rfind(".")
-    if last_period > max_chars // 2:
-        return truncated[: last_period + 1]
-    return truncated + "..."
-
-
-# ── Prompt optimisé pour Mistral/Mixtral ────────────────────
-def _build_prompt(spec_text: str, style_config: str, project_title: str = "") -> str:
-    spec_short = _truncate_spec(spec_text, max_chars=2400)
-
-    style_block = (
-        f"UI Design Config:\n{style_config}"
-        if style_config
-        else "UI Design Config: (none — skip Visual/UI plan)"
-    )
-
-    project_block = (
-        f"Project: {project_title}"
-        if (project_title or "").strip()
-        else "Project: (not provided)"
-    )
-
-    example = (
-        '[\n'
-        '  {"id": "TP-1", "title": "Authentication Flow", '
-        '"description": "Login logout and session expiry"},\n'
-        '  {"id": "TP-2", "title": "Input Validation", '
-        '"description": "Email format password rules and empty fields"},\n'
-        '  {"id": "TP-3", "title": "Security & Lockout", '
-        '"description": "Brute force account lock and HTTPS enforcement"},\n'
-        '  {"id": "TP-4", "title": "UI & Accessibility", '
-        '"description": "Labels keyboard navigation and error visibility"}\n'
-        ']'
-    )
-
-    return (
-        "<s>[INST]\n"
-        "You are a senior QA engineer following IEEE 829 and ISTQB standards.\n"
-        "Your only task is to output a JSON array of test plan objects.\n\n"
-
-        "### Scoping rules (critical — read carefully)\n"
-        "- Each plan must cover a DISTINCT, NON-OVERLAPPING area of the application.\n"
-        "- NEVER create two plans that test the same field or behavior from different angles.\n"
-        "  BAD example: 'Email Validation' + 'Password Validation' as two separate plans.\n"
-        "  GOOD example: 'Input Validation' covering both email and password rules.\n"
-        "- Plans must be at the FEATURE level, not the individual field level.\n"
-        "- A test scenario topic must appear in EXACTLY ONE plan.\n"
-        "- Between 4 and 6 plans total. Prefer broader, well-scoped plans.\n\n"
-
-        "### Real-world test plan areas to consider\n"
-        "Choose only areas relevant to the spec: Functional flow, Input validation, "
-        "Error handling & recovery, Security & access control, Performance, "
-        "UI & accessibility, Integration & data flow.\n\n"
-
-        "### Output format (strict)\n"
-        "- A raw JSON array. No markdown, no backticks, no prose before or after.\n"
-        "- Each object has exactly 3 keys: \"id\", \"title\", \"description\".\n"
-        "- \"id\": string, format TP-N\n"
-        "- \"title\": string, max 6 words, feature-level name\n"
-        "- \"description\": string, max 12 words, lists what is covered\n"
-        "- Include a Visual/UI plan only if UI Design Config is provided.\n\n"
-
-        "### Example output\n"
-        f"{example}\n\n"
-
-        f"### {project_block}\n\n"
-        f"### {style_block}\n\n"
-        "### Specification\n"
-        f"{spec_short}\n"
-        "[/INST]"
-    )
-
-def _normalize_plan_id(value: object, index: int) -> str:
-    text = str(value).strip() if value is not None else ""
-    if re.fullmatch(r"TP-\d+", text):
-        return text
-    digits = re.search(r"\d+", text)
-    if digits:
-        return f"TP-{digits.group()}"
-    return f"TP-{index + 1}"
-
-
-def _extract_plans_from_text(reply: str) -> List[dict]:
-    """
-    Fallback when the model does not return valid JSON.
-    Try to recover plans from plain text bullets/numbered lines.
-    """
-    text = (reply or "").strip()
-    if not text:
-        return []
-
-    plans: List[dict] = []
-    seen_titles = set()
-
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if not line:
-            continue
-        if line.startswith(("{", "}", "[", "]", "```")):
-            continue
-        if len(line) < 3:
-            continue
-
-        m = re.match(
-            r"^(?:[-*]\s+|\d+[.)]\s+)?(?P<title>[^:-]{3,90}?)(?:\s*[:\-]\s*(?P<desc>.+))?$",
-            line,
-        )
-        if not m:
-            continue
-
-        title = (m.group("title") or "").strip(" .:-")
-        desc = (m.group("desc") or "").strip()
-
-        lowered = title.lower()
-        if lowered in {"json", "test plans", "output", "rules", "specification"}:
-            continue
-        if title.lower().startswith(("here are", "below are", "i can", "sure")):
-            continue
-        if title in seen_titles:
-            continue
-
-        seen_titles.add(title)
-        plans.append(
-            {
-                "id": f"TP-{len(plans) + 1}",
-                "title": title,
-                "description": desc,
-            }
-        )
-
-        if len(plans) >= 10:
-            break
-
-    return plans if len(plans) >= 3 else []
-
-
-# ── Mock data ───────────────────────────────────────────────
-MOCK_TEST_PLANS = [
-    {"id": "TP-1", "title": "Authentication",       "description": "Login logout and session management"},
-    {"id": "TP-2", "title": "Form Validation",      "description": "Required fields formats and error messages"},
-    {"id": "TP-3", "title": "Navigation & Routing", "description": "Page transitions redirects and breadcrumbs"},
-    {"id": "TP-4", "title": "Visual & UI",          "description": "Colors fonts button shapes and spacing"},
-]
-
-
-class GeneratePlanRequest(BaseModel):
-    spec_text: str = Field(..., description="Text extracted from the Word document")
-    style_config: Optional[str] = Field(default=None, description="UI style config (colors, shapes, fonts...)")
-    project_title: Optional[str] = Field(default=None, description="Optional project name/title (context only)")
-    project_id: Optional[str] = Field(default=None, description="Optional project id (context only)")
-
-
-class TestPlan(BaseModel):
-    id: str
-    title: str
-    description: str
-
-
-class GeneratePlanResponse(BaseModel):
-    test_plans: List[TestPlan]
 
 
 @router.post("/upload-spec")
 async def upload_spec(file: UploadFile = File(...)):
     """Upload a .docx file and extract its text content."""
-
     if not (file.filename or "").lower().endswith(".docx"):
-        return JSONResponse(
-            status_code=400,
-            content={"error": "Only .docx files are supported."},
-        )
+        return JSONResponse(status_code=400, content={"error": "Only .docx files are supported."})
+
     try:
         file_bytes = await file.read()
-        spec_text = extract_text_from_docx(file_bytes)
+        spec_text = extract_spec_text_from_docx_bytes(file_bytes)
 
         if not spec_text.strip():
-            return JSONResponse(
-                status_code=422,
-                content={"error": "Document is empty or has no readable text."},
-            )
+            return JSONResponse(status_code=422, content={"error": "Document is empty or has no readable text."})
 
-        return {
-            "filename": file.filename,
-            "spec_text": spec_text,
-            "char_count": len(spec_text),
-        }
-    except RuntimeError as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": f"Upload failed: {str(e)}"})
+        return {"filename": file.filename, "spec_text": spec_text, "char_count": len(spec_text)}
+    except RuntimeError as exc:
+        return JSONResponse(status_code=500, content={"error": str(exc)})
+    except Exception as exc:
+        return JSONResponse(status_code=500, content={"error": f"Upload failed: {str(exc)}"})
 
 
 @router.post("/generate-plan", response_model=GeneratePlanResponse)
 def generate_plan(payload: GeneratePlanRequest):
-    """Generate high-level test plans from spec + style config."""
-
+    """
+    Generate enterprise-grade, non-overlapping test plans from spec + style config.
+    Compatibility: keeps the existing response shape: {"test_plans":[...]}.
+    """
     spec_text = (payload.spec_text or "").strip()
     style_config = (payload.style_config or "").strip()
     project_title = (payload.project_title or "").strip()
@@ -269,64 +63,20 @@ def generate_plan(payload: GeneratePlanRequest):
     if not spec_text:
         return JSONResponse(status_code=400, content={"error": "spec_text is required"})
 
-    if _use_mock():
-        return {"test_plans": MOCK_TEST_PLANS}
-
-    prompt = _build_prompt(spec_text, style_config, project_title=project_title)
-
     try:
-        reply = run_ollama(prompt, timeout=_test_plans_timeout())
-        try:
-            parsed = parse_json_from_ollama(reply)
-        except ValueError as parse_error:
-            recovered = _extract_plans_from_text(reply)
-            if recovered:
-                return {"test_plans": recovered}
-            raise parse_error
-
-        # Some models wrap the array in an object, accept both.
-        if isinstance(parsed, dict):
-            for key in ("test_plans", "plans", "items", "results"):
-                if isinstance(parsed.get(key), list):
-                    parsed = parsed[key]
-                    break
-
-        if not isinstance(parsed, list) or not parsed:
-            return JSONResponse(status_code=502, content={"error": "AI returned empty test plans"})
-
-        test_plans = []
-        for i, item in enumerate(parsed):
-            if isinstance(item, dict):
-                test_plans.append(
-                    {
-                        "id": _normalize_plan_id(item.get("id"), i),
-                        "title": str(item.get("title") or item.get("name") or f"Test Plan {i+1}").strip(),
-                        "description": str(
-                            item.get("description")
-                            or item.get("scope")
-                            or item.get("summary")
-                            or ""
-                        ).strip(),
-                    }
-                )
-            else:
-                test_plans.append(
-                    {
-                        "id": f"TP-{i+1}",
-                        "title": str(item).strip() or f"Test Plan {i+1}",
-                        "description": "",
-                    }
-                )
-
-        return {"test_plans": test_plans}
-
+        plans = generate_test_plans(spec_text=spec_text, style_config=style_config, project_title=project_title)
+        return {"test_plans": plans}
     except FileNotFoundError:
         return JSONResponse(status_code=500, content=_error_payload("Ollama not found. Install from https://ollama.com"))
     except subprocess.TimeoutExpired:
-        return JSONResponse(status_code=504, content=_error_payload("Ollama took too long. Check OLLAMA_TEST_PLANS_TIMEOUT / OLLAMA_TIMEOUT."))
-    except ValueError as e:
-        return JSONResponse(status_code=502, content=_error_payload("AI returned invalid JSON.", str(e)))
-    except RuntimeError as e:
-        return JSONResponse(status_code=502, content=_error_payload("Ollama error.", str(e)))
-    except Exception as e:
-        return JSONResponse(status_code=500, content=_error_payload("Internal error.", str(e)))
+        return JSONResponse(
+            status_code=504,
+            content=_error_payload("Ollama took too long. Check OLLAMA_TEST_PLANS_TIMEOUT / OLLAMA_TIMEOUT."),
+        )
+    except ValueError as exc:
+        return JSONResponse(status_code=502, content=_error_payload("AI returned invalid JSON.", str(exc)))
+    except RuntimeError as exc:
+        return JSONResponse(status_code=502, content=_error_payload("Ollama error.", str(exc)))
+    except Exception as exc:
+        return JSONResponse(status_code=500, content=_error_payload("Internal error.", str(exc)))
+

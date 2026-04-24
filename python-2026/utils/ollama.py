@@ -1,15 +1,26 @@
 # ============================================================
 # utils/ollama.py
 #
-# FIX 502 : mistral retourne souvent du texte AUTOUR du JSON
-# FIX ANSI : suppression des séquences d'échappement terminal
+# - Robust JSON parsing from LLM output
+# - Ollama invocation via HTTP API (preferred) with safe fallback to CLI
+# - Timeout-safe: never exceeds the caller timeout across HTTP+CLI
 # ============================================================
 
-import subprocess
-import shutil
+from __future__ import annotations
+
 import json
-import re
 import os
+import re
+import shutil
+import subprocess
+import time
+import urllib.error
+import urllib.request
+
+from utils.logger import get_logger, log_event, log_error
+
+
+logger = get_logger("utils.ollama")
 
 
 def get_ollama_model() -> str:
@@ -32,16 +43,13 @@ def _default_timeout() -> int:
 
 def _strip_ansi(text: str) -> str:
     """
-    Supprime les séquences d'échappement ANSI de la réponse Ollama.
-    Exemple : \x1b[4D  \x1b[1D  \x1b[3D  → supprimés
-    Ces caractères viennent du terminal interne d'Ollama et cassent le JSON.
+    Remove terminal ANSI escape sequences that can break JSON.
     """
     ansi_escape = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
-    return ansi_escape.sub("", text)
+    return ansi_escape.sub("", text or "")
 
 
 def _strip_code_fences(text: str) -> str:
-    """Supprime les ``` que mistral ajoute souvent."""
     trimmed = (text or "").strip()
     trimmed = re.sub(r"^```(?:json|JSON)?\s*", "", trimmed)
     trimmed = re.sub(r"\s*```$", "", trimmed)
@@ -49,13 +57,9 @@ def _strip_code_fences(text: str) -> str:
 
 
 def _extract_json_array(text: str):
-    """
-    Extrait le premier tableau JSON valide du texte.
-    Mistral peut écrire du texte avant/après le JSON.
-    """
     depth = 0
     start = None
-    for i, ch in enumerate(text):
+    for i, ch in enumerate(text or ""):
         if ch == "[":
             if depth == 0:
                 start = i
@@ -63,7 +67,7 @@ def _extract_json_array(text: str):
         elif ch == "]":
             depth -= 1
             if depth == 0 and start is not None:
-                candidate = text[start: i + 1]
+                candidate = text[start : i + 1]
                 try:
                     return json.loads(candidate)
                 except json.JSONDecodeError:
@@ -72,13 +76,9 @@ def _extract_json_array(text: str):
 
 
 def _extract_json_object(text: str):
-    """
-    Extrait le premier objet JSON valide du texte.
-    Certains modèles wrappent le tableau dans un objet.
-    """
     depth = 0
     start = None
-    for i, ch in enumerate(text):
+    for i, ch in enumerate(text or ""):
         if ch == "{":
             if depth == 0:
                 start = i
@@ -86,7 +86,7 @@ def _extract_json_object(text: str):
         elif ch == "}":
             depth -= 1
             if depth == 0 and start is not None:
-                candidate = text[start: i + 1]
+                candidate = text[start : i + 1]
                 try:
                     return json.loads(candidate)
                 except json.JSONDecodeError:
@@ -96,27 +96,20 @@ def _extract_json_object(text: str):
 
 def parse_json_from_ollama(text: str):
     """
-    Parse la réponse d'Ollama en JSON avec 5 stratégies en cascade.
-
-    Mistral peut retourner :
-      - Du JSON direct                          → stratégie 1
-      - ```json [...] ```                       → stratégie 2
-      - "Here are the test cases: [...]"        → stratégie 3
-      - {"test_cases": [...]}                   → stratégie 4
-      - JSON avec virgules finales (invalide)   → stratégie 5
-
-    Raises ValueError si aucune stratégie ne fonctionne.
+    Best-effort JSON parser for Ollama responses.
+    Accepts:
+    - direct JSON
+    - fenced code blocks
+    - noisy text around JSON
+    - trailing commas
     """
-    # ── Nettoyage ANSI en premier (avant tout parsing) ──────
     raw = _strip_ansi((text or "").strip())
 
-    # ── Stratégie 1 : JSON direct ───────────────────────────
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
         pass
 
-    # ── Stratégie 2 : strip les ``` puis retry ──────────────
     stripped = _strip_code_fences(raw)
     if stripped != raw:
         try:
@@ -124,23 +117,19 @@ def parse_json_from_ollama(text: str):
         except json.JSONDecodeError:
             pass
 
-    # ── Stratégie 3 : extraire le premier tableau JSON ──────
     arr = _extract_json_array(stripped or raw)
     if arr is not None:
         return arr
 
-    # ── Stratégie 4 : extraire le premier objet JSON ────────
     obj = _extract_json_object(stripped or raw)
     if obj is not None:
         for key in ("test_cases", "testCases", "cases", "results", "items"):
             if isinstance(obj.get(key), list):
                 return obj[key]
-        # Si c'est un objet unique avec les clés d'un test case, le wrapper dans une liste
         if isinstance(obj, dict) and all(k in obj for k in ("id", "title", "steps", "expected_result")):
             return [obj]
         return obj
 
-    # ── Stratégie 5 : nettoyer les virgules finales (JSON5) ─
     cleaned = re.sub(r",\s*([}\]])", r"\1", stripped or raw)
     try:
         return json.loads(cleaned)
@@ -152,65 +141,97 @@ def parse_json_from_ollama(text: str):
         return arr2
 
     raise ValueError(
-        f"Cannot parse JSON from Ollama response.\n"
+        "Cannot parse JSON from Ollama response.\n"
         f"Raw output (first 500 chars):\n{raw[:500]}"
     )
 
 
 def run_ollama(prompt: str, timeout: int | None = None) -> str:
     """
-    Envoie un prompt à Ollama (par l'API HTTP d'abord, via subprocess en fallback).
+    Send a prompt to Ollama.
+    Strategy:
+    1) HTTP API (preferred)
+    2) CLI fallback (only for non-timeout HTTP errors)
 
-    Args:
-        prompt:  Texte envoyé au LLM.
-        timeout: Secondes avant TimeoutExpired.
-                 Si None → lit OLLAMA_TIMEOUT (.env) ou 300s par défaut.
+    Timeout-safe:
+    - The combined duration of (HTTP attempt + CLI fallback) never exceeds `timeout`.
+    - If HTTP times out, we raise a timeout immediately (no CLI fallback).
     """
     effective_timeout = timeout if timeout is not None else _default_timeout()
+    effective_timeout = max(1, int(effective_timeout))
 
-    # Essaie d'utiliser l'API locale en priorité (pas de terminal == pas d'anomalies ANSI/wrapping)
-    import urllib.request
-    import urllib.error
-    import json
-    
+    start = time.monotonic()
+    deadline = start + effective_timeout
+
+    # By default, allow the HTTP request to use the full caller timeout.
+    # You can override this with OLLAMA_HTTP_TIMEOUT when you want a quicker fail-fast behavior.
+    http_timeout_default = effective_timeout
     try:
-        url = "http://127.0.0.1:11434/api/generate"
-        req_body = {
-            "model": get_ollama_model(),
-            "prompt": prompt,
-            "stream": False,
-            "options": {"num_ctx": 4096}
-        }
-        data = json.dumps(req_body).encode("utf-8")
-        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-        
-        with urllib.request.urlopen(req, timeout=effective_timeout) as response:
+        http_timeout = int(os.getenv("OLLAMA_HTTP_TIMEOUT", str(http_timeout_default)))
+    except ValueError:
+        http_timeout = http_timeout_default
+    http_timeout = max(1, min(effective_timeout, http_timeout))
+
+    url = "http://127.0.0.1:11434/api/generate"
+    options: dict[str, object] = {
+        "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "4096")),
+        "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.2")),
+    }
+    num_predict = os.getenv("OLLAMA_NUM_PREDICT", "").strip()
+    if num_predict:
+        try:
+            options["num_predict"] = int(num_predict)
+        except ValueError:
+            pass
+
+    req_body = {
+        "model": get_ollama_model(),
+        "prompt": prompt,
+        "stream": False,
+        "options": options,
+    }
+    data = json.dumps(req_body).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+
+    try:
+        log_event(logger, "ollama_http_start", timeout=http_timeout)
+        with urllib.request.urlopen(req, timeout=http_timeout) as response:
             resp_body = response.read().decode("utf-8")
             js = json.loads(resp_body)
-            # Pas besoin de nettoyer les séquences ANSI ici
+            log_event(logger, "ollama_http_success", elapsed_ms=int((time.monotonic() - start) * 1000))
             return js.get("response", "")
-    except Exception as e:
-        print(f"Ollama HTTP API fallback because of: {e}")
-        pass
+    except Exception as exc:
+        msg = str(exc).lower()
+        if isinstance(exc, TimeoutError) or "timed out" in msg:
+            log_error(logger, "ollama_http_timeout", error=str(exc), timeout=http_timeout)
+            # Make the error message reflect the actual HTTP timeout.
+            raise subprocess.TimeoutExpired(cmd="ollama_http", timeout=http_timeout)
 
-    import os
-    # Fallback CLI
+        log_error(logger, "ollama_http_fallback", error=str(exc))
+
+    remaining = int(max(0, deadline - time.monotonic()))
+    if remaining <= 0:
+        raise subprocess.TimeoutExpired(cmd="ollama_cli", timeout=effective_timeout)
+
+    log_event(logger, "ollama_cli_start", timeout=remaining)
     result = subprocess.run(
         [get_ollama_path(), "run", get_ollama_model()],
         input=prompt,
         capture_output=True,
         text=True,
         encoding="utf-8",
-        timeout=effective_timeout,
-        env={**os.environ, "TERM": "dumb"}  # évite le redessin et la coloration
+        timeout=remaining,
+        env={**os.environ, "TERM": "dumb"},
     )
 
     stdout = (result.stdout or "").strip()
     if stdout:
+        log_event(logger, "ollama_cli_success", elapsed_ms=int((time.monotonic() - start) * 1000))
         return _strip_ansi(stdout)
 
     stderr = (result.stderr or "").strip()
     if result.returncode and stderr:
+        log_error(logger, "ollama_cli_error", stderr=stderr, code=result.returncode)
         raise RuntimeError(stderr)
 
     raise RuntimeError(stderr or "Ollama returned an empty response.")

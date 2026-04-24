@@ -139,6 +139,31 @@
   padding: 0.8rem 0.82rem;
   text-align: left;
   transition: all 0.2s ease;
+  display: block;
+  width: 100%;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.btn-unstyled {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.project-item.btn-unstyled {
+  border: 1px solid #e5ebf3;
+  border-radius: 12px;
+  background: #fff;
+  padding: 0.8rem 0.82rem;
 }
 
 .project-item:hover {

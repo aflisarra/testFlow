@@ -499,7 +499,198 @@ div.container-fluid.test-validation-page {
 }*/
 
 
+/* ── Toolbar ── */
+.test-validation-page .tv-toolbar {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .5rem .75rem !important;
+  flex-wrap: nowrap;
+}
 
+.test-validation-page .tv-count-label {
+  font-size: .72rem;
+  color: #94a3b8;
+  white-space: nowrap;
+  padding-right: .5rem;
+  border-right: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.test-validation-page .tv-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  flex: 1;
+  min-width: 0;
+}
+.test-validation-page .tv-search-icon {
+  color: #94a3b8;
+  font-size: .95rem;
+  flex-shrink: 0;
+}
+.test-validation-page .tv-search-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: .82rem;
+  color: #334155;
+  width: 100%;
+}
+.test-validation-page .tv-search-input::placeholder { color: #cbd5e1; }
+
+.test-validation-page .tv-divider {
+  width: 1px;
+  height: 20px;
+  background: #e2e8f0;
+  flex-shrink: 0;
+}
+
+/* ── Filter button ── */
+.test-validation-page .tv-filter-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.test-validation-page .tv-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  border: 1px solid rgba(0,58,112,.18);
+  background: rgba(0,58,112,.04);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: .78rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.test-validation-page .tv-filter-btn:hover,
+.test-validation-page .tv-filter-btn--active {
+  border-color: rgba(236,138,0,.5);
+  background: rgba(236,138,0,.1);
+  color: #92540a;
+}
+.test-validation-page .tv-filter-badge {
+  background: rgba(236,138,0,.9);
+  color: #fff;
+  font-size: .62rem;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+.test-validation-page .tv-filter-arrow {
+  color: #94a3b8;
+  font-size: .7rem;
+}
+
+/* ── Dropdown ── */
+.test-validation-page .tv-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #fff;
+  border: 1px solid rgba(226,232,240,.95);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(15,23,42,.1);
+  min-width: 200px;
+  z-index: 200;
+  overflow: hidden;
+  display: none;
+}
+.test-validation-page .tv-dropdown--open { display: block; }
+
+.test-validation-page .tv-dd-header {
+  padding: .45rem .75rem;
+  font-size: .65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: #94a3b8;
+  border-bottom: 1px solid #f1f5f9;
+}
+.test-validation-page .tv-dd-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .5rem .75rem;
+  cursor: pointer;
+  transition: background .12s;
+  gap: .6rem;
+}
+.test-validation-page .tv-dd-option:hover { background: #f8fafc; }
+.test-validation-page .tv-dd-option--active { background: rgba(236,138,0,.06); }
+.test-validation-page .tv-dd-left {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.test-validation-page .tv-dd-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.test-validation-page .tv-dd-dot--all       { background: #94a3b8; }
+.test-validation-page .tv-dd-dot--validated { background: #22c55e; }
+.test-validation-page .tv-dd-dot--completed { background: #3b82f6; }
+.test-validation-page .tv-dd-dot--incomplete { background: #f59e0b; }
+.test-validation-page .tv-dd-dot--invalid   { background: #ef4444; }
+
+.test-validation-page .tv-dd-label {
+  font-size: .8rem; font-weight: 600; color: #334155;
+}
+.test-validation-page .tv-dd-option--active .tv-dd-label { color: #92540a; }
+
+.test-validation-page .tv-dd-count {
+  font-size: .68rem; font-weight: 700;
+  background: #f1f5f9; color: #64748b;
+  padding: 2px 7px; border-radius: 999px;
+}
+.test-validation-page .tv-dd-option--active .tv-dd-count {
+  background: rgba(236,138,0,.15); color: #92540a;
+}
+.test-validation-page .tv-dd-footer {
+  padding: .4rem .75rem;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: flex-end;
+}
+.test-validation-page .tv-dd-clear {
+  font-size: .72rem; color: #94a3b8;
+  background: none; border: none; cursor: pointer; padding: 2px 4px;
+  border-radius: 4px;
+}
+.test-validation-page .tv-dd-clear:hover { color: #ef4444; background: #fef2f2; }
+
+/* ── Active tag row ── */
+.test-validation-page .tv-active-tag-row {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .3rem .75rem .4rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+.test-validation-page .tv-active-tag-label {
+  font-size: .72rem; color: #94a3b8;
+}
+.test-validation-page .tv-active-tag {
+  display: inline-flex; align-items: center; gap: .3rem;
+  background: rgba(236,138,0,.1);
+  border: 1px solid rgba(236,138,0,.3);
+  color: #92540a; border-radius: 999px;
+  padding: 3px 8px 3px 10px;
+  font-size: .72rem; font-weight: 600;
+}
+.test-validation-page .tv-active-tag-x {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: rgba(236,138,0,.25); border: none; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .65rem; color: #92540a;
+}
+.test-validation-page .tv-active-tag-x:hover {
+  background: rgba(239,68,68,.2); color: #dc2626;
+}
 
 
 

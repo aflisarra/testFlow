@@ -1,15 +1,15 @@
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import {
-    TestLabService,
-    type TestCaseDto,
-    type TestLabProjectDto,
-    type TestPlanDto,
-    type TestSuiteDto,
+  TestLabService,
+  type TestCaseDto,
+  type TestLabProjectDto,
+  type TestPlanDto,
+  type TestSuiteDto,
 } from '@/app/core/services/testlab.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import { CommonModule, DatePipe } from '@angular/common'
-import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, ViewEncapsulation } from '@angular/core'
+import { Component, CUSTOM_ELEMENTS_SCHEMA, HostListener, inject } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { ActivatedRoute, Router } from '@angular/router'
 import { Store } from '@ngrx/store'
@@ -21,6 +21,7 @@ type TestSuiteStatusKey =
   | 'incomplete'
   | 'validated'
   | 'invalid'
+  | 'all'
 
 @Component({
   selector: 'app-test-cases-validation',
@@ -45,19 +46,21 @@ export class TestCasesValidationComponent {
   // List
   suites: TestSuiteDto[] = []
   searchQuery = ''
-  statusFilter: TestSuiteStatusKey = 'invalid'
+  statusFilter: TestSuiteStatusKey = 'all'
   expandedSuiteId: string | null = null
+  filterOpen = false
 
   readonly statusFilters: ReadonlyArray<{ key: TestSuiteStatusKey; label: string }> = [
     { key: 'completed', label: 'Completed' },
     { key: 'incomplete', label: 'Incomplete' },
     { key: 'validated', label: 'Validated' },
     { key: 'invalid', label: 'Invalid' },
+    { key: 'all', label: 'All' },
   ]
 
   // Pagination
   currentPage = 1
-  pageSize = 10
+  pageSize = 4
 
   // Detail
   testSuiteId = ''
@@ -80,7 +83,7 @@ export class TestCasesValidationComponent {
       const name = this.getSuiteDisplayName(suite).toLowerCase()
       const description = String(suite.description || '').toLowerCase()
       const matchesSearch = !q || name.includes(q) || description.includes(q)
-      const matchesStatus = this.getSuiteStatusKey(suite) === wantedStatus
+      const matchesStatus = wantedStatus === 'all' || this.getSuiteStatusKey(suite) === wantedStatus
       return matchesSearch && matchesStatus
     })
   }
@@ -248,7 +251,7 @@ export class TestCasesValidationComponent {
     return v
   }
 
-  getSuiteStatusKey(suite: TestSuiteDto): TestSuiteStatusKey {
+  getSuiteStatusKey(suite: TestSuiteDto): Exclude<TestSuiteStatusKey, 'all'> {
     const raw = (suite as any).status ?? 'invalid'
     const key = this.normalizeStatusKey(raw)
     switch (key) {
@@ -264,7 +267,7 @@ export class TestCasesValidationComponent {
 
   getSuiteStatusLabel(suite: TestSuiteDto): string {
     const key = this.getSuiteStatusKey(suite)
-    const labels: Record<TestSuiteStatusKey, string> = {
+    const labels: Record<Exclude<TestSuiteStatusKey, 'all'>, string> = {
       completed: 'Completed',
       incomplete: 'Incomplete',
       validated: 'Validated',
@@ -275,7 +278,7 @@ export class TestCasesValidationComponent {
 
   getBadgeClass(suite: TestSuiteDto): string {
     const status = this.getSuiteStatusKey(suite)
-    const map: Record<TestSuiteStatusKey, string> = {
+    const map: Record<Exclude<TestSuiteStatusKey, 'all'>, string> = {
       completed: 'text-bg-success',
       incomplete: 'text-bg-danger',
       validated: 'text-bg-primary',
@@ -409,7 +412,9 @@ export class TestCasesValidationComponent {
 
   countByStatus(status: string): number {
     const wanted = this.normalizeStatusKey(status)
-    if (!wanted) return 0
+    if (!wanted || wanted === 'all') {
+      return wanted === 'all' ? this.suites.length : 0
+    }
     return this.suites.filter((suite) => this.getSuiteStatusKey(suite) === wanted).length
   }
 
@@ -445,6 +450,23 @@ export class TestCasesValidationComponent {
       this.errorMessage = (err as any)?.error?.message || 'Unable to run test suite'
     } finally {
       this.loading = false
+    }
+  }
+
+  toggleFilterDropdown(): void {
+    this.filterOpen = !this.filterOpen
+  }
+
+  getFilterLabel(key: string): string {
+    return this.statusFilters.find((f) => f.key === key)?.label ?? key
+  }
+
+  @HostListener('document:click', ['$event'])
+  closeDropdown(event: MouseEvent): void {
+    const target = event.target as HTMLElement
+    const filterWrap = target?.closest('.tv-filter-wrap')
+    if (!filterWrap) {
+      this.filterOpen = false
     }
   }
 }

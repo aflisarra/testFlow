@@ -1,7 +1,7 @@
 import {
-  AdminManagementService,
-  AppProject,
-  AppUser,
+    AdminManagementService,
+    AppProject,
+    AppUser,
 } from '@/app/core/services/admin-management.service'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import { CommonModule } from '@angular/common'
@@ -33,6 +33,11 @@ export class ProjectManagementComponent implements OnInit {
 
   projects: AppProject[] = []
   users: AppUser[] = []
+
+  // Pagination & Search
+  currentPage = 1
+  pageSize = 4
+  searchQuery = ''
 
   loading = false
   usersLoading = false
@@ -540,6 +545,47 @@ export class ProjectManagementComponent implements OnInit {
         projectName: project.title
       }
     })
+  }
+
+  get filteredProjects(): AppProject[] {
+    const q = this.searchQuery.toLowerCase().trim()
+    if (!q) return this.projects
+
+    return this.projects.filter((project) => {
+      const title = String(project.title || '').toLowerCase()
+      const description = String(project.description || '').toLowerCase()
+      const status = String(project.status || '').toLowerCase()
+      return title.includes(q) || description.includes(q) || status.includes(q)
+    })
+  }
+
+  get paginatedProjects(): AppProject[] {
+    const start = (this.currentPage - 1) * this.pageSize
+    return this.filteredProjects.slice(start, start + this.pageSize)
+  }
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredProjects.length / this.pageSize))
+  }
+
+  get visibleStart(): number {
+    return this.filteredProjects.length === 0 ? 0 : (this.currentPage - 1) * this.pageSize + 1
+  }
+
+  get visibleEnd(): number {
+    return Math.min(this.currentPage * this.pageSize, this.filteredProjects.length)
+  }
+
+  onSearchQueryChange(): void {
+    this.currentPage = 1
+  }
+
+  goToPreviousPage(): void {
+    if (this.currentPage > 1) this.currentPage--
+  }
+
+  goToNextPage(): void {
+    if (this.currentPage < this.totalPages) this.currentPage++
   }
 
 }

@@ -192,49 +192,89 @@
 
     <div class="col-lg-5">
       <div class="card h-100 shadow-sm pm-panel">
-        <div class="card-body">
-          <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="card-header d-flex align-items-center justify-content-between gap-2">
+          <div class="d-flex align-items-center justify-content-between gap-2 w-100">
             <h6 class="mb-0 panel-title app-title app-title--sm">
               <span class="iconify app-title-icon" data-icon="iconamoon:folder-open-duotone"></span>
               <span>Projects</span>
             </h6>
-            <span class="panel-badge">{{ projects.length }}</span>
+            <span class="panel-badge">{{ filteredProjects.length }}</span>
           </div>
+        </div>
 
+        <div class="card-body">
           @if (loading) {
           <p class="text-muted mb-0">Loading...</p>
           } @else if (!projects.length) {
           <p class="text-muted mb-0">No projects yet.</p>
           } @else {
+          <div class="d-flex gap-2 mb-3 align-items-center">
+            <input
+              type="text"
+              class="form-control form-control-sm"
+              placeholder="Search by name, description..."
+              [value]="searchQuery"
+              (input)="searchQuery = $any($event.target).value; onSearchQueryChange()"
+            />
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mb-2 text-muted small">
+            <span>Showing {{ visibleStart }}–{{ visibleEnd }} of {{ filteredProjects.length }}</span>
+          </div>
+
           <div class="project-list">
-            @for (project of projects; track project._id) {
-            <div class="project-item" [class.project-item--active]="selectedProjectId === project._id">
+            @if (paginatedProjects.length) {
+            @for (project of paginatedProjects; track project._id) {
+            <button
+              type="button"
+              class="project-item btn-unstyled w-100 text-start"
+              [class.project-item--active]="selectedProjectId === project._id"
+              (click)="onSelectProject(project)">
               <div class="d-flex justify-content-between align-items-start gap-2">
-                <div>
+                <div class="flex-grow-1">
                   <div class="project-item-title">{{ project.title }}</div>
+                  <div class="small text-muted">{{ project.status }}</div>
                 </div>
                 <div class="d-inline-flex align-items-center flex-nowrap gap-2">
                   <span class="project-users-chip">{{ project.assignedUsers?.length || 0 }} users</span>
                   @if (canEditProject) {
                   <button class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified" type="button"
-                    title="Edit" (click)="openEditProjectModal(project, editProjectModal)">
+                    title="Edit" (click)="openEditProjectModal(project, editProjectModal); $event.stopPropagation()">
                     <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
                   </button>
                   }
-                  
                   @if (canDeleteProject) {
                   <button class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button"
-                    title="Delete" (click)="deleteProject(project)">
+                    title="Delete" (click)="deleteProject(project); $event.stopPropagation()">
                     <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
                   </button>
                   }
                 </div>
               </div>
-            </div>
+            </button>
+            }
+            } @else {
+            <div class="text-center text-muted small py-3">No projects found.</div>
             }
           </div>
           }
         </div>
+
+        @if (projects.length && filteredProjects.length > 0) {
+        <div class="card-footer d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <span class="text-muted small">Page {{ currentPage }} / {{ totalPages }}</span>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="goToPreviousPage()"
+              [disabled]="currentPage === 1">
+              Previous
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="goToNextPage()"
+              [disabled]="currentPage === totalPages">
+              Next
+            </button>
+          </div>
+        </div>
+        }
       </div>
     </div>
   </div>
