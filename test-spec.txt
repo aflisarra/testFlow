@@ -1,0 +1,1 @@
+Login page: Users must enter email and password. Click submit to authenticate. Show error if fields empty.

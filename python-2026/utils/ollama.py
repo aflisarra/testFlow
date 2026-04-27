@@ -1,8 +1,9 @@
 # ============================================================
 # utils/ollama.py
 #
-# FIX 502 : mistral retourne souvent du texte AUTOUR du JSON
+# FIX 502 : l'IA retourne souvent du texte AUTOUR du JSON
 # FIX ANSI : suppression des séquences d'échappement terminal
+# MODEL    : phi3:mini (optimisé pour 8GB RAM)
 # ============================================================
 
 import subprocess
@@ -13,14 +14,14 @@ import os
 
 
 def get_ollama_model() -> str:
-    return os.getenv("OLLAMA_MODEL", "mistral")
+    return os.getenv("OLLAMA_MODEL", "phi3:mini")
 
 
 def get_ollama_path() -> str:
     path = shutil.which("ollama")
     if path:
         return path
-    return r"C:\Users\MSI\AppData\Local\Programs\Ollama\ollama.exe"
+    return r"C:\Users\rouab\AppData\Local\Programs\Ollama\ollama.exe"
 
 
 def _default_timeout() -> int:
@@ -41,7 +42,7 @@ def _strip_ansi(text: str) -> str:
 
 
 def _strip_code_fences(text: str) -> str:
-    """Supprime les ``` que mistral ajoute souvent."""
+    """Supprime les ``` que le modèle ajoute souvent."""
     trimmed = (text or "").strip()
     trimmed = re.sub(r"^```(?:json|JSON)?\s*", "", trimmed)
     trimmed = re.sub(r"\s*```$", "", trimmed)
@@ -51,7 +52,7 @@ def _strip_code_fences(text: str) -> str:
 def _extract_json_array(text: str):
     """
     Extrait le premier tableau JSON valide du texte.
-    Mistral peut écrire du texte avant/après le JSON.
+    Le modèle peut écrire du texte avant/après le JSON.
     """
     depth = 0
     start = None
@@ -98,7 +99,7 @@ def parse_json_from_ollama(text: str):
     """
     Parse la réponse d'Ollama en JSON avec 5 stratégies en cascade.
 
-    Mistral peut retourner :
+    phi3:mini peut retourner :
       - Du JSON direct                          → stratégie 1
       - ```json [...] ```                       → stratégie 2
       - "Here are the test cases: [...]"        → stratégie 3
@@ -165,32 +166,32 @@ def run_ollama(prompt: str, timeout: int | None = None) -> str:
     """
     effective_timeout = timeout if timeout is not None else _default_timeout()
 
-    # Essaie d'utiliser l'API locale en priorité (pas de terminal == pas d'anomalies ANSI/wrapping)
     import urllib.request
     import urllib.error
-    import json
-    
+
     try:
         url = "http://127.0.0.1:11434/api/generate"
         req_body = {
             "model": get_ollama_model(),
             "prompt": prompt,
             "stream": False,
-            "options": {"num_ctx": 4096}
+            "format": "json",  # Request raw JSON output (Ollama supports this for compatible models)
+            "options": {
+                "num_ctx": 2048,
+                "num_predict": 1024,
+                "temperature": 0.1,
+            }
         }
         data = json.dumps(req_body).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-        
+
         with urllib.request.urlopen(req, timeout=effective_timeout) as response:
             resp_body = response.read().decode("utf-8")
             js = json.loads(resp_body)
-            # Pas besoin de nettoyer les séquences ANSI ici
             return js.get("response", "")
     except Exception as e:
         print(f"Ollama HTTP API fallback because of: {e}")
-        pass
 
-    import os
     # Fallback CLI
     result = subprocess.run(
         [get_ollama_path(), "run", get_ollama_model()],

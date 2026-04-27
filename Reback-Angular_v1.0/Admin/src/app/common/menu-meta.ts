@@ -69,7 +69,7 @@ export const MENU: MenuItem[] = [
         key: 'Project',
         label: 'Project',
         link: '/project',
-        parentKey: 'Project',
+        parentKey: 'Project Management',
       }
     ]
   },

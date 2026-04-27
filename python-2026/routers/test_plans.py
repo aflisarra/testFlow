@@ -1,20 +1,9 @@
 # ============================================================
 # routers/test_plans.py
 #
-# POST /upload-spec         → Upload Word → retourne spec_text
-# POST /generate-plan       → spec_text + style_config → Test Plans
-#
-# FLOW :
-#   1. User uploade un fichier .docx
-#   2. /upload-spec extrait le texte → spec_text
-#   3. User entre style_config (couleurs, formes, fonts...)
-#   4. /generate-plan retourne :
-#      [
-#        { id: "TP-1", title: "Authentication",   description: "..." },
-#        { id: "TP-2", title: "Form Validation",  description: "..." },
-#        ...
-#      ]
-#   5. User confirme ✅ un plan → appel /generate-test-cases
+# FIX 502 : l'IA retourne souvent du texte AUTOUR du JSON
+# FIX ANSI : suppression des séquences d'échappement terminal
+# MODEL    : phi3:mini (optimisé pour 8GB RAM)
 # ============================================================
 
 import subprocess
@@ -72,7 +61,7 @@ def _truncate_spec(text: str, max_chars: int = 2400) -> str:
     return truncated + "..."
 
 
-# ── Prompt optimisé pour Mistral/Mixtral ────────────────────
+# ── Prompt optimisé pour phi3:mini ───────────────────────────
 def _build_prompt(spec_text: str, style_config: str) -> str:
     spec_short = _truncate_spec(spec_text, max_chars=2400)
 
@@ -82,8 +71,7 @@ def _build_prompt(spec_text: str, style_config: str) -> str:
         else "UI Design Config: (none — skip Visual/UI plan)"
     )
 
-    # Exemple concret avec descriptions courtes (max 10 mots)
-    # Mistral imite l'exemple → descriptions courtes garanties
+    # Example output format
     example = (
         '[\n'
         '  {"id": "TP-1", "title": "Authentication", "description": "Login logout and session expiry"},\n'
@@ -91,8 +79,9 @@ def _build_prompt(spec_text: str, style_config: str) -> str:
         ']'
     )
 
+    # Phi-3 format: <|user|> ... <|end|><|assistant|>
     return (
-        "<s>[INST]\n"
+        "<|user|>\n"
         "You are a senior QA engineer. Your only task is to output a JSON array of test plan objects.\n\n"
         "### Output format\n"
         "- A raw JSON array. No markdown, no backticks, no prose before or after.\n"
@@ -107,7 +96,8 @@ def _build_prompt(spec_text: str, style_config: str) -> str:
         f"### {style_block}\n\n"
         "### Specification\n"
         f"{spec_short}\n"
-        "[/INST]"
+        "<|end|>\n"
+        "<|assistant|>\n"
     )
 
 

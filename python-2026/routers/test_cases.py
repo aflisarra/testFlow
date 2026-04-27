@@ -1,7 +1,7 @@
 # ============================================================
 # routers/test_cases.py
 #
-# FIX 502 : prompt réécrit pour Mistral (tokens [INST], few-shot)
+# FIX 502 : prompt réécrit pour phi3:mini (format <|user|>)
 # FIX     : expected_result normalisé si l'IA retourne un objet
 # ============================================================
 
@@ -107,7 +107,7 @@ class TestCasesResponse(BaseModel):
 
 def _normalize_expected_result(value) -> str:
     """
-    Normalise expected_result quelle que soit la forme retournée par Mistral.
+    Normalise expected_result quelle que soit la forme retournée par phi3:mini.
       - string normale       → retournée telle quelle
       - objet pass/fail      → "Pass: ... | Fail: ..."
       - objet result/outcome → valeur extraite
@@ -168,8 +168,9 @@ def _build_prompt(plan_id: str, plan_title: str, plan_description: str,
         ']'
     )
 
+    # Use phi3:mini format: <|user|> ... <|end|><|assistant|>
     return (
-        "<s>[INST]\n"
+        "<|user|>\n"
         "You are a senior QA engineer. Your only task is to output a JSON array of test case objects.\n\n"
         "### Output format\n"
         "- A raw JSON array. No markdown, no backticks, no prose before or after.\n"
@@ -189,7 +190,8 @@ def _build_prompt(plan_id: str, plan_title: str, plan_description: str,
         f"### {style_block}\n\n"
         "### Specification\n"
         f"{spec_short}\n"
-        "[/INST]"
+        "<|end|>\n"
+        "<|assistant|>\n"
     )
 
 
@@ -263,7 +265,7 @@ def generate_test_cases(payload: GenerateTestCasesRequest):
             "Ollama not found. Install from https://ollama.com"))
     except subprocess.TimeoutExpired:
         return JSONResponse(status_code=504, content=_error_payload(
-            "Ollama took too long. Check: ollama run mistral"))
+            "Ollama took too long. Check: ollama run phi3:mini"))
     except ValueError as e:
         print(f"ValueError parsing JSON in test_cases: {e}")
         return JSONResponse(status_code=502, content=_error_payload(

@@ -1,8 +1,11 @@
-<div class="project-page container-fluid">
-  <div class="project-hero d-flex justify-content-between align-items-start">
+<div class="project-page container-fluid py-3">
+  <div class="project-hero d-flex justify-content-between align-items-start mb-3">
     <div>
-      <h4 class="project-hero-title mb-0">Project Management</h4>
-      <p class="project-hero-subtitle mb-1">Create projects and build your delivery team with precision.</p>
+      <h4 class="project-hero-title mb-0 app-title">
+  <span class="iconify app-title-icon" data-icon="iconamoon:folder-duotone"></span>
+  <iconify-icon icon="iconamoon:file-document-duotone" style="font-size: 20px; margin-right: 6px; color: #ec8a00;"></iconify-icon>
+  <span>Project Management</span>
+</h4>
       <div class="project-hero-metrics">
         <span class="metric-pill">{{ projects.length }} Projects</span>
         <span class="metric-pill metric-pill--soft">{{ users.length }} Specialists</span>
@@ -15,14 +18,14 @@
   <div class="alert alert-danger">{{ error }}</div>
   }
 
-  <div class="row g-1">
+  <div class="row g-3">
     <div class="col-lg-7">
-      <div class="card shadow-sm pm-panel h-100">
+      <div class="card shadow-sm pm-panel">
         <div class="card-body">
-          <form [formGroup]="projectForm" (ngSubmit)="saveProject()" class="row g-1">
+          <form [formGroup]="projectForm" (ngSubmit)="saveProject()" class="row g-2">
 
             <!-- Project Title -->
-            <div class="col-12 mb-1">
+            <div class="col-12">
               <label class="form-label pm-label">Project Title <span class="text-danger">*</span></label>
               <input class="form-control"
                 [class.is-invalid]="projectForm.controls.title.touched && projectForm.controls.title.invalid"
@@ -37,12 +40,11 @@
 
 
 
-            <!-- Date Range -->
-            <div class="col-12 mb-1">
-              <label class="form-label pm-label">Date Range</label>
-              <div class="date-range-field">
-
-                <div class="date-range-item">
+            <!-- Dates -->
+            <div class="col-12">
+              <label class="form-label pm-label">Dates</label>
+              <div class="date-triple-field">
+                <div class="date-triple-item">
                   <label class="date-range-label">Start Date <span class="text-danger">*</span></label>
                   <input type="date" class="form-control"
                     [class.is-invalid]="projectForm.controls.startDate.touched && projectForm.controls.startDate.invalid"
@@ -52,9 +54,7 @@
                   }
                 </div>
 
-                <div class="date-range-sep">to</div>
-
-                <div class="date-range-item">
+                <div class="date-triple-item">
                   <label class="date-range-label">End Date <span class="text-danger">*</span></label>
                   <input type="date" class="form-control"
                     [class.is-invalid]="projectForm.controls.endDate.touched && projectForm.controls.endDate.invalid"
@@ -64,46 +64,68 @@
                   }
                 </div>
 
+                <div class="date-triple-item">
+                  <label class="date-range-label">Milestone Date <span class="text-danger">*</span></label>
+                  <input type="date" class="form-control"
+                    [class.is-invalid]="projectForm.controls.milestoneDate.touched && projectForm.controls.milestoneDate.invalid"
+                    formControlName="milestoneDate" />
+                  @if (projectForm.controls.milestoneDate.touched &&
+                  projectForm.controls.milestoneDate.errors?.['required']) {
+                  <div class="invalid-feedback d-block">Milestone date is required.</div>
+                  }
+                </div>
               </div>
               @if (hasInvalidDateOrder()) {
-              <div class="invalid-feedback d-block">End date cannot be before start date.</div>
+              <div class="invalid-feedback d-block">End/Milestone date cannot be before start date.</div>
               }
             </div>
 
-            <!-- Milestone Date and Description -->
-            <div class="row mb-1">
-              <div class="col-md-4">
-                <label class="form-label pm-label">Milestone Date <span class="text-danger">*</span></label>
-                <input type="date" class="form-control"
-                  [class.is-invalid]="projectForm.controls.milestoneDate.touched && projectForm.controls.milestoneDate.invalid"
-                  formControlName="milestoneDate" />
-                @if (projectForm.controls.milestoneDate.touched &&
-                projectForm.controls.milestoneDate.errors?.['required']) {
-                <div class="invalid-feedback d-block">Milestone date is required.</div>
-                }
-                @if (hasInvalidDateOrder()) {
-                <div class="invalid-feedback d-block">Milestone date cannot be before start date.</div>
-                }
-              </div>
-              <div class="col-md-8">
-                <label class="form-label pm-label">Project Description</label>
-                <textarea class="form-control" rows="1" formControlName="description"></textarea>
-              </div>
+            <!-- Project Description -->
+            <div class="col-12">
+              <label class="form-label pm-label">Project Description</label>
+              <textarea class="form-control pm-description" rows="5" formControlName="description"></textarea>
             </div>
 
-            <!-- Choose Your Team -->
+            <!-- Elite Team -->
             <div class="col-12 elite-team-field">
-              <div class="elite-team-head">
+              <div class="elite-team-head mb-2">
                 <div>
-                  <label class="form-label mb-0 elite-team-title">Choose Your Team</label>
+                  <label class="form-label mb-0 elite-team-title">Team</label>
                   <div class="small text-muted">Select your specialists</div>
                 </div>
                 <div class="elite-team-tools">
+                  <div class="team-preview" title="Selected team members">
+                    @if (teamPreviewUsers.length) {
+                    @for (member of teamPreviewUsers; track member._id) {
+                    <span class="team-preview-item" [attr.title]="member.name">
+                      @if (member.picture) {
+                      <img [src]="resolveAvatarUrl(member.picture)" (error)="onAvatarError($event)"
+                        class="team-preview-avatar" alt="avatar" />
+                      } @else {
+                      <span class="team-preview-initials">{{ getUserInitials(member.name) }}</span>
+                      }
+                    </span>
+                    }
+                    @if (teamExtraCount > 0) {
+                    <span class="team-preview-item team-preview-item--count">+{{ teamExtraCount }}</span>
+                    }
+                    } @else {
+                    <span class="team-preview-item team-preview-item--empty">
+                      <span class="iconify" data-icon="iconamoon:profile-circle-duotone"></span>
+                    </span>
+                    }
+                  </div>
 
-                  <button type="button" class="btn btn-sm btn-outline-secondary elite-team-toggle-icon"
-                    title="View users list" (click)="openEliteTeamModal(eliteTeamModal)">
-                    <iconify-icon icon="iconamoon:eye-duotone"></iconify-icon>
-                  </button>
+                  <button type="button" class="btn btn-sm elite-team-toggle-icon"
+  title="View users list"
+  (click)="openEliteTeamModal(eliteTeamModal)">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2 12C2 12 5 5 12 5s10 7 10 7-3 7-10 7S2 12 2 12z" 
+      stroke="#ec8a00" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="12" cy="12" r="3" 
+      stroke="#ec8a00" stroke-width="2"/>
+  </svg>
+</button>
                 </div>
               </div>
             </div>
@@ -113,7 +135,7 @@
                 <div class="exec-upsert-body">
                   <header class="exec-upsert-header">
                     <div class="exec-upsert-headline">
-                      <h1 class="exec-upsert-title">Choose Your Team</h1>
+                      <h1 class="exec-upsert-title">Team</h1>
                       <button class="exec-close-btn" type="button" aria-label="Close"
                         (click)="modal.dismiss()">&times;</button>
                     </div>
@@ -149,6 +171,9 @@
 
                   <div class="exec-buttons">
                     <button class="exec-btn exec-btn-cancel" type="button" (click)="modal.dismiss()">Close</button>
+                    <button class="exec-btn exec-btn-save" type="button" (click)="applyEliteTeamSelection(modal)">
+                      Submit
+                    </button>
                   </div>
                 </div>
                 <div class="exec-upsert-accent"></div>
@@ -156,8 +181,9 @@
             </ng-template>
 
             <!-- Submit -->
-            <div class="col-12 d-flex justify-content-end gap-2">
-              <button type="submit" class="btn btn-brand" [disabled]="submitting">
+            <div class="col-12 d-flex justify-content-end gap-2 pt-2">
+              <button type="submit" class="btn btn-brand"
+                [disabled]="submitting || (selectedProjectId ? !canEditProject : !canCreateProject)">
                 {{ submitting ? 'Saving...' : 'Save Project' }}
               </button>
             </div>
@@ -171,7 +197,10 @@
       <div class="card h-100 shadow-sm pm-panel">
         <div class="card-body">
           <div class="d-flex align-items-center justify-content-between mb-3">
-            <h6 class="mb-0 panel-title">List de Projets</h6>
+            <h6 class="mb-0 panel-title app-title app-title--sm">
+              <span class="iconify app-title-icon" data-icon="iconamoon:folder-open-duotone"></span>
+              <span>Projects</span>
+            </h6>
             <span class="panel-badge">{{ projects.length }}</span>
           </div>
 
@@ -189,6 +218,10 @@
                 </div>
                 <div class="d-inline-flex align-items-center flex-nowrap gap-2">
                   <span class="project-users-chip">{{ project.assignedUsers?.length || 0 }} users</span>
+                  <button class="btn btn-sm btn-action btn-action-view btn-unified btn-icon-unified" type="button"
+                    title="View" (click)="openProjectViewModal(project)">
+                    <iconify-icon icon="iconamoon:eye-duotone" class="action-icon"></iconify-icon>
+                  </button>
                   <button class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified" type="button"
                     title="Edit" (click)="openEditProjectModal(project, editProjectModal)">
                     <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
@@ -203,36 +236,71 @@
             }
           </div>
 
-          @if (projects.length > 0) {
-          <div class="projects-pagination">
-            <div class="pagination-info">
-              <span class="pagination-text">Showing <strong>{{ projectsRangeStart }}-{{ projectsRangeEnd }}</strong> of <strong>{{ projects.length }}</strong> projects</span>
-            </div>
-            <div class="pagination-controls">
-              <button type="button" class="btn btn-pagination" 
-                [disabled]="currentProjectPage === 1"
-                (click)="onPrevProjectsPage()"
-                title="Previous page">
-                <iconify-icon icon="iconamoon:arrow-left-2-duotone"></iconify-icon>
-              </button>
-              <div class="pagination-counter">
-                <span class="counter-text">{{ currentProjectPage }} / {{ totalProjectPages }}</span>
-              </div>
-              <button type="button" class="btn btn-pagination"
-                [disabled]="currentProjectPage === totalProjectPages" 
-                (click)="onNextProjectsPage()"
-                title="Next page">
-                <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
-              </button>
-            </div>
+          <!-- Pagination -->
+          @if (totalProjectPages > 1) {
+          <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+            <button class="btn btn-sm btn-outline-secondary" [disabled]="currentProjectPage === 1"
+              (click)="onPrevProjectsPage()">Previous</button>
+            <span class="small text-muted">Page {{ currentProjectPage }} of {{ totalProjectPages }}</span>
+            <button class="btn btn-sm btn-outline-secondary" [disabled]="currentProjectPage === totalProjectPages"
+              (click)="onNextProjectsPage()">Next</button>
           </div>
           }
           }
+</div>
+
+<ng-template #viewProjectModal let-modal>
+  <div class="exec-upsert">
+    <div class="exec-upsert-body">
+      <header class="exec-upsert-header">
+        <div class="exec-upsert-headline">
+          <h1 class="exec-upsert-title">Project Details</h1>
+          <button class="exec-close-btn" type="button" aria-label="Close" (click)="modal.dismiss()">&times;</button>
+        </div>
+      </header>
+
+      @if (viewProject) {
+      <div class="projectcard">
+        <div class="card-header">
+          <div class="project-title">
+            <svg class="folder-icon" viewBox="0 0 20 20" fill="#e8b84b">
+              <path d="M2 5a2 2 0 012-2h3.586a1 1 0 01.707.293L9.414 4.5H16a2 2 0 012 2V15a2 2 0 01-2 2H4a2 2 0 01-2-2V5z"/>
+            </svg>
+            {{ viewProject.title }}
+          </div>
+          <span class="badge">{{ viewProject.title }}</span>
+        </div>
+
+        <div class="dates-row">
+          <div class="date-item"><label>START</label><span>{{ viewProject.startDate | date:'dd MMM yyyy' }}</span></div>
+          <div class="date-item"><label>END</label><span>{{ viewProject.endDate | date:'dd MMM yyyy' }}</span></div>
+          <div class="date-item"><label>MILESTONE</label><span>{{ viewProject.milestoneDate | date:'dd MMM yyyy' }}</span></div>
+        </div>
+
+        <div class="team-label">TEAM</div>
+        <div class="team-grid">
+          @for (member of viewProjectTeamMembers; track member.id; let i = $index) {
+          <div class="member-card" [class.owner]="member.isOwner">
+            <div class="avatar" [class.avatar-initials]="!member.hasPhoto" [class.avatar-photo]="member.hasPhoto">
+              @if (member.hasPhoto && member.photoUrl) {
+              <img [src]="member.photoUrl" (error)="onAvatarError($event)" />
+              } @else {
+              {{ member.initials }}
+              }
+            </div>
+            <span class="member-name">{{ member.name }}</span>
+            @if (member.isOwner) {
+            <span class="owner-badge">Owner</span>
+            }
+          </div>
+          }
         </div>
       </div>
+      }
     </div>
+    <div class="exec-upsert-accent"></div>
   </div>
-</div>
+</ng-template>
 
 <ng-template #editProjectModal let-modal>
   <div class="exec-upsert">
@@ -244,36 +312,37 @@
         </div>
       </header>
 
-      <form [formGroup]="editProjectForm" class="exec-upsert-form">
-        <div class="exec-field">
-          <label class="exec-label">Project title <span class="text-danger">*</span></label>
-          <input class="exec-input"
+      <form [formGroup]="editProjectForm" class="row g-2">
+        <div class="col-12">
+          <label class="form-label pm-label">Project title <span class="text-danger">*</span></label>
+          <input class="form-control"
             [class.is-invalid]="editProjectForm.controls.title.touched && editProjectForm.controls.title.invalid"
             formControlName="title" />
         </div>
 
-        <div class="exec-field">
-          <label class="exec-label">Start Date <span class="text-danger">*</span></label>
-          <input type="date" class="exec-input" formControlName="startDate" />
+        <div class="col-12">
+          <label class="form-label pm-label">Description</label>
+          <textarea class="form-control pm-description" rows="2" formControlName="description"></textarea>
         </div>
-        <div class="exec-field">
-          <label class="exec-label">End Date <span class="text-danger">*</span></label>
-          <input type="date" class="exec-input" formControlName="endDate" />
+
+        <div class="col-4">
+          <label class="form-label pm-label">Start Date <span class="text-danger">*</span></label>
+          <input type="date" class="form-control" formControlName="startDate" />
         </div>
-        <div class="exec-field">
-          <label class="exec-label">Milestone Date <span class="text-danger">*</span></label>
-          <input type="date" class="exec-input" formControlName="milestoneDate" />
+        <div class="col-4">
+          <label class="form-label pm-label">End Date <span class="text-danger">*</span></label>
+          <input type="date" class="form-control" formControlName="endDate" />
+        </div>
+        <div class="col-4">
+          <label class="form-label pm-label">Milestone Date <span class="text-danger">*</span></label>
+          <input type="date" class="form-control" formControlName="milestoneDate" />
           @if (hasInvalidEditDateOrder()) {
-          <small class="text-danger">Invalid date order.</small>
+          <div class="invalid-feedback d-block">Invalid date order.</div>
           }
         </div>
-        <div class="exec-field">
-          <label class="exec-label">Description</label>
-          <textarea class="exec-textarea" rows="1" formControlName="description"></textarea>
-        </div>
-        <div class="exec-field">
-          <label class="exec-label">Status</label>
-          <select class="exec-select" formControlName="status">
+        <div class="col-12">
+          <label class="form-label pm-label">Status</label>
+          <select class="form-select" formControlName="status">
             <option value="draft">Draft</option>
             <option value="active">Active</option>
             <option value="paused">Paused</option>
@@ -281,17 +350,12 @@
           </select>
         </div>
 
-        <div class="exec-field">
-          <div class="exec-actions-head">
-            <div class="d-flex flex-column">
-              <label class="exec-label mb-0">Choose Your Team</label>
-              <span class="exec-selected-badge">{{ editSelectedCount }} selected</span>
+        <div class="col-12 elite-team-field">
+          <div class="elite-team-head mb-2">
+            <div>
+              <label class="form-label mb-0 elite-team-title">Team</label>
+              <div class="small text-muted">{{ editSelectedCount }} selected</div>
             </div>
-            <label class="exec-select-all">
-              <span class="exec-select-all-text">Select All</span>
-              <input class="exec-checkbox" type="checkbox" [checked]="editAllSelected"
-                (change)="toggleEditAll($any($event.target).checked)" />
-            </label>
           </div>
 
           <div class="edit-elite-dropdown">
@@ -312,12 +376,21 @@
                   }
                   }
                 </span>
-                <span class="exec-trigger-arrow">{{ editEliteTeamOpen ? '▲' : '▼' }}</span>
+                <span class="edit-trigger-tools">
+                  <span class="exec-trigger-arrow">{{ editEliteTeamOpen ? '▲' : '▼' }}</span>
+                </span>
               </button>
 
               @if (editEliteTeamOpen) {
               <div class="exec-actions-box" (click)="$event.stopPropagation()">
                 <div class="exec-actions-scroll custom-scrollbar">
+                  <div class="mb-2">
+                    <label class="exec-action-item exec-action-item--all">
+                      <span class="exec-action-name">Select All</span>
+                      <input class="exec-checkbox exec-checkbox-lg" type="checkbox" [checked]="editAllSelected"
+                        (change)="toggleEditAll($any($event.target).checked)" />
+                    </label>
+                  </div>
                   @for (user of users; track user._id) {
                   <label class="exec-action-item">
                     <span class="edit-user-option">
@@ -335,13 +408,13 @@
             </div>
           </div>
           @if (editSelectedCount === 0) {
-          <small class="text-muted">No specialist selected.</small>
+          <div class="small text-muted">No specialist selected.</div>
           }
         </div>
 
-        <div class="exec-buttons">
-          <button class="exec-btn exec-btn-cancel" type="button" (click)="modal.dismiss()">Cancel</button>
-          <button class="exec-btn exec-btn-save" type="button" [disabled]="editSubmitting"
+        <div class="col-12 d-flex justify-content-end gap-2 pt-2">
+          <button class="btn btn-outline-secondary" type="button" (click)="modal.dismiss()">Cancel</button>
+          <button class="btn btn-brand" type="button" [disabled]="editSubmitting"
             (click)="saveEditedProject(modal)">
             {{ editSubmitting ? 'Saving...' : 'Save' }}
           </button>

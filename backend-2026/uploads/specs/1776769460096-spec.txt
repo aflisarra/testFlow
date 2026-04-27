@@ -1,0 +1,5 @@
+Login Page
+- Email field (required, valid email format)
+- Password field (required, min 8 characters)
+- Submit button
+- Show validation errors inline
