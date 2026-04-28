@@ -1,15 +1,13 @@
 import {
-    AdminManagementService,
-    AppProject,
-    AppUser,
+  AdminManagementService,
+  AppProject,
+  AppUser,
 } from '@/app/core/services/admin-management.service'
-import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import { CommonModule } from '@angular/common'
-import { CUSTOM_ELEMENTS_SCHEMA, Component, DestroyRef, HostListener, OnInit, inject } from '@angular/core'
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
+import { CUSTOM_ELEMENTS_SCHEMA, Component, HostListener, OnInit, ViewChild, TemplateRef, inject } from '@angular/core'
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms'
-import { ActivatedRoute, Router } from '@angular/router'
+import { Router } from '@angular/router'
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
 import { Store } from '@ngrx/store'
 import { ToastrService } from 'ngx-toastr'
@@ -28,21 +26,13 @@ import { ConfirmModalComponent } from '../admin/shared/confirm-modal.component'
 export class ProjectManagementComponent implements OnInit {
   private fb = inject(FormBuilder)
   private adminService = inject(AdminManagementService)
-  private projectsRefresh = inject(ProjectsRefreshService)
   private modalService = inject(NgbModal)
   private toastr = inject(ToastrService)
   private store = inject(Store)
   private router = inject(Router)
-  private activatedRoute = inject(ActivatedRoute)
-  private destroyRef = inject(DestroyRef)
 
   projects: AppProject[] = []
   users: AppUser[] = []
-
-  // Pagination & Search
-  currentPage = 1
-  pageSize = 4
-  searchQuery = ''
 
   loading = false
   usersLoading = false
@@ -69,6 +59,8 @@ export class ProjectManagementComponent implements OnInit {
   canListUsers = false
 
   selectedProjectId: string | null = null
+  @ViewChild('viewProjectModal') viewProjectModal!: TemplateRef<any>
+
   assignedUserIds = new Set<string>()
   editingProjectId: string | null = null
   editSubmitting = false
@@ -76,6 +68,11 @@ export class ProjectManagementComponent implements OnInit {
   editEliteTeamOpen = false
   private eliteTeamSelectionBeforeOpen = new Set<string>()
   private eliteTeamApplied = false
+
+  viewProject: AppProject | null = null
+
+  currentProjectPage = 1
+  private projectsPerPage = 10
 
   projectForm = this.fb.group({
     title: ['', [Validators.required, Validators.pattern(/\S+/)]],
@@ -95,26 +92,48 @@ export class ProjectManagementComponent implements OnInit {
     status: this.fb.nonNullable.control<'draft' | 'active' | 'paused' | 'completed'>('draft'),
   })
 
-  get selectedProject(): AppProject | null {
+   get selectedProject(): AppProject | null {
     if (!this.selectedProjectId) return null
     return this.projects.find((p) => p._id === this.selectedProjectId) || null
   }
 
-  ngOnInit(): void {
-    this.activatedRoute.queryParams
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((params) => {
-        const desired = String(params['selectedProjectId'] || '').trim()
-        if (!desired) return
-        this.selectedProjectId = desired
-        const match = this.projects.find((p) => String(p?._id || '') === desired)
-        if (match) this.onSelectProject(match)
+  get viewProjectTeamMembers(): any[] {
+    if (!this.viewProject) return []
+    const assigned = this.viewProject.assignedUsers || []
+    const byId = new Map(this.users.map((u) => [u._id, u]))
+    return assigned
+      .map((u: any) => {
+        const user = byId.get(u._id)
+        if (!user) return null
+        const parts = String(user.name || '').trim().split(/\s+/).filter(Boolean)
+        const initials = parts.length ? `${parts[0]?.[0] || ''}${parts[1]?.[0] || ''}`.toUpperCase() : 'U'
+        const photoUrl = user.picture ? this.resolveAvatarUrl(user.picture) : null
+        return {
+          id: user._id,
+          name: user.name,
+          initials,
+          hasPhoto: !!user.picture,
+          photoUrl,
+          isOwner: u.isOwner === true || u.role === 'owner'
+        }
       })
+      .filter((x): x is any => !!x)
+  }
 
-    this.projectsRefresh.changes$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => this.loadProjects())
+  openProjectViewModal(project: AppProject): void {
+    this.viewProject = project
+    const ref = this.modalService.open(this.viewProjectModal, {
+      size: 'lg',
+      centered: true,
+      windowClass: 'exec-upsert-modal-window',
+      backdropClass: 'exec-upsert-modal-backdrop',
+    })
+    ref.result.finally(() => {
+      this.viewProject = null
+    })
+  }
 
+  ngOnInit(): void {
     void this.initializePage()
   }
 
@@ -187,6 +206,37 @@ export class ProjectManagementComponent implements OnInit {
         this.loading = false
       },
     })
+  }
+
+  get paginatedProjects(): AppProject[] {
+    const start = (this.currentProjectPage - 1) * this.projectsPerPage
+    return this.projects.slice(start, start + this.projectsPerPage)
+  }
+
+  get totalProjectPages(): number {
+    return Math.ceil(this.projects.length / this.projectsPerPage)
+  }
+
+  get projectsRangeStart(): number {
+    if (this.projects.length === 0) return 0
+    return (this.currentProjectPage - 1) * this.projectsPerPage + 1
+  }
+
+  get projectsRangeEnd(): number {
+    const end = this.currentProjectPage * this.projectsPerPage
+    return Math.min(end, this.projects.length)
+  }
+
+  onPrevProjectsPage(): void {
+    if (this.currentProjectPage > 1) {
+      this.currentProjectPage--
+    }
+  }
+
+  onNextProjectsPage(): void {
+    if (this.currentProjectPage < this.totalProjectPages) {
+      this.currentProjectPage++
+    }
   }
 
   onNewProject(): void {
@@ -558,53 +608,12 @@ export class ProjectManagementComponent implements OnInit {
 
   createTestPlanForProject(project: AppProject): void {
     // Navigate to test-plan page with project pre-selected
-    this.router.navigate(['/test'], {
+    this.router.navigate(['/test-plan'], {
       queryParams: {
         projectId: project._id,
         projectName: project.title
       }
     })
-  }
-
-  get filteredProjects(): AppProject[] {
-    const q = this.searchQuery.toLowerCase().trim()
-    if (!q) return this.projects
-
-    return this.projects.filter((project) => {
-      const title = String(project.title || '').toLowerCase()
-      const description = String(project.description || '').toLowerCase()
-      const status = String(project.status || '').toLowerCase()
-      return title.includes(q) || description.includes(q) || status.includes(q)
-    })
-  }
-
-  get paginatedProjects(): AppProject[] {
-    const start = (this.currentPage - 1) * this.pageSize
-    return this.filteredProjects.slice(start, start + this.pageSize)
-  }
-
-  get totalPages(): number {
-    return Math.max(1, Math.ceil(this.filteredProjects.length / this.pageSize))
-  }
-
-  get visibleStart(): number {
-    return this.filteredProjects.length === 0 ? 0 : (this.currentPage - 1) * this.pageSize + 1
-  }
-
-  get visibleEnd(): number {
-    return Math.min(this.currentPage * this.pageSize, this.filteredProjects.length)
-  }
-
-  onSearchQueryChange(): void {
-    this.currentPage = 1
-  }
-
-  goToPreviousPage(): void {
-    if (this.currentPage > 1) this.currentPage--
-  }
-
-  goToNextPage(): void {
-    if (this.currentPage < this.totalPages) this.currentPage++
   }
 
 }

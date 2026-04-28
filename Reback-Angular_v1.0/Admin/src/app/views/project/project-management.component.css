@@ -139,31 +139,10 @@
   padding: 0.8rem 0.82rem;
   text-align: left;
   transition: all 0.2s ease;
-  display: block;
-  width: 100%;
-  color: inherit;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  text-align: inherit;
-  cursor: pointer;
-}
-
-.btn-unstyled {
-  border: none;
-  background: transparent;
-  padding: 0;
-  margin: 0;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-
-.project-item.btn-unstyled {
-  border: 1px solid #e5ebf3;
-  border-radius: 12px;
-  background: #fff;
-  padding: 0.8rem 0.82rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .project-item:hover {
@@ -178,9 +157,21 @@
   box-shadow: inset 0 0 0 1px rgba(95, 115, 242, 0.12);
 }
 
+.project-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1;
+}
+
 .project-item-title {
   font-weight: 700;
   color: #0f172a;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .project-users-chip {
@@ -194,6 +185,46 @@
   font-weight: 700;
   padding: 0.21rem 0.6rem;
   white-space: nowrap;
+}
+
+.project-item-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn-action-view {
+  border-color: rgba(0, 58, 112, 0.35);
+  background: rgba(0, 58, 112, 0.08);
+  color: var(--brand-blue);
+}
+
+.btn-action-view:hover {
+  border-color: var(--brand-blue);
+  background: rgba(0, 58, 112, 0.14);
+}
+
+.btn-action-edit {
+  border-color: rgba(0, 58, 112, 0.35);
+  background: rgba(0, 58, 112, 0.08);
+  color: var(--brand-blue);
+}
+
+.btn-action-edit:hover {
+  border-color: var(--brand-blue);
+  background: rgba(0, 58, 112, 0.14);
+}
+
+.btn-action-delete {
+  border-color: rgba(236, 138, 0, 0.45);
+  background: rgba(236, 138, 0, 0.12);
+  color: var(--brand-orange);
+}
+
+.btn-action-delete:hover {
+  border-color: var(--brand-orange);
+  background: rgba(236, 138, 0, 0.18);
 }
 
 .pm-label {
@@ -510,6 +541,151 @@ textarea.form-control {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.projectcard {
+  background: #fff;
+  border: 0.5px solid #e0ddd5;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  max-width: 860px;
+  font-family: sans-serif;
+  margin: 0 auto;
+}
+
+.projectcard .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.projectcard .folder-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+}
+
+.projectcard .project-title {
+  display: flex;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.projectcard .badge {
+  background: #f5f4f0;
+  border: 0.5px solid #ddd;
+  border-radius: 20px;
+  padding: 3px 12px;
+  font-size: 13px;
+  color: #666;
+}
+
+.projectcard .dates-row {
+  display: flex;
+  gap: 3rem;
+  padding: 1rem 0;
+  border-top: 0.5px solid #e0ddd5;
+  border-bottom: 0.5px solid #e0ddd5;
+  margin-bottom: 1.25rem;
+}
+
+.projectcard .date-item label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #888;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.projectcard .date-item span {
+  font-size: 15px;
+  color: #222;
+}
+
+.projectcard .team-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #888;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.projectcard .team-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.projectcard .member-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0.5px solid #e0ddd5;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fff;
+}
+
+.projectcard .member-card.owner {
+  border-color: #d4b88a;
+  background: #fdf6ec;
+}
+
+.projectcard .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.projectcard .avatar-initials {
+  background: #fdf0dc;
+  border: 1.5px solid #e8c87a;
+  color: #a07830;
+}
+
+.projectcard .avatar-photo {
+  background: #b3d4f0;
+  border: 1.5px solid #7aade0;
+  overflow: hidden;
+}
+
+.projectcard .avatar-photo img {
+  width: 24px;
+  height: 24px;
+}
+
+.projectcard .member-name {
+  font-size: 14px;
+  color: #222;
+}
+
+.projectcard .owner-badge {
+  font-size: 11px;
+  background: #e8c87a33;
+  border: 0.5px solid #d4a840;
+  color: #a07830;
+  border-radius: 20px;
+  padding: 1px 8px;
+  margin-left: 6px;
+}
+
+.exec-upsert-modal-window .modal-dialog {
+  margin: 100px auto;
+}
+
+.exec-upsert-modal-backdrop {
+  background-color: rgba(12, 40, 70, 0.5);
 }
 
 .exec-upsert {

@@ -1,14 +1,17 @@
 <div class="project-page container-fluid py-3">
   <div class="project-hero d-flex justify-content-between align-items-start mb-3">
-    <h4 class="project-hero-title mb-0 app-title">
+    <div>
+      <h4 class="project-hero-title mb-0 app-title">
   <span class="iconify app-title-icon" data-icon="iconamoon:folder-duotone"></span>
   <iconify-icon icon="iconamoon:file-document-duotone" style="font-size: 20px; margin-right: 6px; color: #ec8a00;"></iconify-icon>
   <span>Project Management</span>
 </h4>
-    <div class="project-hero-metrics">
-      <span class="metric-pill">{{ projects.length }} Projects</span>
-      <span class="metric-pill metric-pill--soft">{{ users.length }} Specialists</span>
+      <div class="project-hero-metrics">
+        <span class="metric-pill">{{ projects.length }} Projects</span>
+        <span class="metric-pill metric-pill--soft">{{ users.length }} Specialists</span>
+      </div>
     </div>
+    <button class="btn btn-brand btn-hero" type="button" (click)="onNewProject()">New Project</button>
   </div>
 
   @if (error) {
@@ -192,93 +195,112 @@
 
     <div class="col-lg-5">
       <div class="card h-100 shadow-sm pm-panel">
-        <div class="card-header d-flex align-items-center justify-content-between gap-2">
-          <div class="d-flex align-items-center justify-content-between gap-2 w-100">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-3">
             <h6 class="mb-0 panel-title app-title app-title--sm">
               <span class="iconify app-title-icon" data-icon="iconamoon:folder-open-duotone"></span>
               <span>Projects</span>
             </h6>
-            <span class="panel-badge">{{ filteredProjects.length }}</span>
+            <span class="panel-badge">{{ projects.length }}</span>
           </div>
-        </div>
 
-        <div class="card-body">
           @if (loading) {
           <p class="text-muted mb-0">Loading...</p>
           } @else if (!projects.length) {
           <p class="text-muted mb-0">No projects yet.</p>
           } @else {
-          <div class="d-flex gap-2 mb-3 align-items-center">
-            <input
-              type="text"
-              class="form-control form-control-sm"
-              placeholder="Search by name, description..."
-              [value]="searchQuery"
-              (input)="searchQuery = $any($event.target).value; onSearchQueryChange()"
-            />
-          </div>
-
-          <div class="d-flex justify-content-between align-items-center mb-2 text-muted small">
-            <span>Showing {{ visibleStart }}–{{ visibleEnd }} of {{ filteredProjects.length }}</span>
-          </div>
-
           <div class="project-list">
-            @if (paginatedProjects.length) {
             @for (project of paginatedProjects; track project._id) {
-            <button
-              type="button"
-              class="project-item btn-unstyled w-100 text-start"
-              [class.project-item--active]="selectedProjectId === project._id"
-              (click)="onSelectProject(project)">
+            <div class="project-item" [class.project-item--active]="selectedProjectId === project._id">
               <div class="d-flex justify-content-between align-items-start gap-2">
-                <div class="flex-grow-1">
+                <div>
                   <div class="project-item-title">{{ project.title }}</div>
-                  <div class="small text-muted">{{ project.status }}</div>
                 </div>
                 <div class="d-inline-flex align-items-center flex-nowrap gap-2">
                   <span class="project-users-chip">{{ project.assignedUsers?.length || 0 }} users</span>
-                  @if (canEditProject) {
+                  <button class="btn btn-sm btn-action btn-action-view btn-unified btn-icon-unified" type="button"
+                    title="View" (click)="openProjectViewModal(project)">
+                    <iconify-icon icon="iconamoon:eye-duotone" class="action-icon"></iconify-icon>
+                  </button>
                   <button class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified" type="button"
-                    title="Edit" (click)="openEditProjectModal(project, editProjectModal); $event.stopPropagation()">
+                    title="Edit" (click)="openEditProjectModal(project, editProjectModal)">
                     <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
                   </button>
-                  }
-                  @if (canDeleteProject) {
                   <button class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button"
-                    title="Delete" (click)="deleteProject(project); $event.stopPropagation()">
+                    title="Delete" (click)="deleteProject(project)">
                     <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
                   </button>
-                  }
                 </div>
               </div>
-            </button>
+            </div>
             }
-            } @else {
-            <div class="text-center text-muted small py-3">No projects found.</div>
+          </div>
+
+          <!-- Pagination -->
+          @if (totalProjectPages > 1) {
+          <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+            <button class="btn btn-sm btn-outline-secondary" [disabled]="currentProjectPage === 1"
+              (click)="onPrevProjectsPage()">Previous</button>
+            <span class="small text-muted">Page {{ currentProjectPage }} of {{ totalProjectPages }}</span>
+            <button class="btn btn-sm btn-outline-secondary" [disabled]="currentProjectPage === totalProjectPages"
+              (click)="onNextProjectsPage()">Next</button>
+          </div>
+          }
+          }
+</div>
+
+<ng-template #viewProjectModal let-modal>
+  <div class="exec-upsert">
+    <div class="exec-upsert-body">
+      <header class="exec-upsert-header">
+        <div class="exec-upsert-headline">
+          <h1 class="exec-upsert-title">Project Details</h1>
+          <button class="exec-close-btn" type="button" aria-label="Close" (click)="modal.dismiss()">&times;</button>
+        </div>
+      </header>
+
+      @if (viewProject) {
+      <div class="projectcard">
+        <div class="card-header">
+          <div class="project-title">
+            <svg class="folder-icon" viewBox="0 0 20 20" fill="#e8b84b">
+              <path d="M2 5a2 2 0 012-2h3.586a1 1 0 01.707.293L9.414 4.5H16a2 2 0 012 2V15a2 2 0 01-2 2H4a2 2 0 01-2-2V5z"/>
+            </svg>
+            {{ viewProject.title }}
+          </div>
+          <span class="badge">{{ viewProject.title }}</span>
+        </div>
+
+        <div class="dates-row">
+          <div class="date-item"><label>START</label><span>{{ viewProject.startDate | date:'dd MMM yyyy' }}</span></div>
+          <div class="date-item"><label>END</label><span>{{ viewProject.endDate | date:'dd MMM yyyy' }}</span></div>
+          <div class="date-item"><label>MILESTONE</label><span>{{ viewProject.milestoneDate | date:'dd MMM yyyy' }}</span></div>
+        </div>
+
+        <div class="team-label">TEAM</div>
+        <div class="team-grid">
+          @for (member of viewProjectTeamMembers; track member.id; let i = $index) {
+          <div class="member-card" [class.owner]="member.isOwner">
+            <div class="avatar" [class.avatar-initials]="!member.hasPhoto" [class.avatar-photo]="member.hasPhoto">
+              @if (member.hasPhoto && member.photoUrl) {
+              <img [src]="member.photoUrl" (error)="onAvatarError($event)" />
+              } @else {
+              {{ member.initials }}
+              }
+            </div>
+            <span class="member-name">{{ member.name }}</span>
+            @if (member.isOwner) {
+            <span class="owner-badge">Owner</span>
             }
           </div>
           }
         </div>
-
-        @if (projects.length && filteredProjects.length > 0) {
-        <div class="card-footer d-flex flex-wrap justify-content-between align-items-center gap-2">
-          <span class="text-muted small">Page {{ currentPage }} / {{ totalPages }}</span>
-          <div class="d-flex gap-2">
-            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="goToPreviousPage()"
-              [disabled]="currentPage === 1">
-              Previous
-            </button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="goToNextPage()"
-              [disabled]="currentPage === totalPages">
-              Next
-            </button>
-          </div>
-        </div>
-        }
       </div>
+      }
     </div>
+    <div class="exec-upsert-accent"></div>
   </div>
-</div>
+</ng-template>
 
 <ng-template #editProjectModal let-modal>
   <div class="exec-upsert">
