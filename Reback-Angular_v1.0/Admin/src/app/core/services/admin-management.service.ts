@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http'
 import { Injectable, inject } from '@angular/core'
-import { Observable } from 'rxjs'
+import { Observable, map } from 'rxjs'
 
 export interface AppUser {
   _id: string
@@ -24,7 +24,7 @@ export interface AppAction {
 }
 
 export interface AppRole {
-  _id: number
+  _id: string
   name: string
   description: string
   actions?: number[]
@@ -48,6 +48,38 @@ export interface AppProject {
 export class AdminManagementService {
   private http = inject(HttpClient)
   private readonly API_URL = 'http://localhost:3000/api'
+
+  private normalizeMongoId(value: unknown): string {
+    if (typeof value === 'string') return value.trim()
+    if (typeof value === 'number') return String(value)
+    if (value && typeof value === 'object') {
+      const maybeOid = (value as any)?.$oid
+      if (typeof maybeOid === 'string') return maybeOid.trim()
+      const str = (value as any)?.toString?.()
+      if (typeof str === 'string' && str !== '[object Object]') return str.trim()
+    }
+    return ''
+  }
+
+  private normalizeRole(raw: any): AppRole {
+    const id = this.normalizeMongoId(raw?._id || raw?.id || raw?.roleId)
+    const actionsRaw = Array.isArray(raw?.actions) ? raw.actions : []
+    const actions = actionsRaw
+      .map((v: unknown) => Number(v))
+      .filter((n: number) => Number.isFinite(n))
+
+    return {
+      _id: id,
+      name: String(raw?.name || '').trim(),
+      description: String(raw?.description || '').trim(),
+      actions,
+    }
+  }
+
+  private normalizeRoles(raw: unknown): AppRole[] {
+    if (!Array.isArray(raw)) return []
+    return raw.map((r) => this.normalizeRole(r))
+  }
 
   createUser(payload: {
     name: string
@@ -95,25 +127,34 @@ export class AdminManagementService {
   }
 
   getRoles(): Observable<AppRole[]> {
-    return this.http.get<AppRole[]>(`${this.API_URL}/roles`)
+    return this.http.get<unknown>(`${this.API_URL}/roles`).pipe(map((roles) => this.normalizeRoles(roles)))
   }
 
-  getRole(roleId: number): Observable<AppRole> {
-    return this.http.get<AppRole>(`${this.API_URL}/roles/${roleId}`)
+  getRole(roleId: string): Observable<AppRole> {
+    return this.http.get<unknown>(`${this.API_URL}/roles/${roleId}`).pipe(map((role) => this.normalizeRole(role)))
   }
 
   createRole(payload: { name: string; description: string; actions: number[] }): Observable<AppRole> {
-    return this.http.post<AppRole>(`${this.API_URL}/roles`, payload)
+    return this.http
+      .post<unknown>(`${this.API_URL}/roles`, payload)
+      .pipe(map((role) => this.normalizeRole(role)))
   }
 
   updateRole(
-    roleId: number,
+    roleId: string,
     payload: { name?: string; description?: string; actions?: number[] }
   ): Observable<{ message: string; role: AppRole }> {
-    return this.http.put<{ message: string; role: AppRole }>(`${this.API_URL}/roles/${roleId}`, payload)
+    return this.http
+      .put<{ message: string; role: unknown }>(`${this.API_URL}/roles/${roleId}`, payload)
+      .pipe(
+        map((resp) => ({
+          ...resp,
+          role: this.normalizeRole((resp as any)?.role),
+        }))
+      )
   }
 
-  deleteRole(roleId: number): Observable<{ message: string }> {
+  deleteRole(roleId: string): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(`${this.API_URL}/roles/${roleId}`)
   }
 

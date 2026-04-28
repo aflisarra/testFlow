@@ -459,9 +459,17 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
       suite.planSteps = [];
       suite.testPlans = [];
       suite.testCasesByPlan = [];
+      // Regeneration creates new unsaved content
+      suite.testStatus = 'Draft'
+      suite.savedAt = null
+      suite.executedAt = null
       await suite.save();
       await PlanTest.deleteMany({ testSuiteId });
     }
+
+    // AI generation starts
+    suite.testStatus = 'Generating'
+    await suite.save()
 
     const baseUrl = getFastApiBaseUrl();
     const fastApiResponse = await axios.post(
@@ -479,10 +487,14 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
 
     const testPlans = fastApiResponse?.data?.test_plans || fastApiResponse?.data?.testPlans;
     if (!Array.isArray(testPlans) || !testPlans.length) {
+      await TestSuite.findByIdAndUpdate(testSuiteId, { testStatus: 'Incomplete', lastGeneratedAt: new Date() }).catch(() => {})
       return res.status(502).json({ message: "FastAPI returned empty test plans" });
     }
 
     suite.testPlans = normalizeUniqueTestPlans(testPlans);
+    suite.testStatus = 'Draft'
+    suite.lastGeneratedAt = new Date()
+    suite.savedAt = null
     await suite.save();
 
     return res.json({
@@ -492,6 +504,10 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
       reused: false,
     });
   } catch (error) {
+    const maybeId = String(req.body?.testSuiteId || '').trim()
+    if (maybeId) {
+      await TestSuite.findByIdAndUpdate(maybeId, { testStatus: 'Incomplete', lastGeneratedAt: new Date() }).catch(() => {})
+    }
     const status = error?.response?.status || 500;
     const message =
       error?.response?.data?.error ||
@@ -530,6 +546,9 @@ router.post("/generate-test-cases", async (req, res) => {
       });
     }
 
+    // AI generation starts
+    await TestSuite.findByIdAndUpdate(testSuiteId, { testStatus: 'Generating' }).catch(() => {})
+
     const baseUrl = getFastApiBaseUrl();
     const project = suite?.projectId
       ? await Project.findById(suite.projectId).select("_id title").lean()
@@ -551,6 +570,7 @@ router.post("/generate-test-cases", async (req, res) => {
     const testCases = fastApiResponse?.data?.test_cases || fastApiResponse?.data?.testCases;
     const resolvedTitle = String(fastApiResponse?.data?.plan_title || planTitle || planId).trim();
     if (!Array.isArray(testCases) || !testCases.length) {
+      await TestSuite.findByIdAndUpdate(testSuiteId, { testStatus: 'Incomplete', lastGeneratedAt: new Date() }).catch(() => {})
       return res.status(502).json({ message: "FastAPI returned empty test cases" });
     }
 
@@ -569,6 +589,9 @@ router.post("/generate-test-cases", async (req, res) => {
       planTitle: resolvedTitle,
       testCases: normalized,
     });
+    suite.testStatus = 'Draft'
+    suite.lastGeneratedAt = new Date()
+    suite.savedAt = null
     await suite.save();
 
     return res.json({
@@ -579,6 +602,10 @@ router.post("/generate-test-cases", async (req, res) => {
       reused: false,
     });
   } catch (error) {
+    const testSuiteId = String(req.body?.testSuiteId || '').trim()
+    if (testSuiteId) {
+      await TestSuite.findByIdAndUpdate(testSuiteId, { testStatus: 'Incomplete', lastGeneratedAt: new Date() }).catch(() => {})
+    }
     const status = error?.response?.status || 500;
     const message =
       error?.response?.data?.error ||

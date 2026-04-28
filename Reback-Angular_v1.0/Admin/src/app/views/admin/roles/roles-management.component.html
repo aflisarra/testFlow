@@ -49,7 +49,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (role of paginatedRoles; track role._id) {
+              @for (role of paginatedRoles; track role._id || role.name || $index) {
               <tr>
                 <td>{{ role.name }}</td>
                 <td>{{ role.description }}</td>

@@ -51,6 +51,10 @@ export interface GetTestPlansResponse {
   testSuiteId: string
   testPlans: TestPlanDto[]
   testCasesByPlan?: any[]
+  testStatus?: 'Draft' | 'Generating' | 'Incomplete' | 'Ready' | 'Passed' | 'Failed'
+  lastGeneratedAt?: string | null
+  savedAt?: string | null
+  executedAt?: string | null
   sessionStatus?: 'complete' | 'incomplete'
   planStatuses?: Array<{ planId: string; status: string }>
   sessionSavedAt?: string | null
@@ -89,6 +93,10 @@ export interface TestSuiteDto {
   picture?: string
   canOpen?: boolean
   status?: 'completed' | 'incomplete' | 'validated' | 'invalid'
+  testStatus?: 'Draft' | 'Generating' | 'Incomplete' | 'Ready' | 'Passed' | 'Failed'
+  lastGeneratedAt?: string | null
+  savedAt?: string | null
+  executedAt?: string | null
   totalTestCases?: number
   description?: string
   specFileName?: string
@@ -192,6 +200,10 @@ export class TestLabService {
     message: string
     suite: {
       _id: string
+      testStatus?: 'Draft' | 'Generating' | 'Incomplete' | 'Ready' | 'Passed' | 'Failed'
+      lastGeneratedAt?: string | null
+      savedAt?: string | null
+      executedAt?: string | null
       sessionStatus: 'complete' | 'incomplete'
       planStatuses: Array<{ planId: string; status: string }>
       sessionSavedAt: string | null
@@ -218,6 +230,12 @@ export class TestLabService {
         executionSavedAt?: string | null
       }
     }>(`${this.baseUrl}/testsuites/${testSuiteId}/session`, payload)
+  }
+
+  exportWord(testSuiteId: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/testsuites/${testSuiteId}/export-word`, {
+      responseType: 'blob',
+    })
   }
 
   // ── Legacy ───────────────────────────────────────────────

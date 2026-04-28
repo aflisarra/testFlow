@@ -3,11 +3,13 @@ import {
     AppProject,
     AppUser,
 } from '@/app/core/services/admin-management.service'
+import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import { CommonModule } from '@angular/common'
-import { CUSTOM_ELEMENTS_SCHEMA, Component, HostListener, OnInit, inject } from '@angular/core'
+import { CUSTOM_ELEMENTS_SCHEMA, Component, DestroyRef, HostListener, OnInit, inject } from '@angular/core'
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms'
-import { Router } from '@angular/router'
+import { ActivatedRoute, Router } from '@angular/router'
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
 import { Store } from '@ngrx/store'
 import { ToastrService } from 'ngx-toastr'
@@ -26,10 +28,13 @@ import { ConfirmModalComponent } from '../admin/shared/confirm-modal.component'
 export class ProjectManagementComponent implements OnInit {
   private fb = inject(FormBuilder)
   private adminService = inject(AdminManagementService)
+  private projectsRefresh = inject(ProjectsRefreshService)
   private modalService = inject(NgbModal)
   private toastr = inject(ToastrService)
   private store = inject(Store)
   private router = inject(Router)
+  private activatedRoute = inject(ActivatedRoute)
+  private destroyRef = inject(DestroyRef)
 
   projects: AppProject[] = []
   users: AppUser[] = []
@@ -96,6 +101,20 @@ export class ProjectManagementComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.activatedRoute.queryParams
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((params) => {
+        const desired = String(params['selectedProjectId'] || '').trim()
+        if (!desired) return
+        this.selectedProjectId = desired
+        const match = this.projects.find((p) => String(p?._id || '') === desired)
+        if (match) this.onSelectProject(match)
+      })
+
+    this.projectsRefresh.changes$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.loadProjects())
+
     void this.initializePage()
   }
 
@@ -539,7 +558,7 @@ export class ProjectManagementComponent implements OnInit {
 
   createTestPlanForProject(project: AppProject): void {
     // Navigate to test-plan page with project pre-selected
-    this.router.navigate(['/test-plan'], {
+    this.router.navigate(['/test'], {
       queryParams: {
         projectId: project._id,
         projectName: project.title

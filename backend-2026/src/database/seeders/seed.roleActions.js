@@ -1,61 +1,52 @@
-require('dotenv').config();
-const mongoose = require('mongoose');
-const Role = require('../../models/role.model');
-const Action = require('../../models/action.model');
-const RoleAction = require('../../models/roleAction.model');
+require('dotenv').config()
+const path = require('path')
+const mongoose = require('mongoose')
 
-const MONGODB_URI = process.env.MONGODB_URL;
+require('dotenv').config({
+  path: path.join(__dirname, '../../../.env'),
+})
 
-async function seedDatabase() {
+const Role = require('../../models/role.model')
+const RoleAction = require('../../models/roleAction.model')
+
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URL
+
+async function seedRoleActions() {
   try {
-    await mongoose.connect(MONGODB_URI);
-    console.log('✅ Connected to MongoDB');
+    if (!MONGODB_URI) throw new Error('MONGODB_URI manquant dans .env')
 
-    // 1️⃣ Seed Actions existantes
-    const allActions = await Action.find({});
-    const allActionIds = allActions.map(a => a._id);
+    await mongoose.connect(MONGODB_URI)
+    console.log('✅ Connected to MongoDB')
 
-    // 2️⃣ Seed Roles
-    await Role.deleteMany({});
-    const adminRole = await Role.create({
-      name: 'admin',
-      description: 'Full access',
-      actions: allActionIds
-    });
+    const roles = await Role.find({}).select('_id name actions').lean()
+    if (!roles.length) {
+      throw new Error("Aucun rôle trouvé. Lance seed.roles.js d'abord.")
+    }
 
-    const userRole = await Role.create({
-      name: 'user',
-      description: 'Basic access',
-      actions: [1] // juste dashboard
-    });
+    await RoleAction.deleteMany({})
+    console.log('🧹 Cleared RoleAction collection')
 
-    console.log('✅ Roles seeded');
-
-    // 3️⃣ Seed RoleActions
-    await RoleAction.deleteMany({});
-    console.log('🧹 Cleared RoleAction collection');
-
-    const mapping = [
-      { roleId: adminRole._id, actionIds: allActionIds }, // admin: toutes les actions
-      { roleId: userRole._id, actionIds: [1] }            // user: seulement dashboard
-    ];
-
-    const toInsert = [];
-    for (const map of mapping) {
-      for (const actionId of map.actionIds) {
-        toInsert.push({ roleId: map.roleId, actionId });
+    const toInsert = []
+    for (const role of roles) {
+      const actionIds = Array.isArray(role.actions) ? role.actions : []
+      for (const actionId of actionIds) {
+        const numericActionId = Number(actionId)
+        if (!Number.isFinite(numericActionId)) continue
+        toInsert.push({ roleId: role._id, actionId: numericActionId })
       }
     }
 
-    await RoleAction.insertMany(toInsert);
-    console.log('✅ RoleActions seeded');
+    if (toInsert.length) {
+      await RoleAction.insertMany(toInsert)
+    }
 
-    console.log('🎉 Database seeding completed');
-    process.exit(0);
+    console.log(`✅ RoleActions seeded (${toInsert.length} links)`)
+    process.exit(0)
   } catch (error) {
-    console.error('❌ Seeding error:', error);
-    process.exit(1);
+    console.error('❌ Seeding error:', error)
+    process.exit(1)
   }
 }
 
-seedDatabase();
+seedRoleActions()
+

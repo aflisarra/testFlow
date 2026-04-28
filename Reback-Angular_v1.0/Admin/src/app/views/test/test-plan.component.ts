@@ -8,10 +8,12 @@ import {
   type TestCaseDto,
   type TestPlanDto,
 } from '@/app/core/services/testlab.service'
+import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import { CommonModule } from '@angular/common'
-import { Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, inject, NgZone, ViewChild } from '@angular/core'
+import { Component, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, ElementRef, inject, NgZone, ViewChild } from '@angular/core'
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms'
 import { ActivatedRoute, Router } from '@angular/router'
 import { Store } from '@ngrx/store'
@@ -35,11 +37,13 @@ export class TestSuiteConfigurationComponent {
   private testLabService = inject(TestLabService)
   private authService = inject(AuthenticationService)
   private adminManagementService = inject(AdminManagementService)
+  private projectsRefresh = inject(ProjectsRefreshService)
   private router = inject(Router)
   private activatedRoute = inject(ActivatedRoute)
   private toastr = inject(ToastrService)
   private zone = inject(NgZone)
   private fb = inject(FormBuilder)
+  private destroyRef = inject(DestroyRef)
 
   @ViewChild('plansResult') private plansResultRef?: ElementRef<HTMLElement>
 
@@ -101,6 +105,10 @@ export class TestSuiteConfigurationComponent {
   constructor() {
     void this.loadProjects()
     void this.initializeFromQueryParams()
+
+    this.projectsRefresh.changes$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => void this.loadProjects())
   }
 
   private async initializeFromQueryParams(): Promise<void> {
@@ -124,6 +132,7 @@ export class TestSuiteConfigurationComponent {
 
   private async loadProjects() {
     this.loadingProjects = true
+    this.syncProjectIdControlDisabled()
     try {
       const projects = await firstValueFrom(this.adminManagementService.getProjects(false))
       this.projects = Array.isArray(projects) ? projects : []
@@ -131,6 +140,7 @@ export class TestSuiteConfigurationComponent {
       this.projects = []
     } finally {
       this.loadingProjects = false
+      this.syncProjectIdControlDisabled()
     }
   }
 
@@ -667,6 +677,7 @@ export class TestSuiteConfigurationComponent {
   private async generatePlans(regenerate = false) {
     this.errorMessage = ''
     this.generatingPlans = true
+    this.syncProjectIdControlDisabled()
     this.testPlans = []
     this.testCasesByPlan = {}
     this.currentPlanIndex = -1
@@ -744,7 +755,18 @@ export class TestSuiteConfigurationComponent {
       this.toastr.error(this.errorMessage, 'Generation')
     } finally {
       this.generatingPlans = false
+      this.syncProjectIdControlDisabled()
     }
+  }
+
+  private syncProjectIdControlDisabled(): void {
+    const ctrl = this.testPlanForm.get('projectId')
+    if (!ctrl) return
+
+    // Avoid using [disabled] with reactive directives in templates (Angular warns about it).
+    const shouldDisable = this.loadingProjects || this.generatingPlans
+    if (shouldDisable && ctrl.enabled) ctrl.disable({ emitEvent: false })
+    if (!shouldDisable && ctrl.disabled) ctrl.enable({ emitEvent: false })
   }
 
   private scrollToPlansResult(retries = 6): void {

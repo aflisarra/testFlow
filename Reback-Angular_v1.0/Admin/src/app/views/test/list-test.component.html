@@ -1,5 +1,6 @@
 <!-- List -->
-<div class="container-fluid py-3 test-validation-page" *ngIf="view === 'list'">
+@if (view === 'list') {
+<div class="container-fluid py-3 test-validation-page" >
   <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
     <div>
       <h4 class="app-title mb-1">
@@ -75,32 +76,45 @@
       </div>
 
       <!-- Dropdown filtre -->
-      <div class="tv-filter-wrap" (click)="$event.stopPropagation()">
-        <button
-          type="button"
-          class="tv-filter-btn"
-          [class.tv-filter-btn--active]="statusFilter !== 'all'"
-          (click)="toggleFilterDropdown()">
-          <iconify-icon icon="iconamoon:filter-duotone"></iconify-icon>
-          <span>{{ statusFilter !== 'all' ? getFilterLabel(statusFilter) : 'Filter' }}</span>
-          <span class="tv-filter-badge" *ngIf="statusFilter !== 'all'">1</span>
-          <span class="tv-filter-arrow">{{ filterOpen ? '▴' : '▾' }}</span>
-        </button>
+      <div class="tv-filter-wrap">
+     (click)="toggleFilterDropdown(); $event.stopPropagation()"
+      <button
+  type="button"
+  class="tv-filter-btn"
+  [class.tv-filter-btn--active]="statusFilter !== 'all'"
+  (click)="toggleFilterDropdown(); $event.stopPropagation()">
+
+  <iconify-icon icon="iconamoon:filter-duotone"></iconify-icon>
+
+  <span>
+    {{ statusFilter !== 'all' ? getFilterLabel(statusFilter) : 'Filter' }}
+  </span>
+
+  @if (statusFilter !== 'all') {
+    <span class="tv-filter-badge">1</span>
+  }
+
+  <span class="tv-filter-arrow">
+    {{ filterOpen ? '▴' : '▾' }}
+  </span>
+
+</button>
 
         <div class="tv-dropdown" [class.tv-dropdown--open]="filterOpen">
           <div class="tv-dd-header">Status</div>
 
           @for (f of statusFilters; track f.key) {
-          <div
-            class="tv-dd-option"
-            [class.tv-dd-option--active]="statusFilter === f.key"
-            (click)="setStatusFilter(f.key); filterOpen = false">
+          <button
+          type="button"
+          class="tv-dd-option"
+          [class.tv-dd-option--active]="statusFilter === f.key"
+          (click)="setStatusFilter(f.key); filterOpen = false">
             <div class="tv-dd-left">
               <span class="tv-dd-dot tv-dd-dot--{{ f.key }}"></span>
               <span class="tv-dd-label">{{ f.label }}</span>
             </div>
             <span class="tv-dd-count">{{ countByStatus(f.key) }}</span>
-          </div>
+          </button>
           }
 
           <div class="tv-dd-footer">
@@ -114,14 +128,22 @@
     </div>
 
     <!-- Active tag -->
-    <div class="tv-active-tag-row" *ngIf="statusFilter !== 'all'">
-      <span class="tv-active-tag-label">Active:</span>
-      <span class="tv-active-tag">
-        {{ getFilterLabel(statusFilter) }}
-        <button type="button" class="tv-active-tag-x"
-          (click)="setStatusFilter('all')">✕</button>
-      </span>
-    </div>
+          @if (statusFilter !== 'all') {
+          <div class="tv-active-tag-row">
+            <span class="tv-active-tag-label">Active:</span>
+
+            <span class="tv-active-tag">
+              {{ getFilterLabel(statusFilter) }}
+
+              <button
+                type="button"
+                class="tv-active-tag-x"
+                (click)="setStatusFilter('all')">
+                ✕
+              </button>
+            </span>
+          </div>
+          }
 
     <div class="card-body p-0">
       @if (loading) {
@@ -131,44 +153,47 @@
         <table class="table table-hover align-middle mb-0 tv-table">
           <thead>
             <tr>
-              <th style="width: 20%;">Test name</th>
-              <th style="width: 30%;">Description</th>
-              <th style="width: 12%;">Status</th>
-              <th class="text-center" style="width: 10%;">Plans</th>
-              <th class="text-center" style="width: 10%;">Cases</th>
-              <th style="width: 14%;">Created</th>
-              <th class="text-end" style="width: 14%;">Actions</th>
+              <th style="width: 22%;">User</th>
+              <th style="width: 30%;">Test name</th>
+              <th style="width: 16%;">Created</th>
+              <th style="width: 16%;">Status</th>
+              <th class="text-end" style="width: 16%;">Export</th>
             </tr>
           </thead>
           <tbody>
             @if (paginatedSuites.length === 0) {
             <tr>
-              <td colspan="7" class="text-center text-muted py-4">No test suites found.</td>
+              <td colspan="5" class="text-center text-muted py-4">No tests found.</td>
             </tr>
             }
 
             @for (suite of paginatedSuites; track suite._id) {
-            <tr class="tv-row" [class.tv-row--expanded]="expandedSuiteId === suite._id" (click)="onToggleSuite(suite)">
+            <tr
+              class="tv-row"
+              tabindex="0"
+              (keydown.enter)="suite.canOpen === false ? null : onOpenSuite(suite)"
+              (click)="suite.canOpen === false ? null : onOpenSuite(suite)">
               <td>
                 <div class="d-flex align-items-center gap-2">
-                  <div class="tv-avatar">{{ getSuiteInitials(suite) }}</div>
-                  <div class="fw-semibold">{{ getSuiteDisplayName(suite) }}</div>
+                  <div class="tv-avatar">{{ getUserInitials(suite.creatorName) }}</div>
+                  <div class="fw-semibold">{{ suite.creatorName || '—' }}</div>
                 </div>
               </td>
-              <td class="text-muted small">{{ getCleanDescription(suite) }}</td>
+              <td>
+                <div class="fw-semibold">{{ getSuiteDisplayName(suite) }}</div>
+              </td>
+              <td class="text-muted small">{{ suite.createdAt ? (suite.createdAt | date:'dd MMM yyyy') : '—' }}</td>
               <td>
                 <span class="badge rounded-pill" [ngClass]="getBadgeClass(suite)">
                   {{ getSuiteStatusLabel(suite) }}
                 </span>
               </td>
-              <td class="text-center fw-semibold text-primary">{{ suite.testPlans?.length || 0 }}</td>
-              <td class="text-center text-muted">{{ getTotalCases(suite) }}</td>
-              <td class="text-muted small">{{ suite.createdAt ? (suite.createdAt | date:'dd MMM yyyy') : '—' }}</td>
               <td class="text-end" (click)="$event.stopPropagation()">
                 <div class="d-inline-flex align-items-center gap-2 tv-actions">
-                  <button type="button" class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified"
-                    title="Open details" (click)="onOpenSuite(suite)" [disabled]="suite.canOpen === false">
-                    <iconify-icon icon="iconamoon:arrow-right-2-duotone" class="action-icon"></iconify-icon>
+                  <button type="button" class="btn btn-sm btn-action btn-unified btn-icon-unified"
+                    title="Export Word" (click)="onExportSuite(suite)"
+                    [disabled]="suite.canOpen === false || exportingSuiteId === suite._id">
+                    <iconify-icon icon="mdi:file-word-outline" class="action-icon"></iconify-icon>
                   </button>
                  
                 </div>
@@ -197,13 +222,14 @@
       </div>
     </div>
   </div>
-</div>
+</div> }
 
 
 <!-- ════════════════════════════════════════
      DETAIL VIEW
 ════════════════════════════════════════ -->
-<div class="container-fluid py-3 test-validation-page" *ngIf="view === 'detail'">
+@if (view === 'detail') {
+<div class="container-fluid py-3 test-validation-page">
 
   <!-- Header -->
   <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-4">
@@ -456,11 +482,7 @@
             <div class="fw-semibold">{{ selectedPlan?.title || 'Select a plan' }}</div>
             <div class="text-muted small">{{ selectedPlan?.description }}</div>
           </div>
-          <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="!selectedPlan"
-            (click)="selectedPlan && onRegenerate(selectedPlan)">
-            <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
-            @if (generatingCasesPlanId === selectedPlanId) { Generating... } @else { Regenerate }
-          </button>
+         
         </div>
       </div>
 
@@ -505,4 +527,4 @@
   }
   }
 
-</div>
+</div> }

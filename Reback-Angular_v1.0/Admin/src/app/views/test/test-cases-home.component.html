@@ -368,3 +368,33 @@
   </div>
 </div>
 }
+
+<!-- ── Unsaved Changes Modal ── -->
+@if (unsavedModalOpen) {
+<div class="tc-modal-backdrop" (click)="onUnsavedCancel()">
+  <div class="tc-modal tc-modal--unsaved" (click)="$event.stopPropagation()">
+    <div class="tc-modal-header">
+      <div>
+        <h5 class="tc-modal-title mb-0">Unsaved Changes</h5>
+        <p class="tc-modal-desc mb-0">
+          You have generated tests that are not saved yet.<br />
+          Do you want to save before leaving?
+        </p>
+      </div>
+      <button class="tc-modal-close" (click)="onUnsavedCancel()">×</button>
+    </div>
+
+    <div class="tc-modal-actions-bottom">
+      <button class="btn btn-brand px-4" [disabled]="unsavedSaving" (click)="onUnsavedSaveAndContinue()">
+        Save and Continue
+      </button>
+      <button class="btn btn-outline-danger px-4" [disabled]="unsavedSaving" (click)="onUnsavedLeaveWithoutSaving()">
+        Leave Without Saving
+      </button>
+      <button class="btn btn-cancel px-4" [disabled]="unsavedSaving" (click)="onUnsavedCancel()">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+}

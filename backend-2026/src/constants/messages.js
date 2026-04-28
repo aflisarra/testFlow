@@ -57,6 +57,9 @@ module.exports = {
     NOT_FOUND: 'Invitation not found',
     ERROR: 'Invitation error',
     UNAUTHORIZED: 'Unauthorized',
+    FORBIDDEN: 'Forbidden',
+    ACCEPTED: 'Invitation accepted',
+    IGNORED: 'Invitation ignored',
   },
   PROJECT:{
     CREATED: 'Project created successfully',

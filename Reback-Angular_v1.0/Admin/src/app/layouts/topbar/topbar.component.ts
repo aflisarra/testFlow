@@ -18,6 +18,7 @@ import { Router, RouterLink } from '@angular/router'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import { ProjectInvitationsService, type ProjectInvitationDto } from '@/app/core/services/project-invitations.service'
+import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
 import { ToastrService } from 'ngx-toastr'
 import { firstValueFrom } from 'rxjs'
 
@@ -40,6 +41,7 @@ export class TopbarComponent {
   store = inject(Store)
   authService = inject(AuthenticationService)
   private invitationsService = inject(ProjectInvitationsService)
+  private projectsRefresh = inject(ProjectsRefreshService)
   private toastr = inject(ToastrService)
   destroyRef = inject(DestroyRef)
 
@@ -95,9 +97,22 @@ export class TopbarComponent {
     if (!id) return
     this.acceptingId = id
     try {
-      await firstValueFrom(this.invitationsService.acceptInvitation(id))
+      const resp = await firstValueFrom(this.invitationsService.acceptInvitation(id))
       this.toastr.success('Project invitation accepted.', 'Project')
       await this.refreshInvitations()
+
+      // Refresh project lists across pages (Project + Test Plan dropdown, etc.)
+      this.projectsRefresh.notify()
+
+      const projectId =
+        String((resp as any)?.projectId || invite?.projectId?._id || '').trim()
+      if (projectId) {
+        await this.router.navigate(['/project'], {
+          queryParams: { selectedProjectId: projectId },
+        })
+      } else {
+        await this.router.navigate(['/project'])
+      }
     } catch (err: any) {
       this.toastr.error(err?.error?.message || 'Unable to accept invitation', 'Project')
     } finally {

@@ -64,6 +64,7 @@ export class AllUsersComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     this.clearCreateUserCredentials()
     await this.initPermissions()
+    this.syncCreateUserFormAccess()
     this.loadRoles()
     if (this.canViewUsers) {
       this.loadUsers()
@@ -89,6 +90,16 @@ export class AllUsersComponent implements OnInit {
     this.canEditUser = actions.includes(this.ACTION_EDIT_USER)
     this.canDeleteUser = actions.includes(this.ACTION_DELETE_USER)
     this.canViewUsers = actions.includes(this.ACTION_VIEW_USER)
+  }
+
+  private syncCreateUserFormAccess(): void {
+    // Avoid using [disabled] on reactive form controls in templates (Angular warns about it).
+    if (this.canAddUser) {
+      this.createUserForm.enable({ emitEvent: false })
+      this.clearCreateUserCredentials()
+      return
+    }
+    this.createUserForm.disable({ emitEvent: false })
   }
 
   loadRoles(): void {

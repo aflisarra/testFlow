@@ -36,8 +36,8 @@ export class ProjectInvitationsService {
     )
   }
 
-  acceptInvitation(invitationId: string): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(
+  acceptInvitation(invitationId: string): Observable<{ message: string; projectId?: string }> {
+    return this.http.post<{ message: string; projectId?: string }>(
       `${this.baseUrl}/project-invitations/${invitationId}/accept`,
       {}
     )
@@ -50,4 +50,3 @@ export class ProjectInvitationsService {
     )
   }
 }
-

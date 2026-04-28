@@ -1,16 +1,18 @@
+import { requireAnyAction } from '@/app/core/guards/require-action.guard'
+import { unsavedChangesGuard } from '@/app/core/guards/unsaved-changes.guard'
 import { Route } from '@angular/router'
-import { WidgetsComponent } from './apps/widgets/widgets.component'
-import { InvoiceDetailsComponent } from './invoices/invoice-details/invoice-details.component'
-import { InvoicesComponent } from './invoices/invoices/invoices.component'
+import { RolesManagementComponent } from './admin/roles/roles-management.component'
 import { AllUsersComponent } from './admin/users/all-users.component'
 import { InviteUserComponent } from './admin/users/invite-user.component'
-import { RolesManagementComponent } from './admin/roles/roles-management.component'
-import { TestSuiteConfigurationComponent } from './test/test-plan.component'
+import { WidgetsComponent } from './apps/widgets/widgets.component'
+import { ExecutionComponent } from './execution/Execution-Management/execution.component'
+import { InvoiceDetailsComponent } from './invoices/invoice-details/invoice-details.component'
+import { InvoicesComponent } from './invoices/invoices/invoices.component'
+import { UnauthorizedComponent } from './pages/unauthorized/unauthorized.component'
+import { ProjectManagementComponent } from './project/project-management.component'
 import { TestCasesValidationComponent } from './test/list-test.component'
 import { TestCasesHomeComponent } from './test/test-cases-home.component'
-import { ProjectManagementComponent } from './project/project-management.component'
-import { UnauthorizedComponent } from './pages/unauthorized/unauthorized.component'
-import { requireAnyAction } from '@/app/core/guards/require-action.guard'
+import { TestSuiteConfigurationComponent } from './test/test-plan.component'
 
 export const VIEW_ROUTES: Route[] = [
   {
@@ -121,11 +123,13 @@ export const VIEW_ROUTES: Route[] = [
   {
     path: 'test-cases',
     component: TestCasesHomeComponent,
+    canDeactivate: [unsavedChangesGuard],
     data: { title: 'Test Cases' },
   },
   {
     path: 'testcases',
     component: TestCasesHomeComponent,
+    canDeactivate: [unsavedChangesGuard],
     data: { title: 'Test Cases' },
   },
   {
@@ -145,5 +149,10 @@ export const VIEW_ROUTES: Route[] = [
       import('./test/list-test.component')
         .then(m => m.TestCasesValidationComponent),
     data: { title: 'List of Tests' },
+  },
+  {
+    path: 'execution/Execution-Management',
+    component: ExecutionComponent,
+    data: { title: 'Test Execution' },
   },
 ]

@@ -37,10 +37,24 @@ exports.createUser = async (req, res) => {
 exports.getUsers = async (req, res) => {
   try {
     const users = await userService.getAllUsers();
-    res.json(users);
+
+    // 200 : Succès
+    res.status(200).json(users);
+
   } catch (error) {
     console.error(MESSAGES.USER.ERROR, error);
-    res.status(500).json({ message: MESSAGES.ERROR.SERVER });
+
+    // 400 : Requête invalide (si besoin selon logique métier)
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        message: MESSAGES.ERROR.BAD_REQUEST
+      });
+    }
+
+    // 500 : Erreur serveur
+    res.status(500).json({
+      message: MESSAGES.ERROR.SERVER
+    });
   }
 };
 
@@ -50,11 +64,31 @@ exports.getUsers = async (req, res) => {
 exports.getUser = async (req, res) => {
   try {
     const user = await userService.getUserById(req.params.id);
-    if (!user) return res.status(404).json({ message: MESSAGES.USER.NOT_FOUND });
-    res.json(user);
+
+    // 404 : Utilisateur introuvable
+    if (!user) {
+      return res.status(404).json({
+        message: MESSAGES.USER.NOT_FOUND
+      });
+    }
+
+    // 200 : Succès
+    res.status(200).json(user);
+
   } catch (error) {
     console.error(MESSAGES.USER.ERROR, error);
-    res.status(500).json({ message: MESSAGES.ERROR.SERVER });
+
+    // 400 : ID invalide
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        message: MESSAGES.ERROR.BAD_REQUEST
+      });
+    }
+
+    // 500 : Erreur serveur
+    res.status(500).json({
+      message: MESSAGES.ERROR.SERVER
+    });
   }
 };
 
@@ -102,13 +136,36 @@ exports.updateUser = async (req, res) => {
 exports.deleteUser = async (req, res) => {
   try {
     const deletedUser = await userService.deleteUser(req.params.id);
-    if (!deletedUser) return res.status(404).json({ message: MESSAGES.USER.NOT_FOUND });
-    res.json({ message: MESSAGES.USER.DELETED });
+
+    // 404 : Utilisateur introuvable
+    if (!deletedUser) {
+      return res.status(404).json({
+        message: MESSAGES.USER.NOT_FOUND
+      });
+    }
+
+    // 200 : Suppression réussie
+    res.status(200).json({
+      message: MESSAGES.USER.DELETED
+    });
+
   } catch (error) {
     console.error(MESSAGES.USER.ERROR, error);
-    res.status(500).json({ message: MESSAGES.ERROR.SERVER });
+
+    // 400 : ID invalide
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        message: MESSAGES.ERROR.BAD_REQUEST
+      });
+    }
+
+    // 500 : Erreur serveur
+    res.status(500).json({
+      message: MESSAGES.ERROR.SERVER
+    });
   }
 };
+
 
 // ✅ Get current authenticated user's profile
 // Route: GET /api/users/profile

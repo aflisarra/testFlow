@@ -143,6 +143,12 @@ export class RolesManagementComponent implements OnInit {
       return
     }
 
+    const roleId = String(role?._id || '').trim()
+    if (!roleId) {
+      this.toastr.warning('Role id is missing. Please reload the roles list.', 'Role')
+      return
+    }
+
     const ref = this.modalService.open(RoleUpsertModalComponent, {
       size: 'lg',
       centered: true,
@@ -166,6 +172,12 @@ export class RolesManagementComponent implements OnInit {
       return
     }
 
+    const roleId = String(role?._id || '').trim()
+    if (!roleId) {
+      this.toastr.warning('Role id is missing. Please reload the roles list.', 'Role')
+      return
+    }
+
     const ref = this.modalService.open(ConfirmModalComponent, {
       centered: true,
       windowClass: 'confirm-modal-window',
@@ -180,7 +192,7 @@ export class RolesManagementComponent implements OnInit {
     ref.componentInstance.confirmButtonClass = 'btn-brand'
 
     ref.closed.subscribe(() => {
-      this.adminService.deleteRole(role._id).subscribe({
+      this.adminService.deleteRole(roleId).subscribe({
         next: () => {
           this.showActionSuccess('deleted')
           this.refreshCurrentUserPermissions()

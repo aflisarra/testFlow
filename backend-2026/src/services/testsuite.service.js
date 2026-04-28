@@ -100,6 +100,95 @@ function getFastApiBaseUrl() {
     return String(process.env.FASTAPI_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
 }
 
+const TEST_STATUS_VALUES = new Set(["Draft", "Generating", "Incomplete", "Ready", "Passed", "Failed"])
+
+function normalizeTestStatus(value) {
+    const raw = String(value || '').trim()
+    if (!raw) return ''
+    // preserve canonical casing for UI consistency
+    const match = [...TEST_STATUS_VALUES].find((v) => v.toLowerCase() === raw.toLowerCase())
+    return match || ''
+}
+
+async function updateTestSuiteStatus(testSuiteId, nextStatus) {
+    const id = String(testSuiteId || '').trim()
+    const status = normalizeTestStatus(nextStatus)
+    if (!id) {
+        const error = new Error('TestSuite id is required')
+        error.statusCode = 400
+        throw error
+    }
+    if (!status) {
+        const error = new Error('Invalid status')
+        error.statusCode = 400
+        throw error
+    }
+
+    const suite = await TestSuite.findById(id).select('_id testStatus savedAt executedAt lastGeneratedAt')
+    if (!suite) {
+        const error = new Error('TestSuite not found')
+        error.statusCode = 404
+        throw error
+    }
+
+    const current = String(suite.testStatus || 'Draft')
+    if ((status === 'Passed' || status === 'Failed') && current !== 'Ready') {
+        const error = new Error('Only Ready tests can be marked Passed/Failed')
+        error.statusCode = 409
+        throw error
+    }
+
+    const update = { testStatus: status }
+    const now = new Date()
+
+    if (status === 'Draft') {
+        update.savedAt = null
+        update.executedAt = null
+    }
+    if (status === 'Generating') {
+        // keep timestamps as-is; generation may resume
+    }
+    if (status === 'Incomplete') {
+        update.lastGeneratedAt = now
+    }
+    if (status === 'Ready') {
+        update.savedAt = now
+    }
+    if (status === 'Passed' || status === 'Failed') {
+        update.executedAt = now
+    }
+
+    const updated = await TestSuite.findByIdAndUpdate(id, update, { new: true })
+        .select('_id testStatus lastGeneratedAt savedAt executedAt')
+        .lean()
+
+    return updated
+}
+
+async function markTestSuiteSaved(testSuiteId) {
+    const id = String(testSuiteId || '').trim()
+    if (!id) {
+        const error = new Error('TestSuite id is required')
+        error.statusCode = 400
+        throw error
+    }
+    const now = new Date()
+    const updated = await TestSuite.findByIdAndUpdate(
+        id,
+        { testStatus: 'Ready', savedAt: now },
+        { new: true }
+    )
+        .select('_id testStatus lastGeneratedAt savedAt executedAt')
+        .lean()
+
+    if (!updated) {
+        const error = new Error('TestSuite not found')
+        error.statusCode = 404
+        throw error
+    }
+    return updated
+}
+
 // Convertit "true" / "1" / "yes" en vrai boolean
 function parseBoolean(value) {
     if (typeof value === "boolean") return value;
@@ -469,7 +558,7 @@ async function getTestSuitesByUser(userId) {
             { projectId: null, userId: safeUserId },
         ],
     })
-        .select('_id nom nametest description specFileName urlCible testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt createdAt userId projectId')
+        .select('_id nom nametest description specFileName urlCible testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt createdAt userId projectId')
         .populate('userId', 'name email picture')
         .populate('projectId', 'title')
         .sort({ createdAt: -1 })
@@ -510,7 +599,7 @@ async function getAllTestSuites(viewerUserId) {
     const accessibleProjectIds = new Set((projects || []).map((p) => String(p?._id || '').trim()).filter(Boolean));
 
     const suites = await TestSuite.find({})
-        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt createdAt userId projectId')
+        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt createdAt userId projectId')
         .populate('userId', 'name email picture')
         .populate('projectId', 'title')
         .sort({ createdAt: -1 })
@@ -556,7 +645,7 @@ async function getTestSuiteById(testSuiteId, viewerUserId) {
     }
 
     const suite = await TestSuite.findById(safeTestSuiteId)
-        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt createdAt userId projectId')
+        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt createdAt userId projectId')
         .populate('userId', 'name email picture')
         .populate({
             path: 'projectId',
@@ -604,7 +693,7 @@ async function getTestSuiteById(testSuiteId, viewerUserId) {
 
 async function getTestPlansByTestSuiteId(testSuiteId) {
     const suite = await TestSuite.findById(testSuiteId)
-        .select('_id testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt')
+        .select('_id testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt')
 
     if (!suite) {
         const error = new Error('TestSuite not found')
@@ -641,6 +730,10 @@ async function getTestPlansByTestSuiteId(testSuiteId) {
         testSuiteId: String(suite._id),
         testPlans: normalizedPlans,
         testCasesByPlan: suite.testCasesByPlan || [],
+        testStatus: suite.testStatus || 'Draft',
+        lastGeneratedAt: suite.lastGeneratedAt || null,
+        savedAt: suite.savedAt || null,
+        executedAt: suite.executedAt || null,
         sessionStatus: suite.sessionStatus || 'incomplete',
         planStatuses: suite.planStatuses || [],
         sessionSavedAt: suite.sessionSavedAt || null,
@@ -670,7 +763,12 @@ async function saveSuiteSession(testSuiteId, payload = {}) {
             : (hasExecutionRows ? 'execution' : 'validation')
 
     const now = new Date()
-    const update = { sessionSavedAt: now }
+    const update = {
+        sessionSavedAt: now,
+        // Enterprise lifecycle status: clicking save marks generated content as Ready
+        testStatus: 'Ready',
+        savedAt: now,
+    }
 
     // Fetch current suite to merge test cases (don't lose existing ones)
     const currentSuite = await TestSuite.findById(testSuiteId).select('testCasesByPlan')
@@ -756,7 +854,7 @@ async function getTestSuitesByProject(projectId) {
     const suites = await TestSuite.find({
         projectId: safeProjectId,
     })
-        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt createdAt userId projectId')
+        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt createdAt userId projectId')
         .populate('userId', 'name email picture')
         .populate('projectId', 'title')
         .sort({ createdAt: -1 })
@@ -790,5 +888,7 @@ module.exports = {
     getTestSuitesByProject,
     getTestPlansByTestSuiteId,
     saveSuiteSession,
+    updateTestSuiteStatus,
+    markTestSuiteSaved,
     parseBoolean,
 };

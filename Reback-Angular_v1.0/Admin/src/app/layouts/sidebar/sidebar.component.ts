@@ -219,18 +219,18 @@ export class SidebarComponent {
     )
 
     // Map UI pages to backend action IDs (seed.actions.js)
-    const roleActionIds = new Set([6, 7, 8, 9])
-    const userActionIds = new Set([10, 2, 3, 4, 5])
-    const projectActionIds = new Set([11, 12, 13, 14, 15, 16])
+    const canManageRoles = ids.has(8) // view role (used by /admin/roles page)
+    const canManageUsers = ids.has(10) || ids.has(4) // list-users or view-user
+    const canListProjects = ids.has(11) // list-projects (used by /project page)
 
     const usersMenu = clonedMenu.find((m) => m.key === 'users')
     if (usersMenu?.subMenu?.length) {
       usersMenu.subMenu = (usersMenu.subMenu as MenuItem[]).filter((child) => {
         if (child.link === '/admin/roles') {
-          return [...roleActionIds].some((id) => ids.has(id))
+          return canManageRoles
         }
         if (child.link === '/admin/users') {
-          return [...userActionIds].some((id) => ids.has(id))
+          return canManageUsers
         }
         return true
       })
@@ -242,7 +242,7 @@ export class SidebarComponent {
     if (projectMenu?.subMenu?.length) {
       projectMenu.subMenu = (projectMenu.subMenu as MenuItem[]).filter((child) => {
         if (child.link === '/project') {
-          return [...projectActionIds].some((id) => ids.has(id))
+          return canListProjects
         }
         return true
       })

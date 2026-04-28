@@ -71,7 +71,15 @@ async function acceptInvitation(invitationId, userId) {
 
   invitation.status = 'accepted'
   invitation.respondedAt = new Date()
-  return invitation.save()
+  const saved = await invitation.save()
+
+  // Return a populated snapshot so the frontend can immediately navigate/show the project.
+  const populated = await ProjectInvitation.findById(saved._id)
+    .populate('projectId', 'title description status ownerId assignedUsers')
+    .populate('invitedBy', 'name email picture')
+    .lean()
+
+  return populated || saved
 }
 
 async function ignoreInvitation(invitationId, userId) {
@@ -94,7 +102,14 @@ async function ignoreInvitation(invitationId, userId) {
 
   invitation.status = 'ignored'
   invitation.respondedAt = new Date()
-  return invitation.save()
+  const saved = await invitation.save()
+
+  const populated = await ProjectInvitation.findById(saved._id)
+    .populate('projectId', 'title description status ownerId assignedUsers')
+    .populate('invitedBy', 'name email picture')
+    .lean()
+
+  return populated || saved
 }
 
 module.exports = {
@@ -102,4 +117,3 @@ module.exports = {
   acceptInvitation,
   ignoreInvitation,
 }
-

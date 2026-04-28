@@ -235,8 +235,15 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges, OnDestroy {
       actions: this.roleForm.value.actions || [],
     }
 
+    const roleId = this.role ? String(this.role?._id || '').trim() : ''
+    if (this.role && !roleId) {
+      this.submitting = false
+      this.error = 'Role id is missing. Please reload and try again.'
+      return
+    }
+
     const request$: Observable<unknown> = this.role
-      ? this.adminService.updateRole(this.role._id, payload).pipe(map(() => true))
+      ? this.adminService.updateRole(roleId, payload).pipe(map(() => true))
       : this.adminService.createRole(payload).pipe(map(() => true))
 
     request$.subscribe({

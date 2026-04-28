@@ -16,15 +16,49 @@ module.exports = function requireAction(actionIdOrList) {
       if (userId) {
         const userDoc = await User.findById(userId).select('roleId role').lean();
         if (userDoc) {
-          const roleDoc = isMongoObjectId(userDoc.roleId)
-            ? await Role.findById(userDoc.roleId).select('actions').lean()
-            : await Role.findOne({ name: String(userDoc.role || '').trim() }).select('actions').lean();
+          const roleName = String(userDoc.role || '').trim()
+          let roleDoc = null
+          if (isMongoObjectId(userDoc.roleId)) {
+            roleDoc = await Role.findById(userDoc.roleId).select('actions').lean()
+            // Fallback for users whose roleId points to a deleted role after reseeding/migration
+            if (!roleDoc && roleName) {
+              roleDoc = await Role.findOne({ name: roleName }).select('actions').lean()
+            }
+          } else if (roleName) {
+            roleDoc = await Role.findOne({ name: roleName }).select('actions').lean()
+          }
 
           if (roleDoc && Array.isArray(roleDoc.actions)) {
-            effectiveActions = roleDoc.actions.map((id) => Number(id));
+            const numeric = [];
+            let hasNonNumeric = false;
+            for (const id of roleDoc.actions) {
+              const n = typeof id === 'string' && /^\d+$/.test(id.trim()) ? Number(id.trim()) : Number(id);
+              if (Number.isFinite(n)) numeric.push(n);
+              else hasNonNumeric = true;
+            }
+
+            // Option A expects numeric action ids. If we ever migrate to ObjectIds,
+            // keep allowing requests to pass via tokenActions, but warn loudly.
+            effectiveActions = numeric;
             req.user.actions = effectiveActions;
+
+            if (hasNonNumeric) {
+              console.warn('[requireAction] roleDoc.actions contains non-numeric ids. Expected Numbers.', {
+                userId,
+                roleId: userDoc.roleId,
+                roleName: userDoc.role,
+              });
+            }
           }
         }
+      }
+
+      if (!effectiveActions || effectiveActions.length === 0) {
+        console.warn('[requireAction] effectiveActions is empty. Check role actions seeding/migration.', {
+          userId,
+          required,
+          tokenActions,
+        });
       }
 
       const allowed = required.some((id) => effectiveActions.includes(id));

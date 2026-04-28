@@ -155,6 +155,33 @@ const testSuiteSchema = new mongoose.Schema({
         default: []
     },
 
+    // ============================================================
+    // Enterprise Test Status System (AI generation + save + execution)
+    // ============================================================
+    // NOTE: This is intentionally separate from the computed `status` field
+    // returned by services (validated/invalid/completed/incomplete) to avoid
+    // breaking existing UI flows.
+    testStatus: {
+        type: String,
+        enum: ["Draft", "Generating", "Incomplete", "Ready", "Passed", "Failed"],
+        default: "Draft",
+    },
+
+    lastGeneratedAt: {
+        type: Date,
+        default: null,
+    },
+
+    savedAt: {
+        type: Date,
+        default: null,
+    },
+
+    executedAt: {
+        type: Date,
+        default: null,
+    },
+
     sessionSavedAt: {
         type: Date,
         default: null

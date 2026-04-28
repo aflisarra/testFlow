@@ -829,6 +829,10 @@
   z-index: 10;
 }
 
+.tc-modal--unsaved {
+  max-width: 520px;
+}
+
 /* Pour que le scroll fonctionne bien */
 .tc-modal-body {
   max-height: 60vh;

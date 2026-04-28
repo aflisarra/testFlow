@@ -68,7 +68,7 @@
                   <iconify-icon icon="iconamoon:folder-open-duotone"></iconify-icon>
                 </div>
                 <select class="form-select testlab-project-select" formControlName="projectId"
-                  [disabled]="loadingProjects || generatingPlans" (change)="onProjectChange()">
+                  (change)="onProjectChange()">
                   <option value="">-- Select a project --</option>
                   @for (p of projects; track p._id) {
                   <option [value]="p._id">{{ p.title }}</option>

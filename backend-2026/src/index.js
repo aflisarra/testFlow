@@ -11,8 +11,7 @@ const jwt = require('jsonwebtoken');
 const { generateToken } = require('../src/services/auth.service');
 const { getJwtSecret } = require('./utils/jwt-secrets');
 const testSuiteRoutes = require('./routes/testsuite.routes');
-const plantestRoutes = require("./routes/planTest.routes");
-const aiRoutes = require("./routes/ai.routes");
+//const aiRoutes = require("./routes/ai.routes");
 const authMagic = require("./routes/auth.magic.routes");
 // Routes
 const ollamaRoutes = require('./routes/ollama.routes')
@@ -33,7 +32,8 @@ const projectInvitationRoutes = require('../src/routes/projectInvitation.routes'
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
-console.log('MONGO URI =', process.env.MONGODB_URI);
+const mongoUri = process.env.MONGODB_URI || process.env.MONGODB_URL
+console.log('MONGO URI =', mongoUri);
 //app.use(cors());
 app.use(express.json()); ///parser les données au format JSON
 
@@ -104,8 +104,7 @@ app.use('/api/actions', actionRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/project-invitations', projectInvitationRoutes);
 app.use('/api/testsuites', testSuiteRoutes);
-app.use("/api/plantest", plantestRoutes);
-app.use("/api/ai", aiRoutes);
+//app.use("/api/ai", aiRoutes);
 app.use("/api/ollama", ollamaRoutes);
 app.use("/auth", authMagic);
 // 2️⃣ Middleware global pour rafraîchir le token si valide
@@ -129,7 +128,7 @@ app.use((req, res, next) => {
   });
 });
 
-mongoose.connect(process.env.MONGODB_URI, {
+mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })

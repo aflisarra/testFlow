@@ -63,7 +63,7 @@
           formControlName="role"
         >
           <option value="" disabled>Select role</option>
-          @for (role of roles; track role._id) {
+          @for (role of roles; track role._id || role.name || $index) {
           <option [value]="role.name">{{ role.name }}</option>
           }
         </select>

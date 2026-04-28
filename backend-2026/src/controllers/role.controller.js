@@ -85,7 +85,8 @@ exports.deleteRole = async (req, res) => {
     res.json({ message: MESSAGES.ROLE.DELETED });
   } catch (err) {
     console.error(MESSAGES.ROLE.ERROR, err);
-    res.status(500).json({ message: MESSAGES.ERROR.SERVER });
+    const status = err?.statusCode || 500
+    res.status(status).json({ message: err?.message || MESSAGES.ERROR.SERVER });
   }
 };
 
@@ -108,6 +109,5 @@ exports.deleteRole = async (req, res) => {
 
   return savedRole;
 };*/
-
 
 

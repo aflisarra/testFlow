@@ -84,9 +84,14 @@ async function refreshToken(refreshTokenValue) {
       return { error: 'Invalid refresh token' };
     }
 
-    const roleData = isMongoObjectId(user.roleId)
-      ? await Role.findById(user.roleId)
-      : await Role.findOne({ name: user.role });
+    const roleName = String(user.role || '').trim()
+    let roleData = null
+    if (isMongoObjectId(user.roleId)) {
+      roleData = await Role.findById(user.roleId)
+      if (!roleData && roleName) roleData = await Role.findOne({ name: roleName })
+    } else if (roleName) {
+      roleData = await Role.findOne({ name: roleName })
+    }
     const actions = roleData?.actions || [];
 
     const payload = {
@@ -103,7 +108,10 @@ async function refreshToken(refreshTokenValue) {
 
     // Avoid failing refresh on legacy users that have an invalid roleId type (e.g. old numeric ids).
     // Also opportunistically migrate roleId when possible.
-    const migrateRoleId = !isMongoObjectId(user.roleId) && roleData?._id
+    const shouldMigrateRoleId = roleData?._id
+      && (!isMongoObjectId(user.roleId) || String(user.roleId) !== String(roleData._id))
+
+    const migrateRoleId = shouldMigrateRoleId
       ? { roleId: roleData._id, role: roleData.name }
       : {};
 
@@ -126,9 +134,14 @@ const loginUser = async ({ email, password }) => {
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) throw new Error('Invalid email or password');
 
-  const roleData = isMongoObjectId(user.roleId)
-    ? await Role.findById(user.roleId)
-    : await Role.findOne({ name: user.role });
+  const roleName = String(user.role || '').trim()
+  let roleData = null
+  if (isMongoObjectId(user.roleId)) {
+    roleData = await Role.findById(user.roleId)
+    if (!roleData && roleName) roleData = await Role.findOne({ name: roleName })
+  } else if (roleName) {
+    roleData = await Role.findOne({ name: roleName })
+  }
   const actions = roleData?.actions || [];
 
   const payload = {
@@ -146,7 +159,10 @@ const loginUser = async ({ email, password }) => {
 
   // Avoid failing login on legacy users that have an invalid roleId type (e.g. old numeric ids).
   // Also opportunistically migrate roleId when possible.
-  const migrateRoleId = !isMongoObjectId(user.roleId) && roleData?._id
+  const shouldMigrateRoleId = roleData?._id
+    && (!isMongoObjectId(user.roleId) || String(user.roleId) !== String(roleData._id))
+
+  const migrateRoleId = shouldMigrateRoleId
     ? { roleId: roleData._id, role: roleData.name }
     : {};
 

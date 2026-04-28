@@ -23,6 +23,8 @@ type TestSuiteStatusKey =
   | 'invalid'
   | 'all'
 
+type TestGenerationStatus = 'Draft' | 'Generating' | 'Incomplete' | 'Ready' | 'Passed' | 'Failed'
+
 @Component({
   selector: 'app-test-cases-validation',
   standalone: true,
@@ -47,20 +49,20 @@ export class TestCasesValidationComponent {
   suites: TestSuiteDto[] = []
   searchQuery = ''
   statusFilter: TestSuiteStatusKey = 'all'
-  expandedSuiteId: string | null = null
   filterOpen = false
 
-  readonly statusFilters: ReadonlyArray<{ key: TestSuiteStatusKey; label: string }> = [
-    { key: 'completed', label: 'Completed' },
-    { key: 'incomplete', label: 'Incomplete' },
-    { key: 'validated', label: 'Validated' },
-    { key: 'invalid', label: 'Invalid' },
-    { key: 'all', label: 'All' },
-  ]
+readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = [
+  { key: 'completed', label: 'Completed' },
+  { key: 'incomplete', label: 'Incomplete' },
+  { key: 'validated', label: 'Validated' },
+  { key: 'invalid', label: 'Invalid' },
+  { key: 'all', label: 'All' },
+]
 
   // Pagination
   currentPage = 1
   pageSize = 4
+  exportingSuiteId: string | null = null
 
   // Detail
   testSuiteId = ''
@@ -74,6 +76,15 @@ export class TestCasesValidationComponent {
   generatingCasesPlanId: string | null = null
   testCasesByPlan: Record<string, TestCaseDto[]> = {}
 
+  // Test Status System
+  testGenerationStatus: TestGenerationStatus = 'Draft'
+  hasUnsavedChanges = false
+  planGenerationStatus: Record<string, TestGenerationStatus> = {}
+  lastGeneratedAt: Date | null = null
+  savedAt: Date | null = null
+  showUnsavedWarning = false
+  unsavedWarningAction: 'leave' | 'close' | 'refresh' | null = null
+
   // Computed
   get filteredSuites(): TestSuiteDto[] {
     const q = this.searchQuery.toLowerCase().trim()
@@ -82,7 +93,9 @@ export class TestCasesValidationComponent {
     return this.suites.filter((suite) => {
       const name = this.getSuiteDisplayName(suite).toLowerCase()
       const description = String(suite.description || '').toLowerCase()
-      const matchesSearch = !q || name.includes(q) || description.includes(q)
+      const creator = String(suite.creatorName || '').toLowerCase()
+      const matchesSearch =
+        !q || name.includes(q) || description.includes(q) || creator.includes(q)
       const matchesStatus = wantedStatus === 'all' || this.getSuiteStatusKey(suite) === wantedStatus
       return matchesSearch && matchesStatus
     })
@@ -124,21 +137,66 @@ export class TestCasesValidationComponent {
     this.errorMessage = ''
     try {
       const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
-      const token = String((user as any)?.token || this.authService.session || '').trim()
+      const token = String(user?.token || this.authService.session || '').trim()
       if (!token) {
         this.errorMessage = 'Session expirée.'
         return
       }
       this.suites = await firstValueFrom(this.testLabService.getAllTestSuites())
     } catch (err: unknown) {
-      this.errorMessage = (err as any)?.error?.message || 'Unable to load test suites'
-    } finally {
-      this.loading = false
+
+    if (err instanceof Error) {
+      this.errorMessage = err.message
+    } else {
+      this.errorMessage = 'Unable to load test suites'
     }
+
+  } finally {
+    this.loading = false
+  }
   }
 
-  onToggleSuite(suite: TestSuiteDto) {
-    this.expandedSuiteId = this.expandedSuiteId === suite._id ? null : suite._id
+  async onExportSuite(suite: TestSuiteDto): Promise<void> {
+    const id = String(suite?._id || '').trim()
+    if (!id) return
+
+    this.exportingSuiteId = id
+    this.errorMessage = ''
+    try {
+      const blob = await firstValueFrom(this.testLabService.exportWord(id))
+      const safeName =
+  this.getSuiteDisplayName(suite)
+    .trim()
+    .replace(/[<>:"/\\|?*\u0000-\u001F]+/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 80) || 'TestSuite'
+
+      const now = new Date()
+      const yyyy = now.getFullYear()
+      const mm = String(now.getMonth() + 1).padStart(2, '0')
+      const dd = String(now.getDate()).padStart(2, '0')
+      const filename = `TestPlan_${safeName}_${yyyy}-${mm}-${dd}.docx`
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 2000)
+    } catch (err: unknown) {
+
+    if (err instanceof Error) {
+      this.errorMessage = err.message
+    } else {
+      this.errorMessage = 'Unable to export Word document'
+    }
+
+  } finally {
+     this.exportingSuiteId = null
+  }
   }
 
   async onOpenSuite(suite: TestSuiteDto) {
@@ -173,10 +231,16 @@ export class TestCasesValidationComponent {
       this.selectedPlanId = this.testPlans[0].id
       await this.generateTestCases(this.testPlans[0], false)
     } catch (err: unknown) {
-      this.errorMessage = (err as any)?.error?.message || 'Unable to load plans'
-    } finally {
-      this.loading = false
+
+    if (err instanceof Error) {
+      this.errorMessage = err.message
+    } else {
+      this.errorMessage = 'Unable to load plans'
     }
+
+  } finally {
+    this.loading = false
+  }
   }
 
   onBackToList() {
@@ -222,19 +286,23 @@ export class TestCasesValidationComponent {
       await firstValueFrom(this.testLabService.generatePlanFromDocx(formData))
       await this.loadSuites()
     } catch (err: unknown) {
-      this.errorMessage = (err as any)?.error?.message || 'Upload failed'
+
+    if (err instanceof Error) {
+      this.errorMessage = err.message
+    } else {
+      this.errorMessage = 'Upload failed'
     }
+
+  } 
   }
 
   onSearchQueryChange(): void {
     this.currentPage = 1
-    this.expandedSuiteId = null
   }
 
   setStatusFilter(status: TestSuiteStatusKey): void {
     this.statusFilter = status
     this.currentPage = 1
-    this.expandedSuiteId = null
   }
 
   goToPreviousPage(): void {
@@ -252,7 +320,7 @@ export class TestCasesValidationComponent {
   }
 
   getSuiteStatusKey(suite: TestSuiteDto): Exclude<TestSuiteStatusKey, 'all'> {
-    const raw = (suite as any).status ?? 'invalid'
+    const raw = suite.status ?? 'invalid'
     const key = this.normalizeStatusKey(raw)
     switch (key) {
       case 'completed':
@@ -288,10 +356,10 @@ export class TestCasesValidationComponent {
   }
 
   getSuiteDisplayName(suite: TestSuiteDto): string {
-    const userFacing = String((suite as any).nametest || '').trim()
+    const userFacing = String(suite?.nametest || '').trim()
     if (userFacing) return userFacing
-    const name = String(suite.nom || '').trim()
-    return name || String(suite._id || '')
+    const name = String(suite?.nom || '').trim()
+    return name || String(suite?._id || '')
   }
 
   getSuiteInitials(suite: TestSuiteDto): string {
@@ -430,7 +498,7 @@ export class TestCasesValidationComponent {
       .trim()
     return cleaned.length > 80 ? cleaned.slice(0, 80) + '…' : cleaned || '—'
   }
-
+//do to selenium web driver 
   async onRunSuite(): Promise<void> {
     if (!this.suiteDetail) {
       this.errorMessage = 'No test suite selected'
@@ -447,7 +515,7 @@ export class TestCasesValidationComponent {
         queryParams: { suiteId: this.testSuiteId },
       })
     } catch (err: unknown) {
-      this.errorMessage = (err as any)?.error?.message || 'Unable to run test suite'
+      this.errorMessage =  'Unable to run test suite'
     } finally {
       this.loading = false
     }

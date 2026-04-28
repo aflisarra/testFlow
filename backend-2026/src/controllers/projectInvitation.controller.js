@@ -17,8 +17,10 @@ exports.acceptInvitation = async (req, res) => {
     const userId = req.user?.userId
     if (!userId) return res.status(401).json({ message: MESSAGES.INVITATION.UNAUTHORIZED })
 
-    const updated = await invitationService.acceptInvitation(req.params.id, userId)
-    res.json({ message: MESSAGES.INVITATION.ACCEPTED, invitation: updated })
+    const invitation = await invitationService.acceptInvitation(req.params.id, userId)
+    const projectId = String((invitation && (invitation.projectId?._id || invitation.projectId)) || '').trim() || null
+
+    res.json({ message: MESSAGES.INVITATION.ACCEPTED, projectId, invitation })
   } catch (error) {
     res.status(error.statusCode || 500).json({ message: error.message || MESSAGES.ERROR.SERVER })
   }
@@ -29,10 +31,11 @@ exports.ignoreInvitation = async (req, res) => {
     const userId = req.user?.userId
     if (!userId) return res.status(401).json({ message: MESSAGES.INVITATION.UNAUTHORIZED })
 
-    const updated = await invitationService.ignoreInvitation(req.params.id, userId)
-    res.json({ message: MESSAGES.INVITATION.IGNORED, invitation: updated })
+    const invitation = await invitationService.ignoreInvitation(req.params.id, userId)
+    const projectId = String((invitation && (invitation.projectId?._id || invitation.projectId)) || '').trim() || null
+
+    res.json({ message: MESSAGES.INVITATION.IGNORED, projectId, invitation })
   } catch (error) {
     res.status(error.statusCode || 500).json({ message: error.message || MESSAGES.ERROR.SERVER })
   }
 }
-

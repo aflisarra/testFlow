@@ -13,7 +13,7 @@
             <label class="exec-label">Name <span class="text-danger">*</span></label>
             <input class="exec-input"
               [class.is-invalid]="(createSubmitted || createUserForm.controls.name.touched) && createUserForm.controls.name.invalid"
-              formControlName="name" placeholder="ex: John Doe" [disabled]="!canAddUser" autocomplete="off" />
+              formControlName="name" placeholder="ex: John Doe" autocomplete="off" />
             @if ((createSubmitted || createUserForm.controls.name.touched) &&
             createUserForm.controls.name.errors?.['required']) {
             <small class="text-danger">Name is required.</small>
@@ -28,7 +28,7 @@
             <label class="exec-label">Email <span class="text-danger">*</span></label>
             <input class="exec-input" type="email"
               [class.is-invalid]="(createSubmitted || createUserForm.controls.email.touched) && createUserForm.controls.email.invalid"
-              formControlName="email" placeholder="ex: john@example.com" [disabled]="!canAddUser" autocomplete="off" />
+              formControlName="email" placeholder="ex: john@example.com" autocomplete="off" />
             @if ((createSubmitted || createUserForm.controls.email.touched) &&
             createUserForm.controls.email.errors?.['required']) {
             <small class="text-danger">Email is required.</small>
@@ -43,7 +43,7 @@
             <label class="exec-label">Password <span class="text-danger">*</span></label>
             <input class="exec-input" type="password"
               [class.is-invalid]="(createSubmitted || createUserForm.controls.password.touched) && createUserForm.controls.password.invalid"
-              formControlName="password" placeholder="******" [disabled]="!canAddUser" autocomplete="new-password" />
+              formControlName="password" placeholder="******" autocomplete="new-password" />
             @if ((createSubmitted || createUserForm.controls.password.touched) &&
             createUserForm.controls.password.errors?.['required']) {
             <small class="text-danger">Password is required.</small>
@@ -58,9 +58,9 @@
             <label class="exec-label">Role <span class="text-danger">*</span></label>
             <select class="exec-select"
               [class.is-invalid]="(createSubmitted || createUserForm.controls.role.touched) && createUserForm.controls.role.invalid"
-              formControlName="role" [disabled]="!canAddUser">
+              formControlName="role">
               <option value="" disabled>Select role</option>
-              @for (role of roles; track role._id) {
+              @for (role of roles; track role._id || role.name || $index) {
               <option [value]="role.name">{{ role.name }}</option>
               }
             </select>

@@ -5,6 +5,7 @@ import { Store } from '@ngrx/store'
 import { Subscription, firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { ToastrService } from 'ngx-toastr'
+import { HostListener } from '@angular/core'
 
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
@@ -61,6 +62,13 @@ export class TestCasesHomeComponent {
   modalCases: TestCaseDto[] = []
   private modalSubscription: Subscription | null = null
 
+  // Unsaved changes protection
+  hasUnsavedChanges = false
+  unsavedModalOpen = false
+  private unsavedResolve: ((ok: boolean) => void) | null = null
+  private pendingAction: (() => void) | null = null
+  unsavedSaving = false
+
   livePlanId = ''
   liveCases: TestCaseDto[] = []
 
@@ -116,6 +124,11 @@ export class TestCasesHomeComponent {
   // ── Navigation ────────────────────────────────────────────────────────
 
   onBackToSuites() {
+    if (this.hasUnsavedChanges) {
+      this.pendingAction = () => this.onBackToSuites()
+      void this.openUnsavedModal()
+      return
+    }
     this.testSuiteId = ''
     this.plans = []
     this.planStatuses = {}
@@ -202,6 +215,16 @@ export class TestCasesHomeComponent {
   }
 
   closeModal() {
+    // Closing the generation modal while having unsaved generated changes should warn
+    if (this.hasUnsavedChanges && this.modalOpen && !this.modalGenerating) {
+      this.pendingAction = () => this.closeModalForce()
+      void this.openUnsavedModal()
+      return
+    }
+    this.closeModalForce()
+  }
+
+  private closeModalForce() {
     if (this.modalGenerating) {
       this.modalSubscription?.unsubscribe()
       this.modalSubscription = null
@@ -238,6 +261,7 @@ export class TestCasesHomeComponent {
         this.liveCases = [...this.modalCases]
         this.testCasesByPlan[plan.id] = this.modalCases
         this.planStatuses[plan.id] = this.modalCases.length ? 'reviewing' : 'pending'
+        this.refreshUnsavedFlag()
         this.toastr.success(`Test cases ${regenerate ? 'regenerated' : 'generated'} for ${plan.id}`, 'Generation')
       },
       error: (err: unknown) => {
@@ -282,6 +306,7 @@ export class TestCasesHomeComponent {
       next: () => {
         this.testCasesByPlan[plan.id] = [...this.modalCases]
         this.planStatuses[plan.id] = 'confirmed'
+        this.refreshUnsavedFlag()
         this.toastr.success(`Plan ${plan.id} saved successfully.`, 'Saved')
         this.closeModal()
       },
@@ -292,6 +317,7 @@ export class TestCasesHomeComponent {
   onModalDeleteCase(caseId: string) {
     this.modalCases = this.modalCases.filter(tc => tc.id !== caseId)
     this.liveCases = [...this.modalCases]
+    this.refreshUnsavedFlag()
   }
 
   // ── Save All ──────────────────────────────────────────────────────────
@@ -320,7 +346,10 @@ export class TestCasesHomeComponent {
       planStatuses: normalizedStatuses,
       testCasesByPlan,
     }).subscribe({
-      next: () => this.toastr.success('All test cases saved.', 'Save'),
+      next: () => {
+        this.hasUnsavedChanges = false
+        this.toastr.success('All test cases saved.', 'Save')
+      },
       error: (err) => this.toastr.error(err?.error?.message || 'Unable to save', 'Save'),
     })
   }
@@ -344,6 +373,96 @@ export class TestCasesHomeComponent {
       String(suite?.status || '').toLowerCase().trim() === 'validated' ||
       String(suite?.validationStatus || '').toLowerCase().trim() === 'validated'
     )
+  }
+
+  // ── Unsaved changes modal ─────────────────────────────────────────────
+
+  @HostListener('window:beforeunload', ['$event'])
+  onBeforeUnload(event: BeforeUnloadEvent) {
+    if (!this.hasUnsavedChanges) return
+    event.preventDefault()
+    // Most browsers ignore custom text; setting returnValue triggers the prompt.
+    event.returnValue = 'You have unsaved changes.'
+  }
+
+  canDeactivate(): boolean | Promise<boolean> {
+    if (!this.hasUnsavedChanges) return true
+    return this.openUnsavedModal()
+  }
+
+  private refreshUnsavedFlag() {
+    // "reviewing" = generated/modified but not saved
+    const anyReviewing = this.allPlans.some((p) => this.getPlanStatus(p.id) === 'reviewing')
+    const modalDirty = this.modalOpen && !this.modalGenerating && this.modalCases.length > 0 && this.modalPlan
+      ? this.getPlanStatus(this.modalPlan.id) === 'reviewing'
+      : false
+    this.hasUnsavedChanges = Boolean(anyReviewing || modalDirty)
+  }
+
+  private openUnsavedModal(): Promise<boolean> {
+    this.unsavedModalOpen = true
+    return new Promise<boolean>((resolve) => {
+      this.unsavedResolve = resolve
+    })
+  }
+
+  onUnsavedCancel() {
+    this.unsavedModalOpen = false
+    this.pendingAction = null
+    this.unsavedResolve?.(false)
+    this.unsavedResolve = null
+  }
+
+  onUnsavedLeaveWithoutSaving() {
+    this.unsavedModalOpen = false
+    const action = this.pendingAction
+    this.pendingAction = null
+    this.hasUnsavedChanges = false
+    this.unsavedResolve?.(true)
+    this.unsavedResolve = null
+    action?.()
+  }
+
+  onUnsavedSaveAndContinue() {
+    if (!this.testSuiteId || this.unsavedSaving) return
+    this.unsavedSaving = true
+
+    const normalizedStatuses: Record<string, PlanValidationStatus> = {}
+    for (const plan of this.allPlans) {
+      normalizedStatuses[plan.id] = this.getPlanStatus(plan.id)
+    }
+
+    const suiteStatus: SuiteSessionStatus = this.allPlans.length > 0 && this.allPlans.every(
+      p => normalizedStatuses[p.id] === 'confirmed'
+    ) ? 'validated' : 'invalid'
+
+    const testCasesByPlan = this.allPlans.map(p => ({
+      planId: p.id,
+      planTitle: p.title,
+      testCases: this.testCasesByPlan[p.id] || [],
+    }))
+
+    this.testLabService.saveSuiteSession(this.testSuiteId, {
+      sessionKind: 'validation',
+      suiteStatus,
+      planStatuses: normalizedStatuses,
+      testCasesByPlan,
+    }).subscribe({
+      next: () => {
+        this.unsavedSaving = false
+        this.unsavedModalOpen = false
+        this.hasUnsavedChanges = false
+        const action = this.pendingAction
+        this.pendingAction = null
+        this.unsavedResolve?.(true)
+        this.unsavedResolve = null
+        action?.()
+      },
+      error: (err) => {
+        this.unsavedSaving = false
+        this.toastr.error(err?.error?.message || 'Unable to save', 'Save')
+      },
+    })
   }
 
   // ── Private ───────────────────────────────────────────────────────────

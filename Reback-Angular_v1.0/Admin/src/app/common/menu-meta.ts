@@ -102,4 +102,20 @@ export const MENU: MenuItem[] = [
     ],
   },
 
+    {
+    key: 'execution',
+    icon: 'iconamoon:home-duotone',
+    label: 'Execution',
+    collapsed: false,
+    subMenu: [
+      {
+        key: 'Execution-analytics',
+        label: 'Analytics',
+        link: '/execution/Execution-Management',
+        parentKey: 'execution',
+      },
+
+    ],
+  },
+
 ]

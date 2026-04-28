@@ -1,33 +1,19 @@
-// ============================================================
-// models/plantest.js
-// Chaque step du plan de test généré par Ollama
-// ============================================================
+const mongoose = require('mongoose')
 
-const mongoose = require('mongoose');
-
+// Legacy model kept for backward compatibility.
+// Some services/routes still call PlanTest.find(...) to migrate old test plans.
 const planTestSchema = new mongoose.Schema(
   {
-    // Le texte du step (ex: "Aller sur /login et vérifier le formulaire")
-    contenu: {
-      type: String,
-      required: true,
-      trim: true
-    },
-
-    // Numéro d'ordre du step (1, 2, 3...)
-    ordre: {
-      type: Number,
-      required: true
-    },
-
-    // Référence à la TestSuite parente
+    contenu: { type: String, required: true, trim: true },
+    ordre: { type: Number, required: true },
     testSuiteId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'TestSuite',
-      required: true
-    }
+      required: true,
+    },
   },
   { timestamps: true }
-);
+)
 
-module.exports = mongoose.model('PlanTest', planTestSchema);
+module.exports = mongoose.model('PlanTest', planTestSchema)
+
