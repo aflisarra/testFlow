@@ -81,12 +81,12 @@ input:disabled {
     }
 }
 
-input[data-switch='bool'] + label:before,
-input[data-switch='bool']:checked + label:before {
+input[data-switch='bool'] + label::before,
+input[data-switch='bool']:checked + label::before {
     color: $white !important;
 }
 
-input[data-switch='bool'] + label:after {
+input[data-switch='bool'] + label::after {
     background-color: var(--#{$prefix}tertiary-bg);
 }
 

@@ -29,11 +29,12 @@
             text-transform: uppercase;
         }
     }
+
     .card-pricing-features {
         color: $text-muted;
         list-style: none;
         margin: 0;
-        padding: 20px 0 0 0;
+        padding: 20px 0 0;
 
         li {
             padding: 10px;
@@ -43,10 +44,12 @@
     .pricing-ribbon.float-end {
         margin-right: -34px;
         border-radius: $border-radius-sm 0 0 $border-radius-sm;
+
         &::before {
             right: 0;
         }
     }
+
     .pricing-ribbon {
         position: relative;
         background-color: $primary;
@@ -57,6 +60,7 @@
         color: $white;
         font-size: $font-size-sm;
         font-weight: $font-weight-semibold;
+
         &::before {
             content: ' ';
             border-style: solid;
@@ -69,8 +73,10 @@
             z-index: -1;
         }
     }
+
     .pricing-ribbon-primary {
         background: $primary;
+
         &::before {
             border-color: shade-color($primary, 15%) transparent transparent;
         }
@@ -84,6 +90,7 @@
     .card-pricing-icon {
         background-color: rgba($white, 0.1);
     }
+
     .card-pricing-features,
     .card-pricing-price span {
         color: rgba($white, 0.7);

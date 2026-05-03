@@ -1,16 +1,16 @@
-import { Component, HostListener, inject, Renderer2 } from '@angular/core'
+import { Component, HostListener, inject, Renderer2, DestroyRef, OnInit } from '@angular/core'
 import { SidebarComponent } from '../sidebar/sidebar.component'
 import { TopbarComponent } from '../topbar/topbar.component'
-import { FooterComponent } from '../footer/footer.component'
 import { RouterModule } from '@angular/router'
 import { Store } from '@ngrx/store'
 import { changesidebarsize } from '@store/layout/layout-action'
 import { getSidebarsize } from '@store/layout/layout-selector'
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 
 @Component({
   selector: 'app-vertical',
   standalone: true,
-  imports: [SidebarComponent, TopbarComponent, FooterComponent, RouterModule],
+  imports: [SidebarComponent, TopbarComponent, RouterModule],
   template: `
     <div class="wrapper">
       <app-topbar
@@ -19,68 +19,74 @@ import { getSidebarsize } from '@store/layout/layout-selector'
       <app-sidebar></app-sidebar>
 
       <div class="page-content">
-        <!-- Start Content-->
         <div class="container-xxl">
           <router-outlet></router-outlet>
         </div>
-
-        <app-footer></app-footer>
       </div>
     </div>
   `,
   styles: ``,
 })
-export class VerticalComponent {
+export class VerticalComponent implements OnInit {
   private store = inject(Store)
   private renderer = inject(Renderer2)
+  private destroyRef = inject(DestroyRef)
 
   ngOnInit(): void {
     this.onResize()
   }
 
-  @HostListener('window:resize', ['$event'])
-  onResize() {
-    if (document.documentElement.clientWidth <= 1140) {
-      this.store.dispatch(changesidebarsize({ size: 'hidden' }))
-    } else {
-      this.store.dispatch(changesidebarsize({ size: 'default' }))
+  @HostListener('window:resize')
+  onResize(): void {
+    const isMobile = document.documentElement.clientWidth <= 1140
+
+    this.store.dispatch(
+      changesidebarsize({ size: isMobile ? 'hidden' : 'default' })
+    )
+
+    if (!isMobile) {
       document.documentElement.classList.remove('sidebar-enable')
       const backdrop = document.querySelector('.offcanvas-backdrop')
       if (backdrop) this.renderer.removeChild(document.body, backdrop)
     }
-    this.store.select(getSidebarsize).subscribe((size: string) => {
-      this.renderer.setAttribute(
-        document.documentElement,
-        'data-sidenav-size',
-        size
-      )
-    })
+
+    this.store
+      .select(getSidebarsize)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((size: string) => {
+        this.renderer.setAttribute(
+          document.documentElement,
+          'data-sidenav-size',
+          size
+        )
+      })
   }
 
-  onToggleMobileMenu() {
-    this.store.select(getSidebarsize).subscribe((size: any) => {
-      document.documentElement.setAttribute('data-menu-size', size)
-    })
-
-    const size = document.documentElement.getAttribute('data-menu-size')
+  onToggleMobileMenu(): void {
+    const size = document.documentElement.getAttribute('data-menu-size') || ''
 
     document.documentElement.classList.toggle('sidebar-enable')
-    if (size != 'hidden') {
-      if (document.documentElement.classList.contains('sidebar-enable')) {
-        this.store.dispatch(changesidebarsize({ size: 'condensed' }))
-      } else {
-        this.store.dispatch(changesidebarsize({ size: 'default' }))
-      }
+
+    if (size !== 'hidden') {
+      this.store.dispatch(
+        changesidebarsize({
+          size: document.documentElement.classList.contains('sidebar-enable')
+            ? 'condensed'
+            : 'default',
+        })
+      )
     } else {
       this.showBackdrop()
     }
   }
 
-  showBackdrop() {
+  showBackdrop(): void {
     const backdrop = this.renderer.createElement('div')
+
     this.renderer.addClass(backdrop, 'offcanvas-backdrop')
     this.renderer.addClass(backdrop, 'fade')
     this.renderer.addClass(backdrop, 'show')
+
     this.renderer.appendChild(document.body, backdrop)
     this.renderer.setStyle(document.body, 'overflow', 'hidden')
 

@@ -1,4 +1,4 @@
-import { Action, createReducer, on } from '@ngrx/store'
+import { Action, type ActionReducer, type MetaReducer, createReducer, on } from '@ngrx/store'
 import { localStorageSync } from 'ngrx-store-localstorage'
 import {
   LAYOUT_COLOR_TYPES,
@@ -51,11 +51,13 @@ export const layoutReducer = createReducer(
 )
 
 // Configuration for localStorageSync
-export function localStorageSyncReducer(reducer: any) {
+export const localStorageSyncReducer: MetaReducer = <State, A extends Action = Action>(
+  reducer: ActionReducer<State, A>
+): ActionReducer<State, A> => {
   return localStorageSync({
-    keys: ['layout', 'authentication'],/// ??????????????
+    keys: ['layout', 'authentication'],
     rehydrate: true,
-  })(reducer)
+  })(reducer) as ActionReducer<State, A>
 }
 
 // Selector
@@ -64,5 +66,3 @@ export function reducer(state: LayoutState | undefined, action: Action) {
 }
 
 export const rootReducer = localStorageSyncReducer(layoutReducer)
-
-const metaReducers = [rootReducer]

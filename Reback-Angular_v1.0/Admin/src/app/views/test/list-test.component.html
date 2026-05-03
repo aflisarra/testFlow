@@ -71,13 +71,13 @@
           type="text"
           placeholder="Search by name, description..."
           [value]="searchQuery"
-          (input)="searchQuery = $any($event.target).value"
+          (click)="onSearchQueryInput($event)"
         />
       </div>
 
       <!-- Dropdown filtre -->
       <div class="tv-filter-wrap">
-     (click)="toggleFilterDropdown(); $event.stopPropagation()"
+     
       <button
   type="button"
   class="tv-filter-btn"

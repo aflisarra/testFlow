@@ -122,13 +122,13 @@ html[data-menu-size='hidden'] {
 }
 
 // @include media-breakpoint-down(md) {
-@media (max-width: 375px) {
+@media (width <= 375px) {
     .topbar {
         padding: 0 0.5 * $spacer !important;
     }
 }
 
-@media (max-width: 600px) {
+@media (width <= 600px) {
     .topbar {
         .dropdown {
             position: static;

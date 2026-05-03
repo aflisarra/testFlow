@@ -1,64 +1,74 @@
-import { Component } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { AuthMagicService } from '../../../core/services/auth.magic.service';
-
+import { Component, inject } from '@angular/core'
+import { FormBuilder, FormGroup, Validators } from '@angular/forms'
+import { AuthMagicService } from '../../../core/services/auth.magic.service'
+import { ReactiveFormsModule } from '@angular/forms'
 @Component({
+   standalone: true,
+  imports: [ ReactiveFormsModule],
   selector: 'app-auth-magic',
   templateUrl: './auth-magic.component.html',
-  styleUrl: './auth-magic.component.scss'
+  styleUrl: './auth-magic.component.scss',
 })
 export class AuthMagicComponent {
-  step = 1; // 1: forgot, 2: OTP, 3: reset
-  forgotForm: FormGroup;
-  otpForm: FormGroup;
-  resetForm: FormGroup;
-  email: string;
-  resetToken: string;
+  private fb = inject(FormBuilder)
+  private authMagicService = inject(AuthMagicService)
 
-  constructor(
-    private fb: FormBuilder,
-    private authMagicService: AuthMagicService
-  ) {
+  step = 1
+  forgotForm: FormGroup
+  otpForm: FormGroup
+  resetForm: FormGroup
+
+  email?: string
+  resetToken?: string
+
+  constructor() {
     this.forgotForm = this.fb.group({
-      email: ['', [Validators.required, Validators.email]]
-    });
+      email: ['', [Validators.required, Validators.email]],
+    })
+
     this.otpForm = this.fb.group({
-      code: ['', [Validators.required, Validators.minLength(6)]]
-    });
+      code: ['', [Validators.required, Validators.minLength(6)]],
+    })
+
     this.resetForm = this.fb.group({
-      password: ['', [Validators.required, Validators.minLength(8)]]
-    });
+      password: ['', [Validators.required, Validators.minLength(8)]],
+    })
   }
 
   submitForgot() {
-    this.email = this.forgotForm.value.email;
-    this.authMagicService.forgotPassword(this.email).subscribe(
-      (res) => {
-        this.step = 2; // Passer à l'étape OTP
+    if (!this.email) this.email = this.forgotForm.value.email
+    if (!this.email) return
+
+    this.authMagicService.forgotPassword(this.email).subscribe({
+      next: () => {
+        this.step = 2
       },
-      (err) => console.error(err)
-    );
+      error: (err: unknown) => console.error(err),
+    })
   }
 
   submitOTP() {
-    const code = this.otpForm.value.code;
-    this.authMagicService.verifyOTP(this.email, code).subscribe(
-      (res) => {
-        this.resetToken = res.resetToken;
-        this.step = 3; // Passer à l'étape reset
+    const code = this.otpForm.value.code
+    if (!this.email || !code) return
+
+    this.authMagicService.verifyOtp(this.email, code).subscribe({
+      next: (res: { resetToken: string }) => {
+        this.resetToken = res.resetToken
+        this.step = 3
       },
-      (err) => console.error(err)
-    );
+      error: (err: unknown) => console.error(err),
+    })
   }
 
   submitReset() {
-    const password = this.resetForm.value.password;
-    this.authMagicService.resetPassword(this.resetToken, password).subscribe(
-      (res) => {
-        alert('Mot de passe réinitialisé !');
-        // Rediriger vers login
+    const password = this.resetForm.value.password
+    if (!this.resetToken || !password) return
+
+    this.authMagicService.resetPassword(this.resetToken, password).subscribe({
+      next: () => {
+        alert('Mot de passe réinitialisé !')
       },
-      (err) => console.error(err)
-    );
+      error: (err: unknown) => console.error(err),
+    })
   }
 }

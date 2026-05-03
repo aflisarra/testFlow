@@ -7,7 +7,7 @@ import {
 } from './authentication.actions'
 import type { User } from './auth.model'
 
-export type AuthenticationState = {
+export interface AuthenticationState {
   isLoggedIn: boolean
   user: User | null
   error: string | null

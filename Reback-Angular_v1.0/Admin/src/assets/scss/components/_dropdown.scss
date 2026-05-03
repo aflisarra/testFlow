@@ -23,10 +23,11 @@
 }
 
 .arrow-none {
-  &:after {
+  &::after {
     display: none !important;
   }
-  &:before {
+
+  &::before {
     display: none !important;
   }
 }
@@ -101,19 +102,17 @@
 
 @keyframes DropDownSlide {
     100% {
-        -webkit-transform: translateY(0);
         transform: translateY(0);
     }
 
     0% {
-        -webkit-transform: translateY(-3px);
         transform: translateY(-3px);
     }
 }
 
 // Dropdown Large (Custom)
 
-@media (min-width: 600px) {
+@media (width >= 600px) {
     .dropdown-lg {
         width: 320px;
     }

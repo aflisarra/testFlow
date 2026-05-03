@@ -51,12 +51,9 @@
 // Card disable loading (Custom Cards)
 .card-disabled {
     position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
+    inset: 0;
     border-radius: $card-border-radius;
-    background: rgba(var(--#{$prefix}dark-rgb), 0.5);
+    background: rgb(var(--#{$prefix}dark-rgb), 0.5);
     cursor: progress;
 
     .card-portlets-loader {

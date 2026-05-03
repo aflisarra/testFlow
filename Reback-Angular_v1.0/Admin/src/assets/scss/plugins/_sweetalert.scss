@@ -5,6 +5,7 @@
 // Popup
 .swal2-popup {
     background-color: $card-bg;
+
     @include border-radius($border-radius);
 
     .swal2-title {
@@ -36,7 +37,7 @@
     }
 
     .swal2-actions {
-        margin: 1.5rem auto 1rem auto;
+        margin: 1.5rem auto 1rem;
     }
 }
 

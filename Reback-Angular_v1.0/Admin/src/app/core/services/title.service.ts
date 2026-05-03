@@ -1,5 +1,4 @@
-// title.service.ts
-import { Injectable } from '@angular/core'
+import { Injectable, inject } from '@angular/core'
 import { Title } from '@angular/platform-browser'
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router'
 import { filter } from 'rxjs/operators'
@@ -8,30 +7,30 @@ import { filter } from 'rxjs/operators'
   providedIn: 'root',
 })
 export class TitleService {
-  constructor(
-    private titleService: Title,
-    private router: Router,
-    private activatedRoute: ActivatedRoute
-  ) {}
+  private titleService = inject(Title)
+  private router = inject(Router)
+  private activatedRoute = inject(ActivatedRoute)
 
   init(): void {
     this.router.events
-      .pipe(filter((event) => event instanceof NavigationEnd))
+      .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
       .subscribe(() => {
         this.updateTitle()
       })
   }
 
   private updateTitle(): void {
-    let route = this.activatedRoute
+    let route: ActivatedRoute = this.activatedRoute
+
     while (route.firstChild) {
       route = route.firstChild
     }
 
-    if (route.snapshot.data['title']) {
+    const title = route.snapshot.data?.['title']
+
+    if (typeof title === 'string') {
       this.titleService.setTitle(
-        route.snapshot.data['title'] +
-          ' | Reback - Responsive Angular Admin Dashboard Template'
+        `${title} | Reback - Responsive Angular Admin Dashboard Template`
       )
     }
   }

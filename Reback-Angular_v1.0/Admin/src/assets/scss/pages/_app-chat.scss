@@ -32,7 +32,7 @@
 
     &.active,
     &:hover {
-        background-color: rgba(var(--#{$prefix}light-rgb), 0.5) !important;
+        background-color: rgb(var(--#{$prefix}light-rgb), 0.5) !important;
     }
 }
 
@@ -168,7 +168,7 @@
 
     .video-call-action {
         position: absolute;
-        bottom: 0px;
+        bottom: 0;
         left: 0;
         right: 0;
         padding: 60px 0 16px;
@@ -190,7 +190,7 @@
 
     .voice-call-action {
         position: absolute;
-        bottom: 0px;
+        bottom: 0;
         left: 0;
         right: 0;
     }

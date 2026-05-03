@@ -20,6 +20,6 @@ import { Component, Input } from '@angular/core'
   `,
 })
 export class PageTitleComponent {
-  @Input() title: string = ''
-  @Input() subtitle: string = ''
+  @Input() title = ''
+  @Input() subtitle = ''
 }

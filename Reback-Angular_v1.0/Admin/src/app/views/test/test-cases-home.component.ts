@@ -5,11 +5,13 @@ import { Store } from '@ngrx/store'
 import { Subscription, firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { ToastrService } from 'ngx-toastr'
-import { HostListener } from '@angular/core'
+import { HostListener, OnInit } from '@angular/core'
 
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
 import { getUser } from '@/app/store/authentication/authentication.selector'
+import type { PlanValidationStatus, SuiteSessionStatus } from '@/app/views/test/models/status.types'
+import { getErrorMessage } from '@/app/views/test/utils/error.utils'
 
 import {
   TestLabService,
@@ -17,9 +19,6 @@ import {
   type TestPlanDto,
   type TestSuiteDto,
 } from '@/app/core/services/testlab.service'
-
-type PlanValidationStatus = 'pending' | 'generating' | 'reviewing' | 'confirmed'
-type SuiteSessionStatus = 'validated' | 'invalid'
 
 @Component({
   selector: 'app-test-cases-home',
@@ -29,7 +28,7 @@ type SuiteSessionStatus = 'validated' | 'invalid'
   styleUrl: './test-cases-home.component.css',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
-export class TestCasesHomeComponent {
+export class TestCasesHomeComponent implements OnInit {
   private store = inject(Store)
   private authService = inject(AuthenticationService)
   private testLabService = inject(TestLabService)
@@ -149,13 +148,13 @@ export class TestCasesHomeComponent {
     this.errorMessage = ''
     try {
       const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
-      let userId = String((user as any)?.id || (user as any)?._id || '').trim()
-      const token = String((user as any)?.token || this.authService.session || '').trim()
+      let userId = String(user?.id ?? user?._id ?? '').trim()
+      const token = String(user?.token || this.authService.session || '').trim()
       if (!userId && token) userId = this.resolveUserIdFromToken(token)
       if (!userId) { this.errorMessage = 'Session expired.'; return }
       this.suites = await firstValueFrom(this.testLabService.getTestSuitesByUser(userId))
     } catch (err: unknown) {
-      this.errorMessage = (err as any)?.error?.message || 'Unable to load test suites'
+      this.errorMessage = getErrorMessage(err, 'Unable to load test suites')
     } finally {
       this.loading = false
     }
@@ -266,7 +265,7 @@ export class TestCasesHomeComponent {
       },
       error: (err: unknown) => {
         this.planStatuses[plan.id] = 'pending'
-        this.errorMessage = (err as any)?.error?.message || 'Unable to generate test cases'
+        this.errorMessage = getErrorMessage(err, 'Unable to generate test cases')
         this.modalGenerating = false
       },
       complete: () => {
@@ -499,8 +498,8 @@ export class TestCasesHomeComponent {
         ? resp.validationPlanStatuses
         : (Array.isArray(resp?.planStatuses) ? resp.planStatuses : [])
       for (const row of rows) {
-        const planId = String((row as any)?.planId || '').trim()
-        const status = String((row as any)?.status || '').toLowerCase().trim()
+        const planId = String(row?.planId || '').trim()
+        const status = String(row?.status || '').toLowerCase().trim()
         if (!planId) continue
         if (status === 'pending' || status === 'generating' || status === 'reviewing' || status === 'confirmed') {
           this.planStatuses[planId] = status as PlanValidationStatus
@@ -518,7 +517,7 @@ export class TestCasesHomeComponent {
         this.liveCases = this.testCasesByPlan[this.plans[0].id] || []
       }
     } catch (err: unknown) {
-      this.errorMessage = (err as any)?.error?.message || 'Unable to load test plans'
+      this.errorMessage = getErrorMessage(err, 'Unable to load test plans')
     } finally {
       this.loading = false
     }

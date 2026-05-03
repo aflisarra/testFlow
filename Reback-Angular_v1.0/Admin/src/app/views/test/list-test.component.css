@@ -1,20 +1,21 @@
-﻿
+
 :host {
     /* Colors */
     --pm-brand-primary: #ec8a00;
     --pm-brand-secondary: #3b82f6;
     --pm-bg-a: #f6f8fc;
     --pm-bg-b: #eef2fb;
-    --pm-panel: rgba(255, 255, 255, 0.88);
+    --pm-panel: rgb(255 255 255 / 88%);
     --pm-border: #e6ebf3;
     --pm-text-primary: #0f172a;
     --pm-text-secondary: #475569;
     --pm-text-muted: #64748b;
     --pm-success: #10b981;
+
     display: block;
   background:
-    radial-gradient(1000px 400px at 92% -8%, rgba(236, 138, 0, 0.16), transparent 55%),
-    radial-gradient(750px 320px at -8% 8%, rgba(59, 130, 246, 0.12), transparent 60%),
+    radial-gradient(1000px 400px at 92% -8%, rgb(236 138 0 / 16%), transparent 55%),
+    radial-gradient(750px 320px at -8% 8%, rgb(59 130 246 / 12%), transparent 60%),
     linear-gradient(180deg, var(--pm-bg-a) 0%, var(--pm-bg-b) 100%);
   min-height: calc(100vh - 64px);
 }
@@ -22,12 +23,12 @@
 div.container-fluid.test-validation-page {
   min-height: calc(100vh - 64px);
   background:
-    radial-gradient(1000px 400px at 92% -8%, rgba(236, 138, 0, 0.16), transparent 55%),
-    radial-gradient(750px 320px at -8% 8%, rgba(59, 130, 246, 0.12), transparent 60%),
+    radial-gradient(1000px 400px at 92% -8%, rgb(236 138 0 / 16%), transparent 55%),
+    radial-gradient(750px 320px at -8% 8%, rgb(59 130 246 / 12%), transparent 60%),
     linear-gradient(180deg, var(--pm-bg-a) 0%, var(--pm-bg-b) 100%) !important;
 }
 
-@media (min-width: 992px) {
+@media (width >= 992px) {
   div.container-fluid.test-validation-page {
     min-height: calc(100vh - 115px);
   }
@@ -41,17 +42,17 @@ div.container-fluid.test-validation-page {
 .test-validation-page {
   min-height: calc(100vh - 64px);
   background:
-    radial-gradient(1000px 400px at 92% -8%, rgba(236, 138, 0, 0.16), transparent 55%),
-    radial-gradient(750px 320px at -8% 8%, rgba(59, 130, 246, 0.12), transparent 60%),
+    radial-gradient(1000px 400px at 92% -8%, rgb(236 138 0 / 16%), transparent 55%),
+    radial-gradient(750px 320px at -8% 8%, rgb(59 130 246 / 12%), transparent 60%),
     linear-gradient(180deg, var(--pm-bg-a) 0%, var(--pm-bg-b) 100%) !important;
 }
 
-@media (min-width: 992px) {
+@media (width >= 992px) {
   .test-validation-page {
     min-height: calc(100vh - 115px);
      background:
-    radial-gradient(1000px 400px at 92% -8%, rgba(236, 138, 0, 0.16), transparent 55%),
-    radial-gradient(750px 320px at -8% 8%, rgba(59, 130, 246, 0.12), transparent 60%),
+    radial-gradient(1000px 400px at 92% -8%, rgb(236 138 0 / 16%), transparent 55%),
+    radial-gradient(750px 320px at -8% 8%, rgb(59 130 246 / 12%), transparent 60%),
     linear-gradient(180deg, var(--pm-bg-a) 0%, var(--pm-bg-b) 100%) !important;
   }
 }
@@ -62,12 +63,12 @@ div.container-fluid.test-validation-page {
   border: 1px solid var(--pm-border);
   border-radius: 16px;
   backdrop-filter: blur(6px);
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 16px 36px rgb(15 23 42 / 8%);
 }
 
 /* â”€â”€ List view â”€â”€ */
 .test-validation-page .tv-pill {
-  background: rgba(236, 138, 0, 0.12) !important;
+  background: rgb(236 138 0 / 12%) !important;
 }
 
 .test-validation-page .tv-search,
@@ -78,9 +79,10 @@ div.container-fluid.test-validation-page {
 .test-validation-page .tv-action-secondary {
   background: revert !important;
 }
+
 .test-validation-page .tv-action-secondary:hover {
-  border-color: rgba(0, 58, 112, 0.55);
-  background: rgba(0, 58, 112, 0.1);
+  border-color: rgb(0 58 112 / 55%);
+  background: rgb(0 58 112 / 10%);
 }
 
 /* â”€â”€ Status filter pills â”€â”€ */
@@ -92,21 +94,21 @@ div.container-fluid.test-validation-page {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  border: 1px solid rgba(0, 58, 112, 0.18);
-  background: rgba(0, 58, 112, 0.04);
-  color: rgba(13, 27, 42, 0.8);
+  border: 1px solid rgb(0 58 112 / 18%);
+  background: rgb(0 58 112 / 4%);
+  color: rgb(13 27 42 / 80%);
   border-radius: 999px;
   padding: 0.35rem 0.6rem;
 }
 
 .test-validation-page .tv-filter-pill:hover {
-  border-color: rgba(0, 58, 112, 0.28);
-  background: rgba(0, 58, 112, 0.06);
+  border-color: rgb(0 58 112 / 28%);
+  background: rgb(0 58 112 / 6%);
 }
 
 .test-validation-page .tv-filter-pill--active {
-  border-color: rgba(236, 138, 0, 0.65);
-  background: rgba(236, 138, 0, 0.12);
+  border-color: rgb(236 138 0 / 65%);
+  background: rgb(236 138 0 / 12%);
   color: var(--brand-blue);
 }
 
@@ -120,13 +122,13 @@ div.container-fluid.test-validation-page {
   justify-content: center;
   font-size: 0.72rem;
   font-weight: 800;
-  background: rgba(236, 138, 0, 0.95);
+  background: rgb(236 138 0 / 95%);
   color: #fff;
   line-height: 1;
 }
 
 .test-validation-page .tv-filter-pill--active .tv-filter-count {
-  background: rgba(0, 58, 112, 0.95);
+  background: rgb(0 58 112 / 95%);
 }
 
 /* â”€â”€ Avatar â”€â”€ */
@@ -141,27 +143,27 @@ div.container-fluid.test-validation-page {
   font-weight: 800;
   letter-spacing: 0.03em;
   color: var(--brand-blue);
-  background: rgba(0, 58, 112, 0.08);
-  border: 1px solid rgba(0, 58, 112, 0.18);
+  background: rgb(0 58 112 / 8%);
+  border: 1px solid rgb(0 58 112 / 18%);
   flex-shrink: 0;
 }
 
 /* â”€â”€ Metric cards â”€â”€ */
 .test-validation-page .tv-metric {
-  border: 1px solid rgba(0, 58, 112, 0.12);
-  border-top: 3px solid rgba(0, 58, 112, 0.35);
+  border: 1px solid rgb(0 58 112 / 12%);
+  border-top: 3px solid rgb(0 58 112 / 35%);
 }
 
 .test-validation-page .tv-metric--success {
-  border-top-color: rgba(25, 135, 84, 0.55);
+  border-top-color: rgb(25 135 84 / 55%);
 }
 
 .test-validation-page .tv-metric--warning {
-  border-top-color: rgba(255, 193, 7, 0.7);
+  border-top-color: rgb(255 193 7 / 70%);
 }
 
 .test-validation-page .tv-metric--danger {
-  border-top-color: rgba(220, 53, 69, 0.55);
+  border-top-color: rgb(220 53 69 / 55%);
 }
 
 .test-validation-page .tv-metric-value {
@@ -173,14 +175,14 @@ div.container-fluid.test-validation-page {
 
 .test-validation-page .tv-metric-label {
   font-size: 0.8rem;
-  color: rgba(13, 27, 42, 0.65);
+  color: rgb(13 27 42 / 65%);
   margin-top: 0.35rem;
 }
 
 /* â”€â”€ Table â”€â”€ */
 .test-validation-page .tv-table thead th {
   font-size: 0.75rem;
-  color: rgba(13, 27, 42, 0.65);
+  color: rgb(13 27 42 / 65%);
 }
 
 .test-validation-page .tv-row {
@@ -188,26 +190,26 @@ div.container-fluid.test-validation-page {
 }
 
 .test-validation-page .tv-row--expanded {
-  background: rgba(0, 58, 112, 0.06);
+  background: rgb(0 58 112 / 6%);
 }
 
 .test-validation-page .tv-expand {
-  background: rgba(0, 58, 112, 0.05);
-  border-top: 1px solid rgba(0, 58, 112, 0.12);
+  background: rgb(0 58 112 / 5%);
+  border-top: 1px solid rgb(0 58 112 / 12%);
 }
 
 .test-validation-page .tv-expand-label {
   font-size: 0.75rem;
   font-weight: 800;
-  color: rgba(13, 27, 42, 0.6);
+  color: rgb(13 27 42 / 60%);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 0.35rem;
 }
 
 .test-validation-page .tv-plan-chip {
-  border: 1px solid rgba(0, 58, 112, 0.12);
-  color: rgba(13, 27, 42, 0.75);
+  border: 1px solid rgb(0 58 112 / 12%);
+  color: rgb(13 27 42 / 75%);
 }
 
 /* â”€â”€ Meta labels (shared) â”€â”€ */
@@ -216,13 +218,13 @@ div.container-fluid.test-validation-page {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(13, 27, 42, 0.5);
+  color: rgb(13 27 42 / 50%);
   margin-bottom: 0.2rem;
 }
 
 .test-validation-page .tv-meta-value {
   font-size: 0.93rem;
-  color: rgba(13, 27, 42, 0.88);
+  color: rgb(13 27 42 / 88%);
 }
 
 /* â”€â”€ Anchor / scroll â”€â”€ */
@@ -235,7 +237,7 @@ div.container-fluid.test-validation-page {
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .test-validation-page .tv-detail-card {
-  border: 1px solid rgba(0, 58, 112, 0.12);
+  border: 1px solid rgb(0 58 112 / 12%);
   border-radius: 14px;
   overflow: hidden;
 }
@@ -248,10 +250,10 @@ div.container-fluid.test-validation-page {
   padding: 0.75rem 1.1rem;
   background: linear-gradient(
     135deg,
-    rgba(0, 58, 112, 0.05) 0%,
-    rgba(236, 138, 0, 0.04) 100%
+    rgb(0 58 112 / 5%) 0%,
+    rgb(236 138 0 / 4%) 100%
   );
-  border-bottom: 1px solid rgba(0, 58, 112, 0.1);
+  border-bottom: 1px solid rgb(0 58 112 / 10%);
 }
 
 .test-validation-page .tv-detail-header-icon {
@@ -262,9 +264,9 @@ div.container-fluid.test-validation-page {
   align-items: center;
   justify-content: center;
   font-size: 1.05rem;
-  background: rgba(0, 58, 112, 0.08);
+  background: rgb(0 58 112 / 8%);
   color: var(--brand-blue);
-  border: 1px solid rgba(0, 58, 112, 0.14);
+  border: 1px solid rgb(0 58 112 / 14%);
 }
 
 /* 3-column grid inside card body */
@@ -274,7 +276,7 @@ div.container-fluid.test-validation-page {
   min-height: 200px;
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .test-validation-page .tv-detail-grid {
     grid-template-columns: 1fr;
   }
@@ -282,7 +284,7 @@ div.container-fluid.test-validation-page {
   .test-validation-page .tv-detail-divider {
     height: 1px;
     width: 100%;
-    background: rgba(0, 58, 112, 0.08);
+    background: rgb(0 58 112 / 8%);
     margin: 0;
   }
 }
@@ -290,7 +292,7 @@ div.container-fluid.test-validation-page {
 /* Vertical divider between columns */
 .test-validation-page .tv-detail-divider {
   width: 1px;
-  background: rgba(0, 58, 112, 0.08);
+  background: rgb(0 58 112 / 8%);
   margin: 1rem 0;
 }
 
@@ -311,10 +313,10 @@ div.container-fluid.test-validation-page {
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: rgba(13, 27, 42, 0.45);
+  color: rgb(13 27 42 / 45%);
   margin-bottom: 0.6rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px dashed rgba(0, 58, 112, 0.1);
+  border-bottom: 1px dashed rgb(0 58 112 / 10%);
 }
 
 /* Individual data row */
@@ -328,20 +330,20 @@ div.container-fluid.test-validation-page {
 }
 
 .test-validation-page .tv-detail-row:hover {
-  background: rgba(0, 58, 112, 0.03);
+  background: rgb(0 58 112 / 3%);
 }
 
 /* Project row â€” highlighted */
 .test-validation-page .tv-detail-row--project {
-  background: rgba(236, 138, 0, 0.07);
-  border: 1px solid rgba(236, 138, 0, 0.2);
+  background: rgb(236 138 0 / 7%);
+  border: 1px solid rgb(236 138 0 / 20%);
   border-radius: 10px;
   padding: 0.6rem 0.7rem;
   margin-bottom: 0.25rem;
 }
 
 .test-validation-page .tv-detail-row--project:hover {
-  background: rgba(236, 138, 0, 0.1);
+  background: rgb(236 138 0 / 10%);
 }
 
 /* Row icon */
@@ -354,16 +356,16 @@ div.container-fluid.test-validation-page {
   justify-content: center;
   font-size: 0.95rem;
   flex-shrink: 0;
-  background: rgba(0, 58, 112, 0.07);
+  background: rgb(0 58 112 / 7%);
   color: var(--brand-blue);
-  border: 1px solid rgba(0, 58, 112, 0.1);
+  border: 1px solid rgb(0 58 112 / 10%);
   margin-top: 1px;
 }
 
 .test-validation-page .tv-detail-row--project .tv-detail-row-icon {
-  background: rgba(236, 138, 0, 0.15);
+  background: rgb(236 138 0 / 15%);
   color: #b86a00;
-  border-color: rgba(236, 138, 0, 0.25);
+  border-color: rgb(236 138 0 / 25%);
 }
 
 .test-validation-page .tv-detail-row-content {
@@ -379,8 +381,8 @@ div.container-fluid.test-validation-page {
   font-size: 0.83rem;
   font-weight: 600;
   color: var(--brand-blue);
-  background: rgba(0, 58, 112, 0.07);
-  border: 1px solid rgba(0, 58, 112, 0.16);
+  background: rgb(0 58 112 / 7%);
+  border: 1px solid rgb(0 58 112 / 16%);
   border-radius: 8px;
   padding: 0.25rem 0.6rem;
   margin-top: 0.15rem;
@@ -402,7 +404,7 @@ div.container-fluid.test-validation-page {
 
 .test-validation-page .tv-url-link:hover {
   opacity: 1;
-  color: rgba(236, 138, 0, 0.9);
+  color: rgb(236 138 0 / 90%);
 }
 
 /* â”€â”€ Stats grid (col 3) â”€â”€ */
@@ -416,16 +418,16 @@ div.container-fluid.test-validation-page {
 .test-validation-page .tv-stat-card {
   border-radius: 10px;
   padding: 0.65rem 0.75rem;
-  background: rgba(0, 58, 112, 0.05);
-  border: 1px solid rgba(0, 58, 112, 0.1);
+  background: rgb(0 58 112 / 5%);
+  border: 1px solid rgb(0 58 112 / 10%);
   text-align: center;
-  border-top: 3px solid rgba(0, 58, 112, 0.3);
+  border-top: 3px solid rgb(0 58 112 / 30%);
 }
 
 .test-validation-page .tv-stat-card--orange {
-  background: rgba(236, 138, 0, 0.06);
-  border-color: rgba(236, 138, 0, 0.18);
-  border-top-color: rgba(236, 138, 0, 0.6);
+  background: rgb(236 138 0 / 6%);
+  border-color: rgb(236 138 0 / 18%);
+  border-top-color: rgb(236 138 0 / 60%);
 }
 
 .test-validation-page .tv-stat-value {
@@ -444,45 +446,45 @@ div.container-fluid.test-validation-page {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: rgba(13, 27, 42, 0.5);
+  color: rgb(13 27 42 / 50%);
   margin-top: 0.2rem;
 }
 
 /* â”€â”€ Jump / toggle button â”€â”€ */
 .test-validation-page .tv-jump-btn {
   border-radius: 10px;
-  border: 1px solid rgba(0, 58, 112, 0.18);
+  border: 1px solid rgb(0 58 112 / 18%);
   color: var(--brand-blue);
-  background: rgba(0, 58, 112, 0.04);
+  background: rgb(0 58 112 / 4%);
   font-weight: 600;
   font-size: 0.82rem;
   transition: all 0.15s;
 }
 
 .test-validation-page .tv-jump-btn:hover {
-  border-color: rgba(236, 138, 0, 0.55);
-  background: rgba(236, 138, 0, 0.07);
-  box-shadow: 0 0 0 3px rgba(236, 138, 0, 0.1);
+  border-color: rgb(236 138 0 / 55%);
+  background: rgb(236 138 0 / 7%);
+  box-shadow: 0 0 0 3px rgb(236 138 0 / 10%);
   color: #b86a00;
 }
 
 .test-validation-page .tv-jump-btn--active {
-  border-color: rgba(0, 58, 112, 0.3);
-  background: rgba(0, 58, 112, 0.07);
+  border-color: rgb(0 58 112 / 30%);
+  background: rgb(0 58 112 / 7%);
   color: var(--brand-blue);
 }
 
 .test-validation-page .tv-jump-btn--active:hover {
-  border-color: rgba(220, 53, 69, 0.4);
-  background: rgba(220, 53, 69, 0.05);
-  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.08);
+  border-color: rgb(220 53 69 / 40%);
+  background: rgb(220 53 69 / 5%);
+  box-shadow: 0 0 0 3px rgb(220 53 69 / 8%);
   color: #b02a37;
 }
 
 /* â”€â”€ Test Plans list â”€â”€ 
 .test-validation-page .tv-detail-card .card-header .app-title-icon {
   font-size: 1.05rem;
-}*/
+} */
 
 .test-validation-page .tv-plans .list-group-item.active {
   background: var(--brand-orange);
@@ -490,13 +492,13 @@ div.container-fluid.test-validation-page {
 }
 
 .test-validation-page .tv-plans .list-group-item.active .text-muted {
-  color: rgba(255, 255, 255, 0.85) !important;
+  color: rgb(255 255 255 / 85%) !important;
 }
 
 /* â”€â”€ Test Case cards â”€â”€ 
 .test-validation-page .tv-case .card-header {
   background: rgba(0, 58, 112, 0.04);
-}*/
+} */
 
 
 /* ── Toolbar ── */
@@ -524,11 +526,13 @@ div.container-fluid.test-validation-page {
   flex: 1;
   min-width: 0;
 }
+
 .test-validation-page .tv-search-icon {
   color: #94a3b8;
   font-size: .95rem;
   flex-shrink: 0;
 }
+
 .test-validation-page .tv-search-input {
   border: none;
   outline: none;
@@ -551,12 +555,14 @@ div.container-fluid.test-validation-page {
   position: relative;
   flex-shrink: 0;
 }
+
+
 .test-validation-page .tv-filter-btn {
   display: inline-flex;
   align-items: center;
   gap: .4rem;
-  border: 1px solid rgba(0,58,112,.18);
-  background: rgba(0,58,112,.04);
+  border: 1px solid rgb(0 58 112 / 18%);
+  background: rgb(0 58 112 / 4%);
   border-radius: 8px;
   padding: 5px 10px;
   font-size: .78rem;
@@ -566,20 +572,23 @@ div.container-fluid.test-validation-page {
   transition: all .15s;
   white-space: nowrap;
 }
+
 .test-validation-page .tv-filter-btn:hover,
 .test-validation-page .tv-filter-btn--active {
-  border-color: rgba(236,138,0,.5);
-  background: rgba(236,138,0,.1);
+  border-color: rgb(236 138 0 / 50%);
+  background: rgb(236 138 0 / 10%);
   color: #92540a;
 }
+
 .test-validation-page .tv-filter-badge {
-  background: rgba(236,138,0,.9);
+  background: rgb(236 138 0 / 90%);
   color: #fff;
   font-size: .62rem;
   font-weight: 800;
   padding: 1px 6px;
   border-radius: 999px;
 }
+
 .test-validation-page .tv-filter-arrow {
   color: #94a3b8;
   font-size: .7rem;
@@ -591,9 +600,9 @@ div.container-fluid.test-validation-page {
   top: calc(100% + 6px);
   right: 0;
   background: #fff;
-  border: 1px solid rgba(226,232,240,.95);
+  border: 1px solid rgb(226 232 240 / 95%);
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(15,23,42,.1);
+  box-shadow: 0 8px 24px rgb(15 23 42 / 10%);
   min-width: 200px;
   z-index: 200;
   overflow: hidden;
@@ -610,6 +619,7 @@ div.container-fluid.test-validation-page {
   color: #94a3b8;
   border-bottom: 1px solid #f1f5f9;
 }
+
 .test-validation-page .tv-dd-option {
   display: flex;
   align-items: center;
@@ -620,12 +630,14 @@ div.container-fluid.test-validation-page {
   gap: .6rem;
 }
 .test-validation-page .tv-dd-option:hover { background: #f8fafc; }
-.test-validation-page .tv-dd-option--active { background: rgba(236,138,0,.06); }
+.test-validation-page .tv-dd-option--active { background: rgb(236 138 0 / 6%); }
+
 .test-validation-page .tv-dd-left {
   display: flex;
   align-items: center;
   gap: .5rem;
 }
+
 .test-validation-page .tv-dd-dot {
   width: 8px; height: 8px;
   border-radius: 50%;
@@ -647,15 +659,18 @@ div.container-fluid.test-validation-page {
   background: #f1f5f9; color: #64748b;
   padding: 2px 7px; border-radius: 999px;
 }
+
 .test-validation-page .tv-dd-option--active .tv-dd-count {
-  background: rgba(236,138,0,.15); color: #92540a;
+  background: rgb(236 138 0 / 15%); color: #92540a;
 }
+
 .test-validation-page .tv-dd-footer {
   padding: .4rem .75rem;
   border-top: 1px solid #f1f5f9;
   display: flex;
   justify-content: flex-end;
 }
+
 .test-validation-page .tv-dd-clear {
   font-size: .72rem; color: #94a3b8;
   background: none; border: none; cursor: pointer; padding: 2px 4px;
@@ -671,25 +686,29 @@ div.container-fluid.test-validation-page {
   padding: .3rem .75rem .4rem;
   border-bottom: 1px solid #f1f5f9;
 }
+
 .test-validation-page .tv-active-tag-label {
   font-size: .72rem; color: #94a3b8;
 }
+
 .test-validation-page .tv-active-tag {
   display: inline-flex; align-items: center; gap: .3rem;
-  background: rgba(236,138,0,.1);
-  border: 1px solid rgba(236,138,0,.3);
+  background: rgb(236 138 0 / 10%);
+  border: 1px solid rgb(236 138 0 / 30%);
   color: #92540a; border-radius: 999px;
   padding: 3px 8px 3px 10px;
   font-size: .72rem; font-weight: 600;
 }
+
 .test-validation-page .tv-active-tag-x {
   width: 14px; height: 14px; border-radius: 50%;
-  background: rgba(236,138,0,.25); border: none; cursor: pointer;
+  background: rgb(236 138 0 / 25%); border: none; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
   font-size: .65rem; color: #92540a;
 }
+
 .test-validation-page .tv-active-tag-x:hover {
-  background: rgba(239,68,68,.2); color: #dc2626;
+  background: rgb(239 68 68 / 20%); color: #dc2626;
 }
 
 

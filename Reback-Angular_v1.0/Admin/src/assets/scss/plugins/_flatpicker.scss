@@ -8,18 +8,18 @@
     border: 1px solid $dropdown-border-color;
 
     &.arrowTop {
-        &:before {
+        &::before {
             border-bottom-color: $card-bg;
         }
 
-        &:after {
+        &::after {
             border-bottom-color: $card-bg;
         }
     }
 
     &.arrowBottom {
-        &:before,
-        &:after {
+        &::before,
+        &::after {
             border-top-color: $card-bg;
         }
     }

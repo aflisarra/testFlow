@@ -1,17 +1,16 @@
 <div class="project-page container-fluid py-3">
-  <div class="project-hero d-flex justify-content-between align-items-start mb-3">
+  <div class="project-hero d-flex justify-content-between align-items-center mb-3">
     <div>
       <h4 class="project-hero-title mb-0 app-title">
-  <span class="iconify app-title-icon" data-icon="iconamoon:folder-duotone"></span>
-  <iconify-icon icon="iconamoon:file-document-duotone" style="font-size: 20px; margin-right: 6px; color: #ec8a00;"></iconify-icon>
-  <span>Project Management</span>
-</h4>
-      <div class="project-hero-metrics">
-        <span class="metric-pill">{{ projects.length }} Projects</span>
-        <span class="metric-pill metric-pill--soft">{{ users.length }} Specialists</span>
-      </div>
+        <iconify-icon icon="iconamoon:file-document-duotone" style="font-size: 20px; margin-right: 6px; color: #ec8a00;"></iconify-icon>
+        <span>Project Management</span>
+      </h4>
     </div>
-    <button class="btn btn-brand btn-hero" type="button" (click)="onNewProject()">New Project</button>
+    <div class="hero-right-group">
+      <span class="metric-pill">{{ projects.length }} Projects</span>
+      <span class="metric-pill metric-pill--soft">{{ users.length }} Specialists</span>
+      
+    </div>
   </div>
 
   @if (error) {
@@ -19,6 +18,7 @@
   }
 
   <div class="row g-3">
+    <!-- LEFT: FORM -->
     <div class="col-lg-7">
       <div class="card shadow-sm pm-panel">
         <div class="card-body">
@@ -38,8 +38,6 @@
               }
             </div>
 
-
-
             <!-- Dates -->
             <div class="col-12">
               <label class="form-label pm-label">Dates</label>
@@ -53,7 +51,6 @@
                   <div class="invalid-feedback d-block">Start date is required.</div>
                   }
                 </div>
-
                 <div class="date-triple-item">
                   <label class="date-range-label">End Date <span class="text-danger">*</span></label>
                   <input type="date" class="form-control"
@@ -63,14 +60,12 @@
                   <div class="invalid-feedback d-block">End date is required.</div>
                   }
                 </div>
-
                 <div class="date-triple-item">
                   <label class="date-range-label">Milestone Date <span class="text-danger">*</span></label>
                   <input type="date" class="form-control"
                     [class.is-invalid]="projectForm.controls.milestoneDate.touched && projectForm.controls.milestoneDate.invalid"
                     formControlName="milestoneDate" />
-                  @if (projectForm.controls.milestoneDate.touched &&
-                  projectForm.controls.milestoneDate.errors?.['required']) {
+                  @if (projectForm.controls.milestoneDate.touched && projectForm.controls.milestoneDate.errors?.['required']) {
                   <div class="invalid-feedback d-block">Milestone date is required.</div>
                   }
                 </div>
@@ -80,7 +75,7 @@
               }
             </div>
 
-            <!-- Project Description -->
+            <!-- Description -->
             <div class="col-12">
               <label class="form-label pm-label">Project Description</label>
               <textarea class="form-control pm-description" rows="5" formControlName="description"></textarea>
@@ -96,36 +91,32 @@
                 <div class="elite-team-tools">
                   <div class="team-preview" title="Selected team members">
                     @if (teamPreviewUsers.length) {
-                    @for (member of teamPreviewUsers; track member._id) {
-                    <span class="team-preview-item" [attr.title]="member.name">
-                      @if (member.picture) {
-                      <img [src]="resolveAvatarUrl(member.picture)" (error)="onAvatarError($event)"
-                        class="team-preview-avatar" alt="avatar" />
-                      } @else {
-                      <span class="team-preview-initials">{{ getUserInitials(member.name) }}</span>
+                      @for (member of teamPreviewUsers; track member._id) {
+                        <span class="team-preview-item" [attr.title]="member.name">
+                          @if (member.picture) {
+                            <img [src]="resolveAvatarUrl(member.picture)" (error)="onAvatarError($event)" class="team-preview-avatar" alt="avatar" />
+                          } @else {
+                            <span class="team-preview-initials">{{ getUserInitials(member.name) }}</span>
+                          }
+                        </span>
                       }
-                    </span>
-                    }
-                    @if (teamExtraCount > 0) {
-                    <span class="team-preview-item team-preview-item--count">+{{ teamExtraCount }}</span>
-                    }
+                      @if (teamExtraCount > 0) {
+                        <span class="team-preview-item team-preview-item--count">+{{ teamExtraCount }}</span>
+                      }
                     } @else {
-                    <span class="team-preview-item team-preview-item--empty">
-                      <span class="iconify" data-icon="iconamoon:profile-circle-duotone"></span>
-                    </span>
+                      <span class="team-preview-item team-preview-item--empty">
+                        <span class="iconify" data-icon="iconamoon:profile-circle-duotone"></span>
+                      </span>
                     }
                   </div>
-
                   <button type="button" class="btn btn-sm elite-team-toggle-icon"
-  title="View users list"
-  (click)="openEliteTeamModal(eliteTeamModal)">
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M2 12C2 12 5 5 12 5s10 7 10 7-3 7-10 7S2 12 2 12z" 
-      stroke="#ec8a00" stroke-width="2" stroke-linecap="round"/>
-    <circle cx="12" cy="12" r="3" 
-      stroke="#ec8a00" stroke-width="2"/>
-  </svg>
-</button>
+                    title="View users list"
+                    (click)="openEliteTeamModal(eliteTeamModal)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M2 12C2 12 5 5 12 5s10 7 10 7-3 7-10 7S2 12 2 12z" stroke="#ec8a00" stroke-width="2" stroke-linecap="round"/>
+                      <circle cx="12" cy="12" r="3" stroke="#ec8a00" stroke-width="2"/>
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>
@@ -136,44 +127,38 @@
                   <header class="exec-upsert-header">
                     <div class="exec-upsert-headline">
                       <h1 class="exec-upsert-title">Team</h1>
-                      <button class="exec-close-btn" type="button" aria-label="Close"
-                        (click)="modal.dismiss()">&times;</button>
+                      <button class="exec-close-btn" type="button" aria-label="Close" (click)="modal.dismiss()">&times;</button>
                     </div>
                   </header>
-
                   <div class="exec-field">
                     <label class="exec-label">Search</label>
                     <input type="text" class="exec-input" placeholder="Search by name, role, email..."
                       [(ngModel)]="eliteTeamSearch" [ngModelOptions]="{ standalone: true }" />
                   </div>
-
                   <div class="exec-actions-box mt-2">
                     <div class="exec-actions-scroll custom-scrollbar">
                       @if (usersLoading) {
-                      <p class="text-muted small mb-0">Loading users...</p>
+                        <p class="text-muted small mb-0">Loading users...</p>
                       } @else if (!filteredEliteUsers.length) {
-                      <p class="text-muted small mb-0">No users found.</p>
+                        <p class="text-muted small mb-0">No users found.</p>
                       } @else {
-                      @for (user of filteredEliteUsers; track user._id) {
-                      <label class="exec-action-item">
-                        <span class="edit-user-option">
-                          <img [src]="resolveAvatarUrl(user.picture)" (error)="onAvatarError($event)"
-                            class="edit-user-avatar" alt="avatar" />
-                          <span class="exec-action-name">{{ user.name }}</span>
-                        </span>
-                        <input class="exec-checkbox exec-checkbox-lg" type="checkbox" [checked]="isAssigned(user._id)"
-                          (change)="toggleAssignUser(user._id, $any($event.target).checked)" />
-                      </label>
-                      }
+                        @for (user of filteredEliteUsers; track user._id) {
+                          <label class="exec-action-item">
+                            <span class="edit-user-option">
+                              <img [src]="resolveAvatarUrl(user.picture)" (error)="onAvatarError($event)" class="edit-user-avatar" alt="avatar" />
+                              <span class="exec-action-name">{{ user.name }}</span>
+                            </span>
+                            <input class="exec-checkbox exec-checkbox-lg" type="checkbox"
+                              [checked]="isAssigned(user._id)"
+                              (change)="onAssignUserChange(user._id, $event)" />
+                          </label>
+                        }
                       }
                     </div>
                   </div>
-
                   <div class="exec-buttons">
                     <button class="exec-btn exec-btn-cancel" type="button" (click)="modal.dismiss()">Close</button>
-                    <button class="exec-btn exec-btn-save" type="button" (click)="applyEliteTeamSelection(modal)">
-                      Submit
-                    </button>
+                    <button class="exec-btn exec-btn-save" type="button" (click)="applyEliteTeamSelection(modal)">Submit</button>
                   </div>
                 </div>
                 <div class="exec-upsert-accent"></div>
@@ -193,9 +178,12 @@
       </div>
     </div>
 
+    <!-- RIGHT: PROJECT LIST -->
     <div class="col-lg-5">
       <div class="card h-100 shadow-sm pm-panel">
         <div class="card-body">
+
+          <!-- Panel header -->
           <div class="d-flex align-items-center justify-content-between mb-3">
             <h6 class="mb-0 panel-title app-title app-title--sm">
               <span class="iconify app-title-icon" data-icon="iconamoon:folder-open-duotone"></span>
@@ -204,51 +192,68 @@
             <span class="panel-badge">{{ projects.length }}</span>
           </div>
 
-          @if (loading) {
-          <p class="text-muted mb-0">Loading...</p>
-          } @else if (!projects.length) {
-          <p class="text-muted mb-0">No projects yet.</p>
-          } @else {
-          <div class="project-list">
-            @for (project of paginatedProjects; track project._id) {
-            <div class="project-item" [class.project-item--active]="selectedProjectId === project._id">
-              <div class="d-flex justify-content-between align-items-start gap-2">
-                <div>
-                  <div class="project-item-title">{{ project.title }}</div>
-                </div>
-                <div class="d-inline-flex align-items-center flex-nowrap gap-2">
-                  <span class="project-users-chip">{{ project.assignedUsers?.length || 0 }} users</span>
-                  <button class="btn btn-sm btn-action btn-action-view btn-unified btn-icon-unified" type="button"
-                    title="View" (click)="openProjectViewModal(project)">
-                    <iconify-icon icon="iconamoon:eye-duotone" class="action-icon"></iconify-icon>
-                  </button>
-                  <button class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified" type="button"
-                    title="Edit" (click)="openEditProjectModal(project, editProjectModal)">
-                    <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
-                  </button>
-                  <button class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button"
-                    title="Delete" (click)="deleteProject(project)">
-                    <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
-                  </button>
-                </div>
-              </div>
-            </div>
-            }
+          <!-- Search bar -->
+          <div class="project-search-wrap mb-3">
+            <svg class="project-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+            </svg>
+            <input
+              type="text"
+              class="form-control project-search-input"
+              placeholder="Search projects…"
+              [(ngModel)]="projectSearch"
+              [ngModelOptions]="{ standalone: true }" />
           </div>
 
-          <!-- Pagination -->
-          @if (totalProjectPages > 1) {
-          <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
-            <button class="btn btn-sm btn-outline-secondary" [disabled]="currentProjectPage === 1"
-              (click)="onPrevProjectsPage()">Previous</button>
-            <span class="small text-muted">Page {{ currentProjectPage }} of {{ totalProjectPages }}</span>
-            <button class="btn btn-sm btn-outline-secondary" [disabled]="currentProjectPage === totalProjectPages"
-              (click)="onNextProjectsPage()">Next</button>
-          </div>
+          @if (loading) {
+            <p class="text-muted mb-0">Loading...</p>
+          } @else if (!filteredProjects.length) {
+            <p class="text-muted mb-0">No projects found.</p>
+          } @else {
+            <div class="project-list">
+              @for (project of paginatedProjects; track project._id) {
+                <div class="project-item" [class.project-item--active]="selectedProjectId === project._id">
+                  <div class="project-item-info">
+                    <div class="project-item-title">{{ project.title }}</div>
+                  </div>
+                  <div class="project-item-actions">
+                    <span class="project-users-chip">{{ project.assignedUsers?.length || 0 }} users</span>
+                    <button class="btn btn-sm btn-action btn-action-view btn-unified btn-icon-unified" type="button"
+                      title="View" (click)="openProjectViewModal(project)">
+                      <iconify-icon icon="iconamoon:eye-duotone" class="action-icon"></iconify-icon>
+                    </button>
+                    <button class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified" type="button"
+                      title="Edit" (click)="openEditProjectModal(project, editProjectModal)">
+                      <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
+                    </button>
+                    <button class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button"
+                      title="Delete" (click)="deleteProject(project)">
+                      <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- Pagination -->
+            @if (totalProjectPages > 1) {
+              <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                <button class="btn btn-sm btn-outline-secondary" [disabled]="currentProjectPage === 1"
+                  (click)="onPrevProjectsPage()">Previous</button>
+                <span class="small text-muted">Page {{ currentProjectPage }} of {{ totalProjectPages }}</span>
+                <button class="btn btn-sm btn-outline-secondary" [disabled]="currentProjectPage === totalProjectPages"
+                  (click)="onNextProjectsPage()">Next</button>
+              </div>
+            }
           }
-          }
+
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
+<!-- ==================== VIEW PROJECT MODAL ==================== -->
 <ng-template #viewProjectModal let-modal>
   <div class="exec-upsert">
     <div class="exec-upsert-body">
@@ -258,50 +263,109 @@
           <button class="exec-close-btn" type="button" aria-label="Close" (click)="modal.dismiss()">&times;</button>
         </div>
       </header>
-
       @if (viewProject) {
-      <div class="projectcard">
-        <div class="card-header">
-          <div class="project-title">
-            <svg class="folder-icon" viewBox="0 0 20 20" fill="#e8b84b">
-              <path d="M2 5a2 2 0 012-2h3.586a1 1 0 01.707.293L9.414 4.5H16a2 2 0 012 2V15a2 2 0 01-2 2H4a2 2 0 01-2-2V5z"/>
-            </svg>
-            {{ viewProject.title }}
+        <div class="view-project-card">
+
+          <!-- Card Header -->
+          <div class="vpc-header">
+            <div class="vpc-title-row">
+              <div class="vpc-folder-icon">
+                <svg viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M2 5a2 2 0 012-2h3.586a1 1 0 01.707.293L9.414 4.5H16a2 2 0 012 2V15a2 2 0 01-2 2H4a2 2 0 01-2-2V5z"/>
+                </svg>
+              </div>
+              <span class="vpc-title">{{ viewProject.title }}</span>
+            </div>
+            <span class="vpc-status-badge vpc-status-{{ viewProject.status || 'draft' }}">
+              {{ viewProject.status || 'draft' }}
+            </span>
           </div>
-          <span class="badge">{{ viewProject.title }}</span>
-        </div>
 
-        <div class="dates-row">
-          <div class="date-item"><label>START</label><span>{{ viewProject.startDate | date:'dd MMM yyyy' }}</span></div>
-          <div class="date-item"><label>END</label><span>{{ viewProject.endDate | date:'dd MMM yyyy' }}</span></div>
-          <div class="date-item"><label>MILESTONE</label><span>{{ viewProject.milestoneDate | date:'dd MMM yyyy' }}</span></div>
-        </div>
+          <!-- Description -->
+          @if (viewProject.description) {
+            <div class="vpc-description">{{ viewProject.description }}</div>
+          }
 
-        <div class="team-label">TEAM</div>
-        <div class="team-grid">
-          @for (member of viewProjectTeamMembers; track member.id; let i = $index) {
-          <div class="member-card" [class.owner]="member.isOwner">
-            <div class="avatar" [class.avatar-initials]="!member.hasPhoto" [class.avatar-photo]="member.hasPhoto">
-              @if (member.hasPhoto && member.photoUrl) {
-              <img [src]="member.photoUrl" (error)="onAvatarError($event)" />
-              } @else {
-              {{ member.initials }}
+          <!-- Dates -->
+          <div class="vpc-dates-row">
+            <div class="vpc-date-item">
+              <div class="vpc-date-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+              </div>
+              <div>
+                <div class="vpc-date-label">Start</div>
+                <div class="vpc-date-value">{{ viewProject.startDate | date:'dd MMM yyyy' }}</div>
+              </div>
+            </div>
+            <div class="vpc-date-sep"></div>
+            <div class="vpc-date-item">
+              <div class="vpc-date-icon vpc-date-icon--end">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+              </div>
+              <div>
+                <div class="vpc-date-label">End</div>
+                <div class="vpc-date-value">{{ viewProject.endDate | date:'dd MMM yyyy' }}</div>
+              </div>
+            </div>
+            <div class="vpc-date-sep"></div>
+            <div class="vpc-date-item">
+              <div class="vpc-date-icon vpc-date-icon--milestone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              </div>
+              <div>
+                <div class="vpc-date-label">Milestone</div>
+                <div class="vpc-date-value">{{ viewProject.milestoneDate | date:'dd MMM yyyy' }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Team -->
+          <div class="vpc-team-section">
+            <div class="vpc-team-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+              </svg>
+              Team <span class="vpc-team-count">{{ viewProjectTeamMembers.length }}</span>
+            </div>
+            <div class="vpc-member-grid">
+              @for (member of viewProjectTeamMembers; track member.id) {
+                <div class="vpc-member-card" [class.vpc-member-owner]="member.isOwner">
+                  <div class="vpc-avatar" [class.vpc-avatar--photo]="member.hasPhoto" [class.vpc-avatar--initials]="!member.hasPhoto">
+                    @if (member.hasPhoto && member.photoUrl) {
+                      <img [src]="member.photoUrl" (error)="onAvatarError($event)" alt="avatar" />
+                    } @else {
+                      {{ member.initials }}
+                    }
+                  </div>
+                  <div class="vpc-member-info">
+                    <span class="vpc-member-name">{{ member.name }}</span>
+                    @if (member.isOwner) {
+                      <span class="vpc-owner-badge">Owner</span>
+                    }
+                  </div>
+                </div>
+              }
+              @if (!viewProjectTeamMembers.length) {
+                <p class="text-muted small mb-0">No team members assigned.</p>
               }
             </div>
-            <span class="member-name">{{ member.name }}</span>
-            @if (member.isOwner) {
-            <span class="owner-badge">Owner</span>
-            }
           </div>
-          }
+
         </div>
-      </div>
       }
     </div>
     <div class="exec-upsert-accent"></div>
   </div>
 </ng-template>
 
+<!-- ==================== EDIT PROJECT MODAL ==================== -->
 <ng-template #editProjectModal let-modal>
   <div class="exec-upsert">
     <div class="exec-upsert-body">
@@ -319,12 +383,10 @@
             [class.is-invalid]="editProjectForm.controls.title.touched && editProjectForm.controls.title.invalid"
             formControlName="title" />
         </div>
-
         <div class="col-12">
           <label class="form-label pm-label">Description</label>
           <textarea class="form-control pm-description" rows="2" formControlName="description"></textarea>
         </div>
-
         <div class="col-4">
           <label class="form-label pm-label">Start Date <span class="text-danger">*</span></label>
           <input type="date" class="form-control" formControlName="startDate" />
@@ -337,7 +399,7 @@
           <label class="form-label pm-label">Milestone Date <span class="text-danger">*</span></label>
           <input type="date" class="form-control" formControlName="milestoneDate" />
           @if (hasInvalidEditDateOrder()) {
-          <div class="invalid-feedback d-block">Invalid date order.</div>
+            <div class="invalid-feedback d-block">Invalid date order.</div>
           }
         </div>
         <div class="col-12">
@@ -350,6 +412,7 @@
           </select>
         </div>
 
+        <!-- Team in Edit -->
         <div class="col-12 elite-team-field">
           <div class="elite-team-head mb-2">
             <div>
@@ -357,23 +420,22 @@
               <div class="small text-muted">{{ editSelectedCount }} selected</div>
             </div>
           </div>
-
           <div class="edit-elite-dropdown">
             <div class="exec-actions-dropdown">
               <button type="button" class="exec-actions-trigger" [class.is-invalid]="editSelectedCount === 0"
                 (click)="toggleEditEliteTeamDropdown(); $event.stopPropagation()">
                 <span class="edit-trigger-content">
                   @if (editSelectedCount === 0) {
-                  <span class="exec-trigger-placeholder">Select specialists...</span>
+                    <span class="exec-trigger-placeholder">Select specialists...</span>
                   } @else {
-                  @if (editFirstSelectedUser) {
-                  <img [src]="resolveAvatarUrl(editFirstSelectedUser.picture)" (error)="onAvatarError($event)"
-                    class="edit-trigger-avatar" alt="avatar" />
-                  }
-                  <span>{{ editFirstSelectedUser?.name }}</span>
-                  @if (editSelectedCount > 1) {
-                  <span class="exec-additional-selection">(+{{ editSelectedCount - 1 }} others)</span>
-                  }
+                    @if (editFirstSelectedUser) {
+                      <img [src]="resolveAvatarUrl(editFirstSelectedUser.picture)" (error)="onAvatarError($event)"
+                        class="edit-trigger-avatar" alt="avatar" />
+                    }
+                    <span>{{ editFirstSelectedUser?.name }}</span>
+                    @if (editSelectedCount > 1) {
+                      <span class="exec-additional-selection">(+{{ editSelectedCount - 1 }} others)</span>
+                    }
                   }
                 </span>
                 <span class="edit-trigger-tools">
@@ -382,40 +444,41 @@
               </button>
 
               @if (editEliteTeamOpen) {
-              <div class="exec-actions-box" (click)="$event.stopPropagation()">
-                <div class="exec-actions-scroll custom-scrollbar">
-                  <div class="mb-2">
-                    <label class="exec-action-item exec-action-item--all">
-                      <span class="exec-action-name">Select All</span>
-                      <input class="exec-checkbox exec-checkbox-lg" type="checkbox" [checked]="editAllSelected"
-                        (change)="toggleEditAll($any($event.target).checked)" />
-                    </label>
+                <div class="exec-actions-box" (click)="$event.stopPropagation()">
+                  <div class="exec-actions-scroll custom-scrollbar">
+                    <div class="mb-2">
+                      <label class="exec-action-item exec-action-item--all">
+                        <span class="exec-action-name">Select All</span>
+                        <input class="exec-checkbox exec-checkbox-lg" type="checkbox"
+                          [checked]="editAllSelected"
+                          (change)="onEditAllChange($event)" />
+                      </label>
+                    </div>
+                    @for (user of users; track user._id) {
+                      <label class="exec-action-item">
+                        <span class="edit-user-option">
+                          <img [src]="resolveAvatarUrl(user.picture)" (error)="onAvatarError($event)"
+                            class="edit-user-avatar" alt="avatar" />
+                          <span class="exec-action-name">{{ user.name }}</span>
+                        </span>
+                        <input class="exec-checkbox exec-checkbox-lg" type="checkbox"
+                          [checked]="isEditAssigned(user._id)"
+                          (change)="onEditAssignUserChange(user._id, $event)" />
+                      </label>
+                    }
                   </div>
-                  @for (user of users; track user._id) {
-                  <label class="exec-action-item">
-                    <span class="edit-user-option">
-                      <img [src]="resolveAvatarUrl(user.picture)" (error)="onAvatarError($event)"
-                        class="edit-user-avatar" alt="avatar" />
-                      <span class="exec-action-name">{{ user.name }}</span>
-                    </span>
-                    <input class="exec-checkbox exec-checkbox-lg" type="checkbox" [checked]="isEditAssigned(user._id)"
-                      (change)="toggleEditAssignUser(user._id, $any($event.target).checked)" />
-                  </label>
-                  }
                 </div>
-              </div>
               }
             </div>
           </div>
           @if (editSelectedCount === 0) {
-          <div class="small text-muted">No specialist selected.</div>
+            <div class="small text-muted">No specialist selected.</div>
           }
         </div>
 
         <div class="col-12 d-flex justify-content-end gap-2 pt-2">
           <button class="btn btn-outline-secondary" type="button" (click)="modal.dismiss()">Cancel</button>
-          <button class="btn btn-brand" type="button" [disabled]="editSubmitting"
-            (click)="saveEditedProject(modal)">
+          <button class="btn btn-brand" type="button" [disabled]="editSubmitting" (click)="saveEditedProject(modal)">
             {{ editSubmitting ? 'Saving...' : 'Save' }}
           </button>
         </div>

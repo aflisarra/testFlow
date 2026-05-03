@@ -1,7 +1,5 @@
-import {
-  AdminManagementService,
-  type AppProject,
-} from '@/app/core/services/admin-management.service'
+﻿import { AdminManagementService } from '@/app/core/services/admin-management.service'
+import type { AppProject } from '@/app/interfaces/admin-management.interface'
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import {
   TestLabService,
@@ -11,6 +9,8 @@ import {
 import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
 import { getUser } from '@/app/store/authentication/authentication.selector'
+import type { PlanStatus } from '@/app/views/test/models/status.types'
+import { getErrorMessage, getErrorStatus } from '@/app/views/test/utils/error.utils'
 import { CommonModule } from '@angular/common'
 import { Component, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, ElementRef, inject, NgZone, ViewChild } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
@@ -21,9 +21,7 @@ import { ToastrService } from 'ngx-toastr'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 
-// Statuts possibles pour chaque plan dans le flux séquentiel
-export type PlanStatus = 'pending' | 'generating' | 'reviewing' | 'confirmed'
-
+// Statuts possibles pour chaque plan dans le flux sÃ©quentiel
 @Component({
   selector: 'app-test-suite-configuration',
   standalone: true,
@@ -74,14 +72,14 @@ export class TestSuiteConfigurationComponent {
   testPlans: TestPlanDto[] = []
   testCasesByPlan: Record<string, TestCaseDto[]> = {}
 
-  // ─── Flux séquentiel ───────────────────────────────────────────────────────
-  /** Index du plan actuellement affiché/traité (0-based). -1 = pas encore démarré */
+  // â”€â”€â”€ Flux sÃ©quentiel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /** Index du plan actuellement affichÃ©/traitÃ© (0-based). -1 = pas encore dÃ©marrÃ© */
   currentPlanIndex = -1
 
-  /** Statut de chaque plan : pending → generating → reviewing → confirmed */
+  /** Statut de chaque plan : pending â†’ generating â†’ reviewing â†’ confirmed */
   planStatuses: Record<string, PlanStatus> = {}
 
-  /** True pendant la génération des test cases du plan courant */
+  /** True pendant la gÃ©nÃ©ration des test cases du plan courant */
   generatingCases = false
 
   /** True pendant la navigation finale vers /test-cases */
@@ -100,6 +98,11 @@ export class TestSuiteConfigurationComponent {
 
   onNameTestChange(value: string): void {
     this.testPlanForm.patchValue({ name: String(value || '') })
+  }
+
+  onNameTestInput(event: Event): void {
+    const target = event.target as HTMLInputElement | null
+    this.onNameTestChange(target?.value ?? '')
   }
 
   constructor() {
@@ -149,7 +152,7 @@ export class TestSuiteConfigurationComponent {
     return String(match?.title || '').trim()
   }
 
-  // ─── Project Change Handler ────────────────────────────────────────────────
+  // â”€â”€â”€ Project Change Handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async onProjectChange(): Promise<void> {
     const projectId = this.testPlanForm.value.projectId
@@ -185,7 +188,7 @@ export class TestSuiteConfigurationComponent {
     }
   }
 
-  // ─── Banner Actions ───────────────────────────────────────────────────────
+  // â”€â”€â”€ Banner Actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   private resetProjectContext(): void {
     this.currentTestSuiteId = ''
@@ -255,9 +258,9 @@ export class TestSuiteConfigurationComponent {
     this.currentTestSuiteId = ''
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  // ─── Getters utilitaires ──────────────────────────────────────────────────
+  // â”€â”€â”€ Getters utilitaires â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   get currentPlan(): TestPlanDto | null {
     if (this.currentPlanIndex < 0 || this.currentPlanIndex >= this.testPlans.length) return null
@@ -281,19 +284,24 @@ export class TestSuiteConfigurationComponent {
     )
   }
 
-  /** Nombre de plans confirmés */
+  /** Nombre de plans confirmÃ©s */
   get confirmedCount(): number {
     return this.testPlans.filter((p) => this.planStatuses[p.id] === 'confirmed').length
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  // 🔹 Style config
+  // ðŸ”¹ Style config
   onStyleConfigChange(value: string) {
     this.styleConfig = value
   }
 
-  // 🔹 Sélection de fichier
+  onStyleConfigInput(event: Event): void {
+    const target = event.target as HTMLTextAreaElement | null
+    this.onStyleConfigChange(target?.value ?? '')
+  }
+
+  // ðŸ”¹ SÃ©lection de fichier
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement | null
     const file = input?.files?.[0] || null
@@ -302,9 +310,9 @@ export class TestSuiteConfigurationComponent {
     this.testPlanForm.patchValue({ specDocument: file?.name || '' })
   }
 
-  // 🔹 Bouton "Generate Plan"
+  // ðŸ”¹ Bouton "Generate Plan"
   onGeneratePlan() {
-    const hasProject = Boolean(String(this.testPlanForm.value.projectId || '').trim())
+    const hasProject = Boolean(String(this.testPlanForm.getRawValue().projectId || '').trim())
     const hasFile = Boolean(this.selectedFile)
     void this.generatePlans()
     if (hasProject && hasFile) this.scrollToPlansResult()
@@ -329,7 +337,7 @@ export class TestSuiteConfigurationComponent {
     this.sessionSaved = false
   }
 
-  // Remplacer onSaveSession() — retourne false si erreur et affiche toastr
+  // Remplacer onSaveSession() â€” retourne false si erreur et affiche toastr
   async onSaveSession(): Promise<boolean> {
     if (!this.testPlans.length || !this.currentTestSuiteId) return false
     const suiteStatus = this.allPlansConfirmed ? 'validated' : 'invalid'
@@ -344,8 +352,8 @@ export class TestSuiteConfigurationComponent {
       this.sessionSaved = true
       this.toastr.success('Test plan saved successfully.', 'Save')
       return true
-    } catch (err: any) {
-      this.toastr.error(err?.error?.message || 'Unable to save test plan', 'Save')
+    } catch (err: unknown) {
+      this.toastr.error(getErrorMessage(err, 'Unable to save test plan'), 'Save')
       return false
     }
   }
@@ -407,7 +415,7 @@ export class TestSuiteConfigurationComponent {
       this.finishing = false
     }
   }
-  // 🔹 Annuler / reset complet
+  // ðŸ”¹ Annuler / reset complet
   /*onCancelPlans() {
     this.errorMessage = ''
     this.generatingPlans = false
@@ -443,10 +451,10 @@ export class TestSuiteConfigurationComponent {
     // Aucune sauvegarde, aucune navigation
   }
 
-  // 🔹 Régénérer tous les plans depuis le début
+  // ðŸ”¹ RÃ©gÃ©nÃ©rer tous les plans depuis le dÃ©but
   // Remplacer onRegeneratePlans()
   onRegeneratePlans() {
-    // Régénère sans sauvegarder l'état actuel
+    // RÃ©gÃ©nÃ¨re sans sauvegarder l'Ã©tat actuel
     this.sessionSaved = false
     this.plansValidated = false
     void this.generatePlans(true)
@@ -459,8 +467,8 @@ export class TestSuiteConfigurationComponent {
 
     try {
       const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
-      let userId = String((user as any)?.id || (user as any)?._id || '').trim()
-      const token = String((user as any)?.token || this.authService.session || '').trim()
+      let userId = String(user?.id ?? user?._id ?? '').trim()
+      const token = String(user?.token || this.authService.session || '').trim()
       if (!userId && token) userId = this.resolveUserIdFromToken(token)
       if (!userId) {
         this.toastr.error('Session expired. Reconnect and retry.', 'Session')
@@ -500,24 +508,24 @@ export class TestSuiteConfigurationComponent {
       this.planStatuses[updated.id] = 'pending'
       this.sessionSaved = false
       this.plansValidated = false
-    } catch (err: any) {
-      const status = err?.status
+    } catch (err: unknown) {
+      const status = getErrorStatus(err)
       if (status === 502) {
         this.errorMessage =
           'Regenerate failed (502 Bad Gateway). Please verify FastAPI/Ollama and retry.'
       } else {
-        this.errorMessage = err?.error?.message || 'Unable to regenerate this plan'
+        this.errorMessage = getErrorMessage(err, 'Unable to regenerate this plan')
       }
     } finally {
       this.regeneratingPlanId = null
     }
   }
 
-  // ─── Flux séquentiel ──────────────────────────────────────────────────────
+  // â”€â”€â”€ Flux sÃ©quentiel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
-   * Démarre le flux : génère les test cases du premier plan.
-   * Appelé depuis "Confirm" sur la liste des plans.
+   * DÃ©marre le flux : gÃ©nÃ¨re les test cases du premier plan.
+   * AppelÃ© depuis "Confirm" sur la liste des plans.
    */
   async onStartSequentialFlow() {
     await this.onValidateAndGoToCases()
@@ -525,7 +533,7 @@ export class TestSuiteConfigurationComponent {
 
   /**
    * L'utilisateur confirme les test cases du plan courant.
-   * → marque le plan "confirmed" puis passe au suivant.
+   * â†’ marque le plan "confirmed" puis passe au suivant.
    */
   async onConfirmCurrentPlan() {
     const plan = this.currentPlan
@@ -534,24 +542,24 @@ export class TestSuiteConfigurationComponent {
     this.planStatuses[plan.id] = 'confirmed'
 
     if (this.isLastPlan) {
-      // Tous les plans sont confirmés → naviguer
+      // Tous les plans sont confirmÃ©s â†’ naviguer
       await this.finishAndNavigate()
     } else {
-      // Passer au plan suivant et générer ses test cases
+      // Passer au plan suivant et gÃ©nÃ©rer ses test cases
       this.currentPlanIndex++
       await this.generateCasesForCurrentPlan()
     }
   }
 
   /**
-   * Régénère les test cases du plan courant sans avancer.
+   * RÃ©gÃ©nÃ¨re les test cases du plan courant sans avancer.
    */
   async onRegenerateCurrentCases() {
     await this.generateCasesForCurrentPlan(true)
   }
 
   /**
-   * Revenir au plan précédent (pour revoir / modifier).
+   * Revenir au plan prÃ©cÃ©dent (pour revoir / modifier).
    */
   onGoToPreviousPlan() {
     if (this.currentPlanIndex > 0) {
@@ -582,7 +590,7 @@ export class TestSuiteConfigurationComponent {
   }
 
   /**
-   * Télécharger les test cases du plan courant.
+   * TÃ©lÃ©charger les test cases du plan courant.
    */
   onDownloadCurrentPlan() {
     const plan = this.currentPlan
@@ -598,22 +606,22 @@ export class TestSuiteConfigurationComponent {
     URL.revokeObjectURL(url)
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  // ─── Privé ────────────────────────────────────────────────────────────────
+  // â”€â”€â”€ PrivÃ© â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   private formatPlanText(plan: TestPlanDto, cases: TestCaseDto[]): string {
-    return [
+    const blocks: string[] = [
       `Test Plan: ${plan.title || plan.id}`,
       plan.description ? `Description: ${plan.description}` : '',
       '',
-      ...cases.map(
-        (tc) =>
-          `${tc.id} — ${tc.title}\n${tc.steps.map((s) => `- ${s}`).join('\n')}\nExpected: ${tc.expected_result}`
-      ),
+      ...cases.map((tc) => {
+        const steps = (tc.steps || []).map((s) => `- ${s}`).join('\n')
+        return `${tc.id} — ${tc.title}\n${steps}\nExpected: ${tc.expected_result}`
+      }),
     ]
-      .filter(Boolean)
-      .join('\n\n')
+
+    return blocks.filter(Boolean).join('\n\n')
   }
 
   private async generateCasesForCurrentPlan(regenerate = false) {
@@ -637,8 +645,7 @@ export class TestSuiteConfigurationComponent {
       this.testCasesByPlan[plan.id] = resp?.testCases || []
       this.planStatuses[plan.id] = 'reviewing'
     } catch (err: unknown) {
-      this.errorMessage =
-        (err as any)?.error?.message || (err as any)?.message || 'Erreur génération test cases'
+      this.errorMessage = getErrorMessage(err, 'Erreur génération test cases')
       this.planStatuses[plan.id] = 'pending'
     } finally {
       this.generatingCases = false
@@ -686,24 +693,25 @@ export class TestSuiteConfigurationComponent {
     this.sessionSaved = false
 
     try {
+      const rawForm = this.testPlanForm.getRawValue()
       if (!this.selectedFile) {
         this.errorMessage = 'Veuillez uploader un fichier (.docx / .md / .txt)'
         this.toastr.warning(this.errorMessage, 'Test Plan')
         return
       }
 
-      if (!this.testPlanForm.value.projectId?.trim()) {
+      if (!String(rawForm.projectId || '').trim()) {
         this.errorMessage = 'Veuillez choisir un projet.'
         this.toastr.warning(this.errorMessage, 'Projet')
         return
       }
 
       const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
-      let userId = String((user as any)?.id || (user as any)?._id || '').trim()
-      const token = String((user as any)?.token || this.authService.session || '').trim()
+      let userId = String(user?.id ?? user?._id ?? '').trim()
+      const token = String(user?.token || this.authService.session || '').trim()
       if (!userId && token) userId = this.resolveUserIdFromToken(token)
       if (!userId) {
-        this.errorMessage = 'Session expirée. Reconnectez-vous.'
+        this.errorMessage = 'Session expirÃ©e. Reconnectez-vous.'
         this.toastr.error(this.errorMessage, 'Session')
         return
       }
@@ -719,7 +727,7 @@ export class TestSuiteConfigurationComponent {
       )
       if (this.nameTest.trim()) formData.append('nametest', this.nameTest.trim())
       if (this.currentTestSuiteId) formData.append('testSuiteId', this.currentTestSuiteId)
-      formData.append('projectId', this.testPlanForm.value.projectId.trim())
+      formData.append('projectId', String(rawForm.projectId || '').trim())
       formData.append('regenerate', regenerate ? 'true' : 'false')
 
       const result = await firstValueFrom(this.testLabService.generatePlanFromDocx(formData))
@@ -730,27 +738,27 @@ export class TestSuiteConfigurationComponent {
       }
       this.testPlans = Array.isArray(result?.testPlans) ? result.testPlans : []
 
-      // Initialiser tous les plans à "pending"
+      // Initialiser tous les plans A "pending"
       this.testPlans.forEach((p) => (this.planStatuses[p.id] = 'pending'))
 
       if (!this.testPlans.length) {
-        this.errorMessage = 'Aucun test plan généré.'
+        this.errorMessage = 'Aucun test plan gÃ©nÃ©rÃ©.'
         this.toastr.warning(this.errorMessage, 'Test Plan')
       } else {
+        //TODO: afficher un message "Plans generated, generating test cases..." et ne pas scroll si on vient de cliquer sur "Regenerate" d'un plan (car dans ce cas on reste sur le mÃªme plan et on veut voir les changements)
       }
     } catch (err: unknown) {
-      const status = (err as any)?.status
+      const status = getErrorStatus(err)
       if (status === 0) {
         this.errorMessage =
-          'Backend Node.js non accessible — vérifier que le serveur tourne sur port 3000'
+          'Backend Node.js non accessible â€” vÃ©rifier que le serveur tourne sur port 3000'
       } else if (status === 502) {
         this.errorMessage =
-          'FastAPI non accessible — vérifier que uvicorn tourne sur port 8000'
+          'FastAPI non accessible â€” vÃ©rifier que uvicorn tourne sur port 8000'
       } else if (status === 504) {
-        this.errorMessage = 'Ollama timeout — essayer avec un fichier plus petit'
+        this.errorMessage = 'Ollama timeout â€” essayer avec un fichier plus petit'
       } else {
-        this.errorMessage =
-          (err as any)?.error?.message || (err as any)?.message || 'Erreur inconnue'
+        this.errorMessage = getErrorMessage(err, 'Erreur inconnue')
       }
       this.toastr.error(this.errorMessage, 'Generation')
     } finally {
@@ -769,6 +777,8 @@ export class TestSuiteConfigurationComponent {
     if (!shouldDisable && ctrl.disabled) ctrl.enable({ emitEvent: false })
   }
 
+
+
   private scrollToPlansResult(retries = 6): void {
     const el = this.plansResultRef?.nativeElement
     if (!el) {
@@ -785,5 +795,7 @@ export class TestSuiteConfigurationComponent {
       }, 0)
     })
   }
+
+
 
 }

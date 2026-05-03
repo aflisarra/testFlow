@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common'
 import { CUSTOM_ELEMENTS_SCHEMA, Component, OnInit, inject } from '@angular/core'
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms'
-import { AdminManagementService, AppRole, AppUser } from '@/app/core/services/admin-management.service'
+import { AdminManagementService } from '@/app/core/services/admin-management.service'
+import type { AppRole, AppUser } from '@/app/interfaces/admin-management.interface'
 import { NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap'
 import { ConfirmModalComponent } from '../shared/confirm-modal.component'
 import { UserUpsertModalComponent } from './user-upsert-modal.component'
@@ -11,7 +12,8 @@ import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { ToastrService } from 'ngx-toastr'
 import { Router } from '@angular/router'
-
+import { User } from '@store/authentication/auth.model'
+import { ApiService } from '@/app/core/services/api.service'
 @Component({
   selector: 'app-all-users',
   standalone: true,
@@ -27,10 +29,10 @@ export class AllUsersComponent implements OnInit {
   private store = inject(Store)
   private toastr = inject(ToastrService)
   private router = inject(Router)
+  private api = inject(ApiService)
 
   users: AppUser[] = []
   readonly defaultAvatar = 'assets/images/users/default-user.svg'
-  private readonly backendOrigin = 'http://localhost:3000'
   roles: AppRole[] = []
   loading = false
   submitting = false
@@ -81,16 +83,21 @@ export class AllUsersComponent implements OnInit {
     )
   }
 
-  private async initPermissions() {
-    const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
-    this.currentUserId = String((user as any)?.id || (user as any)?._id || '').trim()
-    this.currentUserEmail = String((user as any)?.email || '').trim().toLowerCase()
-    const actions = Array.isArray((user as any)?.actions) ? (user as any).actions : []
-    this.canAddUser = actions.includes(this.ACTION_ADD_USER)
-    this.canEditUser = actions.includes(this.ACTION_EDIT_USER)
-    this.canDeleteUser = actions.includes(this.ACTION_DELETE_USER)
-    this.canViewUsers = actions.includes(this.ACTION_VIEW_USER)
-  }
+private async initPermissions() {
+  const user = await firstValueFrom(
+    this.store.select(getUser).pipe(take(1))
+  ) as User | null
+
+  this.currentUserId = String(user?.id || user?._id || '').trim()
+  this.currentUserEmail = String(user?.email || '').trim().toLowerCase()
+
+  const actions: number[] = user?.actions ?? []
+
+  this.canAddUser = actions.includes(this.ACTION_ADD_USER)
+  this.canEditUser = actions.includes(this.ACTION_EDIT_USER)
+  this.canDeleteUser = actions.includes(this.ACTION_DELETE_USER)
+  this.canViewUsers = actions.includes(this.ACTION_VIEW_USER)
+}
 
   private syncCreateUserFormAccess(): void {
     // Avoid using [disabled] on reactive form controls in templates (Angular warns about it).
@@ -151,9 +158,18 @@ export class AllUsersComponent implements OnInit {
   resolveAvatarUrl(picture?: string): string {
     const raw = String(picture || '').trim()
     if (!raw) return this.defaultAvatar
-    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw
-    if (raw.startsWith('/')) return `${this.backendOrigin}${raw}`
+    if (this.isAbsoluteHttpUrl(raw)) return raw
+    if (raw.startsWith('/')) return this.api.toAbsoluteUrl(raw)
     return raw
+  }
+
+  private isAbsoluteHttpUrl(value: string): boolean {
+    try {
+      const u = new URL(value)
+      return u.protocol === 'http:' || u.protocol === 'https:'
+    } catch {
+      return false
+    }
   }
 
   submitCreateUser(): void {
@@ -162,7 +178,7 @@ export class AllUsersComponent implements OnInit {
     if (!this.canAddUser) {
       this.notifyPermissionDenied('Action non autorisee: Add User.')
       return
-    }
+}
 
     if (this.createUserForm.invalid) {
       this.createUserForm.markAllAsTouched()

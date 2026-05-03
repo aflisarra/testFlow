@@ -4,11 +4,11 @@
 
 .toastify {
     padding: 12px 20px;
-    color: #ffffff;
+    color: #fff;
     display: inline-block;
     box-shadow:
-        0 3px 6px -1px rgba(0, 0, 0, 0.12),
-        0 10px 36px -4px rgba(77, 96, 232, 0.3);
+        0 3px 6px -1px rgb(0 0 0 / 12%),
+        0 10px 36px -4px rgb(77 96 232 / 30%);
     background: $success;
     position: fixed;
     opacity: 0;
@@ -68,10 +68,9 @@
     left: 0;
     right: 0;
     max-width: fit-content;
-    max-width: -moz-fit-content;
 }
 
-@media only screen and (max-width: 360px) {
+@media only screen and (width <= 360px) {
     .toastify-right,
     .toastify-left {
         margin-left: auto;

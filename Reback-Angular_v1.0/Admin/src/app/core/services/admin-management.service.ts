@@ -1,80 +1,58 @@
-import { HttpClient } from '@angular/common/http'
 import { Injectable, inject } from '@angular/core'
 import { Observable, map } from 'rxjs'
+import { ApiService } from '@/app/core/services/api.service'
 
-export interface AppUser {
-  _id: string
-  name: string
-  email: string
-  role: string
-  roleId?: number
-  description?: string
-  picture?: string
-}
-
-export interface CurrentUserProfileResponse {
-  user: AppUser
-  actions: number[]
-}
-
-export interface AppAction {
-  _id: number
-  name: string
-  path: string
-}
-
-export interface AppRole {
-  _id: string
-  name: string
-  description: string
-  actions?: number[]
-}
-
-export interface AppProject {
-  _id: string
-  title: string
-  description?: string
-  startDate?: string | null
-  endDate?: string | null
-  milestoneDate?: string | null
-  status: 'draft' | 'active' | 'paused' | 'completed'
-  ownerId?: AppUser | string
-  assignedUsers?: AppUser[]
-  createdAt?: string
-  updatedAt?: string
-}
+import type {
+  AppAction,
+  AppProject,
+  AppRole,
+  AppUser,
+  CurrentUserProfileResponse,
+} from '@/app/interfaces/admin-management.interface'
 
 @Injectable({ providedIn: 'root' })
 export class AdminManagementService {
-  private http = inject(HttpClient)
-  private readonly API_URL = 'http://localhost:3000/api'
+  private api = inject(ApiService)
 
-  private normalizeMongoId(value: unknown): string {
-    if (typeof value === 'string') return value.trim()
-    if (typeof value === 'number') return String(value)
-    if (value && typeof value === 'object') {
-      const maybeOid = (value as any)?.$oid
-      if (typeof maybeOid === 'string') return maybeOid.trim()
-      const str = (value as any)?.toString?.()
-      if (typeof str === 'string' && str !== '[object Object]') return str.trim()
-    }
-    return ''
+private normalizeMongoId(value: unknown): string {
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number') return String(value)
+
+  if (value && typeof value === 'object') {
+    const maybeOid = (value as { $oid?: unknown }).$oid
+    if (typeof maybeOid === 'string') return maybeOid.trim()
+
+    const str = (value as { toString?: () => unknown }).toString?.()
+    if (typeof str === 'string' && str !== '[object Object]') return str.trim()
   }
 
-  private normalizeRole(raw: any): AppRole {
-    const id = this.normalizeMongoId(raw?._id || raw?.id || raw?.roleId)
-    const actionsRaw = Array.isArray(raw?.actions) ? raw.actions : []
-    const actions = actionsRaw
-      .map((v: unknown) => Number(v))
-      .filter((n: number) => Number.isFinite(n))
+  return ''
+}
 
-    return {
-      _id: id,
-      name: String(raw?.name || '').trim(),
-      description: String(raw?.description || '').trim(),
-      actions,
-    }
+private normalizeRole(raw: unknown): AppRole {
+  const r = raw as {
+    _id?: unknown
+    id?: unknown
+    roleId?: unknown
+    name?: unknown
+    description?: unknown
+    actions?: unknown
   }
+
+  const id = this.normalizeMongoId(r._id || r.id || r.roleId)
+
+  const actionsRaw = Array.isArray(r.actions) ? r.actions : []
+  const actions = actionsRaw
+    .map((v: unknown) => Number(v))
+    .filter((n: number) => Number.isFinite(n))
+
+  return {
+    _id: id,
+    name: String(r.name || '').trim(),
+    description: String(r.description || '').trim(),
+    actions,
+  }
+}
 
   private normalizeRoles(raw: unknown): AppRole[] {
     if (!Array.isArray(raw)) return []
@@ -97,73 +75,68 @@ export class AdminManagementService {
     if (payload.description) formData.append('description', payload.description)
     if (payload.picture) formData.append('picture', payload.picture)
 
-    return this.http.post<{ message: string; user: AppUser }>(
-      `${this.API_URL}/users/add`,
-      formData
-    )
+    return this.api.post<{ message: string; user: AppUser }>(`/api/users/add`, formData)
   }
 
   getUsers(): Observable<AppUser[]> {
-    return this.http.get<AppUser[]>(`${this.API_URL}/users`)
+    return this.api.get<AppUser[]>(`/api/users`)
   }
 
   getUser(userId: string): Observable<AppUser> {
-    return this.http.get<AppUser>(`${this.API_URL}/users/${userId}`)
+    return this.api.get<AppUser>(`/api/users/${userId}`)
   }
 
   getCurrentUserProfile(): Observable<CurrentUserProfileResponse> {
-    return this.http.get<CurrentUserProfileResponse>(`${this.API_URL}/users/profile`)
+    return this.api.get<CurrentUserProfileResponse>(`/api/users/profile`)
   }
 
   updateUser(
     userId: string,
     payload: { name?: string; email?: string; role?: string; description?: string }
   ): Observable<{ message: string; user: AppUser }> {
-    return this.http.put<{ message: string; user: AppUser }>(`${this.API_URL}/users/${userId}`, payload)
+    return this.api.put<{ message: string; user: AppUser }>(`/api/users/${userId}`, payload)
   }
 
   deleteUser(userId: string): Observable<{ message: string }> {
-    return this.http.delete<{ message: string }>(`${this.API_URL}/users/${userId}`)
+    return this.api.delete<{ message: string }>(`/api/users/${userId}`)
   }
 
   getRoles(): Observable<AppRole[]> {
-    return this.http.get<unknown>(`${this.API_URL}/roles`).pipe(map((roles) => this.normalizeRoles(roles)))
+    return this.api.get<unknown>(`/api/roles`).pipe(map((roles) => this.normalizeRoles(roles)))
   }
 
   getRole(roleId: string): Observable<AppRole> {
-    return this.http.get<unknown>(`${this.API_URL}/roles/${roleId}`).pipe(map((role) => this.normalizeRole(role)))
+    return this.api.get<unknown>(`/api/roles/${roleId}`).pipe(map((role) => this.normalizeRole(role)))
   }
 
   createRole(payload: { name: string; description: string; actions: number[] }): Observable<AppRole> {
-    return this.http
-      .post<unknown>(`${this.API_URL}/roles`, payload)
-      .pipe(map((role) => this.normalizeRole(role)))
+    return this.api.post<unknown>(`/api/roles`, payload).pipe(map((role) => this.normalizeRole(role)))
   }
 
   updateRole(
     roleId: string,
     payload: { name?: string; description?: string; actions?: number[] }
   ): Observable<{ message: string; role: AppRole }> {
-    return this.http
-      .put<{ message: string; role: unknown }>(`${this.API_URL}/roles/${roleId}`, payload)
+    return this.api
+      .put<{ message: string; role: unknown }>(`/api/roles/${roleId}`, payload)
       .pipe(
-        map((resp) => ({
-          ...resp,
-          role: this.normalizeRole((resp as any)?.role),
-        }))
-      )
+  map((resp) => ({
+    ...resp,
+    role: this.normalizeRole(resp.role),
+  }))
+)
   }
 
   deleteRole(roleId: string): Observable<{ message: string }> {
-    return this.http.delete<{ message: string }>(`${this.API_URL}/roles/${roleId}`)
+    return this.api.delete<{ message: string }>(`/api/roles/${roleId}`)
   }
 
   getActions(): Observable<AppAction[]> {
-    return this.http.get<AppAction[]>(`${this.API_URL}/actions`)
+    return this.api.get<AppAction[]>(`/api/actions`)
   }
 
   getProjects(mine = false): Observable<AppProject[]> {
-    return this.http.get<AppProject[]>(`${this.API_URL}/projects`, {
+    return this.api.get<AppProject[]>(`/api/projects`, {
       params: { mine: String(mine) },
     })
   }
@@ -177,7 +150,7 @@ export class AdminManagementService {
     status?: 'draft' | 'active' | 'paused' | 'completed'
     assignedUsers?: string[]
   }): Observable<{ message: string; project: AppProject }> {
-    return this.http.post<{ message: string; project: AppProject }>(`${this.API_URL}/projects`, payload)
+    return this.api.post<{ message: string; project: AppProject }>(`/api/projects`, payload)
   }
 
   updateProject(
@@ -192,19 +165,19 @@ export class AdminManagementService {
       assignedUsers?: string[]
     }
   ): Observable<{ message: string; project: AppProject }> {
-    return this.http.put<{ message: string; project: AppProject }>(`${this.API_URL}/projects/${projectId}`, payload)
+    return this.api.put<{ message: string; project: AppProject }>(`/api/projects/${projectId}`, payload)
   }
 
   assignUsersToProject(
     projectId: string,
     assignedUsers: string[]
   ): Observable<{ message: string; project: AppProject }> {
-    return this.http.patch<{ message: string; project: AppProject }>(`${this.API_URL}/projects/${projectId}/users`, {
+    return this.api.patch<{ message: string; project: AppProject }>(`/api/projects/${projectId}/users`, {
       assignedUsers,
     })
   }
 
   deleteProject(projectId: string): Observable<{ message: string }> {
-    return this.http.delete<{ message: string }>(`${this.API_URL}/projects/${projectId}`)
+    return this.api.delete<{ message: string }>(`/api/projects/${projectId}`)
   }
 }

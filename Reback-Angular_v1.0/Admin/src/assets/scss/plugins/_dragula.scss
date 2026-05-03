@@ -29,7 +29,7 @@
     text-align: center;
     cursor: move;
 
-    &:before {
+    &::before {
         content: '\e945';
         font-family: 'Material Symbols Rounded';
         position: absolute;
@@ -46,10 +46,11 @@
 .tasks {
     display: inline-block;
     width: 23rem;
-    padding: 0 $card-spacer-x $card-spacer-y $card-spacer-x;
+    padding: 0 $card-spacer-x $card-spacer-y;
     border: $border-width solid $border-color;
     vertical-align: top;
     margin-bottom: $spacer;
+
     @include border-radius($card-border-radius);
 
     &.tasks:not(:last-child) {

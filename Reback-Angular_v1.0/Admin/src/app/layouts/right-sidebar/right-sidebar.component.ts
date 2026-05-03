@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core'
+import { Component, inject, OnInit } from '@angular/core'
 import { NgbActiveOffcanvas } from '@ng-bootstrap/ng-bootstrap'
 import { Store } from '@ngrx/store'
 import { SimplebarAngularModule } from 'simplebar-angular'
@@ -16,6 +16,8 @@ import {
   getTopbarcolor,
 } from '../../store/layout/layout-selector'
 
+import type { LayoutState } from '@/app/interfaces/layout.interface'
+
 @Component({
   selector: 'app-right-sidebar',
   standalone: true,
@@ -23,60 +25,59 @@ import {
   templateUrl: './right-sidebar.component.html',
   styles: ``,
 })
-export class RightSidebarComponent {
-  public isRightSidebarOpen: boolean = false
+export class RightSidebarComponent implements OnInit {
+  public isRightSidebarOpen = false
 
   offcanvas = inject(NgbActiveOffcanvas)
   store = inject(Store)
 
-  color: any
-  topbar: any
-  menucolor: any
-  sidebarsize: any
+  color = ''
+  topbar = ''
+  menucolor = ''
+  sidebarsize = ''
 
   ngOnInit(): void {
-    this.store.select('layout').subscribe((data: any) => {
-      this.color = data.LAYOUT_THEME
-      this.topbar = data.TOPBAR_COLOR
-      this.menucolor = data.MENU_COLOR
-      this.sidebarsize = data.MENU_SIZE
+    this.store.select('layout').subscribe((data: LayoutState) => {
+      this.color = data.LAYOUT_THEME ?? ''
+      this.topbar = data.TOPBAR_COLOR ?? ''
+      this.menucolor = data.MENU_COLOR ?? ''
+      this.sidebarsize = data.MENU_SIZE ?? ''
     })
   }
 
-  // Change Layout Color
-  changeLayoutColor(color: any) {
+  changeLayoutColor(color: string): void {
     this.store.dispatch(changetheme({ color }))
-    this.store.select(getLayoutColor).subscribe((color) => {
-      document.documentElement.setAttribute('data-bs-theme', color)
+
+    this.store.select(getLayoutColor).subscribe((value: string) => {
+      document.documentElement.setAttribute('data-bs-theme', value)
     })
   }
 
-  // Change Topbar Color
-  changeTopbar(topbar: any) {
+  changeTopbar(topbar: string): void {
     this.store.dispatch(changetopbarcolor({ topbar }))
-    this.store.select(getTopbarcolor).subscribe((topbar) => {
-      document.documentElement.setAttribute('data-topbar-color', topbar)
+
+    this.store.select(getTopbarcolor).subscribe((value: string) => {
+      document.documentElement.setAttribute('data-topbar-color', value)
     })
   }
 
-  // Change Menu Color
-  changeMenu(menu: any) {
+  changeMenu(menu: string): void {
     this.store.dispatch(changemenucolor({ menu }))
-    this.store.select(getMenucolor).subscribe((menucolor) => {
-      document.documentElement.setAttribute('data-menu-color', menucolor)
+
+    this.store.select(getMenucolor).subscribe((value: string) => {
+      document.documentElement.setAttribute('data-menu-color', value)
     })
   }
 
-  // Change Sidebar Size
-  changeSize(size: any) {
+  changeSize(size: string): void {
     this.store.dispatch(changesidebarsize({ size }))
-    this.store.select(getSidebarsize).subscribe((size) => {
-      document.documentElement.setAttribute('data-menu-size', size)
+
+    this.store.select(getSidebarsize).subscribe((value: string) => {
+      document.documentElement.setAttribute('data-menu-size', value)
     })
   }
 
-  // Reset Option
-  reset() {
+  reset(): void {
     this.store.dispatch(resetState())
   }
 }

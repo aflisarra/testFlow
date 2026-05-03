@@ -1,15 +1,16 @@
-export type MenuItem = {
+export interface MenuItem {
   key?: string
   label?: string
   icon?: string
   link?: string
   collapsed?: boolean
-  subMenu?: any
+  subMenu?: MenuItem[]
   isTitle?: boolean
-  badge?: any
+  badge?: string | number
   parentKey?: string
   disabled?: boolean
 }
+
 
 export const MENU: MenuItem[] = [
   {
@@ -104,13 +105,13 @@ export const MENU: MenuItem[] = [
 
     {
     key: 'execution',
-    icon: 'iconamoon:home-duotone',
-    label: 'Execution',
+    icon: 'fast_forward',
+    label: 'Execution Management',
     collapsed: false,
     subMenu: [
       {
         key: 'Execution-analytics',
-        label: 'Analytics',
+        label: 'Execution',
         link: '/execution/Execution-Management',
         parentKey: 'execution',
       },

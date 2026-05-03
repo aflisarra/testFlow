@@ -81,7 +81,7 @@
     fill: $dropdown-link-color;
   }
 
-  .ql-picker:not(.ql-color-picker):not(.ql-icon-picker) {
+  .ql-picker:not(.ql-color-picker, .ql-icon-picker) {
     svg {
       right: 0;
       left: auto;

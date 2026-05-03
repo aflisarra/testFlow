@@ -67,7 +67,7 @@
     }
 
     .apexcharts-tooltip-title {
-        background-color: rgba(var(--#{$prefix}light-rgb), 0.75) !important;
+        background-color: rgb(var(--#{$prefix}light-rgb), 0.75) !important;
         border-bottom: 1px solid $border-color !important;
     }
 }
@@ -84,7 +84,7 @@
 
 .apexcharts-gridline {
     pointer-events: none;
-    stroke: rgba(var(--#{$prefix}light-rgb), 0.75);
+    stroke: rgb(var(--#{$prefix}light-rgb), 0.75);
 }
 
 .apexcharts-legend-text {
@@ -117,7 +117,7 @@
 // column dynamic loaded chart
 
 #dynamicloadedchart-wrap {
-    margin: 0px auto;
+    margin: 0 auto;
     max-width: 800px;
     position: relative;
 }
@@ -162,7 +162,7 @@
     }
 }
 
-@media screen and (min-width: 480px) {
+@media screen and (width >= 480px) {
     #chart-year {
         transform: translateX(50%);
     }

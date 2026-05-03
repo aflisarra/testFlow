@@ -40,7 +40,7 @@ button:focus {
 // Button Shadows
 @each $color, $value in $theme-colors {
     .btn-#{$color} {
-        box-shadow: $btn-box-shadow rgba(var(--#{$prefix}#{$color}-rgb), 0.5);
+        box-shadow: $btn-box-shadow rgb(var(--#{$prefix}#{$color}-rgb), 0.5);
         // @include button-shadow($value);
     }
 }

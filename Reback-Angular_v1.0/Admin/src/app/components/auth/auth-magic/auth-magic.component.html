@@ -1,28 +1,42 @@
 <div class="auth-magic-container">
-  <!-- Étape 1: Formulaire "Oublié mot de passe" -->
-  <div *ngIf="step === 1" class="forgot-password-form">
+
+  @if(step === 1){
+  <div class="forgot-password-form">
     <h2>Réinitialiser votre mot de passe</h2>
+
     <form [formGroup]="forgotForm" (ngSubmit)="submitForgot()">
-      <input type="email" formControlName="email" placeholder="Votre email">
-      <button type="submit">Envoyer le lien</button>
+      <input type="email" formControlName="email" placeholder="Votre email" />
+      <button type="submit" [disabled]="forgotForm.invalid">
+        Envoyer le lien
+      </button>
     </form>
   </div>
+  }
 
-  <!-- Étape 2: Formulaire "Vérifier le code OTP" -->
-  <div *ngIf="step === 2" class="verify-otp-form">
+  @if(step === 2){
+  <div class="verify-otp-form">
     <h2>Entrez le code reçu</h2>
-    <form [formGroup]="otpForm" (ngSubmit)="submitOTP()">
-      <input type="text" formControlName="code" placeholder="Code OTP (6 chiffres)">
-      <button type="submit">Vérifier</button>
-    </form>
-  </div>
 
-  <!-- Étape 3: Formulaire "Réinitialiser mot de passe" -->
-  <div *ngIf="step === 3" class="reset-password-form">
-    <h2>Nouveau mot de passe</h2>
-    <form [formGroup]="resetForm" (ngSubmit)="submitReset()">
-      <input type="password" formControlName="password" placeholder="Nouveau mot de passe (min 8 car.)">
-      <button type="submit">Réinitialiser</button>
+    <form [formGroup]="otpForm" (ngSubmit)="submitOTP()">
+      <input type="text" formControlName="code" placeholder="Code OTP (6 chiffres)" />
+      <button type="submit" [disabled]="otpForm.invalid">
+        Vérifier
+      </button>
     </form>
   </div>
+  }
+
+  @if(step === 3){
+  <div class="reset-password-form">
+    <h2>Nouveau mot de passe</h2>
+
+    <form [formGroup]="resetForm" (ngSubmit)="submitReset()">
+      <input type="password" formControlName="password" placeholder="Nouveau mot de passe (min 8 car.)" />
+      <button type="submit" [disabled]="resetForm.invalid">
+        Réinitialiser
+      </button>
+    </form>
+  </div>
+  }
+
 </div>

@@ -25,7 +25,7 @@ th {
 // Custom table components
 .table {
     tbody tr:last-child td {
-        border-bottom: 0px;
+        border-bottom: 0;
     }
 
     &.table-dashed > :not(caption) > * > * {

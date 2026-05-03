@@ -11,7 +11,7 @@
     border-radius: 8px;
 
     &::after {
-        font-family: 'boxicons';
+        font-family: boxicons;
         font-size: 28px;
         color: rgba($primary, 1);
         transition: all 0.3s ease;
@@ -122,6 +122,6 @@
     }
 
     &.swiper-scrollbar {
-        background-color: rgba(var(--#{$prefix}dark-rgb), 0.35);
+        background-color: rgb(var(--#{$prefix}dark-rgb), 0.35);
     }
 }

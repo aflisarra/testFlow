@@ -19,9 +19,11 @@
     100% {
         transform: translateY(0);
     }
+
     40% {
         transform: translateY(-10px);
     }
+
     60% {
         transform: translateY(-5px);
     }
@@ -48,10 +50,7 @@
         height: 75px;
         width: 2px;
         position: absolute;
-        top: 15px;
-        bottom: 5px;
-        left: 4px;
-        right: 0;
+        inset: 15px 0 5px 4px;
         background: var(--#{$prefix}border-color);
         content: '';
     }
@@ -149,7 +148,7 @@
             position: absolute;
             text-align: center;
             content: '\F4FE';
-            font-family: 'bootstrap-icons';
+            font-family: bootstrap-icons;
             font-size: 22px;
             color: $white;
             left: 56px;
@@ -174,7 +173,7 @@
 .activity-widget {
     .activity-list {
         border-bottom: $border-width solid $border-color;
-        padding: 10px 0px;
+        padding: 10px 0;
 
         &:last-child {
             border: none;

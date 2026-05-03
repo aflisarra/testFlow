@@ -22,9 +22,9 @@
   font-weight: 900;
   letter-spacing: -0.02em;
   color: #0b1220;
-  background: rgba(236, 138, 0, 0.95);
-  border: 1px solid rgba(236, 138, 0, 0.95);
-  box-shadow: 0 10px 18px rgba(236, 138, 0, 0.22);
+  background: rgb(236 138 0 / 95%);
+  border: 1px solid rgb(236 138 0 / 95%);
+  box-shadow: 0 10px 18px rgb(236 138 0 / 22%);
 }
 
 .topbar-notif-menu {
@@ -73,10 +73,10 @@
 }
 
 .topbar-invite-item {
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgb(148 163 184 / 22%);
+  background: rgb(255 255 255 / 70%);
   border-radius: 14px;
-  padding: 0.75rem 0.75rem;
+  padding: 0.75rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -102,24 +102,24 @@
 }
 
 html[data-bs-theme='dark'] .topbar-notif-title {
-  color: rgba(255, 255, 255, 0.92);
+  color: rgb(255 255 255 / 92%);
 }
 
 html[data-bs-theme='dark'] .topbar-notif-subtitle {
-  color: rgba(226, 232, 240, 0.7);
+  color: rgb(226 232 240 / 70%);
 }
 
 html[data-bs-theme='dark'] .topbar-notif-pill {
-  color: rgba(255, 255, 255, 0.92);
-  background: rgba(236, 138, 0, 0.14);
-  border-color: rgba(236, 138, 0, 0.28);
+  color: rgb(255 255 255 / 92%);
+  background: rgb(236 138 0 / 14%);
+  border-color: rgb(236 138 0 / 28%);
 }
 
 html[data-bs-theme='dark'] .topbar-invite-item {
-  background: rgba(2, 6, 23, 0.34);
-  border-color: rgba(148, 163, 184, 0.18);
+  background: rgb(2 6 23 / 34%);
+  border-color: rgb(148 163 184 / 18%);
 }
 
 html[data-bs-theme='dark'] .topbar-invite-project {
-  color: rgba(255, 255, 255, 0.92);
+  color: rgb(255 255 255 / 92%);
 }

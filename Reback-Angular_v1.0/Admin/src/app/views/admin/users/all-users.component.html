@@ -10,7 +10,7 @@
       <div class="card-body">
         <form [formGroup]="createUserForm" (ngSubmit)="submitCreateUser()" autocomplete="off">
           <div class="exec-field">
-            <label class="exec-label">Name <span class="text-danger">*</span></label>
+            <label for="name" class="exec-label">Name <span class="text-danger">*</span></label>
             <input class="exec-input"
               [class.is-invalid]="(createSubmitted || createUserForm.controls.name.touched) && createUserForm.controls.name.invalid"
               formControlName="name" placeholder="ex: John Doe" autocomplete="off" />
@@ -25,7 +25,7 @@
           </div>
 
           <div class="exec-field">
-            <label class="exec-label">Email <span class="text-danger">*</span></label>
+            <label for="email" class="exec-label">Email <span class="text-danger">*</span></label>
             <input class="exec-input" type="email"
               [class.is-invalid]="(createSubmitted || createUserForm.controls.email.touched) && createUserForm.controls.email.invalid"
               formControlName="email" placeholder="ex: john@example.com" autocomplete="off" />
@@ -40,7 +40,7 @@
           </div>
 
           <div class="exec-field">
-            <label class="exec-label">Password <span class="text-danger">*</span></label>
+            <label for="password" class="exec-label">Password <span class="text-danger">*</span></label>
             <input class="exec-input" type="password"
               [class.is-invalid]="(createSubmitted || createUserForm.controls.password.touched) && createUserForm.controls.password.invalid"
               formControlName="password" placeholder="******" autocomplete="new-password" />
@@ -55,7 +55,7 @@
           </div>
 
           <div class="exec-field">
-            <label class="exec-label">Role <span class="text-danger">*</span></label>
+            <label for="role" class="exec-label">Role <span class="text-danger">*</span></label>
             <select class="exec-select"
               [class.is-invalid]="(createSubmitted || createUserForm.controls.role.touched) && createUserForm.controls.role.invalid"
               formControlName="role">
@@ -74,8 +74,8 @@
             }
           </div>
           <div class="exec-field">
-            <label class="exec-label">Picture (optional)</label>
-            <input class="exec-input" type="file" accept="image/*" (change)="onPictureSelected($event)"
+            <label for="picture" class="exec-label">Picture (optional)</label>
+            <input class="exec-input" type="file" id="picture" accept="image/*" (change)="onPictureSelected($event)"
               [disabled]="!canAddUser" />
           </div>
 

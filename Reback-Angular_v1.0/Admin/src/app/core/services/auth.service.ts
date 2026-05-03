@@ -1,54 +1,20 @@
-import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { map } from 'rxjs/operators';
 import { Observable } from 'rxjs'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
-
-interface AuthResponse {
-  message: string;
-  token?: string;
-  accessToken?: string;
-  user: {
-    id?: string;
-    _id?: string;
-    username?: string;
-    name?: string;
-    email: string;
-    picture?: string | null;
-    role?: string;
-    actions?: number[];
-  };
-}
-
-export interface User {
-  id: string;
-  username: string;
-  email: string;
-  token: string;
-  picture?: string | null;
-  role?: string;
-  actions?: number[];
-}
-
-export interface SignupRole {
-  _id: number
-  name: string
-  description?: string
-}
+import { ApiService } from '@/app/core/services/api.service'
+import type { AuthResponse, AuthUser, SignupRole } from '@/app/interfaces/auth.interface'
 
 @Injectable({ providedIn: 'root' })
 export class AuthenticationService {
-  user: User | null = null;
+  user: AuthUser | null = null;
 
   public readonly authSessionKey = 'token';
-  private readonly API_URL = 'http://localhost:3000/api/auth'; // doit pointer sur ton backend
-  private api = 'http://localhost:3000';
-  // eslint-disable-next-line @angular-eslint/prefer-inject
-  constructor(private http: HttpClient) { }
+  private api = inject(ApiService)
 
   // ✅ Login
   login(email: string, password: string) {
-    return this.http.post<AuthResponse>(`${this.API_URL}/signin`, { email, password }).pipe(
+    return this.api.post<AuthResponse>(`/api/auth/signin`, { email, password }).pipe(
       map((response) => {
         const token = response?.accessToken || response?.token
         if (response && token) {
@@ -100,7 +66,7 @@ export class AuthenticationService {
     if (role) formData.append('role', role);
     if (picture) formData.append('picture', picture);
 
-    return this.http.post<AuthResponse>(`${this.API_URL}/signup`, formData).pipe(
+    return this.api.post<AuthResponse>(`/api/auth/signup`, formData).pipe(
       map((response) => {
         const token = response?.accessToken || response?.token
         if (response && token) {
@@ -137,7 +103,7 @@ export class AuthenticationService {
 
   // ✅ Logout
   getSignupRoles(): Observable<SignupRole[]> {
-    return this.http.get<SignupRole[]>(`${this.API_URL}/signup-roles`)
+    return this.api.get<SignupRole[]>(`/api/auth/signup-roles`)
   }
 
   logout(): void {
@@ -199,30 +165,18 @@ export class AuthenticationService {
 
   // ── reset password ──
   forgotPassword(email: string): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(
-      `${this.api}/auth/forgot-password`,
-      { email }
-    );
+    return this.api.post<{ message: string }>(`/auth/forgot-password`, { email });
   }
 
   verifyMagicToken(token: string): Observable<{ resetToken: string; valid: boolean }> {
-    return this.http.post<{ resetToken: string; valid: boolean }>(
-      `${this.api}/auth/verify-magic-token`,
-      { token }
-    );
+    return this.api.post<{ resetToken: string; valid: boolean }>(`/auth/verify-magic-token`, { token });
   }
 
   verifyOtp(email: string, code: string): Observable<{ resetToken: string; valid: boolean }> {
-    return this.http.post<{ resetToken: string; valid: boolean }>(
-      `${this.api}/auth/verify-otp`,
-      { email, code }
-    );
+    return this.api.post<{ resetToken: string; valid: boolean }>(`/auth/verify-otp`, { email, code });
   }
 
   resetPassword(resetToken: string, password: string): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(
-      `${this.api}/auth/reset-password`,
-      { resetToken, password }
-    );
+    return this.api.post<{ message: string }>(`/auth/reset-password`, { resetToken, password });
   }
 }

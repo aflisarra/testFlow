@@ -25,7 +25,7 @@
 
       <!-- Role Name -->
       <div class="exec-field">
-        <label class="exec-label">Role name <span class="text-danger">*</span></label>
+        <label for="name" class="exec-label">Role name <span class="text-danger">*</span></label>
         <input class="exec-input" [class.is-invalid]="roleForm.controls.name.touched && roleForm.controls.name.invalid"
           formControlName="name" placeholder="Enter role name..." />
         @if (roleForm.controls.name.touched && roleForm.controls.name.errors?.['required']) {
@@ -38,7 +38,7 @@
 
       <!-- Description -->
       <div class="exec-field">
-        <label class="exec-label">Description</label>
+        <label for="description" class="exec-label">Description</label>
         <textarea class="exec-textarea" rows="2" formControlName="description"></textarea>
         @if (roleForm.controls.description.touched && roleForm.controls.description.errors?.['pattern']) {
         <small class="text-danger">Description cannot be empty spaces.</small>
@@ -49,7 +49,7 @@
       <div class="exec-field">
         <div class="exec-actions-head">
           <div class="d-flex flex-column">
-            <label class="exec-label mb-0">Actions <span class="text-danger">*</span></label>
+            <label for="actions" class="exec-label mb-0">Actions</label>
             <span class="exec-selected-badge">{{ selectedCount }} selected</span>
           </div>
         </div>
@@ -77,7 +77,7 @@
 
           <!-- Liste déroulante — s'ouvre vers le haut -->
           @if (actionsOpen) {
-          <div class="exec-actions-box" [class.is-invalid]="submitted && selectedCount === 0"
+          <button class="exec-actions-box" [class.is-invalid]="submitted && selectedCount === 0"
             (click)="$event.stopPropagation()">
             <div class="exec-actions-scroll custom-scrollbar">
               @if (actionGroups.length === 0) {
@@ -87,7 +87,7 @@
                 <label class="exec-action-item exec-action-item--all">
                   <span class="exec-action-name fw-semibold">Select All</span>
                   <input class="exec-checkbox exec-checkbox-lg" type="checkbox" [checked]="allSelected"
-                    (change)="toggleAll($any($event.target).checked)" />
+                    (change)="onToggleAllChange($event)" />
                 </label>
               </div>
               @for (group of actionGroups; track group.key) {
@@ -95,7 +95,7 @@
                 <label class="exec-action-item">
                   <span class="exec-action-name fw-semibold">{{ group.label }}</span>
                   <input class="exec-checkbox exec-checkbox-lg" type="checkbox" [checked]="isGroupEnabled(group.key)"
-                    (change)="toggleGroup(group.key, $any($event.target).checked)" />
+                    (change)="onToggleGroupChange(group.key, $event)" />
                 </label>
                 <div class="ms-3">
                   @for (action of group.actions; track action._id) {
@@ -103,14 +103,14 @@
                     <span class="exec-action-name">{{ formatActionName(action.name) }}</span>
                     <input class="exec-checkbox exec-checkbox-lg" type="checkbox"
                       [disabled]="!isGroupEnabled(group.key)" [checked]="isActionChecked(action._id)"
-                      (change)="onToggleAction(action._id, $any($event.target).checked)" />
+                      (change)="onToggleActionChange(action._id, $event)" />
                   </label>
                   }
                 </div>
               </div>
               }
             </div>
-          </div>
+          </button>
           }
 
         </div>

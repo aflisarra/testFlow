@@ -130,8 +130,8 @@
                         color: $main-nav-item-hover-color;
                         background-color: $main-nav-item-hover-bg;
                         background-image: linear-gradient(90deg,
-                                rgba(255, 255, 255, 0.1) 0%,
-                                rgba(246, 246, 246, 0.1) 35%,
+                                rgb(255 255 255 / 10%) 0%,
+                                rgb(246 246 246 / 10%) 35%,
                                 $main-nav-bg 100%);
 
                         &::after {
@@ -209,7 +209,7 @@
         position: relative;
         transition: all 0.3s ease-in-out;
         min-height: calc(100vh - $topbar-height);
-        padding: calc($spacer * 1) calc($spacer * 0.5) $footer-height calc($spacer * 0.5);
+        padding: calc($spacer * 1) calc($spacer * 0.5) $footer-height;
         margin-left: $main-nav-width;
     }
 }
@@ -283,7 +283,6 @@ html[data-menu-size='condensed'] {
                 white-space: nowrap;
 
                 &:hover {
-
                     >.collapse,
                     >.collapsing {
                         display: block;
@@ -345,7 +344,7 @@ html[data-menu-size='condensed'] {
                     >.nav-link {
                         &::before {
                             content: '';
-                            inset: 0px;
+                            inset: 0;
                             position: absolute;
                             width: $main-nav-width;
                         }

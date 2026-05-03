@@ -23,11 +23,13 @@
       overflow: hidden;
       scrollbar-width: none;
       scroll-behavior: unset;
+
       .dz-text {
         font-size: 22px !important;
         font-weight: 500;
       }
     }
+
     &.dz-started {
       .dz-message {
         display: none;
@@ -35,10 +37,12 @@
     }
   }
 }
+
 [data-bs-theme] {
   .dropzone.dz-wrapper {
-    border-radius: 0px !important;
+    border-radius: 0 !important;
   }
+
   .dz-message {
     color: #313b5e;
   }

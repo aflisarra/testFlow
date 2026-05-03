@@ -143,40 +143,12 @@
             <h6 class="dropdown-header">
               Welcome {{ userName || 'User' }}!
             </h6>
-            <a class="dropdown-item" routerLink="/pages/profile">
-              <i
-                class="bx bx-user-circle text-muted fs-18 align-middle me-1"
-              ></i
-              ><span class="align-middle">Profile</span>
-            </a>
-            <a class="dropdown-item" routerLink="/apps/chat">
-              <i
-                class="bx bx-message-dots text-muted fs-18 align-middle me-1"
-              ></i
-              ><span class="align-middle">Messages</span>
-            </a>
-
-            <a class="dropdown-item" routerLink="/pages/pricing">
-              <i class="bx bx-wallet text-muted fs-18 align-middle me-1"></i
-              ><span class="align-middle">Pricing</span>
-            </a>
-            <a class="dropdown-item" routerLink="/pages/faqs">
-              <i
-                class="bx bx-help-circle text-muted fs-18 align-middle me-1"
-              ></i
-              ><span class="align-middle">Help</span>
-            </a>
-            <a class="dropdown-item" routerLink="/auth/lock-screen">
-              <i class="bx bx-lock text-muted fs-18 align-middle me-1"></i
-              ><span class="align-middle">Lock screen</span>
-            </a>
-
             <div class="dropdown-divider my-1"></div>
 
-            <a class="dropdown-item text-danger" (click)="logout()">
+            <button class="dropdown-item text-danger" (click)="logout()">
               <i class="bx bx-log-out fs-18 align-middle me-1"></i
               ><span class="align-middle">Logout</span>
-            </a>
+            </button>
           </div>
         </div>
       </div>

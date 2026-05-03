@@ -23,10 +23,9 @@
     display: flex;
     flex-flow: column nowrap;
     -ms-flex-pack: end;
-    justify-content: flex-end;
+    place-content: center flex-end;
     height: 100%;
     margin: 0 auto;
-    align-content: center;
 }
 
 // Colored modal header

@@ -5,6 +5,7 @@
 .docs-nav {
     @extend .d-xl-flex;
     @extend .d-none;
+
     position: sticky;
     right: 0;
     z-index: 2;
@@ -66,7 +67,7 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background-color: rgba(var(--#{$prefix}light-rgb), 0.5);
+        background-color: rgb(var(--#{$prefix}light-rgb), 0.5);
         padding: 6px 20px;
         border-bottom: 1px solid $card-border-color;
 
@@ -99,7 +100,7 @@
         overflow-y: auto;
 
         &::-webkit-scrollbar {
-            -webkit-appearance: none;
+            appearance: none;
         }
 
         &::-webkit-scrollbar-corner {
@@ -133,7 +134,7 @@
         .language-html,
         .language-javascript {
             &::-webkit-scrollbar-thumb {
-                background-color: rgba(var(--#{$prefix}dark-rgb), 0.2);
+                background-color: rgb(var(--#{$prefix}dark-rgb), 0.2);
                 transition: all 0.4s ease-out;
             }
         }

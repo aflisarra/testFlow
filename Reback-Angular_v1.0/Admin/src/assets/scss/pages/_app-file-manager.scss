@@ -4,6 +4,7 @@
 
 .file-container {
     background-color: $card-bg;
+
     .file-leftbar {
         width: $main-nav-width;
         float: left;
@@ -26,6 +27,7 @@
         border: $border-width solid $gray-100 !important;
         border-radius: $border-radius-sm !important;
     }
+
     .icon-search {
         z-index: 4;
         position: absolute;
@@ -35,7 +37,7 @@
     }
 }
 
-@media (max-width: 648px) {
+@media (width <= 648px) {
     .file-container {
         .file-leftbar {
             width: 100%;
@@ -52,7 +54,7 @@
     }
 }
 
-@media (max-width: 520px) {
+@media (width <= 520px) {
     .file-rightbar {
         > .btn-group {
             margin-bottom: 10px;

@@ -1,24 +1,26 @@
 import { changetheme } from '@/app/store/layout/layout-action'
 import { CommonModule, DOCUMENT } from '@angular/common'
+import { HttpErrorResponse } from '@angular/common/http'
 import {
   CUSTOM_ELEMENTS_SCHEMA,
   Component,
   DestroyRef,
   EventEmitter,
-  Inject,
   Output,
-  inject,
+  inject, OnInit,
 } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap'
 import { Store } from '@ngrx/store'
 import { getLayoutColor } from '../../store/layout/layout-selector'
 import { logout } from '@/app/store/authentication/authentication.actions'
-import { Router, RouterLink } from '@angular/router'
+import { Router } from '@angular/router'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import { AuthenticationService } from '@/app/core/services/auth.service'
-import { ProjectInvitationsService, type ProjectInvitationDto } from '@/app/core/services/project-invitations.service'
+import { ProjectInvitationsService } from '@/app/core/services/project-invitations.service'
+import type { ProjectInvitationDto } from '@/app/interfaces/project-invitations.interface'
 import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
+import { ApiService } from '@/app/core/services/api.service'
 import { ToastrService } from 'ngx-toastr'
 import { firstValueFrom } from 'rxjs'
 
@@ -27,45 +29,45 @@ import { firstValueFrom } from 'rxjs'
   standalone: true,
   imports: [
     NgbDropdownModule,
-    RouterLink,
+    //RouterLink,
     CommonModule,
   ],
   templateUrl: './topbar.component.html',
   styleUrl: './topbar.component.scss',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
-export class TopbarComponent {
-  element: any
-
+export class TopbarComponent implements OnInit {
   router = inject(Router)
   store = inject(Store)
   authService = inject(AuthenticationService)
   private invitationsService = inject(ProjectInvitationsService)
   private projectsRefresh = inject(ProjectsRefreshService)
   private toastr = inject(ToastrService)
+  private api = inject(ApiService)
   destroyRef = inject(DestroyRef)
+  private document = inject(DOCUMENT)
+
+  element: HTMLElement = this.document.documentElement
 
   userName = ''
   userPicture: string | null = null
   readonly defaultAvatar = 'assets/images/users/default-user.svg'
-  private readonly backendOrigin = 'http://localhost:3000'
 
   invitations: ProjectInvitationDto[] = []
   invitationsLoading = false
   acceptingId: string | null = null
   ignoringId: string | null = null
 
-  constructor(@Inject(DOCUMENT) private document: any) {}
   @Output() mobileMenuButtonClicked = new EventEmitter()
 
   ngOnInit(): void {
-    this.element = document.documentElement
+    this.element = this.document.documentElement
     this.store
       .select(getUser)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((user) => {
         this.userName = user?.username || this.authService.currentUserName || ''
-        this.userPicture = (user as any)?.picture || this.authService.currentUserPicture
+        this.userPicture = user?.picture ?? this.authService.currentUserPicture
       })
 
     void this.refreshInvitations()
@@ -104,8 +106,8 @@ export class TopbarComponent {
       // Refresh project lists across pages (Project + Test Plan dropdown, etc.)
       this.projectsRefresh.notify()
 
-      const projectId =
-        String((resp as any)?.projectId || invite?.projectId?._id || '').trim()
+      const respProjectId = (resp as { projectId?: string | null } | null | undefined)?.projectId
+      const projectId = String(respProjectId || invite?.projectId?._id || '').trim()
       if (projectId) {
         await this.router.navigate(['/project'], {
           queryParams: { selectedProjectId: projectId },
@@ -113,8 +115,19 @@ export class TopbarComponent {
       } else {
         await this.router.navigate(['/project'])
       }
-    } catch (err: any) {
-      this.toastr.error(err?.error?.message || 'Unable to accept invitation', 'Project')
+    } catch (err: unknown) {
+      const message =
+        err instanceof HttpErrorResponse
+          ? (() => {
+              const body = err.error as { message?: unknown } | null
+              const bodyMessage =
+                body && typeof body === 'object' && typeof body.message === 'string'
+                  ? body.message
+                  : ''
+              return bodyMessage || err.message || 'Unable to accept invitation'
+            })()
+          : 'Unable to accept invitation'
+      this.toastr.error(message, 'Project')
     } finally {
       this.acceptingId = null
     }
@@ -128,8 +141,19 @@ export class TopbarComponent {
       await firstValueFrom(this.invitationsService.ignoreInvitation(id))
       this.toastr.info('Invitation ignored.', 'Project')
       await this.refreshInvitations()
-    } catch (err: any) {
-      this.toastr.error(err?.error?.message || 'Unable to ignore invitation', 'Project')
+    } catch (err: unknown) {
+      const message =
+        err instanceof HttpErrorResponse
+          ? (() => {
+              const body = err.error as { message?: unknown } | null
+              const bodyMessage =
+                body && typeof body === 'object' && typeof body.message === 'string'
+                  ? body.message
+                  : ''
+              return bodyMessage || err.message || 'Unable to ignore invitation'
+            })()
+          : 'Unable to ignore invitation'
+      this.toastr.error(message, 'Project')
     } finally {
       this.ignoringId = null
     }
@@ -164,8 +188,17 @@ export class TopbarComponent {
   resolveAvatarUrl(picture?: string | null): string {
     const raw = String(picture || '').trim()
     if (!raw) return this.defaultAvatar
-    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw
-    if (raw.startsWith('/')) return `${this.backendOrigin}${raw}`
+    if (this.isAbsoluteHttpUrl(raw)) return raw
+    if (raw.startsWith('/')) return this.api.toAbsoluteUrl(raw)
     return raw
+  }
+
+  private isAbsoluteHttpUrl(value: string): boolean {
+    try {
+      const u = new URL(value)
+      return u.protocol === 'http:' || u.protocol === 'https:'
+    } catch {
+      return false
+    }
   }
 }

@@ -1,47 +1,37 @@
-import { Component, inject, ViewChild, type OnInit } from '@angular/core'
+import { Component, DestroyRef, inject, ViewChild, OnInit } from '@angular/core'
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { CommonModule } from '@angular/common'
-import { NgApexchartsModule } from "ng-apexcharts";
-import {
-
-  NavigationCancel,
-  NavigationEnd,
-  NavigationError,
-  NavigationStart,
-  Router,
-  RouterOutlet,
-  type Event,
-} from '@angular/router'
+import { Router, RouterOutlet, Event, NavigationStart, NavigationEnd, NavigationCancel, NavigationError } from '@angular/router'
 import { TitleService } from '@core/services/title.service'
 import { NgProgressbar, NgProgressRef } from 'ngx-progressbar'
-
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [CommonModule, RouterOutlet, NgProgressbar],
   templateUrl: './app.component.html',
-  styleUrl: './app.component.scss',
+  styleUrls: ['./app.component.scss'],
 })
 export class AppComponent implements OnInit {
-  @ViewChild(NgProgressRef) progressBar!: NgProgressRef
-
+  @ViewChild(NgProgressRef, { static: true }) progressBar!: NgProgressRef
   private titleService = inject(TitleService)
   private router = inject(Router)
-
-  constructor() {
-    this.router.events.subscribe((event: Event) => {
-      this.checkRouteChange(event)
-    })
-  }
+  private destroyRef = inject(DestroyRef)
 
   ngOnInit(): void {
     this.titleService.init()
+
+    this.router.events
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((event: Event) => {
+        this.checkRouteChange(event)
+      })
   }
 
-  // show Loader when route change
-  checkRouteChange(routerEvent: Event) {
+  checkRouteChange(routerEvent: Event): void {
     if (routerEvent instanceof NavigationStart) {
       this.progressBar.start()
     }
+
     if (
       routerEvent instanceof NavigationEnd ||
       routerEvent instanceof NavigationCancel ||

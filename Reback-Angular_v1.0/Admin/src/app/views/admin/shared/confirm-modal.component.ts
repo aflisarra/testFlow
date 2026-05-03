@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common'
-import { CUSTOM_ELEMENTS_SCHEMA, Component, Input } from '@angular/core'
+import { CUSTOM_ELEMENTS_SCHEMA, Component, Input, inject } from '@angular/core'
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap'
 
 @Component({
@@ -19,5 +19,5 @@ export class ConfirmModalComponent {
   @Input() confirmButtonClass = 'btn-brand'
   @Input() icon = 'iconamoon:trash-duotone';
 
-  constructor(public activeModal: NgbActiveModal) { }
+  activeModal = inject(NgbActiveModal)
 }

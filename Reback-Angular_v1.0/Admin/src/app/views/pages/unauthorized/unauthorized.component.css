@@ -1,6 +1,6 @@
 .authz-card {
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgb(148 163 184 / 24%);
+  box-shadow: 0 18px 45px rgb(15 23 42 / 8%);
   border-radius: 1rem;
   overflow: hidden;
 }
@@ -11,9 +11,9 @@
   display: grid;
   place-items: center;
   border-radius: 18px;
-  background: rgba(236, 138, 0, 0.12);
-  border: 1px solid rgba(236, 138, 0, 0.28);
-  color: rgba(236, 138, 0, 1);
+  background: rgb(236 138 0 / 12%);
+  border: 1px solid rgb(236 138 0 / 28%);
+  color: rgb(236 138 0 / 100%);
   font-size: 2rem;
 }
 
@@ -38,13 +38,13 @@
 }
 
 :host-context([data-bs-theme='dark']) .authz-card {
-  background: rgba(2, 6, 23, 0.34);
-  border-color: rgba(148, 163, 184, 0.18);
-  box-shadow: 0 22px 55px rgba(0, 0, 0, 0.38);
+  background: rgb(2 6 23 / 34%);
+  border-color: rgb(148 163 184 / 18%);
+  box-shadow: 0 22px 55px rgb(0 0 0 / 38%);
 }
 
 :host-context([data-bs-theme='dark']) .authz-code,
 :host-context([data-bs-theme='dark']) .authz-title {
-  color: rgba(255, 255, 255, 0.95);
+  color: rgb(255 255 255 / 95%);
 }
 

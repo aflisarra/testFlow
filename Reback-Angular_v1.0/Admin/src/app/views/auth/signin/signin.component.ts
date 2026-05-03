@@ -1,5 +1,4 @@
 import { LogoBoxComponent } from '@/app/components/logo-box.component'
-import { SocialBtnComponent } from '@/app/components/social-btn/social-btn.component'
 import { login } from '@/app/store/authentication/authentication.actions'
 import { Component, inject, type OnInit } from '@angular/core'
 import { AuthenticationService } from '../../../../app/core/services/auth.service';
@@ -17,7 +16,6 @@ import { Store } from '@ngrx/store'
   selector: 'app-signin',
   standalone: true,
   imports: [
-    SocialBtnComponent,
     LogoBoxComponent,
     FormsModule,
     ReactiveFormsModule,
@@ -28,8 +26,8 @@ import { Store } from '@ngrx/store'
 })
 export class SigninComponent implements OnInit {
   signInForm!: UntypedFormGroup
-  submitted: boolean = false
-  isLoading: boolean = false
+  submitted = false
+isLoading = false
   public authService = inject(AuthenticationService);
   public fb = inject(UntypedFormBuilder)
   public store = inject(Store)
@@ -69,5 +67,4 @@ export class SigninComponent implements OnInit {
     }, 500);
   }
 }
-
 

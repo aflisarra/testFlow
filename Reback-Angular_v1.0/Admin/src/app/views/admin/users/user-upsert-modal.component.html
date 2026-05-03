@@ -24,7 +24,7 @@
 
     <form class="exec-upsert-form" [formGroup]="userForm">
       <div class="exec-field">
-        <label class="exec-label">Name <span class="text-danger">*</span></label>
+        <label for="name" class="exec-label">Name <span class="text-danger">*</span></label>
         <input
           class="exec-input"
           [class.is-invalid]="userForm.controls.name.touched && userForm.controls.name.invalid"
@@ -40,7 +40,7 @@
       </div>
 
       <div class="exec-field">
-        <label class="exec-label">Email <span class="text-danger">*</span></label>
+        <label for="email" class="exec-label">Email <span class="text-danger">*</span></label>
         <input
           class="exec-input"
           [class.is-invalid]="userForm.controls.email.touched && userForm.controls.email.invalid"
@@ -56,7 +56,7 @@
       </div>
 
       <div class="exec-field">
-        <label class="exec-label">Role <span class="text-danger">*</span></label>
+        <label for="role" class="exec-label">Role <span class="text-danger">*</span></label>
         <select
           class="exec-select"
           [class.is-invalid]="userForm.controls.role.touched && userForm.controls.role.invalid"
@@ -76,7 +76,7 @@
       </div>
 
       <div class="exec-field">
-        <label class="exec-label">Description</label>
+        <label for="description" class="exec-label">Description</label>
         <input class="exec-input" formControlName="description" placeholder="Optional..." />
       </div>
 

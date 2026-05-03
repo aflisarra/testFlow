@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common'
+import { HttpErrorResponse } from '@angular/common/http'
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import {
   Component,
@@ -17,9 +18,8 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms'
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap'
 import {
   AdminManagementService,
-  AppAction,
-  AppRole,
 } from '@/app/core/services/admin-management.service'
+import type { AppAction, AppRole } from '@/app/interfaces/admin-management.interface'
 import { map, type Observable } from 'rxjs'
 
 @Component({
@@ -47,7 +47,7 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges, OnDestroy {
   submitted = false
   actionsOpen = false
 
-  actionGroups: Array<{ key: string; label: string; actions: AppAction[] }> = []
+  actionGroups: { key: string; label: string; actions: AppAction[] }[] = []
   private enabledGroups = new Map<string, boolean>()
 
   roleForm = this.fb.group({
@@ -111,6 +111,11 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges, OnDestroy {
     this.roleForm.patchValue({ actions: [] })
   }
 
+  onToggleAllChange(event: Event): void {
+    const checked = (event.target as HTMLInputElement | null)?.checked ?? false
+    this.toggleAll(checked)
+  }
+
   isGroupEnabled(groupKey: string): boolean {
     return this.enabledGroups.get(groupKey) ?? false
   }
@@ -132,6 +137,11 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges, OnDestroy {
     this.roleForm.patchValue({ actions: next })
   }
 
+  onToggleGroupChange(groupKey: string, event: Event): void {
+    const checked = (event.target as HTMLInputElement | null)?.checked ?? false
+    this.toggleGroup(groupKey, checked)
+  }
+
   onToggleAction(actionId: number, checked: boolean): void {
     const selected = [...(this.roleForm.value.actions || [])]
     const exists = selected.includes(actionId)
@@ -140,6 +150,11 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges, OnDestroy {
     if (!checked && exists) selected.splice(selected.indexOf(actionId), 1)
 
     this.roleForm.patchValue({ actions: selected })
+  }
+
+  onToggleActionChange(actionId: number, event: Event): void {
+    const checked = (event.target as HTMLInputElement | null)?.checked ?? false
+    this.onToggleAction(actionId, checked)
   }
 
   isActionChecked(actionId: number): boolean {
@@ -261,7 +276,16 @@ export class RoleUpsertModalComponent implements OnInit, OnChanges, OnDestroy {
       },
       error: (err: unknown) => {
         this.submitting = false
-        this.error = (err as any)?.error?.message || 'Unable to save role'
+        if (err instanceof HttpErrorResponse) {
+          const body = err.error as { message?: unknown } | null
+          const bodyMessage =
+            body && typeof body === 'object' && typeof body.message === 'string'
+              ? body.message
+              : ''
+          this.error = bodyMessage || err.message || 'Unable to save role'
+          return
+        }
+        this.error = 'Unable to save role'
       },
     })
   }

@@ -3,9 +3,8 @@ import { CUSTOM_ELEMENTS_SCHEMA, Component, OnInit, inject } from '@angular/core
 import { ReactiveFormsModule } from '@angular/forms'
 import {
   AdminManagementService,
-  AppAction,
-  AppRole,
 } from '@/app/core/services/admin-management.service'
+import type { AppAction, AppRole } from '@/app/interfaces/admin-management.interface'
 import { NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap'
 import { ConfirmModalComponent } from '../shared/confirm-modal.component'
 import { RoleUpsertModalComponent } from './role-upsert-modal.component'
@@ -16,6 +15,7 @@ import { take } from 'rxjs/operators'
 import { ToastrService } from 'ngx-toastr'
 import { loginSuccess } from '@/app/store/authentication/authentication.actions'
 import { Router } from '@angular/router'
+import type { User } from '@/app/store/authentication/auth.model'
 
 @Component({
   selector: 'app-roles-management',
@@ -62,8 +62,8 @@ export class RolesManagementComponent implements OnInit {
   }
 
   private async initPermissions() {
-    const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
-    const actions = Array.isArray((user as any)?.actions) ? (user as any).actions : []
+    const user: User | null = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
+    const actions = Array.isArray(user?.actions) ? user.actions : []
     this.canAddRole = actions.includes(this.ACTION_ADD_ROLE)
     this.canEditRole = actions.includes(this.ACTION_EDIT_ROLE)
     this.canDeleteRole = actions.includes(this.ACTION_DELETE_ROLE)
@@ -220,21 +220,22 @@ export class RolesManagementComponent implements OnInit {
   private refreshCurrentUserPermissions() {
     this.adminService.getCurrentUserProfile().subscribe({
       next: async (resp) => {
-        const current = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
+        const current: User | null = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
         if (!current) return
 
-        const updatedUser = {
+        const updatedUser: User = {
           ...current,
-          id: (resp?.user as any)?._id || (current as any)?.id || '',
-          username: resp?.user?.name || (current as any)?.username || '',
-          email: resp?.user?.email || (current as any)?.email || '',
-          picture: resp?.user?.picture ?? (current as any)?.picture ?? null,
-          role: resp?.user?.role || (current as any)?.role || '',
-          actions: Array.isArray(resp?.actions) ? resp.actions : [],
-          token: (current as any)?.token || '',
+          id: current.id || resp.user._id || '',
+          _id: current._id || resp.user._id || '',
+          username: resp.user.name || current.username || '',
+          email: resp.user.email || current.email || '',
+          picture: resp.user.picture ?? current.picture ?? null,
+          role: resp.user.role || current.role || '',
+          actions: Array.isArray(resp.actions) ? resp.actions : [],
+          token: current.token || '',
         }
 
-        this.store.dispatch(loginSuccess({ user: updatedUser as any }))
+        this.store.dispatch(loginSuccess({ user: updatedUser }))
         await this.initPermissions()
       },
       error: () => {

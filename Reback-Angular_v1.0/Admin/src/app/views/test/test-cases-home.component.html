@@ -65,7 +65,7 @@
         </div>
 
         @for (plan of plans; track plan.id) {
-        <div class="tc-tree-plan" [class.tc-tree-plan--active]="selectedPlanId === plan.id"
+        <button class="tc-tree-plan" [class.tc-tree-plan--active]="selectedPlanId === plan.id"
           (click)="togglePlan(plan.id)">
           <div class="tc-tree-plan-row">
             <iconify-icon [icon]="expandedPlans[plan.id] ? 'mdi:chevron-down' : 'mdi:chevron-right'"
@@ -87,11 +87,11 @@
             </button>
             } @else {
             @for (tc of testCasesByPlan[plan.id]; track tc.id) {
-            <div class="tc-tree-case" [class.tc-tree-case--live]="livePlanId === plan.id"
+            <button class="tc-tree-case" [class.tc-tree-case--live]="livePlanId === plan.id"
               (click)="selectPlanForLive(plan.id); $event.stopPropagation()">
               <span class="tc-tree-case-id">{{ tc.id }}</span>
               <span class="tc-tree-case-title">{{ tc.title }}</span>
-            </div>
+            </button>
             }
             <div class="tc-tree-case-actions">
               <button class="tc-tree-action-btn tc-tree-action-btn--primary" (click)="onRegeneratePlan(plan, $event)">
@@ -102,14 +102,14 @@
             }
           </div>
           }
-        </div>
+        </button>
         }
       </div>
 
       } @else if (suites.length) {
       @for (suite of suites; track suite._id) {
       <div class="tc-tree-section">
-        <div class="tc-tree-suite-row" (click)="toggleSuite(suite)">
+        <button class="tc-tree-suite-row" (click)="toggleSuite(suite)">
           <iconify-icon [icon]="expandedSuites[suite._id!] ? 'mdi:chevron-down' : 'mdi:chevron-right'"
             class="tc-tree-chevron"></iconify-icon>
           <iconify-icon icon="lucide:folder-check" class="tc-tree-suite-icon"></iconify-icon>
@@ -118,7 +118,7 @@
             [ngClass]="getSuiteCardStatus(suite) === 'Validated' ? 'text-bg-success' : 'text-bg-warning'">
             {{ getSuiteCardStatus(suite) }}
           </span>
-        </div>
+        </button>
 
         @if (expandedSuites[suite._id!]) {
         @if (loadingSuitePlans[suite._id!]) {
@@ -128,7 +128,7 @@
         </div>
         } @else {
         @for (plan of (suitePlans[suite._id!] || []); track plan.id) {
-        <div class="tc-tree-plan" [class.tc-tree-plan--active]="selectedPlanId === plan.id"
+        <button class="tc-tree-plan" [class.tc-tree-plan--active]="selectedPlanId === plan.id"
           (click)="togglePlan(plan.id)">
           <div class="tc-tree-plan-row">
             <iconify-icon [icon]="expandedPlans[plan.id] ? 'mdi:chevron-down' : 'mdi:chevron-right'"
@@ -150,11 +150,11 @@
             </button>
             } @else {
             @for (tc of testCasesByPlan[plan.id]; track tc.id) {
-            <div class="tc-tree-case" [class.tc-tree-case--live]="livePlanId === plan.id"
+            <button class="tc-tree-case" [class.tc-tree-case--live]="livePlanId === plan.id"
               (click)="selectPlanForLive(plan.id); $event.stopPropagation()">
               <span class="tc-tree-case-id">{{ tc.id }}</span>
               <span class="tc-tree-case-title">{{ tc.title }}</span>
-            </div>
+            </button>
             }
             <div class="tc-tree-case-actions">
               <button class="tc-tree-action-btn tc-tree-action-btn--primary"
@@ -166,7 +166,7 @@
             }
           </div>
           }
-        </div>
+        </button>
         }
         }
         }
@@ -258,8 +258,8 @@
 
 <!-- ═══ MODAL ═══ -->
 @if (modalOpen && modalPlan) {
-<div class="tc-modal-backdrop" (click)="closeModal()">
-  <div class="tc-modal" (click)="$event.stopPropagation()">
+<button class="tc-modal-backdrop" (click)="closeModal()">
+  <button class="tc-modal" (click)="$event.stopPropagation()">
 
     <!-- HEADER -->
     <div class="tc-modal-header">
@@ -365,14 +365,14 @@
 
     </div>
 
-  </div>
-</div>
+  </button>
+</button>
 }
 
 <!-- ── Unsaved Changes Modal ── -->
 @if (unsavedModalOpen) {
-<div class="tc-modal-backdrop" (click)="onUnsavedCancel()">
-  <div class="tc-modal tc-modal--unsaved" (click)="$event.stopPropagation()">
+<button class="tc-modal-backdrop" (click)="onUnsavedCancel()">
+  <button class="tc-modal tc-modal--unsaved" (click)="$event.stopPropagation()">
     <div class="tc-modal-header">
       <div>
         <h5 class="tc-modal-title mb-0">Unsaved Changes</h5>
@@ -395,6 +395,6 @@
         Cancel
       </button>
     </div>
-  </div>
-</div>
+  </button>
+</button>
 }

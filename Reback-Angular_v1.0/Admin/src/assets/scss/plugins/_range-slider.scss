@@ -164,7 +164,7 @@
     display: block;
     margin: 15px 0;
 
-    &:before {
+    &::before {
         content: 'Value: ';
         font-size: 12px;
         font-weight: 600;
@@ -296,7 +296,7 @@
 
 [data-slider-style='square'] {
     .noUi-handle {
-        border-radius: 0px;
+        border-radius: 0;
         transform: rotate(45deg);
         height: 10px;
         width: 10px;

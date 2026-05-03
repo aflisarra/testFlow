@@ -3,66 +3,23 @@ import {
     ChangeDetectionStrategy,
     ChangeDetectorRef,
     Component,
-    OnDestroy,
     OnInit,
+    DestroyRef,
+    inject,
 } from '@angular/core';
-import { interval, Subject, Subscription } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { interval, Subscription } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-export type StepStatus = 'pass' | 'fail' | 'running' | 'waiting' | 'skipped';
-export type TestStatus = 'in-progress' | 'passed' | 'failed' | 'aborted';
-
-export interface LogLine {
-  index: number;
-  level: 'INFO' | 'SUCCESS' | 'FAIL' | 'ERROR' | 'WARN' | 'TRACE';
-  message: string;
-}
-
-export interface ExecutionStep {
-  id: number;
-  name: string;
-  subtitle: string;
-  status: StepStatus;
-  timestamp: string;
-}
-
-export interface NodeMetrics {
-  cpu: number;
-  memory: number;
-  latency: number;
-  threads: number;
-}
-
-export interface AiRecommendation {
-  element: string;
-  description: string;
-  suggestedFix: string;
-}
-
-export interface ErrorMeta {
-  errorType: string;
-  stepName: string;
-  screenshot: string;
-  duration: string;
-}
-
-export interface TestScenario {
-  projectName: string;
-  planName: string;
-  caseName: string;
-  executionId: string;
-  environment: string;
-  executionTime: string;
-  status: TestStatus;
-  progressPercent: number;
-  progressLabel: string;
-  activeStepLabel: string;
-  steps: ExecutionStep[];
-  logs: LogLine[];
-  aiRecommendation?: AiRecommendation;
-  errorMeta?: ErrorMeta;
-  failureSnapshot?: string;
-}
+import type {
+  AiRecommendation,
+  ErrorMeta,
+  ExecutionStep,
+  LogLine,
+  NodeMetrics,
+  StepStatus,
+  TestScenario,
+  TestStatus,
+} from '@/app/interfaces/execution.interface'
 
 @Component({
   selector: 'app-execution',
@@ -72,10 +29,11 @@ export interface TestScenario {
   styleUrls: ['./execution.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ExecutionComponent implements OnInit, OnDestroy {
-  private destroy$ = new Subject<void>();
+export class ExecutionComponent implements OnInit {
   private metricsSubscription?: Subscription;
   private logStreamSubscription?: Subscription;
+  private cdr = inject(ChangeDetectorRef);
+  private destroyRef = inject(DestroyRef);
 
   activeTab: 'timeline' | 'logs' | 'screenshot' = 'timeline';
 
@@ -94,7 +52,7 @@ export class ExecutionComponent implements OnInit, OnDestroy {
     { index: 4, level: 'INFO', message: 'Setting window size to 1920×1080' },
     { index: 5, level: 'INFO', message: 'Command: window.resizeTo(1920, 1080)' },
     { index: 6, level: 'INFO', message: 'Received response from chromeDriver: 200 OK' },
-    { index: 7, level: 'INFO', message: 'Command: navigate_to("https://staging.app/login")' },
+    { index: 7, level: 'INFO', message: 'Command: navigate_to("staging.app/login")' },
     { index: 8, level: 'WARN', message: 'WAIT awaiting document_load_state' },
     { index: 9, level: 'TRACE', message: 'DNS Resolution: staging.app → 104.22.6.192' },
     { index: 10, level: 'TRACE', message: 'TLS handshake: TLS 1.3' },
@@ -106,7 +64,7 @@ export class ExecutionComponent implements OnInit, OnDestroy {
 
   private readonly FAIL_LOGS: LogLine[] = [
     { index: 1, level: 'INFO', message: 'Starting Selenium Grid Session: 84e99-ba...' },
-    { index: 2, level: 'INFO', message: 'Navigating to https://staging.testarch.app/login' },
+    { index: 2, level: 'INFO', message: 'Navigating to staging.testarch.app/login' },
     { index: 3, level: 'INFO', message: 'Entering credentials for user: qa_engineer_1' },
     { index: 4, level: 'INFO', message: 'Waiting for element visibility: #submit-btn' },
     { index: 5, level: 'FAIL', message: 'ElementNotInteractableException: element not interactable at (742, 460)' },
@@ -115,16 +73,8 @@ export class ExecutionComponent implements OnInit, OnDestroy {
     { index: 8, level: 'INFO', message: 'Session terminated. Clean-up complete' },
   ];
 
-  constructor(private cdr: ChangeDetectorRef) {}
-
   ngOnInit(): void {
     this.startPassExecution();
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-    this.stopAll();
   }
 
   // ─── Public actions ───────────────────────────────────────────
@@ -185,7 +135,7 @@ element.click()`;
       steps: [
         { id: 1, name: 'Initialize WebDriver Session', subtitle: 'Completed in 1.4s', status: 'pass', timestamp: '14:29:01' },
         { id: 2, name: 'Set Viewport Dimensions (1920×1080)', subtitle: 'Completed in 0.7s', status: 'pass', timestamp: '14:29:02' },
-        { id: 3, name: 'Navigating to Login Page', subtitle: 'Attempting connection to https://staging.app/login...', status: 'running', timestamp: '14:29:06' },
+        { id: 3, name: 'Navigating to Login Page', subtitle: 'Attempting connection to staging.app/login...', status: 'running', timestamp: '14:29:06' },
         { id: 4, name: 'Submit Credentials', subtitle: 'Waiting...', status: 'waiting', timestamp: '—' },
         { id: 5, name: 'Assert Dashboard Loaded', subtitle: 'Waiting...', status: 'waiting', timestamp: '—' },
       ],
@@ -295,7 +245,7 @@ element.click()`;
     this.streamedLogs = [];
     let i = 0;
     this.logStreamSubscription = interval(400)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
         if (i < logs.length) {
           this.streamedLogs = [...this.streamedLogs, logs[i]];
@@ -309,7 +259,7 @@ element.click()`;
 
   private startMetricsAnimation(): void {
     this.metricsSubscription = interval(1200)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
         this.metrics = {
           cpu: Math.round(18 + Math.random() * 20),

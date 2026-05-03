@@ -1,19 +1,29 @@
-import {
-  AdminManagementService,
-  AppProject,
-  AppUser,
-} from '@/app/core/services/admin-management.service'
+import { AdminManagementService } from '@/app/core/services/admin-management.service'
+import type { AppProject, AppUser } from '@/app/interfaces/admin-management.interface'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import { CommonModule } from '@angular/common'
-import { CUSTOM_ELEMENTS_SCHEMA, Component, HostListener, OnInit, ViewChild, TemplateRef, inject } from '@angular/core'
+
+import {
+  CUSTOM_ELEMENTS_SCHEMA,
+  Component,
+  HostListener,
+  OnInit,
+  ViewChild,
+  TemplateRef,
+  inject,
+} from '@angular/core'
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms'
 import { Router } from '@angular/router'
-import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
+import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap'
 import { Store } from '@ngrx/store'
 import { ToastrService } from 'ngx-toastr'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { ConfirmModalComponent } from '../admin/shared/confirm-modal.component'
+import { ApiService } from '@/app/core/services/api.service'
+
+import type { TeamMemberView } from '@/app/interfaces/project-management.interface'
+import type { UserWithActions } from '@/app/interfaces/authorization.interface'
 
 @Component({
   selector: 'app-project-management',
@@ -23,6 +33,8 @@ import { ConfirmModalComponent } from '../admin/shared/confirm-modal.component'
   styleUrls: ['./project-management.component.css'],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
+
+
 export class ProjectManagementComponent implements OnInit {
   private fb = inject(FormBuilder)
   private adminService = inject(AdminManagementService)
@@ -30,6 +42,10 @@ export class ProjectManagementComponent implements OnInit {
   private toastr = inject(ToastrService)
   private store = inject(Store)
   private router = inject(Router)
+  private api = inject(ApiService)
+
+
+  
 
   projects: AppProject[] = []
   users: AppUser[] = []
@@ -39,8 +55,11 @@ export class ProjectManagementComponent implements OnInit {
   submitting = false
   error = ''
   eliteTeamSearch = ''
+
+  /** Search query for the project list panel */
+  projectSearch = ''
+
   readonly defaultAvatar = 'assets/images/users/default-user.svg'
-  private readonly backendOrigin = 'http://localhost:3000'
   private currentUserId = ''
   private currentUserEmail = ''
 
@@ -59,7 +78,7 @@ export class ProjectManagementComponent implements OnInit {
   canListUsers = false
 
   selectedProjectId: string | null = null
-  @ViewChild('viewProjectModal') viewProjectModal!: TemplateRef<any>
+  @ViewChild('viewProjectModal') viewProjectModal!: TemplateRef<void>
 
   assignedUserIds = new Set<string>()
   editingProjectId: string | null = null
@@ -92,46 +111,120 @@ export class ProjectManagementComponent implements OnInit {
     status: this.fb.nonNullable.control<'draft' | 'active' | 'paused' | 'completed'>('draft'),
   })
 
-   get selectedProject(): AppProject | null {
+  // ─── Getters ───────────────────────────────────────────────────────────────
+
+  get selectedProject(): AppProject | null {
     if (!this.selectedProjectId) return null
     return this.projects.find((p) => p._id === this.selectedProjectId) || null
   }
 
-  get viewProjectTeamMembers(): any[] {
-    if (!this.viewProject) return []
-    const assigned = this.viewProject.assignedUsers || []
-    const byId = new Map(this.users.map((u) => [u._id, u]))
-    return assigned
-      .map((u: any) => {
-        const user = byId.get(u._id)
-        if (!user) return null
-        const parts = String(user.name || '').trim().split(/\s+/).filter(Boolean)
-        const initials = parts.length ? `${parts[0]?.[0] || ''}${parts[1]?.[0] || ''}`.toUpperCase() : 'U'
-        const photoUrl = user.picture ? this.resolveAvatarUrl(user.picture) : null
-        return {
-          id: user._id,
-          name: user.name,
-          initials,
-          hasPhoto: !!user.picture,
-          photoUrl,
-          isOwner: u.isOwner === true || u.role === 'owner'
-        }
-      })
-      .filter((x): x is any => !!x)
+  /** Projects filtered by the search query */
+  get filteredProjects(): AppProject[] {
+    const q = this.projectSearch.trim().toLowerCase()
+    if (!q) return this.projects
+    return this.projects.filter((p) =>
+      String(p.title || '').toLowerCase().includes(q)
+    )
   }
 
-  openProjectViewModal(project: AppProject): void {
-    this.viewProject = project
-    const ref = this.modalService.open(this.viewProjectModal, {
-      size: 'lg',
-      centered: true,
-      windowClass: 'exec-upsert-modal-window',
-      backdropClass: 'exec-upsert-modal-backdrop',
-    })
-    ref.result.finally(() => {
-      this.viewProject = null
+  /** Paginated slice of the filtered list */
+  get paginatedProjects(): AppProject[] {
+    const start = (this.currentProjectPage - 1) * this.projectsPerPage
+    return this.filteredProjects.slice(start, start + this.projectsPerPage)
+  }
+
+  get totalProjectPages(): number {
+    return Math.ceil(this.filteredProjects.length / this.projectsPerPage)
+  }
+
+  get projectsRangeStart(): number {
+    if (this.filteredProjects.length === 0) return 0
+    return (this.currentProjectPage - 1) * this.projectsPerPage + 1
+  }
+
+  get projectsRangeEnd(): number {
+    const end = this.currentProjectPage * this.projectsPerPage
+    return Math.min(end, this.filteredProjects.length)
+  }
+
+
+get viewProjectTeamMembers(): TeamMemberView[] {
+  if (!this.viewProject) return []
+
+  const assigned = this.viewProject.assignedUsers ?? []
+  const byId = new Map(this.users.map((u) => [u._id, u]))
+
+  return assigned.flatMap((u): TeamMemberView[] => {
+    const user = byId.get(u._id)
+    if (!user) return []
+
+    const parts = String(user.name || '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+
+    const initials =
+      parts.length > 0
+        ? `${parts[0]?.[0] || ''}${parts[1]?.[0] || ''}`.toUpperCase()
+        : 'U'
+
+    return [
+      {
+        id: user._id,
+        name: user.name,
+        initials,
+        hasPhoto: !!user.picture,
+        photoUrl: user.picture ? this.resolveAvatarUrl(user.picture) : null,
+        isOwner: u.role === 'owner',
+      },
+    ]
+  })
+}
+
+  get selectedTeamUsers(): AppUser[] {
+    const byId = new Map(this.users.map((u) => [u._id, u]))
+    return Array.from(this.assignedUserIds)
+      .map((id) => byId.get(id))
+      .filter((u): u is AppUser => !!u)
+  }
+
+  get teamPreviewUsers(): AppUser[] {
+    return this.selectedTeamUsers.slice(0, 4)
+  }
+
+  get teamExtraCount(): number {
+    const count = this.selectedTeamUsers.length - this.teamPreviewUsers.length
+    return count > 0 ? count : 0
+  }
+
+  get filteredEliteUsers(): AppUser[] {
+    const q = this.eliteTeamSearch.trim().toLowerCase()
+    if (!q) return this.users
+    return this.users.filter((u) => {
+      const name = String(u.name || '').toLowerCase()
+      const email = String(u.email || '').toLowerCase()
+      const role = String(u.role || '').toLowerCase()
+      return name.includes(q) || email.includes(q) || role.includes(q)
     })
   }
+
+  get editSelectedCount(): number {
+    return this.editAssignedUserIds.size
+  }
+
+  get editAllSelected(): boolean {
+    const total = this.users.length
+    if (total === 0) return false
+    return this.editSelectedCount === total
+  }
+
+  get editFirstSelectedUser(): AppUser | null {
+    const firstId = Array.from(this.editAssignedUserIds)[0]
+    if (!firstId) return null
+    return this.users.find((u) => u._id === firstId) || null
+  }
+
+  // ─── Lifecycle ──────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
     void this.initializePage()
@@ -144,17 +237,32 @@ export class ProjectManagementComponent implements OnInit {
     this.loadProjects()
   }
 
-  private async initPermissions(): Promise<void> {
-    const current = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
-    const actions = Array.isArray((current as any)?.actions) ? (current as any).actions : []
-    const ids = new Set(actions.map((x: any) => Number(x)).filter((x: number) => Number.isFinite(x)))
+private async initPermissions(): Promise<void> {
+  const current = await firstValueFrom(
+    this.store.select(getUser).pipe(take(1))
+  )
 
-    this.canViewProjects = ids.has(this.ACTION_LIST_PROJECTS) || ids.has(this.ACTION_VIEW_PROJECT)
-    this.canCreateProject = ids.has(this.ACTION_CREATE_PROJECT)
-    this.canEditProject = ids.has(this.ACTION_EDIT_PROJECT)
-    this.canDeleteProject = ids.has(this.ACTION_DELETE_PROJECT)
-    this.canListUsers = ids.has(this.ACTION_LIST_USERS) || ids.has(this.ACTION_VIEW_USER)
-  }
+  const user = current as UserWithActions
+
+  const actions = user.actions ?? []
+
+  const ids = new Set<number>(
+    actions.map(Number).filter(Number.isFinite)
+  )
+
+  this.canViewProjects =
+    ids.has(this.ACTION_LIST_PROJECTS) ||
+    ids.has(this.ACTION_VIEW_PROJECT)
+
+  this.canCreateProject = ids.has(this.ACTION_CREATE_PROJECT)
+  this.canEditProject = ids.has(this.ACTION_EDIT_PROJECT)
+  this.canDeleteProject = ids.has(this.ACTION_DELETE_PROJECT)
+  this.canListUsers =
+    ids.has(this.ACTION_LIST_USERS) ||
+    ids.has(this.ACTION_VIEW_USER)
+}
+
+  // ─── Load data ──────────────────────────────────────────────────────────────
 
   loadUsers(): void {
     if (!this.canListUsers) {
@@ -162,7 +270,6 @@ export class ProjectManagementComponent implements OnInit {
       this.usersLoading = false
       return
     }
-
     this.usersLoading = true
     this.adminService.getUsers().subscribe({
       next: (users) => {
@@ -183,15 +290,12 @@ export class ProjectManagementComponent implements OnInit {
       this.error = "Acces refuse: vous n'avez pas l'action Projet."
       return
     }
-
     this.loading = true
     this.error = ''
-
     this.adminService.getProjects(false).subscribe({
       next: (projects) => {
         this.projects = projects || []
         this.loading = false
-
         if (this.selectedProjectId) {
           const selected = this.projects.find((p) => p._id === this.selectedProjectId)
           if (selected) {
@@ -208,36 +312,17 @@ export class ProjectManagementComponent implements OnInit {
     })
   }
 
-  get paginatedProjects(): AppProject[] {
-    const start = (this.currentProjectPage - 1) * this.projectsPerPage
-    return this.projects.slice(start, start + this.projectsPerPage)
-  }
-
-  get totalProjectPages(): number {
-    return Math.ceil(this.projects.length / this.projectsPerPage)
-  }
-
-  get projectsRangeStart(): number {
-    if (this.projects.length === 0) return 0
-    return (this.currentProjectPage - 1) * this.projectsPerPage + 1
-  }
-
-  get projectsRangeEnd(): number {
-    const end = this.currentProjectPage * this.projectsPerPage
-    return Math.min(end, this.projects.length)
-  }
+  // ─── Pagination ─────────────────────────────────────────────────────────────
 
   onPrevProjectsPage(): void {
-    if (this.currentProjectPage > 1) {
-      this.currentProjectPage--
-    }
+    if (this.currentProjectPage > 1) this.currentProjectPage--
   }
 
   onNextProjectsPage(): void {
-    if (this.currentProjectPage < this.totalProjectPages) {
-      this.currentProjectPage++
-    }
+    if (this.currentProjectPage < this.totalProjectPages) this.currentProjectPage++
   }
+
+  // ─── Form helpers ───────────────────────────────────────────────────────────
 
   onNewProject(): void {
     this.selectedProjectId = null
@@ -255,7 +340,6 @@ export class ProjectManagementComponent implements OnInit {
   onSelectProject(project: AppProject): void {
     this.selectedProjectId = project._id
     this.assignedUserIds = new Set((project.assignedUsers || []).map((u) => u._id))
-
     this.projectForm.patchValue({
       title: project.title || '',
       description: project.description || '',
@@ -275,11 +359,24 @@ export class ProjectManagementComponent implements OnInit {
     else this.assignedUserIds.delete(userId)
   }
 
-  toggleEliteTeam(): void {
-    // kept for backward compatibility
+  onAssignUserChange(userId: string, event: Event): void {
+    const checked = (event.target as HTMLInputElement | null)?.checked ?? false
+    this.toggleAssignUser(userId, checked)
   }
 
-  openEliteTeamModal(content: any): void {
+  getUserInitials(name?: string | null): string {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean)
+    if (!parts.length) return 'U'
+    return `${parts[0]?.[0] || ''}${parts[1]?.[0] || ''}`.toUpperCase()
+  }
+
+  // ─── Elite Team Modal ───────────────────────────────────────────────────────
+
+  toggleEliteTeam(): void {
+  // TODO: implement elite team toggle
+}
+
+  openEliteTeamModal(content: TemplateRef<void>): void {
     this.eliteTeamSelectionBeforeOpen = new Set(this.assignedUserIds)
     this.eliteTeamApplied = false
     const ref = this.modalService.open(content, {
@@ -296,46 +393,13 @@ export class ProjectManagementComponent implements OnInit {
     })
   }
 
-  applyEliteTeamSelection(modal: any): void {
-    this.eliteTeamApplied = true
-    modal.close()
-    this.toastr.success('Team selection updated.', 'Team')
-  }
+applyEliteTeamSelection(modal: NgbModalRef): void {
+  this.eliteTeamApplied = true
+  modal.close()
+  this.toastr.success('Team selection updated.', 'Team')
+}
 
-  get selectedTeamUsers(): AppUser[] {
-    const byId = new Map(this.users.map((u) => [u._id, u]))
-    return Array.from(this.assignedUserIds)
-      .map((id) => byId.get(id))
-      .filter((u): u is AppUser => !!u)
-  }
-
-  get teamPreviewUsers(): AppUser[] {
-    return this.selectedTeamUsers.slice(0, 4)
-  }
-
-  get teamExtraCount(): number {
-    const count = this.selectedTeamUsers.length - this.teamPreviewUsers.length
-    return count > 0 ? count : 0
-  }
-
-  getUserInitials(name?: string | null): string {
-    const parts = String(name || '').trim().split(/\s+/).filter(Boolean)
-    if (!parts.length) return 'U'
-    const first = parts[0]?.[0] || ''
-    const second = parts[1]?.[0] || ''
-    return `${first}${second}`.toUpperCase()
-  }
-
-  get filteredEliteUsers(): AppUser[] {
-    const q = this.eliteTeamSearch.trim().toLowerCase()
-    if (!q) return this.users
-    return this.users.filter((u) => {
-      const name = String(u.name || '').toLowerCase()
-      const email = String(u.email || '').toLowerCase()
-      const role = String(u.role || '').toLowerCase()
-      return name.includes(q) || email.includes(q) || role.includes(q)
-    })
-  }
+  // ─── Save / Delete ─────────────────────────────────────────────────────────
 
   saveProject(): void {
     if (this.selectedProject && !this.canEditProject) {
@@ -346,7 +410,6 @@ export class ProjectManagementComponent implements OnInit {
       this.toastr.warning("Acces refuse: vous n'avez pas l'action Create Project.", 'Permission')
       return
     }
-
     if (this.projectForm.invalid || this.hasInvalidDateOrder()) {
       this.projectForm.markAllAsTouched()
       if (this.hasInvalidDateOrder()) {
@@ -354,7 +417,6 @@ export class ProjectManagementComponent implements OnInit {
       }
       return
     }
-
     const trimmedTitle = String(this.projectForm.value.title || '').trim()
     if (!trimmedTitle) {
       this.error = 'Project title is required.'
@@ -378,17 +440,12 @@ export class ProjectManagementComponent implements OnInit {
       : this.adminService.createProject(payload)
 
     req$.subscribe({
-      next: (res) => {
+      next: () => {
         const wasEditing = !!this.selectedProject
         this.submitting = false
         this.error = ''
-        this.toastr.success(
-          'This action was completed successfully.',
-          wasEditing ? 'Edited' : 'Created'
-        )
-        if (!wasEditing) {
-          this.onNewProject()
-        }
+        this.toastr.success('This action was completed successfully.', wasEditing ? 'Edited' : 'Created')
+        if (!wasEditing) this.onNewProject()
         this.loadProjects()
       },
       error: (err) => {
@@ -403,7 +460,6 @@ export class ProjectManagementComponent implements OnInit {
       this.toastr.warning("Acces refuse: vous n'avez pas l'action Delete Project.", 'Permission')
       return
     }
-
     const ref = this.modalService.open(ConfirmModalComponent, {
       centered: true,
       windowClass: 'confirm-modal-window',
@@ -428,12 +484,31 @@ export class ProjectManagementComponent implements OnInit {
     })
   }
 
-  openEditProjectModal(project: AppProject, content: any): void {
+  // ─── View Modal ─────────────────────────────────────────────────────────────
+
+  openProjectViewModal(project: AppProject): void {
+    this.viewProject = project
+    const ref = this.modalService.open(this.viewProjectModal, {
+      size: 'lg',
+      centered: true,
+      windowClass: 'exec-upsert-modal-window',
+      backdropClass: 'exec-upsert-modal-backdrop',
+    })
+    ref.result.finally(() => {
+      this.viewProject = null
+    })
+  }
+
+  // ─── Edit Modal ─────────────────────────────────────────────────────────────
+
+  openEditProjectModal(
+  project: AppProject,
+  content: TemplateRef<HTMLElement>
+): void {
     if (!this.canEditProject) {
       this.toastr.warning("Acces refuse: vous n'avez pas l'action Edit Project.", 'Permission')
       return
     }
-
     this.editingProjectId = project._id
     this.editAssignedUserIds = new Set((project.assignedUsers || []).map((u) => u._id))
     this.editProjectForm.reset({
@@ -444,7 +519,6 @@ export class ProjectManagementComponent implements OnInit {
       milestoneDate: this.toDateInput(project.milestoneDate),
       status: project.status || 'draft',
     })
-
     this.modalService.open(content, {
       size: 'lg',
       centered: true,
@@ -453,18 +527,16 @@ export class ProjectManagementComponent implements OnInit {
     })
   }
 
-  saveEditedProject(modal: any): void {
+  saveEditedProject(modal: NgbModalRef): void {
     if (!this.canEditProject) {
       this.toastr.warning("Acces refuse: vous n'avez pas l'action Edit Project.", 'Permission')
       return
     }
-
     if (!this.editingProjectId) return
     if (this.editProjectForm.invalid || this.hasInvalidEditDateOrder()) {
       this.editProjectForm.markAllAsTouched()
       return
     }
-
     const trimmedTitle = String(this.editProjectForm.value.title || '').trim()
     if (!trimmedTitle) {
       this.editProjectForm.controls.title.markAsTouched()
@@ -496,6 +568,8 @@ export class ProjectManagementComponent implements OnInit {
     })
   }
 
+  // ─── Edit Team ──────────────────────────────────────────────────────────────
+
   isEditAssigned(userId: string): boolean {
     return this.editAssignedUserIds.has(userId)
   }
@@ -505,20 +579,9 @@ export class ProjectManagementComponent implements OnInit {
     else this.editAssignedUserIds.delete(userId)
   }
 
-  get editSelectedCount(): number {
-    return this.editAssignedUserIds.size
-  }
-
-  get editAllSelected(): boolean {
-    const total = this.users.length
-    if (total === 0) return false
-    return this.editSelectedCount === total
-  }
-
-  get editFirstSelectedUser(): AppUser | null {
-    const firstId = Array.from(this.editAssignedUserIds)[0]
-    if (!firstId) return null
-    return this.users.find((u) => u._id === firstId) || null
+  onEditAssignUserChange(userId: string, event: Event): void {
+    const checked = (event.target as HTMLInputElement | null)?.checked ?? false
+    this.toggleEditAssignUser(userId, checked)
   }
 
   toggleEditEliteTeamDropdown(): void {
@@ -533,12 +596,37 @@ export class ProjectManagementComponent implements OnInit {
     this.editAssignedUserIds.clear()
   }
 
+  onEditAllChange(event: Event): void {
+    const checked = (event.target as HTMLInputElement | null)?.checked ?? false
+    this.toggleEditAll(checked)
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement | null
     if (!target?.closest('.edit-elite-dropdown')) {
       this.editEliteTeamOpen = false
     }
+  }
+
+  // ─── Date helpers ───────────────────────────────────────────────────────────
+
+  hasInvalidDateOrder(): boolean {
+    const start = this.normalizeDateForApi(this.projectForm.value.startDate) || ''
+    const end = this.normalizeDateForApi(this.projectForm.value.endDate) || ''
+    const milestone = this.normalizeDateForApi(this.projectForm.value.milestoneDate) || ''
+    if (start && end && end < start) return true
+    if (start && milestone && milestone < start) return true
+    return false
+  }
+
+  hasInvalidEditDateOrder(): boolean {
+    const start = this.editProjectForm.value.startDate || ''
+    const end = this.editProjectForm.value.endDate || ''
+    const milestone = this.editProjectForm.value.milestoneDate || ''
+    if (start && end && end < start) return true
+    if (start && milestone && milestone < start) return true
+    return false
   }
 
   private toDateInput(value?: string | null): string {
@@ -558,45 +646,51 @@ export class ProjectManagementComponent implements OnInit {
     return Number.isNaN(dt.getTime()) ? null : dt.toISOString().slice(0, 10)
   }
 
-  hasInvalidDateOrder(): boolean {
-    const start = this.normalizeDateForApi(this.projectForm.value.startDate) || ''
-    const end = this.normalizeDateForApi(this.projectForm.value.endDate) || ''
-    const milestone = this.normalizeDateForApi(this.projectForm.value.milestoneDate) || ''
-
-    if (start && end && end < start) return true
-    if (start && milestone && milestone < start) return true
-    return false
-  }
-
-  hasInvalidEditDateOrder(): boolean {
-    const start = this.editProjectForm.value.startDate || ''
-    const end = this.editProjectForm.value.endDate || ''
-    const milestone = this.editProjectForm.value.milestoneDate || ''
-
-    if (start && end && end < start) return true
-    if (start && milestone && milestone < start) return true
-    return false
-  }
+  // ─── Avatar helpers ─────────────────────────────────────────────────────────
 
   resolveAvatarUrl(picture?: string): string {
     const raw = String(picture || '').trim()
     if (!raw) return this.defaultAvatar
-    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw
-    if (raw.startsWith('/')) return `${this.backendOrigin}${raw}`
+    if (this.isAbsoluteHttpUrl(raw)) return raw
+    if (raw.startsWith('/')) return this.api.toAbsoluteUrl(raw)
     return raw
   }
 
-  onAvatarError(event: Event) {
+  private isAbsoluteHttpUrl(value: string): boolean {
+    try {
+      const u = new URL(value)
+      return u.protocol === 'http:' || u.protocol === 'https:'
+    } catch {
+      return false
+    }
+  }
+
+  onAvatarError(event: Event): void {
     const img = event.target as HTMLImageElement | null
     if (!img) return
     img.src = this.defaultAvatar
   }
 
-  private async loadCurrentUserContext(): Promise<void> {
-    const current = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
-    this.currentUserId = String((current as any)?.id || (current as any)?._id || '').trim()
-    this.currentUserEmail = String((current as any)?.email || '').trim().toLowerCase()
+  // ─── Navigation ─────────────────────────────────────────────────────────────
+
+  createTestPlanForProject(project: AppProject): void {
+    this.router.navigate(['/test-plan'], {
+      queryParams: { projectId: project._id, projectName: project.title },
+    })
   }
+
+  // ─── Private helpers ────────────────────────────────────────────────────────
+
+ private async loadCurrentUserContext(): Promise<void> {
+  const current = await firstValueFrom(
+    this.store.select(getUser).pipe(take(1))
+  )
+
+  const user = current as { id?: string; _id?: string; email?: string }
+
+  this.currentUserId = String(user?.id || user?._id || '').trim()
+  this.currentUserEmail = String(user?.email || '').trim().toLowerCase()
+}
 
   private isCurrentUser(user: AppUser): boolean {
     const userId = String(user?._id || '').trim()
@@ -605,15 +699,4 @@ export class ProjectManagementComponent implements OnInit {
     const emailMatch = userEmail.length > 0 && userEmail === this.currentUserEmail
     return idMatch || emailMatch
   }
-
-  createTestPlanForProject(project: AppProject): void {
-    // Navigate to test-plan page with project pre-selected
-    this.router.navigate(['/test-plan'], {
-      queryParams: {
-        projectId: project._id,
-        projectName: project.title
-      }
-    })
-  }
-
 }

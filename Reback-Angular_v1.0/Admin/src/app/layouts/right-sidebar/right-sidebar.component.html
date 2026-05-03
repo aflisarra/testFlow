@@ -6,12 +6,12 @@
   >
     <div class="d-flex align-items-center bg-primary p-3 offcanvas-header">
       <h5 class="text-white m-0">Theme Settings</h5>
-      <button
-        type="button"
-        class="btn-close btn-close-white ms-auto"
-        (click)="offcanvas.dismiss('Cross click')"
-      ></button>
-    </div>
+     <button
+  type="button"
+  class="btn-close btn-close-white ms-auto"
+  aria-label="Close"
+  (click)="offcanvas.dismiss('Cross click')"
+></button>
 
     <div class="offcanvas-body p-0">
       <ngx-simplebar style="height: calc(100vh - 140px)">
@@ -26,7 +26,7 @@
                 name="data-bs-theme"
                 id="layout-color-light"
                 value="light"
-                [checked]="color == 'light'"
+                [checked]="color === 'light'"
                 (change)="changeLayoutColor('light')"
               />
               <label class="form-check-label" for="layout-color-light">
@@ -40,7 +40,7 @@
                 name="data-bs-theme"
                 id="layout-color-dark"
                 value="dark"
-                [checked]="color == 'dark'"
+                [checked]="color === 'dark'"
                 (change)="changeLayoutColor('dark')"
               />
               <label class="form-check-label" for="layout-color-dark"
@@ -59,10 +59,12 @@
                 name="data-topbar-color"
                 id="topbar-color-light"
                 value="light"
-                [checked]="topbar == 'light'"
+                [checked]="topbar === 'light'"
                 (change)="changeTopbar('light')"
               />
-              <label class="form-check-label"> Light </label>
+              <label class="form-check-label" for="layout-color-light">
+  Light
+</label>
             </div>
 
             <div class="form-check mb-2">
@@ -72,7 +74,7 @@
                 name="data-topbar-color"
                 id="topbar-color-dark"
                 value="dark"
-                [checked]="topbar == 'dark'"
+                [checked]="topbar === 'dark'"
                 (change)="changeTopbar('dark')"
               />
               <label class="form-check-label" for="topbar-color-dark">
@@ -91,7 +93,7 @@
                 name="data-menu-color"
                 id="leftbar-color-light"
                 value="light"
-                [checked]="menucolor == 'light'"
+                [checked]="menucolor === 'light'"
                 (change)="changeMenu('light')"
               />
               <label class="form-check-label" for="leftbar-color-light">
@@ -106,7 +108,7 @@
                 name="data-menu-color"
                 id="leftbar-color-dark"
                 value="dark"
-                [checked]="menucolor == 'dark'"
+                [checked]="menucolor === 'dark'"
                 (change)="changeMenu('dark')"
               />
               <label class="form-check-label" for="leftbar-color-dark">
@@ -125,7 +127,7 @@
                 name="data-menu-size"
                 id="leftbar-size-default"
                 value="default"
-                [checked]="sidebarsize == 'default'"
+                [checked]="sidebarsize === 'default'"
                 (change)="changeSize('default')"
               />
               <label class="form-check-label" for="leftbar-size-default">
@@ -140,7 +142,7 @@
                 name="data-menu-size"
                 id="leftbar-size-small"
                 value="condensed"
-                [checked]="sidebarsize == 'condensed'"
+                [checked]="sidebarsize === 'condensed'"
                 (change)="changeSize('condensed')"
               />
               <label class="form-check-label" for="leftbar-size-small">
@@ -155,7 +157,7 @@
                 name="data-menu-size"
                 id="leftbar-hidden"
                 value="hidden"
-                [checked]="sidebarsize == 'hidden'"
+                [checked]="sidebarsize === 'hidden'"
                 (change)="changeSize('hidden')"
               />
               <label class="form-check-label" for="leftbar-hidden">
@@ -170,7 +172,7 @@
                 name="data-menu-size"
                 id="leftbar-size-small-hover-active"
                 value="sm-hover-active"
-                [checked]="sidebarsize == 'sm-hover-active'"
+                [checked]="sidebarsize === 'sm-hover-active'"
                 (change)="changeSize('sm-hover-active')"
               />
               <label
@@ -188,7 +190,7 @@
                 name="data-menu-size"
                 id="leftbar-size-small-hover"
                 value="sm-hover"
-                [checked]="sidebarsize == 'sm-hover'"
+                [checked]="sidebarsize === 'sm-hover'"
                 (change)="changeSize('sm-hover')"
               />
               <label class="form-check-label" for="leftbar-size-full">

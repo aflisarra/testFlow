@@ -17,7 +17,7 @@ $font-family-secondary: 'Wix Madefor Text', sans-serif;
 //
 
 // scss-docs-start gray-color-variables
-$white: #ffffff;
+$white: #fff;
 $gray-100: #f8f9fa;
 $gray-200: #eef2f7;
 $gray-300: #d8dfe7;
@@ -27,7 +27,7 @@ $gray-600: #5d7186;
 $gray-700: #424e5a;
 $gray-800: #36404a;
 $gray-900: #323a46;
-$black: #000000;
+$black: #000;
 // scss-docs-end gray-color-variables
 
 // scss-docs-start color-variables
@@ -568,9 +568,9 @@ $border-radius-2xl: $border-radius-xxl; // Deprecated in v5.3.0
 // fusv-enable
 
 // scss-docs-start box-shadow-variables
-$box-shadow: 0px 3px 4px 0px rgba(0, 0, 0, 0.03);
+$box-shadow: 0px 3px 4px 0px rgb(0 0 0 / 3%);
 $box-shadow-sm: 0 0.125rem 0.25rem rgba($black, 0.075);
-$box-shadow-lg: 0 5px 10px rgba(30, 32, 37, 0.12);
+$box-shadow-lg: 0 5px 10px rgb(30 32 37 / 12%);
 $box-shadow-inset: inset 0 1px 2px rgba($black, 0.075);
 // scss-docs-end box-shadow-variables
 
@@ -754,15 +754,15 @@ $table-th-font-weight: null;
 
 $table-striped-color: $table-color;
 $table-striped-bg-factor: 0.02;
-$table-striped-bg: rgba(var(--#{$prefix}black-rgb), $table-striped-bg-factor);
+$table-striped-bg: rgb(var(--#{$prefix}black-rgb), $table-striped-bg-factor);
 
 $table-active-color: $table-color;
 $table-active-bg-factor: 0.02;
-$table-active-bg: rgba(var(--#{$prefix}black-rgb), $table-active-bg-factor);
+$table-active-bg: rgb(var(--#{$prefix}black-rgb), $table-active-bg-factor);
 
 $table-hover-color: $table-color;
 $table-hover-bg-factor: 0.02;
-$table-hover-bg: rgba(var(--#{$prefix}black-rgb), $table-hover-bg-factor);
+$table-hover-bg: rgb(var(--#{$prefix}black-rgb), $table-hover-bg-factor);
 
 $table-border-factor: 0.1;
 $table-border-width: var(--#{$prefix}border-width);
@@ -1151,7 +1151,7 @@ $form-validation-states: (
         'tooltip-color': #fff,
         'tooltip-bg-color': var(--#{$prefix}success),
         'focus-box-shadow': 0 0 $input-btn-focus-blur $input-focus-width
-            rgba(var(--#{$prefix}success-rgb), $input-btn-focus-color-opacity),
+            rgb(var(--#{$prefix}success-rgb), $input-btn-focus-color-opacity),
         'border-color': var(--#{$prefix}form-valid-border-color),
     ),
     'invalid': (
@@ -1160,7 +1160,7 @@ $form-validation-states: (
         'tooltip-color': #fff,
         'tooltip-bg-color': var(--#{$prefix}danger),
         'focus-box-shadow': 0 0 $input-btn-focus-blur $input-focus-width
-            rgba(var(--#{$prefix}danger-rgb), $input-btn-focus-color-opacity),
+            rgb(var(--#{$prefix}danger-rgb), $input-btn-focus-color-opacity),
         'border-color': var(--#{$prefix}form-invalid-border-color),
     ),
 );
@@ -1251,13 +1251,13 @@ $navbar-toggler-border-radius: $btn-border-radius;
 $navbar-toggler-focus-width: $btn-focus-width;
 $navbar-toggler-transition: box-shadow 0.15s ease-in-out;
 
-$navbar-light-color: rgba(var(--#{$prefix}emphasis-color-rgb), 0.65);
-$navbar-light-hover-color: rgba(var(--#{$prefix}emphasis-color-rgb), 0.8);
-$navbar-light-active-color: rgba(var(--#{$prefix}emphasis-color-rgb), 1);
-$navbar-light-disabled-color: rgba(var(--#{$prefix}emphasis-color-rgb), 0.3);
+$navbar-light-color: rgb(var(--#{$prefix}emphasis-color-rgb), 0.65);
+$navbar-light-hover-color: rgb(var(--#{$prefix}emphasis-color-rgb), 0.8);
+$navbar-light-active-color: rgb(var(--#{$prefix}emphasis-color-rgb), 1);
+$navbar-light-disabled-color: rgb(var(--#{$prefix}emphasis-color-rgb), 0.3);
 $navbar-light-icon-color: rgba($body-color, 0.75);
 $navbar-light-toggler-icon-bg: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path stroke='#{rgba($body-color, .75)}' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/></svg>");
-$navbar-light-toggler-border-color: rgba(
+$navbar-light-toggler-border-color: rgb(
     var(--#{$prefix}emphasis-color-rgb),
     0.15
 );
@@ -1540,7 +1540,7 @@ $toast-box-shadow: var(--#{$prefix}box-shadow);
 $toast-spacing: $container-padding-x;
 
 $toast-header-color: var(--#{$prefix}secondary-color);
-$toast-header-background-color: rgba(var(--#{$prefix}body-bg-rgb), 0.85);
+$toast-header-background-color: rgb(var(--#{$prefix}body-bg-rgb), 0.85);
 $toast-header-border-color: $toast-border-color;
 // scss-docs-end toast-variables
 

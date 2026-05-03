@@ -4,10 +4,8 @@
 
 [data-simplebar] {
     position: relative !important;
-    flex-direction: column !important;
-    flex-wrap: wrap !important;
-    justify-content: flex-start !important;
-    align-content: flex-start !important;
+    flex-flow: column wrap !important;
+    place-content: flex-start flex-start !important;
     align-items: flex-start !important;
 }
 
@@ -25,10 +23,7 @@
     overflow: hidden !important;
     padding: 0 !important;
     margin: 0 !important;
-    left: 0 !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    right: 0 !important;
+    inset: 0 !important;
     width: auto !important;
     height: auto !important ;
     z-index: 0 !important;
@@ -39,10 +34,7 @@
     box-sizing: inherit !important;
     resize: none !important;
     position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    bottom: 0 !important;
-    right: 0 !important;
+    inset: 0 !important;
     padding: 0 !important;
     margin: 0 !important;
     -webkit-overflow-scrolling: touch !important;
@@ -54,14 +46,18 @@
     position: relative !important;
     display: block !important;
     height: 100% !important;
+
     /* Required for horizontal native scrollbar to not appear if parent is taller than natural height */
     width: auto !important;
     visibility: visible !important;
     overflow: auto !important;
+
     /* Scroll on this element otherwise element can't have a padding applied properly */
     max-width: 100% !important;
+
     /* Not required for horizontal scroll to trigger */
     max-height: 100% !important;
+
     /* Needed for vertical scroll to trigger */
     scrollbar-width: none !important;
 }
@@ -71,8 +67,8 @@
     display: none !important;
 }
 
-.simplebar-content:before,
-.simplebar-content:after {
+.simplebar-content::before,
+.simplebar-content::after {
     content: ' ' !important;
     display: table !important;
 }
@@ -130,7 +126,6 @@
 [data-simplebar].simplebar-dragging .simplebar-content {
     pointer-events: none !important;
     user-select: none !important;
-    -webkit-user-select: none !important;
 }
 
 [data-simplebar].simplebar-dragging .simplebar-track {
@@ -144,7 +139,7 @@
     min-height: 10px !important;
 }
 
-.simplebar-scrollbar:before {
+.simplebar-scrollbar::before {
     position: absolute !important;
     content: '' !important;
     background: #a2adb7 !important;
@@ -155,7 +150,7 @@
     transition: opacity 0.2s linear !important;
 }
 
-.simplebar-scrollbar.simplebar-visible:before {
+.simplebar-scrollbar.simplebar-visible::before {
     /* When hovered, remove all transitions from drag handle */
     opacity: 0.5 !important;
     transition: opacity 0s linear !important;
@@ -166,7 +161,7 @@
     width: 11px !important;
 }
 
-.simplebar-track.simplebar-vertical .simplebar-scrollbar:before {
+.simplebar-track.simplebar-vertical .simplebar-scrollbar::before {
     top: 2px !important;
     bottom: 2px !important;
 }
@@ -176,7 +171,7 @@
     height: 11px !important;
 }
 
-.simplebar-track.simplebar-horizontal .simplebar-scrollbar:before {
+.simplebar-track.simplebar-horizontal .simplebar-scrollbar::before {
     height: 100% !important;
     left: 2px !important;
     right: 2px !important;
@@ -205,8 +200,7 @@
     visibility: hidden !important;
     height: 500px !important;
     width: 500px !important;
-    overflow-y: hidden !important;
-    overflow-x: scroll !important;
+    overflow: scroll hidden !important;
 }
 
 .simplebar-hide-scrollbar {
@@ -232,7 +226,7 @@
 @each $color, $value in $theme-colors {
     [data-simplebar-#{$color}] {
         .simplebar-scrollbar {
-            &:before {
+            &::before {
                 background: $value !important;
             }
         }

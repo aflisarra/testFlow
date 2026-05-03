@@ -1,7 +1,4 @@
-@import "nouislider/dist/nouislider.css";
-@import "quill/dist/quill.snow.css";
-@import "quill/dist/quill.bubble.css";
-@import "@ctrl/ngx-emoji-mart/picker";
+/* Vendor CSS moved to angular.json "styles" to avoid Sass/esbuild resolution issues. */
 
 .apex-charts {
   div {
@@ -58,7 +55,7 @@
 
 .standard {
   .toast-body {
-    padding: 0px !important;
+    padding: 0 !important;
   }
 }
 

@@ -1,4 +1,4 @@
-import { CUSTOM_ELEMENTS_SCHEMA, Component, DestroyRef, inject } from '@angular/core'
+import { CUSTOM_ELEMENTS_SCHEMA, Component, DestroyRef, inject, OnInit, AfterViewInit } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { SimplebarAngularModule } from 'simplebar-angular'
 import { NavigationEnd, Router, RouterModule } from '@angular/router'
@@ -32,72 +32,73 @@ import { getUser } from '@/app/store/authentication/authentication.selector'
   styles: ``,
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
-export class SidebarComponent {
+export class SidebarComponent implements OnInit, AfterViewInit {
   menuItems: MenuItem[] = []
   activeMenuItems: string[] = []
 
   store = inject(Store)
   private destroyRef = inject(DestroyRef)
   router = inject(Router)
-  trimmedURL = this.router.url?.replaceAll(
+
+  trimmedURL = this.router.url.replaceAll(
     basePath !== '' ? basePath + '/' : '',
     '/'
   )
 
-  constructor() {
-    this.router.events.forEach((event) => {
-      if (event instanceof NavigationEnd) {
-        this.trimmedURL = this.router.url?.replaceAll(
-          basePath !== '' ? basePath + '/' : '',
-          '/'
-        )
-        this._activateMenu()
-        setTimeout(() => {
-          this.scrollToActive()
-        }, 200)
-      }
-    })
-  }
-
   ngOnInit(): void {
     this.initMenu()
+
+    this.router.events
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((event) => {
+        if (event instanceof NavigationEnd) {
+          this.trimmedURL = this.router.url.replaceAll(
+            basePath !== '' ? basePath + '/' : '',
+            '/'
+          )
+
+          this._activateMenu()
+          setTimeout(() => this.scrollToActive(), 200)
+        }
+      })
   }
 
   initMenu(): void {
     this.store
       .select(getUser)
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((user) => {
-        const actionIds = (user?.actions || []) as number[]
+      .subscribe((user: { actions?: number[] } | null) => {
+        const actionIds = user?.actions ?? []
         this.menuItems = this.buildMenuForActions(actionIds)
       })
   }
 
-  ngAfterViewInit() {
-    setTimeout(() => {
-      this._activateMenu()
-    })
-    setTimeout(() => {
-      this.scrollToActive()
-    }, 200)
+  ngAfterViewInit(): void {
+    setTimeout(() => this._activateMenu())
+    setTimeout(() => this.scrollToActive(), 200)
   }
 
   scrollToActive(): void {
     const activatedItem = document.querySelector('.nav-item li a.active')
+
     if (activatedItem) {
       const simplebarContent = document.querySelector(
         '.main-nav .simplebar-content-wrapper'
-      )
+      ) as HTMLElement | null
+
       if (simplebarContent) {
         const activatedItemRect = activatedItem.getBoundingClientRect()
         const simplebarContentRect = simplebarContent.getBoundingClientRect()
+
         const activatedItemOffsetTop =
           activatedItemRect.top + simplebarContent.scrollTop
+
         const centerOffset =
           activatedItemOffsetTop -
           simplebarContentRect.top -
           simplebarContent.clientHeight / 2 +
           activatedItemRect.height / 2
+
         this.scrollTo(simplebarContent, centerOffset, 600)
       }
     }
@@ -105,162 +106,161 @@ export class SidebarComponent {
 
   easeInOutQuad(t: number, b: number, c: number, d: number): number {
     t /= d / 2
+
     if (t < 1) return (c / 2) * t * t + b
+
     t--
+
     return (-c / 2) * (t * (t - 2) - 1) + b
   }
 
-  scrollTo(element: Element, to: number, duration: number): void {
+  scrollTo(element: HTMLElement, to: number, duration: number): void {
     const start = element.scrollTop
     const change = to - start
     const increment = 20
     let currentTime = 0
 
-    const animateScroll = () => {
+    const animateScroll = (): void => {
       currentTime += increment
+
       const val = this.easeInOutQuad(currentTime, start, change, duration)
+
       element.scrollTop = val
+
       if (currentTime < duration) {
         setTimeout(animateScroll, increment)
       }
     }
+
     animateScroll()
   }
 
   _activateMenu(): void {
     const div = document.querySelector('.navbar-nav')
 
-    let matchingMenuItem = null
+    let matchingMenuItem: Element | null = null
 
     if (div) {
-      let items: any = div.getElementsByClassName('nav-link-ref')
-      for (let i = 0; i < items.length; ++i) {
+      const items = div.getElementsByClassName('nav-link-ref')
+
+      for (const item of Array.from(items)) {
+        const link = item as HTMLAnchorElement
+
         if (
-          this.trimmedURL === items[i].pathname ||
+          this.trimmedURL === link.pathname ||
           (this.trimmedURL.startsWith('/invoice/') &&
-            items[i].pathname === '/invoice/RB6985') ||
+            link.pathname === '/invoice/RB6985') ||
           (this.trimmedURL.startsWith('/ecommerce/product/') &&
-            items[i].pathname === '/ecommerce/product/1')
+            link.pathname === '/ecommerce/product/1')
         ) {
-          matchingMenuItem = items[i]
+          matchingMenuItem = link
           break
         }
       }
 
       if (matchingMenuItem) {
-        const mid = matchingMenuItem.getAttribute('aria-controls')
+        const mid = matchingMenuItem.getAttribute('aria-controls') ?? ''
         const activeMt = findMenuItem(this.menuItems, mid)
 
-        if (activeMt) {
+        if (activeMt?.key) {
           const matchingObjs = [
-            activeMt['key'],
+            activeMt.key,
             ...findAllParent(this.menuItems, activeMt),
           ]
 
           this.activeMenuItems = matchingObjs
-          this.menuItems.forEach((menu: MenuItem) => {
-            menu.collapsed = !matchingObjs.includes(menu.key!)
+
+          this.menuItems.forEach((menu) => {
+            menu.collapsed = !matchingObjs.includes(menu.key ?? '')
           })
         }
       }
     }
   }
 
-  /**
-   * Returns true or false if given menu item has child or not
-   * @param item menuItem
-   */
   hasSubmenu(menu: MenuItem): boolean {
-    return menu.subMenu ? true : false
+    return !!menu.subMenu?.length
   }
 
-  /**
-   * toggles open menu
-   * @param menuItem clicked menuitem
-   * @param collapse collpase instance
-   */
   toggleMenuItem(menuItem: MenuItem, collapse: NgbCollapse): void {
     collapse.toggle()
-    let openMenuItems: string[]
-    if (!menuItem.collapsed) {
-      openMenuItems = [
-        menuItem['key'],
+
+    if (!menuItem.collapsed && menuItem.key) {
+      const openMenuItems = [
+        menuItem.key,
         ...findAllParent(this.menuItems, menuItem),
       ]
-      this.menuItems.forEach((menu: MenuItem) => {
-        if (!openMenuItems.includes(menu.key!)) {
+
+      this.menuItems.forEach((menu) => {
+        if (!openMenuItems.includes(menu.key ?? '')) {
           menu.collapsed = true
         }
       })
     }
   }
 
-  changeSidebarSize() {
-    let size = document.documentElement.getAttribute('data-menu-size')
-    if (size == 'sm-hover') {
-      size = 'sm-hover-active'
-    } else {
-      size = 'sm-hover'
-    }
+  changeSidebarSize(): void {
+    let size =
+      document.documentElement.getAttribute('data-menu-size') ?? 'sm-hover'
+
+    size = size === 'sm-hover' ? 'sm-hover-active' : 'sm-hover'
+
     this.store.dispatch(changesidebarsize({ size }))
-    this.store.select(getSidebarsize).subscribe((size) => {
-      document.documentElement.setAttribute('data-menu-size', size)
+
+    this.store.select(getSidebarsize).subscribe((value: string) => {
+      document.documentElement.setAttribute('data-menu-size', value)
     })
   }
 
   private buildMenuForActions(actionIds: number[]): MenuItem[] {
     const clonedMenu = this.cloneMenu(MENU)
-    if (!actionIds || actionIds.length === 0) return clonedMenu
+
+    if (actionIds.length === 0) {
+      return clonedMenu
+    }
 
     const ids = new Set(
-      (actionIds || [])
-        .map((x) => Number(x))
-        .filter((x) => Number.isFinite(x))
+      actionIds.map((x) => Number(x)).filter((x) => Number.isFinite(x))
     )
 
-    // Map UI pages to backend action IDs (seed.actions.js)
-    const canManageRoles = ids.has(8) // view role (used by /admin/roles page)
-    const canManageUsers = ids.has(10) || ids.has(4) // list-users or view-user
-    const canListProjects = ids.has(11) // list-projects (used by /project page)
+    const canManageRoles = ids.has(8)
+    const canManageUsers = ids.has(10) || ids.has(4)
+    const canListProjects = ids.has(11)
 
     const usersMenu = clonedMenu.find((m) => m.key === 'users')
-    if (usersMenu?.subMenu?.length) {
-      usersMenu.subMenu = (usersMenu.subMenu as MenuItem[]).filter((child) => {
-        if (child.link === '/admin/roles') {
-          return canManageRoles
-        }
-        if (child.link === '/admin/users') {
-          return canManageUsers
-        }
+
+    if (usersMenu?.subMenu) {
+      usersMenu.subMenu = usersMenu.subMenu.filter((child) => {
+        if (child.link === '/admin/roles') return canManageRoles
+        if (child.link === '/admin/users') return canManageUsers
         return true
       })
     }
 
     const projectMenu = clonedMenu.find((m) =>
-      Array.isArray(m.subMenu) && (m.subMenu as MenuItem[]).some((c) => c.link === '/project')
+      m.subMenu?.some((c) => c.link === '/project')
     )
-    if (projectMenu?.subMenu?.length) {
-      projectMenu.subMenu = (projectMenu.subMenu as MenuItem[]).filter((child) => {
-        if (child.link === '/project') {
-          return canListProjects
-        }
+
+    if (projectMenu?.subMenu) {
+      projectMenu.subMenu = projectMenu.subMenu.filter((child) => {
+        if (child.link === '/project') return canListProjects
         return true
       })
     }
 
-    return clonedMenu.filter((m) => !m.subMenu || (m.subMenu as MenuItem[]).length > 0 || m.isTitle)
+    return clonedMenu.filter(
+      (m) => !m.subMenu || m.subMenu.length > 0 || m.isTitle
+    )
   }
 
   private cloneMenu(menu: MenuItem[]): MenuItem[] {
-    return (menu || []).map((item) => this.cloneMenuItem(item))
+    return menu.map((item) => this.cloneMenuItem(item))
   }
 
   private cloneMenuItem(item: MenuItem): MenuItem {
     return {
       ...item,
-      subMenu: Array.isArray(item.subMenu)
-        ? (item.subMenu as MenuItem[]).map((child) => this.cloneMenuItem(child))
-        : item.subMenu,
+      subMenu: item.subMenu?.map((child) => this.cloneMenuItem(child)),
     }
   }
 }

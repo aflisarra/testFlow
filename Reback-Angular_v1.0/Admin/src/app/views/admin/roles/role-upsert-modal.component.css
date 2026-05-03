@@ -1,14 +1,12 @@
 .exec-upsert {
   --font-display: 'Poppins', 'Segoe UI', sans-serif;
   --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
-  font-family: var(--font-body);
-}
 
-.exec-upsert {
+  font-family: var(--font-body);
   position: relative;
   border-radius: 16px;
-  background: #ffffff;
-  box-shadow: 0 18px 44px rgba(12, 40, 70, 0.16);
+  background: #fff;
+  box-shadow: 0 18px 44px rgb(12 40 70 / 16%);
 }
 
 .exec-upsert.exec-upsert--inline {
@@ -19,7 +17,7 @@
 
 .exec-upsert-body {
   padding: 1.25rem 1.25rem 1.1rem;
-  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 48%);
+  background: linear-gradient(180deg, #f8fbff 0%, #fff 48%);
 }
 
 .exec-upsert.exec-upsert--inline .exec-upsert-body {
@@ -59,7 +57,7 @@
   height: 2rem;
   border: 1px solid #d5e2f1;
   border-radius: 999px;
-  background: #ffffff;
+  background: #fff;
   color: #35597e;
   font-size: 1.35rem;
   line-height: 1;
@@ -115,33 +113,33 @@
 .exec-input:focus {
   border-color: #6366f1;
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 10%);
 }
 
 .exec-select:focus,
 .exec-textarea:focus {
   border-color: #7aa9d9;
-  box-shadow: 0 0 0 3px rgba(122, 169, 217, 0.18);
+  box-shadow: 0 0 0 3px rgb(122 169 217 / 18%);
 }
 
 .exec-input.is-invalid {
   border-color: #ef4444;
   background: #fef5f5;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.08);
+  box-shadow: 0 0 0 3px rgb(239 68 68 / 8%);
 }
 
 .exec-select.is-invalid,
 .exec-textarea.is-invalid {
   border-color: #ef4444;
   background: #fef5f5;
-  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.12);
+  box-shadow: 0 0 0 2px rgb(239 68 68 / 12%);
 }
 
 .exec-input.is-invalid:focus,
 .exec-select.is-invalid:focus,
 .exec-textarea.is-invalid:focus {
   border-color: #ef4444;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+  box-shadow: 0 0 0 3px rgb(239 68 68 / 18%);
 }
 
 .exec-actions-head {
@@ -191,7 +189,7 @@
 
 .exec-actions-trigger:hover {
   border-color: #7aa9d9;
-  box-shadow: 0 0 0 3px rgba(122, 169, 217, 0.18);
+  box-shadow: 0 0 0 3px rgb(122 169 217 / 18%);
 }
 
 .exec-actions-trigger.is-invalid {
@@ -234,7 +232,7 @@
   border-radius: 12px;
   background: #f9fcff;
   padding: 0.5rem;
-  box-shadow: 0 -6px 24px rgba(12, 40, 70, 0.15);
+  box-shadow: 0 -6px 24px rgb(12 40 70 / 15%);
 }
 
 .exec-actions-box.is-invalid {
@@ -302,7 +300,7 @@
 .exec-btn-save {
   background: #ec8a00;
   border: 1px solid #ec8a00;
-  color: #ffffff;
+  color: #fff;
 }
 
 .exec-btn-save:hover:not(:disabled) {

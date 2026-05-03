@@ -1,5 +1,5 @@
-import { LogoBoxComponent } from '@/app/components/logo-box.component'
-import { Component, OnInit } from '@angular/core'
+import { LogoBoxComponent } from 'src/app/components/logo-box.component'
+import { Component, inject, OnInit } from '@angular/core'
 import { RouterLink, ActivatedRoute, Router } from '@angular/router'
 import { AuthenticationService } from '../../../../app/core/services/auth.service'
 import { FormsModule } from '@angular/forms'
@@ -15,6 +15,11 @@ type Step = 'email' | 'otp' | 'new-password' | 'done'
   styles: ``,
 })
 export class ResetPassComponent implements OnInit {
+
+  private route = inject(ActivatedRoute)
+  private router = inject(Router)
+  private auth = inject(AuthenticationService)
+
   step: Step = 'email'
   email = ''
   otpCode = ''
@@ -23,11 +28,8 @@ export class ResetPassComponent implements OnInit {
   loading = false
   errorMsg = ''
 
-  constructor(
-    private route: ActivatedRoute,
-    private router: Router,
-    private auth: AuthenticationService
-  ) { }
+ 
+
 
   ngOnInit() {
     const token = this.route.snapshot.queryParams['token']
@@ -49,7 +51,7 @@ export class ResetPassComponent implements OnInit {
 
   submitEmail() {
     if (!this.email) return
-    console.log("email valide hhhh")
+    console.log("email valide")
     this.loading = true
     this.errorMsg = ''
     console.log("message")

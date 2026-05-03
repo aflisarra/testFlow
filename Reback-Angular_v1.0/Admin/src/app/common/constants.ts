@@ -8,5 +8,4 @@ export const credits = {
   name: 'Techzaa',
   buyLink: '',
 }
-
-export const basePath: string = '/'
+export const basePath = '/' as string

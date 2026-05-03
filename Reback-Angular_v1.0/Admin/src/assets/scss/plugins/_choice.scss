@@ -1,7 +1,7 @@
 //
 // _choices.scss
 //
-@import 'choices.js/src/styles/choices.scss';
+@import url('choices.js/src/styles/choices.scss');
 
 .choices {
     // data-type = select-one
@@ -22,7 +22,7 @@
             }
         }
 
-        &:after {
+        &::after {
             content: '\ea4a';
             position: absolute;
             border: 0;
@@ -30,7 +30,7 @@
             right: 12px;
             left: auto;
             font-size: 20px;
-            font-family: 'boxicons';
+            font-family: boxicons;
             width: auto;
             height: auto;
             margin-top: 0;
@@ -39,7 +39,7 @@
             pointer-events: none;
         }
 
-        &.is-open:after {
+        &.is-open::after {
             margin-top: 0;
             transform: translateY(-50%) rotate(-180deg);
         }
@@ -142,7 +142,7 @@
 }
 
 .choices__list--dropdown {
-    padding: 10px 10px 20px 10px;
+    padding: 10px 10px 20px;
     background-color: $card-bg !important;
     border: 1px solid $dropdown-border-color !important;
     box-shadow: $box-shadow-lg;
@@ -164,7 +164,7 @@
         margin: 0 -10px -16px;
 
         &::-webkit-scrollbar {
-            -webkit-appearance: none;
+            appearance: none;
         }
 
         &::-webkit-scrollbar:vertical {
@@ -177,7 +177,7 @@
         }
 
         &::-webkit-scrollbar-thumb {
-            background-color: rgba(var(--#{$prefix}dark-rgb), 0.1);
+            background-color: rgb(var(--#{$prefix}dark-rgb), 0.1);
             border-radius: 10px;
             border: 2px solid $card-bg;
         }
@@ -193,7 +193,7 @@
         font-weight: $font-weight-medium;
     }
 
-    .choices__item--selectable:after {
+    .choices__item--selectable::after {
         display: none;
     }
 }

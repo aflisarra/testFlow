@@ -4,7 +4,7 @@
 
 body {
     &.authentication-bg {
-        background: url(../../images/bg-overlay.svg) $primary;
+        background: url("../../images/bg-overlay.svg") $primary;
         padding-bottom: 0;
 
         .account-pages {

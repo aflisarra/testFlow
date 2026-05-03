@@ -44,9 +44,11 @@
       <p class="exec-header__meta">
         Execution ID: <strong>{{ scenario.executionId }}</strong>
         &nbsp;·&nbsp; Environment: <strong>{{ scenario.environment }}</strong>
-        <span *ngIf="scenario.executionTime !== '—'">
-          &nbsp;·&nbsp; Execution time: <strong>{{ scenario.executionTime }}</strong>
-        </span>
+        @if (scenario.executionTime !== '—') {
+          <span>
+            &nbsp;·&nbsp; Execution time: <strong>{{ scenario.executionTime }}</strong>
+          </span>
+        }
       </p>
     </div>
   </section>
@@ -104,49 +106,53 @@
         <div class="card__body">
 
           <!-- Timeline tab -->
-          <div *ngIf="activeTab === 'timeline'" class="timeline">
-            <div
-              class="timeline__item"
-              *ngFor="let step of scenario.steps; trackBy: trackByStep"
-            >
-              <div class="step-icon" [ngClass]="getStepIconClass(step.status)">
-                <span class="dot" [ngClass]="getDotClass(step.status)"></span>
-              </div>
-              <div class="timeline__info">
-                <div class="timeline__name">{{ step.name }}</div>
-                <div class="timeline__sub">{{ step.subtitle }}</div>
-              </div>
-              <div class="timeline__time">{{ step.timestamp }}</div>
+          @if (activeTab === 'timeline') {
+            <div class="timeline">
+              @for (step of scenario.steps; track step.id) {
+                <div class="timeline__item">
+                  <div class="step-icon" [ngClass]="getStepIconClass(step.status)">
+                    <span class="dot" [ngClass]="getDotClass(step.status)"></span>
+                  </div>
+                  <div class="timeline__info">
+                    <div class="timeline__name">{{ step.name }}</div>
+                    <div class="timeline__sub">{{ step.subtitle }}</div>
+                  </div>
+                  <div class="timeline__time">{{ step.timestamp }}</div>
+                </div>
+              }
             </div>
-          </div>
+          }
 
           <!-- Logs tab -->
-          <div *ngIf="activeTab === 'logs'" class="logbox" #logbox>
-            <div
-              class="log-line"
-              *ngFor="let log of streamedLogs; trackBy: trackByLog"
-            >
-              <span class="log-num">{{ log.index }}</span>
-              <span class="log-text" [ngClass]="getLogClass(log.level)">
-                [{{ log.level }}] {{ log.message }}
-              </span>
+          @if (activeTab === 'logs') {
+            <div class="logbox" #logbox>
+              @for (log of streamedLogs; track log.index) {
+                <div class="log-line">
+                  <span class="log-num">{{ log.index }}</span>
+                  <span class="log-text" [ngClass]="getLogClass(log.level)">
+                    [{{ log.level }}] {{ log.message }}
+                  </span>
+                </div>
+              }
+              @if (streamedLogs.length === 0) {
+                <div class="logbox__empty">Waiting for log stream...</div>
+              }
             </div>
-            <div *ngIf="streamedLogs.length === 0" class="logbox__empty">
-              Waiting for log stream...
-            </div>
-          </div>
+          }
 
           <!-- Screenshot tab -->
-          <div *ngIf="activeTab === 'screenshot'" class="screenshot-placeholder">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-              <rect x="3" y="5" width="18" height="14" rx="2"/>
-              <circle cx="8.5" cy="10.5" r="1.5"/>
-              <path d="M21 15l-5-5L5 19"/>
-            </svg>
-            <span>
-              {{ scenario.status === 'failed' ? 'capture_fail.png' : 'Screenshot available after test completes' }}
-            </span>
-          </div>
+          @if (activeTab === 'screenshot') {
+            <div class="screenshot-placeholder">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                <rect x="3" y="5" width="18" height="14" rx="2"/>
+                <circle cx="8.5" cy="10.5" r="1.5"/>
+                <path d="M21 15l-5-5L5 19"/>
+              </svg>
+              <span>
+                {{ scenario.status === 'failed' ? 'capture_fail.png' : 'Screenshot available after test completes' }}
+              </span>
+            </div>
+          }
 
         </div>
       </div>
@@ -159,24 +165,24 @@
         </div>
         <div class="card__body">
           <div class="logbox logbox--tall">
-            <div
-              class="log-line"
-              *ngFor="let log of streamedLogs; trackBy: trackByLog"
-            >
-              <span class="log-num">{{ log.index }}</span>
-              <span class="log-text" [ngClass]="getLogClass(log.level)">
-                [{{ log.level }}] {{ log.message }}
-              </span>
-            </div>
-            <div *ngIf="streamedLogs.length === 0" class="logbox__empty">
-              Waiting for log stream...
-            </div>
+            @for (log of streamedLogs; track log.index) {
+              <div class="log-line">
+                <span class="log-num">{{ log.index }}</span>
+                <span class="log-text" [ngClass]="getLogClass(log.level)">
+                  [{{ log.level }}] {{ log.message }}
+                </span>
+              </div>
+            }
+            @if (streamedLogs.length === 0) {
+              <div class="logbox__empty">Waiting for log stream...</div>
+            }
           </div>
         </div>
       </div>
 
       <!-- AI Recommendation (fail only) -->
-      <div class="card" *ngIf="scenario.aiRecommendation">
+      @if (scenario.aiRecommendation) {
+      <div class="card">
         <div class="card__head">
           <span class="card__head-title">
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="margin-right:4px;vertical-align:-2px">
@@ -203,9 +209,11 @@
           </div>
         </div>
       </div>
+      }
 
       <!-- Failure snapshot (fail only) -->
-      <div class="card" *ngIf="scenario.failureSnapshot">
+      @if (scenario.failureSnapshot) {
+      <div class="card">
         <div class="card__head">
           <span class="card__head-title">Failure Snapshot</span>
           <span class="card__badge-fail">● captured</span>
@@ -217,6 +225,7 @@
           </div>
         </div>
       </div>
+      }
 
     </div><!-- /exec-left -->
 
@@ -247,29 +256,31 @@
       </div>
 
       <!-- Error metadata (fail only) -->
-      <div *ngIf="scenario.errorMeta">
-        <div class="section-label">Error Metadata</div>
-        <div class="card">
-          <div class="card__body card__body--compact">
-            <div class="meta-row">
-              <span class="meta-row__label">Error type</span>
-              <span class="meta-row__value meta-row__value--fail">{{ scenario.errorMeta?.errorType }}</span>
-            </div>
-            <div class="meta-row">
-              <span class="meta-row__label">Step name</span>
-              <span class="meta-row__value">{{ scenario.errorMeta?.stepName }}</span>
-            </div>
-            <div class="meta-row">
-              <span class="meta-row__label">Screenshot</span>
-              <span class="meta-row__value meta-row__value--link">{{ scenario.errorMeta?.screenshot }}</span>
-            </div>
-            <div class="meta-row">
-              <span class="meta-row__label">Duration</span>
-              <span class="meta-row__value">{{ scenario.errorMeta?.duration }}</span>
+      @if (scenario.errorMeta) {
+        <div>
+          <div class="section-label">Error Metadata</div>
+          <div class="card">
+            <div class="card__body card__body--compact">
+              <div class="meta-row">
+                <span class="meta-row__label">Error type</span>
+                <span class="meta-row__value meta-row__value--fail">{{ scenario.errorMeta?.errorType }}</span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-row__label">Step name</span>
+                <span class="meta-row__value">{{ scenario.errorMeta?.stepName }}</span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-row__label">Screenshot</span>
+                <span class="meta-row__value meta-row__value--link">{{ scenario.errorMeta?.screenshot }}</span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-row__label">Duration</span>
+                <span class="meta-row__value">{{ scenario.errorMeta?.duration }}</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      }
 
       <!-- Execution logs sidebar -->
       <div>
@@ -277,18 +288,17 @@
         <div class="card">
           <div class="card__body card__body--compact">
             <div class="logbox logbox--sidebar">
-              <div
-                class="log-line"
-                *ngFor="let log of streamedLogs; trackBy: trackByLog"
-              >
-                <span class="log-num">{{ log.index }}</span>
-                <span class="log-text" [ngClass]="getLogClass(log.level)">
-                  [{{ log.level }}] {{ log.message }}
-                </span>
-              </div>
-              <div *ngIf="streamedLogs.length === 0" class="logbox__empty">
-                No logs yet...
-              </div>
+              @for (log of streamedLogs; track log.index) {
+                <div class="log-line">
+                  <span class="log-num">{{ log.index }}</span>
+                  <span class="log-text" [ngClass]="getLogClass(log.level)">
+                    [{{ log.level }}] {{ log.message }}
+                  </span>
+                </div>
+              }
+              @if (streamedLogs.length === 0) {
+                <div class="logbox__empty">No logs yet...</div>
+              }
             </div>
           </div>
         </div>

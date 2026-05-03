@@ -3,27 +3,21 @@ import {
   TestLabService,
   type TestCaseDto,
   type TestLabProjectDto,
+  type TestLabProjectUserDto,
   type TestPlanDto,
   type TestSuiteDto,
 } from '@/app/core/services/testlab.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
 import { getUser } from '@/app/store/authentication/authentication.selector'
+import type { TestGenerationStatus, TestSuiteStatusKey } from '@/app/views/test/models/status.types'
+import { getErrorMessage } from '@/app/views/test/utils/error.utils'
 import { CommonModule, DatePipe } from '@angular/common'
-import { Component, CUSTOM_ELEMENTS_SCHEMA, HostListener, inject } from '@angular/core'
+import { Component, CUSTOM_ELEMENTS_SCHEMA, HostListener, inject, OnInit } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { ActivatedRoute, Router } from '@angular/router'
 import { Store } from '@ngrx/store'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
-
-type TestSuiteStatusKey =
-  | 'completed'
-  | 'incomplete'
-  | 'validated'
-  | 'invalid'
-  | 'all'
-
-type TestGenerationStatus = 'Draft' | 'Generating' | 'Incomplete' | 'Ready' | 'Passed' | 'Failed'
 
 @Component({
   selector: 'app-test-cases-validation',
@@ -34,7 +28,7 @@ type TestGenerationStatus = 'Draft' | 'Generating' | 'Incomplete' | 'Ready' | 'P
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   //encapsulation: ViewEncapsulation.None,
 })
-export class TestCasesValidationComponent {
+export class TestCasesValidationComponent implements OnInit {
   private store = inject(Store)
   private authService = inject(AuthenticationService)
   private testLabService = inject(TestLabService)
@@ -50,6 +44,12 @@ export class TestCasesValidationComponent {
   searchQuery = ''
   statusFilter: TestSuiteStatusKey = 'all'
   filterOpen = false
+
+  onSearchQueryInput(event: Event): void {
+    const target = event.target as HTMLInputElement | null
+    this.searchQuery = target?.value ?? ''
+    this.currentPage = 1
+  }
 
 readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = [
   { key: 'completed', label: 'Completed' },
@@ -376,14 +376,14 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     if (localTotal > 0) return localTotal
 
     return (
-      (suite as any).totalCases ??
-      (suite as any).casesCount ??
-      (suite.testPlans?.reduce(
-        (acc: number, p: any) =>
-          acc + (p.testCases?.length ?? p.casesCount ?? 0),
-        0
-      ) ??
-        0)
+      suite.totalCases ??
+      suite.casesCount ??
+      suite.totalTestCases ??
+      (suite.testPlans?.reduce((acc: number, plan: TestPlanDto) => {
+        const fromCases = plan.testCases?.length ?? 0
+        const fromCount = plan.casesCount ?? 0
+        return acc + (fromCases || fromCount)
+      }, 0) ?? 0)
     )
   }
 
@@ -413,24 +413,21 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     setTimeout(() => this.scrollToSection('tv-test-section'), 0)
   }
 
-  getMemberId(member: unknown): string {
+  getMemberId(member: TestLabProjectUserDto | string | null | undefined): string {
     if (!member) return ''
     if (typeof member === 'string') return member
-    const m = member as any
-    return String(m?._id || m?.id || '').trim()
+    return String(member._id || '').trim()
   }
 
-  getMemberDisplayName(member: unknown): string {
+  getMemberDisplayName(member: TestLabProjectUserDto | string | null | undefined): string {
     if (!member) return ''
     if (typeof member === 'string') return member
-    const m = member as any
-    return String(m?.name || m?.email || '').trim()
+    return String(member.name || member.email || '').trim()
   }
 
-  getMemberPicture(member: unknown): string {
+  getMemberPicture(member: TestLabProjectUserDto | string | null | undefined): string {
     if (!member || typeof member === 'string') return ''
-    const m = member as any
-    return String(m?.picture || '').trim()
+    return String(member.picture || '').trim()
   }
 
   getUserInitials(value?: string): string {
@@ -462,7 +459,7 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
       )
       this.testCasesByPlan[plan.id] = resp?.testCases ?? []
     } catch (err: unknown) {
-      this.errorMessage = (err as any)?.error?.message || 'Unable to generate test cases'
+      this.errorMessage = getErrorMessage(err, 'Unable to generate test cases')
     } finally {
       this.generatingCasesPlanId = null
     }
@@ -487,7 +484,7 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
   }
 
   getSuiteSpecFile(suite: TestSuiteDto): string {
-    return (suite as any).specFile || (suite as any).spec_file || ''
+    return suite.specFile || suite.spec_file || ''
   }
 
   getCleanDescription(suite: TestSuiteDto): string {

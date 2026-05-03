@@ -1,3 +1,28 @@
 {
-  "extends": "stylelint-config-standard-scss"
+  "customSyntax": "postcss-scss",
+  "extends": ["stylelint-config-standard"],
+  "plugins": ["stylelint-scss"],
+  "rules": {
+    "no-invalid-double-slash-comments": null,
+    "at-rule-no-unknown": null,
+    "scss/at-rule-no-unknown": true,
+    "declaration-property-value-no-unknown": null,
+    "selector-class-pattern": [
+      "^[a-z]([-]?[a-z0-9]+)*(__[a-z0-9]([-]?[a-z0-9]+)*)?(--[a-z0-9]([-]?[a-z0-9]+)*)*$",
+      {
+        "resolveNestedSelectors": true,
+        "message": "Expected class selector to follow BEM (block__element--modifier)"
+      }
+    ],
+    "keyframes-name-pattern": [
+      "^([a-z][a-z0-9]*)(-[a-z0-9]+)*$|^[a-z][a-zA-Z0-9]*$",
+      {
+        "message": "Expected keyframe name to be kebab-case or camelCase"
+      }
+    ],
+    "declaration-block-single-line-max-declarations": null,
+    "no-descending-specificity": null,
+    "no-duplicate-selectors": true
+  }
 }
+

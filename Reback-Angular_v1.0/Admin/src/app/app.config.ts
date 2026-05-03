@@ -27,7 +27,6 @@ import { provideToastr } from 'ngx-toastr'
 import { routes } from './app.routes'
 import { rootReducer } from './store'
 import { AuthenticationEffects } from './store/authentication/authentication.effects'
-import { CalendarEffects } from './store/calendar/calendar.effects'
 import { localStorageSyncReducer } from './store/layout/layout-reducers'
 import { AuthInterceptor } from './core/interceptors/auth.interceptor'
 import { ForbiddenInterceptor } from './core/interceptors/forbidden.interceptor'
@@ -43,13 +42,12 @@ const inMemoryScrollingFeatures: InMemoryScrollingFeature =
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    // FakeBackendProvider, // Disabled: Using real backend
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes, inMemoryScrollingFeatures),
     DecimalPipe,
     provideStore(rootReducer, { metaReducers: [localStorageSyncReducer] }),
     provideStoreDevtools({ maxAge: 25, logOnly: !isDevMode() }),
-    provideEffects(AuthenticationEffects, CalendarEffects),
+    provideEffects(AuthenticationEffects),
     provideHttpClient(withFetch(), withInterceptorsFromDi()),
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
     { provide: HTTP_INTERCEPTORS, useClass: ForbiddenInterceptor, multi: true },

@@ -23,12 +23,9 @@
         $warning 50%,
         $success 60%
     );
-    background-size: auto auto;
-    background-clip: border-box;
     background-size: 200% auto;
-    background-clip: text;
     text-fill-color: transparent;
-    -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     animation: textclip 2.5s linear infinite;
     display: inline-block;

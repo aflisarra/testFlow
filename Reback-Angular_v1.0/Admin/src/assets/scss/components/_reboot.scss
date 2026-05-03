@@ -12,11 +12,10 @@ body {
 
 .scroll-hidden {
     &::-webkit-scrollbar {
-        -webkit-appearance: none;
         appearance: none;
     }
 
     &::-webkit-scrollbar:vertical {
-        width: 0px;
+        width: 0;
     }
 }

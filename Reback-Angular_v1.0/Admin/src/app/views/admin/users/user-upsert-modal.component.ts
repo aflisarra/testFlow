@@ -1,8 +1,7 @@
 import {
     AdminManagementService,
-    AppRole,
-    AppUser,
 } from '@/app/core/services/admin-management.service'
+import type { AppRole, AppUser } from '@/app/interfaces/admin-management.interface'
 import { CommonModule } from '@angular/common'
 import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, Input, OnInit } from '@angular/core'
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms'
@@ -19,6 +18,7 @@ import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap'
 export class UserUpsertModalComponent implements OnInit {
   private fb = inject(FormBuilder)
   private adminService = inject(AdminManagementService)
+  public activeModal = inject(NgbActiveModal)
 
   @Input() user: AppUser | null = null
   @Input() roles: AppRole[] = []
@@ -33,8 +33,6 @@ export class UserUpsertModalComponent implements OnInit {
     description: [''],
   })
 
-  constructor(public activeModal: NgbActiveModal) {}
-
   ngOnInit(): void {
     if (this.user) {
       this.userForm.patchValue({
@@ -48,6 +46,7 @@ export class UserUpsertModalComponent implements OnInit {
 
   save(): void {
     if (!this.user) return
+
     if (this.userForm.invalid) {
       this.userForm.markAllAsTouched()
       return
@@ -60,7 +59,8 @@ export class UserUpsertModalComponent implements OnInit {
       name: String(this.userForm.value.name || '').trim(),
       email: String(this.userForm.value.email || '').trim(),
       role: String(this.userForm.value.role || '').trim(),
-      description: String(this.userForm.value.description || '').trim() || undefined,
+      description:
+        String(this.userForm.value.description || '').trim() || undefined,
     }
 
     this.adminService.updateUser(this.user._id, payload).subscribe({
