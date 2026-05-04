@@ -114,6 +114,12 @@ export interface TestSuiteDto {
   executionStatus?: 'completed' | 'incomplete' | null
   executionPlanStatuses?: PlanStatusRow[]
   executionSavedAt?: string | null
+  lastActionBy?: {
+    userId?: string | null
+    name?: string
+    action?: 'generate-plan' | 'generate-test-case' | 'regenerate-plan' | 'regenerate-test-case' | null
+    at?: string | null
+  } | null
   createdAt?: string
   updatedAt?: string
   totalCases?: number
@@ -121,4 +127,3 @@ export interface TestSuiteDto {
   specFile?: string
   spec_file?: string
 }
-

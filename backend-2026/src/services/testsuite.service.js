@@ -11,7 +11,6 @@ const { spawn } = require("child_process");
 const axios = require("axios");
 
 const TestSuite = require("../models/testsuite");
-const PlanTest = require("../models/plantest.model");
 const Project = require("../models/project.model");
 const MESSAGES = require('../constants/messages.js');
 
@@ -27,7 +26,22 @@ function normalizePlanStatusRows(rows) {
             planId: String(p?.planId || '').trim(),
             status: String(p?.status || '').toLowerCase().trim(),
         }))
+
         .filter((p) => p.planId && p.status)
+}
+
+function computeValidationStatus(suite) {
+    const hasPlans = (suite?.testPlans?.length || 0) > 0
+    const hasCases = (suite?.testCasesByPlan?.length || 0) > 0
+
+    const fullyGenerated = hasPlans && hasCases
+    if (!fullyGenerated) return 'invalid'
+
+    // We do not add an `isSaved` field to Mongo. Equivalent signal is `savedAt`.
+    const isSaved = suite?.savedAt instanceof Date || !!suite?.savedAt
+    if (isSaved) return 'validated'
+
+    return 'invalid'
 }
 
 function normalizeSuiteSessionState(suite) {
@@ -65,11 +79,10 @@ function normalizeSuiteSessionState(suite) {
                     : ''
             : '')
 
-    const inferredValidation =
-        validationStatus ||
-        (inferredValidationPlanRows.length > 0
-            ? inferredValidationPlanRows.every((p) => p.status === 'confirmed') ? 'validated' : 'invalid'
-            : '')
+    // Validation is now intentionally simplified to 2 states.
+    // Prefer computed result (generated content presence + savedAt) over legacy per-plan statuses.
+    const computedValidation = computeValidationStatus(suite)
+    const inferredValidation = computedValidation || validationStatus || ''
 
     // Legacy fallback when we only have suite.sessionStatus
     const legacyOnly =
@@ -483,24 +496,8 @@ async function generatePlan({
             };
         }
 
-        // Backward compatibility (copy-only migration)
-        const legacy = await PlanTest.find({ testSuiteId }).sort({ ordre: 1 });
-        if (legacy.length && suiteReloaded) {
-            suiteReloaded.planSteps = legacy.map((p) => ({
-                contenu: p.contenu,
-                ordre: p.ordre,
-            }));
-            await suiteReloaded.save();
-            return {
-                testSuiteId,
-                steps: legacy.map((p) => p.contenu),
-                plans: legacy,
-                reused: true,
-            };
-        }
     } else {
         await TestSuite.findByIdAndUpdate(testSuiteId, { planSteps: [] });
-        await PlanTest.deleteMany({ testSuiteId });
     }
 
     // Étape 5 : La génération de plan a été déplacée vers le service Python FastAPI
@@ -526,14 +523,7 @@ async function getPlanByTestSuiteId(testSuiteId) {
         return { plans, steps: plans.map((p) => p.contenu) };
     }
 
-    // Backward compatibility (copy-only migration)
-    //list des tests 
-    const legacyPlans = await PlanTest.find({ testSuiteId }).sort({ ordre: 1 });
-    if (suite && legacyPlans.length) {
-        suite.planSteps = legacyPlans.map((p) => ({ contenu: p.contenu, ordre: p.ordre }));
-        await suite.save();
-    }
-    return { plans: legacyPlans, steps: legacyPlans.map((p) => p.contenu) };
+    return { plans: [], steps: [] };
 }
 
 
@@ -558,7 +548,7 @@ async function getTestSuitesByUser(userId) {
             { projectId: null, userId: safeUserId },
         ],
     })
-        .select('_id nom nametest description specFileName urlCible testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt createdAt userId projectId')
+        .select('_id nom nametest description specFileName urlCible testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt lastActionBy createdAt userId projectId')
         .populate('userId', 'name email picture')
         .populate('projectId', 'title')
         .sort({ createdAt: -1 })
@@ -599,7 +589,7 @@ async function getAllTestSuites(viewerUserId) {
     const accessibleProjectIds = new Set((projects || []).map((p) => String(p?._id || '').trim()).filter(Boolean));
 
     const suites = await TestSuite.find({})
-        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt createdAt userId projectId')
+        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt lastActionBy createdAt userId projectId')
         .populate('userId', 'name email picture')
         .populate('projectId', 'title')
         .sort({ createdAt: -1 })
@@ -645,7 +635,7 @@ async function getTestSuiteById(testSuiteId, viewerUserId) {
     }
 
     const suite = await TestSuite.findById(safeTestSuiteId)
-        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt createdAt userId projectId')
+        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt lastActionBy createdAt userId projectId')
         .populate('userId', 'name email picture')
         .populate({
             path: 'projectId',
@@ -693,7 +683,7 @@ async function getTestSuiteById(testSuiteId, viewerUserId) {
 
 async function getTestPlansByTestSuiteId(testSuiteId) {
     const suite = await TestSuite.findById(testSuiteId)
-        .select('_id testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt')
+        .select('_id testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt lastActionBy')
 
     if (!suite) {
         const error = new Error('TestSuite not found')
@@ -771,8 +761,9 @@ async function saveSuiteSession(testSuiteId, payload = {}) {
     }
 
     // Fetch current suite to merge test cases (don't lose existing ones)
-    const currentSuite = await TestSuite.findById(testSuiteId).select('testCasesByPlan')
+    const currentSuite = await TestSuite.findById(testSuiteId).select('testPlans testCasesByPlan')
     const existingCases = Array.isArray(currentSuite?.testCasesByPlan) ? currentSuite.testCasesByPlan : []
+    const existingPlans = Array.isArray(currentSuite?.testPlans) ? currentSuite.testPlans : []
 
     if (sessionKind === 'execution') {
         const executionPlanStatuses = rawRows
@@ -798,14 +789,11 @@ async function saveSuiteSession(testSuiteId, payload = {}) {
             .filter((r) => ['pending', 'generating', 'reviewing', 'confirmed', 'rejected'].includes(r.status))
             .map((r) => ({ planId: r.planId, status: r.status }))
 
-        const validationStatus =
-            ['validated', 'invalid'].includes(String(payload?.suiteStatus || '').toLowerCase().trim())
-                ? String(payload.suiteStatus).toLowerCase().trim()
-                : (validationPlanStatuses.length > 0 && validationPlanStatuses.every((r) => r.status === 'confirmed'))
-                    ? 'validated'
-                    : 'invalid'
-
-        update.validationStatus = validationStatus
+        update.validationStatus = computeValidationStatus({
+            testPlans: existingPlans,
+            testCasesByPlan: existingCases,
+            savedAt: now,
+        })
         update.validationPlanStatuses = validationPlanStatuses
         update.validationSavedAt = now
     }
@@ -833,6 +821,14 @@ async function saveSuiteSession(testSuiteId, payload = {}) {
         update.testCasesByPlan = Object.values(casesByPlanId)
     }
 
+    if (sessionKind !== 'execution') {
+        update.validationStatus = computeValidationStatus({
+            testPlans: update.testPlans || existingPlans,
+            testCasesByPlan: update.testCasesByPlan || existingCases,
+            savedAt: now,
+        })
+    }
+
     const suite = await TestSuite.findByIdAndUpdate(
         testSuiteId,
         update,
@@ -854,7 +850,7 @@ async function getTestSuitesByProject(projectId) {
     const suites = await TestSuite.find({
         projectId: safeProjectId,
     })
-        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt createdAt userId projectId')
+        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt lastActionBy createdAt userId projectId')
         .populate('userId', 'name email picture')
         .populate('projectId', 'title')
         .sort({ createdAt: -1 })

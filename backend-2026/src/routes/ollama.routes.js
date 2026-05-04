@@ -9,8 +9,10 @@ const axios = require("axios");
 const jwt = require("jsonwebtoken");
 
 const TestSuite = require("../models/testsuite");
-const PlanTest = require("../models/plantest.model"); // legacy (backward-compat migration only)
+const TestPlan = require("../models/testplan.model");
+const TestCase = require("../models/testcase.model");
 const Project = require("../models/project.model");
+const User = require("../models/user.model");
 
 const router = express.Router();
 const { getJwtSecret } = require("../utils/jwt-secrets");
@@ -58,6 +60,26 @@ function getUserIdFromAuthHeader(req) {
   }
 }
 
+function getActorFromReq(req) {
+  const raw = req?.user || null;
+  const id = String(raw?.userId || raw?.id || raw?._id || "").trim() || getUserIdFromAuthHeader(req);
+  const name = String(raw?.name || raw?.nom || raw?.username || "").trim();
+  return { userId: id || null, name };
+}
+
+async function resolveActorName({ userId, name }) {
+  if (!userId) return { userId: null, name: "" };
+  if (name) return { userId, name };
+
+  try {
+    const user = await User.findById(userId).select("_id name nom").lean();
+    const resolved = String(user?.name || user?.nom || "").trim();
+    return { userId, name: resolved };
+  } catch {
+    return { userId, name: "" };
+  }
+}
+
 function parseBoolean(value) {
   if (typeof value === "boolean") return value;
   if (typeof value !== "string") return false;
@@ -87,6 +109,100 @@ function normalizeUniqueTestPlans(rawPlans) {
       };
     })
     .slice(0, 20);
+}
+
+function normalizePlanStepsPayload(raw) {
+  const list = Array.isArray(raw) ? raw : [];
+  return list
+    .map((s, idx) => {
+      if (typeof s === "string") {
+        const contenu = s.trim();
+        if (!contenu) return null;
+        return { contenu, ordre: idx + 1 };
+      }
+      if (s && typeof s === "object") {
+        const contenu = String(s.contenu ?? s.content ?? s.step ?? "").trim();
+        if (!contenu) return null;
+        const ordre = Number(s.ordre ?? s.order ?? idx + 1);
+        return { contenu, ordre: Number.isFinite(ordre) ? ordre : idx + 1 };
+      }
+      return null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => (a.ordre || 0) - (b.ordre || 0));
+}
+
+async function dualWriteTestPlans({ testSuiteId, testPlans }) {
+  const plans = Array.isArray(testPlans) ? testPlans : [];
+  if (!testSuiteId || plans.length === 0) return;
+
+  const ops = plans
+    .map((p) => {
+      const id = String(p?.id || "").trim();
+      if (!id) return null;
+
+      return {
+        updateOne: {
+          filter: { testSuiteId, id },
+          update: {
+            $set: {
+              testSuiteId,
+              id,
+              title: String(p?.title || "").trim() || id,
+              description: String(p?.description || "").trim(),
+            },
+          },
+          upsert: true,
+        },
+      };
+    })
+    .filter(Boolean);
+
+  if (ops.length) {
+    await TestPlan.bulkWrite(ops, { ordered: false });
+  }
+}
+
+async function dualWriteTestCases({ testSuiteId, planKey, testCases }) {
+  // planKey is the stable embedded plan id (e.g. "TP-1"). We map it to TestPlan._id.
+  const stablePlanId = String(planKey || "").trim();
+  const list = Array.isArray(testCases) ? testCases : [];
+  if (!testSuiteId || !stablePlanId || list.length === 0) return;
+
+  const planDoc = await TestPlan.findOne({ testSuiteId, id: stablePlanId }).select("_id").lean();
+  if (!planDoc?._id) return;
+
+  const ops = list
+    .map((tc) => {
+      const id = String(tc?.id || "").trim();
+      if (!id) return null;
+
+      const steps = Array.isArray(tc?.steps)
+        ? tc.steps.map((s) => String(s || "").trim()).filter(Boolean)
+        : [];
+
+      return {
+        updateOne: {
+          filter: { testSuiteId, planId: planDoc._id, id },
+          update: {
+            $set: {
+              testSuiteId,
+              planId: planDoc._id,
+              id,
+              title: String(tc?.title || "").trim() || id,
+              steps,
+              expected_result: String(tc?.expected_result || tc?.expectedResult || "").trim(),
+            },
+          },
+          upsert: true,
+        },
+      };
+    })
+    .filter(Boolean);
+
+  if (ops.length) {
+    await TestCase.bulkWrite(ops, { ordered: false });
+  }
 }
 
 function ensureSpecFile(file, cb) {
@@ -271,7 +387,6 @@ router.get("/testsuite/:id/plan", async (req, res) => {
     const suite = await TestSuite.findById(testSuiteId);
     if (!suite) return res.status(404).json({ message: "TestSuite not found" });
 
-    // Preferred storage: embedded steps in TestSuite
     if (Array.isArray(suite.planSteps) && suite.planSteps.length) {
       const plans = [...suite.planSteps]
         .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
@@ -284,20 +399,7 @@ router.get("/testsuite/:id/plan", async (req, res) => {
       return res.json({ plans, steps: plans.map((p) => p.contenu) });
     }
 
-    // Backward compatibility: migrate legacy PlanTest docs into suite.planSteps (copy only)
-    const legacyPlans = await PlanTest.find({ testSuiteId }).sort({ ordre: 1 });
-    if (legacyPlans.length) {
-      suite.planSteps = legacyPlans.map((p) => ({
-        contenu: p.contenu,
-        ordre: p.ordre,
-      }));
-      await suite.save();
-    }
-
-    return res.json({
-      plans: legacyPlans,
-      steps: legacyPlans.map((p) => p.contenu),
-    });
+    return res.json({ plans: [], steps: [] });
   } catch (error) {
     res.status(500).json({ message: error?.message || "Failed to get plan" });
   }
@@ -443,17 +545,6 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
         });
       }
 
-      const legacy = await PlanTest.find({ testSuiteId }).sort({ ordre: 1 });
-      if (legacy.length) {
-        suite.planSteps = legacy.map((p) => ({ contenu: p.contenu, ordre: p.ordre }));
-        await suite.save();
-        return res.json({
-          testSuiteId,
-          steps: legacy.map((p) => p.contenu),
-          plans: legacy,
-          reused: true,
-        });
-      }
     } else {
       // Clear embedded plan and legacy docs
       suite.planSteps = [];
@@ -464,7 +555,6 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
       suite.savedAt = null
       suite.executedAt = null
       await suite.save();
-      await PlanTest.deleteMany({ testSuiteId });
     }
 
     // AI generation starts
@@ -492,10 +582,35 @@ router.post("/generate-plan", upload.single("file"), async (req, res) => {
     }
 
     suite.testPlans = normalizeUniqueTestPlans(testPlans);
+
+    // Persist generated plan steps into TestSuite.planSteps when provided by FastAPI.
+    const maybeSteps =
+      fastApiResponse?.data?.plan_steps ||
+      fastApiResponse?.data?.planSteps ||
+      fastApiResponse?.data?.steps ||
+      fastApiResponse?.data?.plan;
+
+    const normalizedSteps = normalizePlanStepsPayload(maybeSteps);
+    if (normalizedSteps.length) {
+      suite.planSteps = normalizedSteps;
+    }
+
+    const action = regenerate ? 'regenerate-plan' : 'generate-plan'
+    const actor = await resolveActorName(getActorFromReq(req))
+    suite.lastActionBy = {
+      userId: actor.userId,
+      name: actor.name || '',
+      action,
+      at: new Date(),
+    }
+
     suite.testStatus = 'Draft'
     suite.lastGeneratedAt = new Date()
     suite.savedAt = null
     await suite.save();
+
+    // Dual write (additive only): keep embedded arrays for frontend, also persist to normalized collections.
+    await dualWriteTestPlans({ testSuiteId: suite._id, testPlans: suite.testPlans }).catch(() => {});
 
     return res.json({
       testSuiteId,
@@ -589,10 +704,22 @@ router.post("/generate-test-cases", async (req, res) => {
       planTitle: resolvedTitle,
       testCases: normalized,
     });
+
+    const action = regenerate ? 'regenerate-test-case' : 'generate-test-case'
+    const actor = await resolveActorName(getActorFromReq(req))
+    suite.lastActionBy = {
+      userId: actor.userId,
+      name: actor.name || '',
+      action,
+      at: new Date(),
+    }
     suite.testStatus = 'Draft'
     suite.lastGeneratedAt = new Date()
     suite.savedAt = null
     await suite.save();
+
+    // Dual write (additive only): persist normalized TestCase docs without changing API responses.
+    await dualWriteTestCases({ testSuiteId: suite._id, planKey: planId, testCases: normalized }).catch(() => {});
 
     return res.json({
       testSuiteId,

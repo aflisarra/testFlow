@@ -86,6 +86,38 @@
               Generate test cases
             </button>
             } @else {
+
+            <!-- ══ AVATAR STACK devant les test cases (tree) ══ -->
+            <div class="tc-cases-meta">
+              <div class="tc-avatar-stack">
+                @if (plan.generatedBy?.avatar) {
+                  <img class="tc-avatar-stack-item"
+                    [src]="plan.generatedBy.avatar"
+                    [title]="plan.generatedBy?.name || ''"
+                    [alt]="plan.generatedBy?.name || ''" />
+                } @else if (plan.generatedBy?.name) {
+                  <span class="tc-avatar-stack-item tc-avatar-stack-bubble"
+                    [title]="plan.generatedBy?.name || ''">
+                    {{ plan.generatedBy.name.slice(0,1).toUpperCase() }}
+                  </span>
+                }
+                @if (plan.lastActionBy?.name && plan.lastActionBy?.name !== plan.generatedBy?.name) {
+                  @if (plan.lastActionBy?.avatar) {
+                    <img class="tc-avatar-stack-item"
+                      [src]="plan.lastActionBy.avatar"
+                      [title]="plan.lastActionBy?.name || ''"
+                      [alt]="plan.lastActionBy?.name || ''" />
+                  } @else {
+                    <span class="tc-avatar-stack-item tc-avatar-stack-bubble"
+                      [title]="plan.lastActionBy?.name || ''">
+                      {{ plan.lastActionBy.name.slice(0,1).toUpperCase() }}
+                    </span>
+                  }
+                }
+              </div>
+              <span class="tc-cases-count">{{ (testCasesByPlan[plan.id] || []).length }} test cases</span>
+            </div>
+
             @for (tc of testCasesByPlan[plan.id]; track tc.id) {
             <button class="tc-tree-case" [class.tc-tree-case--live]="livePlanId === plan.id"
               (click)="selectPlanForLive(plan.id); $event.stopPropagation()">
@@ -109,11 +141,28 @@
       } @else if (suites.length) {
       @for (suite of suites; track suite._id) {
       <div class="tc-tree-section">
+
         <button class="tc-tree-suite-row" (click)="toggleSuite(suite)">
-          <iconify-icon [icon]="expandedSuites[suite._id!] ? 'mdi:chevron-down' : 'mdi:chevron-right'"
-            class="tc-tree-chevron"></iconify-icon>
+          <iconify-icon
+            [icon]="expandedSuites[suite._id!] ? 'mdi:chevron-down' : 'mdi:chevron-right'"
+            class="tc-tree-chevron">
+          </iconify-icon>
           <iconify-icon icon="lucide:folder-check" class="tc-tree-suite-icon"></iconify-icon>
           <span class="tc-tree-suite-name">{{ suite.nametest || 'Unnamed Suite' }}</span>
+
+          @if (suite.lastActionBy?.avatar) {
+            <img
+              class="tc-actor-avatar"
+              [src]="suite.lastActionBy.avatar"
+              [title]="suite.lastActionBy?.name || ''"
+              [alt]="suite.lastActionBy?.name || ''"
+            />
+          } @else if (suite.lastActionBy?.name) {
+            <span class="tc-actor-bubble" [title]="suite.lastActionBy?.name || ''">
+              {{ getLastActorBubble(suite) }}
+            </span>
+          }
+
           <span class="badge ms-auto"
             [ngClass]="getSuiteCardStatus(suite) === 'Validated' ? 'text-bg-success' : 'text-bg-warning'">
             {{ getSuiteCardStatus(suite) }}
@@ -149,6 +198,38 @@
               Generate test cases
             </button>
             } @else {
+
+            <!-- ══ AVATAR STACK devant les test cases (suite tree) ══ -->
+            <div class="tc-cases-meta">
+              <div class="tc-avatar-stack">
+                @if (plan.generatedBy?.avatar) {
+                  <img class="tc-avatar-stack-item"
+                    [src]="plan.generatedBy.avatar"
+                    [title]="plan.generatedBy?.name || ''"
+                    [alt]="plan.generatedBy?.name || ''" />
+                } @else if (plan.generatedBy?.name) {
+                  <span class="tc-avatar-stack-item tc-avatar-stack-bubble"
+                    [title]="plan.generatedBy?.name || ''">
+                    {{ plan.generatedBy.name.slice(0,1).toUpperCase() }}
+                  </span>
+                }
+                @if (plan.lastActionBy?.name && plan.lastActionBy?.name !== plan.generatedBy?.name) {
+                  @if (plan.lastActionBy?.avatar) {
+                    <img class="tc-avatar-stack-item"
+                      [src]="plan.lastActionBy.avatar"
+                      [title]="plan.lastActionBy?.name || ''"
+                      [alt]="plan.lastActionBy?.name || ''" />
+                  } @else {
+                    <span class="tc-avatar-stack-item tc-avatar-stack-bubble"
+                      [title]="plan.lastActionBy?.name || ''">
+                      {{ plan.lastActionBy.name.slice(0,1).toUpperCase() }}
+                    </span>
+                  }
+                }
+              </div>
+              <span class="tc-cases-count">{{ (testCasesByPlan[plan.id] || []).length }} test cases</span>
+            </div>
+
             @for (tc of testCasesByPlan[plan.id]; track tc.id) {
             <button class="tc-tree-case" [class.tc-tree-case--live]="livePlanId === plan.id"
               (click)="selectPlanForLive(plan.id); $event.stopPropagation()">
@@ -214,6 +295,44 @@
       <div class="tc-live-generating">
         <div class="tc-live-pulse"></div>
         <span class="text-muted small">Generating test cases<span class="testlab-dots"></span></span>
+      </div>
+      }
+
+      <!-- ══ AVATAR STACK devant les test cases (panneau droit) ══ -->
+      @if ((liveCases || []).length > 0 && getPlanStatus(livePlanId) !== 'generating') {
+      <div class="tc-right-cases-header">
+        <div class="tc-avatar-stack tc-avatar-stack--lg">
+          @if (livePlan?.generatedBy?.avatar) {
+            <img class="tc-avatar-stack-item"
+              [src]="livePlan.generatedBy.avatar"
+              [title]="livePlan.generatedBy?.name || ''"
+              [alt]="livePlan.generatedBy?.name || ''" />
+          } @else if (livePlan?.generatedBy?.name) {
+            <span class="tc-avatar-stack-item tc-avatar-stack-bubble"
+              [title]="livePlan.generatedBy?.name || ''">
+              {{ livePlan.generatedBy.name.slice(0,1).toUpperCase() }}
+            </span>
+          }
+          @if (livePlan?.lastActionBy?.name && livePlan?.lastActionBy?.name !== livePlan?.generatedBy?.name) {
+            @if (livePlan?.lastActionBy?.avatar) {
+              <img class="tc-avatar-stack-item"
+                [src]="livePlan.lastActionBy.avatar"
+                [title]="livePlan.lastActionBy?.name || ''"
+                [alt]="livePlan.lastActionBy?.name || ''" />
+            } @else {
+              <span class="tc-avatar-stack-item tc-avatar-stack-bubble"
+                [title]="livePlan.lastActionBy?.name || ''">
+                {{ livePlan.lastActionBy.name.slice(0,1).toUpperCase() }}
+              </span>
+            }
+          }
+        </div>
+        <span class="tc-right-cases-label">
+          {{ (liveCases || []).length }} test case{{ (liveCases || []).length > 1 ? 's' : '' }} générés
+          @if (livePlan?.generatedBy?.name) {
+            par <strong>{{ livePlan.generatedBy.name }}</strong>
+          }
+        </span>
       </div>
       }
 
@@ -289,6 +408,43 @@
       </div>
 
       } @else {
+
+      <!-- ══ AVATAR STACK devant les test cases (modal) ══ -->
+      <div class="tc-modal-cases-header">
+        <div class="tc-avatar-stack tc-avatar-stack--lg">
+          @if (modalPlan.generatedBy?.avatar) {
+            <img class="tc-avatar-stack-item"
+              [src]="modalPlan.generatedBy.avatar"
+              [title]="modalPlan.generatedBy?.name || ''"
+              [alt]="modalPlan.generatedBy?.name || ''" />
+          } @else if (modalPlan.generatedBy?.name) {
+            <span class="tc-avatar-stack-item tc-avatar-stack-bubble"
+              [title]="modalPlan.generatedBy?.name || ''">
+              {{ modalPlan.generatedBy.name.slice(0,1).toUpperCase() }}
+            </span>
+          }
+          @if (modalPlan.lastActionBy?.name && modalPlan.lastActionBy?.name !== modalPlan.generatedBy?.name) {
+            @if (modalPlan.lastActionBy?.avatar) {
+              <img class="tc-avatar-stack-item"
+                [src]="modalPlan.lastActionBy.avatar"
+                [title]="modalPlan.lastActionBy?.name || ''"
+                [alt]="modalPlan.lastActionBy?.name || ''" />
+            } @else {
+              <span class="tc-avatar-stack-item tc-avatar-stack-bubble"
+                [title]="modalPlan.lastActionBy?.name || ''">
+                {{ modalPlan.lastActionBy.name.slice(0,1).toUpperCase() }}
+              </span>
+            }
+          }
+        </div>
+        <span class="tc-modal-cases-label">
+          {{ modalCases.length }} test case{{ modalCases.length > 1 ? 's' : '' }}
+          @if (modalPlan.generatedBy?.name) {
+            · par <strong>{{ modalPlan.generatedBy.name }}</strong>
+          }
+        </span>
+      </div>
+
       <div class="tc-modal-cases">
         @for (tc of modalCases; track tc.id; let i = $index) {
         <div class="tc-case-card">
@@ -328,7 +484,7 @@
 
     </div>
 
-    <!-- ✅ BUTTONS MOVED TO BOTTOM -->
+    <!-- BUTTONS BOTTOM -->
     <div class="tc-modal-actions-bottom">
 
       @if (!modalGenerating && modalCases.length === 0) {
@@ -339,20 +495,16 @@
 
       } @else if (!modalGenerating && modalCases.length > 0) {
 
-       <button class="btn btn-cancel px-4" (click)="closeModal()">
+      <button class="btn btn-cancel px-4" (click)="closeModal()">
         Cancel
       </button>
-      
-        <button class="btn btn-outline-primary px-4" (click)="onModalGenerate(true)">
+
+      <button class="btn btn-outline-primary px-4" (click)="onModalGenerate(true)">
         <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
         Regenerate
       </button>
 
-     
-
-     
-
-       <button class="btn btn-brand px-4" (click)="onModalValidate()">
+      <button class="btn btn-brand px-4" (click)="onModalValidate()">
         <iconify-icon icon="iconamoon:check-circle-1-duotone" class="me-1"></iconify-icon>
         Validate & Save
       </button>

@@ -97,6 +97,12 @@ export class TestCasesHomeComponent implements OnInit {
     return this.isSuiteValidated(suite) ? 'Validated' : 'Not validated'
   }
 
+  getLastActorBubble(suite: TestSuiteDto): string {
+    const name = String(suite?.lastActionBy?.name || '').trim()
+    if (!name) return ''
+    return name.slice(0, 1).toUpperCase()
+  }
+
   get livePlan(): TestPlanDto | null {
     return this.allPlans.find(p => p.id === this.livePlanId) || null
   }

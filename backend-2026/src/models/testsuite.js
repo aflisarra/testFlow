@@ -2,11 +2,10 @@
 // models/testsuite.js
 // TestSuite MongoDB model
 // Stores : description, docx file path, app URL, userId
-// After creation → AI generates the test plan (PlanTest)
+// After creation → AI generates the test plan (planSteps)
 // ============================================================
 
 const mongoose = require('mongoose');
-
 const planStepSchema = new mongoose.Schema(
     {
         contenu: {
@@ -21,7 +20,6 @@ const planStepSchema = new mongoose.Schema(
     },
     { _id: true }
 );
-
 const testPlanSchema = new mongoose.Schema(
     {
         id: { type: String, required: true, trim: true },
@@ -30,7 +28,6 @@ const testPlanSchema = new mongoose.Schema(
     },
     { _id: false }
 );
-
 const testCaseSchema = new mongoose.Schema(
     {
         id: { type: String, required: true, trim: true },
@@ -40,7 +37,6 @@ const testCaseSchema = new mongoose.Schema(
     },
     { _id: false }
 );
-
 const testCasesByPlanSchema = new mongoose.Schema(
     {
         planId: { type: String, required: true, trim: true },
@@ -49,7 +45,6 @@ const testCasesByPlanSchema = new mongoose.Schema(
     },
     { _id: false }
 );
-
 const planStatusSchema = new mongoose.Schema(
     {
         planId: { type: String, required: true, trim: true },
@@ -57,7 +52,6 @@ const planStatusSchema = new mongoose.Schema(
     },
     { _id: false }
 );
-
 const validationPlanStatusSchema = new mongoose.Schema(
     {
         planId: { type: String, required: true, trim: true },
@@ -65,7 +59,6 @@ const validationPlanStatusSchema = new mongoose.Schema(
     },
     { _id: false }
 );
-
 const executionPlanStatusSchema = new mongoose.Schema(
     {
         planId: { type: String, required: true, trim: true },
@@ -74,68 +67,81 @@ const executionPlanStatusSchema = new mongoose.Schema(
     { _id: false }
 );
 
+const lastActionBySchema = new mongoose.Schema(
+    {
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            default: null
+        },
+        name: {
+            type: String,
+            default: ''
+        },
+        action: {
+            type: String,
+            enum: ['generate-plan', 'generate-test-case', 'regenerate-plan', 'regenerate-test-case'],
+            default: null
+        },
+        at: {
+            type: Date,
+            default: null
+        }
+    },
+    { _id: false }
+);
 const testSuiteSchema = new mongoose.Schema({
-
     // Name of the test suite (auto-generated or user-defined)
     nom: {
         type: String,
         required: true,
         trim: true
     },
-
     // Optional user-facing test name shown in listing tables
     nametest: {
         type: String,
         default: "",
         trim: true
     },
-
     // Short description entered by the user in the textarea
     // "What do you want to test ?"
     description: {
         type: String,
         trim: true
     },
-
     // Path to the uploaded .docx specification file
     // Stored on disk after multer upload
     specFilePath: {
         type: String,
         default: null
     },
-
     // Original filename of the uploaded .docx (for display)
     specFileName: {
         type: String,
         default: null
     },
-
     // Text extracted from the .docx by mammoth
     // Sent to FastAPI → Ollama to generate the test plan
     specText: {
         type: String,
         default: null
     },
-
     // Style configuration entered by the user (frontend)
     styleConfig: {
         type: String,
         default: ""
     },
-
     // Embedded test plan steps (preferred storage)
     // Avoids storing one MongoDB document per step in a separate collection.
     planSteps: {
         type: [planStepSchema],
         default: []
     },
-
     // New format: high-level test plans (TP-1, TP-2...)
     testPlans: {
         type: [testPlanSchema],
         default: []
     },
-
     // New format: generated test cases grouped by plan
     testCasesByPlan: {
         type: [testCasesByPlanSchema],
@@ -148,13 +154,11 @@ const testSuiteSchema = new mongoose.Schema({
         enum: ['complete', 'incomplete'],
         default: 'incomplete'
     },
-
     // Persisted status per plan id
     planStatuses: {
         type: [planStatusSchema],
         default: []
     },
-
     // ============================================================
     // Enterprise Test Status System (AI generation + save + execution)
     // ============================================================
@@ -166,44 +170,36 @@ const testSuiteSchema = new mongoose.Schema({
         enum: ["Draft", "Generating", "Incomplete", "Ready", "Passed", "Failed"],
         default: "Draft",
     },
-
     lastGeneratedAt: {
         type: Date,
         default: null,
     },
-
     savedAt: {
         type: Date,
         default: null,
     },
-
     executedAt: {
         type: Date,
         default: null,
     },
-
     sessionSavedAt: {
         type: Date,
         default: null
     },
-
     // Manual validation of AI-generated plans/cases
     validationStatus: {
         type: String,
         enum: ['validated', 'invalid'],
         default: 'invalid'
     },
-
     validationPlanStatuses: {
         type: [validationPlanStatusSchema],
         default: []
     },
-
     validationSavedAt: {
         type: Date,
         default: null
     },
-
     // Selenium execution results (null means "not executed yet")
     executionStatus: {
         type: String,
@@ -221,30 +217,32 @@ const testSuiteSchema = new mongoose.Schema({
             message: 'executionStatus must be "completed", "incomplete", or null',
         },
     },
-
     executionPlanStatuses: {
         type: [executionPlanStatusSchema],
         default: []
     },
-
     executionSavedAt: {
         type: Date,
         default: null
     },
 
+    // Lightweight actor tracking (latest generation action only).
+    // Additive only, no migration required.
+    lastActionBy: {
+        type: lastActionBySchema,
+        default: () => ({})
+    },
     // Target URL of the application to test
     urlCible: {
         type: String,
         trim: true
     },
-
     // Reference to the user who created this suite
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-
     // A test suite belongs to a single project.
     // One project can own many test suites.
     projectId: {
@@ -253,7 +251,6 @@ const testSuiteSchema = new mongoose.Schema({
         default: null,
         index: true
     }
-
 }, { timestamps: true });
 
 module.exports = mongoose.model('TestSuite', testSuiteSchema);

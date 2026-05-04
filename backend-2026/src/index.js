@@ -8,7 +8,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
-const { generateToken } = require('../src/services/auth.service');
+const { generateToken } = require('./services/auth.service');
 const { getJwtSecret } = require('./utils/jwt-secrets');
 const testSuiteRoutes = require('./routes/testsuite.routes');
 //const aiRoutes = require("./routes/ai.routes");
@@ -21,26 +21,34 @@ const ollamaRoutes = require('./routes/ollama.routes')
 
 //const User = require('./src/models/user.model');
 //const db = require('./src/database/config/db');
-const roleRoutes = require('../src/routes/role.routes');
+const roleRoutes = require('./routes/role.routes');
 //const userRoutes = require('./src/routes/user.routes');
-const authRedirectRoute = require('../src/routes/authRedirect');
-const actionRoutes = require('../src/routes/action.routes');
-const projectRoutes = require('../src/routes/project.routes');
-const projectInvitationRoutes = require('../src/routes/projectInvitation.routes');
+const authRedirectRoute = require('./routes/authRedirect');
+const actionRoutes = require('./routes/action.routes');
+const projectRoutes = require('./routes/project.routes');
+const projectInvitationRoutes = require('./routes/projectInvitation.routes');
 
 
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const mongoUri = process.env.MONGODB_URI || process.env.MONGODB_URL
-console.log('MONGO URI =', mongoUri);
+
 //app.use(cors());
-app.use(express.json()); ///parser les données au format JSON
 
 
 
 
-const allowedOrigins = ['http://localhost:4200', 'http://localhost:3000'];
+
+function parseAllowedOrigins(raw) {
+  if (!raw) return ['http://localhost:4200', 'http://localhost:3000']
+  return String(raw)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+const allowedOrigins = parseAllowedOrigins(process.env.CORS_ORIGINS);
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -64,11 +72,7 @@ app.use((req, res, next) => {
 });
 
 app.use(cors(corsOptions));
-app.use(express.json());
-
-// Test route
-
-app.use('/ollama', ollamaRoutes);
+app.use(express.json()); ///parser les données au format JSON
 // Configuration CORS dynamique avec gestion des credentials
 /*app.use(cors({
   origin: function(origin, callback) {
@@ -96,18 +100,8 @@ app.use('/ollama', ollamaRoutes);
 
 //app.use('/api', userRoutes);
 app.use('/api/uploads', express.static('uploads'));
-app.use('/api', authRedirectRoute);
-app.use('/api/auth', require('../src/routes/auth.routes'));
-app.use('/api/users', require('../src/routes/user.routes'));
-app.use('/api/roles', roleRoutes);
-app.use('/api/actions', actionRoutes);
-app.use('/api/projects', projectRoutes);
-app.use('/api/project-invitations', projectInvitationRoutes);
-app.use('/api/testsuites', testSuiteRoutes);
-//app.use("/api/ai", aiRoutes);
-app.use("/api/ollama", ollamaRoutes);
-app.use("/auth", authMagic);
-// 2️⃣ Middleware global pour rafraîchir le token si valide
+
+// Middleware global pour rafraîchir le token si valide
 app.use((req, res, next) => {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return next();
@@ -127,6 +121,17 @@ app.use((req, res, next) => {
     next();
   });
 });
+app.use('/api', authRedirectRoute);
+app.use('/api/auth', require('./routes/auth.routes'));
+app.use('/api/users', require('./routes/user.routes'));
+app.use('/api/roles', roleRoutes);
+app.use('/api/actions', actionRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/project-invitations', projectInvitationRoutes);
+app.use('/api/testsuites', testSuiteRoutes);
+//app.use("/api/ai", aiRoutes);
+app.use("/api/ollama", ollamaRoutes);
+app.use("/auth", authMagic);
 
 mongoose.connect(mongoUri, {
   useNewUrlParser: true,

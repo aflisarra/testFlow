@@ -16,7 +16,7 @@
 }
 
 .exec-upsert-header {
-  margin-bottom: 1rem;
+  margin-block-end: 1rem;
 }
 
 .exec-upsert-headline {
@@ -40,11 +40,11 @@
 
 .exec-close-btn {
   position: absolute;
-  right: 0;
-  top: 50%;
+  inset-inline-end: 0;
+  inset-block-start: 50%;
   transform: translateY(-50%);
-  width: 2rem;
-  height: 2rem;
+  inline-size: 2rem;
+  block-size: 2rem;
   border: 1px solid #d5e2f1;
   border-radius: 999px;
   background: #fff;
@@ -80,13 +80,13 @@
   text-transform: none;
   letter-spacing: 0;
   color: #475569;
-  margin-bottom: 3px;
+  margin-block-end: 3px;
 
 }
 
 .exec-input,
 .exec-select {
-  width: 100%;
+  inline-size: 100%;
   border: 1px solid #cfe0f1;
   border-radius: 10px;
   background: #f5f7fa;
@@ -116,7 +116,7 @@
 }
 
 .exec-buttons {
-  margin-top: 0.6rem;
+  margin-block-start: 0.6rem;
   display: flex;
   justify-content: flex-end;
   gap: 0.55rem;
@@ -156,6 +156,6 @@
 }
 
 .exec-upsert-accent {
-  height: 4px;
+  block-size: 4px;
   background: linear-gradient(90deg, #0c4f93 0%, #36a8ff 100%);
 }
