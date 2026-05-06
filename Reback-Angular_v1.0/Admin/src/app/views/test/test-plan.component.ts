@@ -7,6 +7,7 @@ import {
   type TestPlanDto,
 } from '@/app/core/services/testlab.service'
 import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
+import { ProjectsStateService } from '@/app/core/services/projects-state.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import type { PlanStatus } from '@/app/views/test/models/status.types'
@@ -36,6 +37,7 @@ export class TestSuiteConfigurationComponent {
   private authService = inject(AuthenticationService)
   private adminManagementService = inject(AdminManagementService)
   private projectsRefresh = inject(ProjectsRefreshService)
+  private projectsState = inject(ProjectsStateService)
   private router = inject(Router)
   private activatedRoute = inject(ActivatedRoute)
   private toastr = inject(ToastrService)
@@ -109,6 +111,12 @@ export class TestSuiteConfigurationComponent {
     void this.loadProjects()
     void this.initializeFromQueryParams()
 
+    this.projectsState.projects$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((projects: AppProject[]) => {
+        this.projects = Array.isArray(projects) ? projects : []
+      })
+
     this.projectsRefresh.changes$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => void this.loadProjects())
@@ -137,8 +145,7 @@ export class TestSuiteConfigurationComponent {
     this.loadingProjects = true
     this.syncProjectIdControlDisabled()
     try {
-      const projects = await firstValueFrom(this.adminManagementService.getProjects(false))
-      this.projects = Array.isArray(projects) ? projects : []
+      await this.projectsState.refresh(false)
     } catch {
       this.projects = []
     } finally {

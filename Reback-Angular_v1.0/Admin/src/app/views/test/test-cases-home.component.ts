@@ -18,7 +18,15 @@ import {
   type TestCaseDto,
   type TestPlanDto,
   type TestSuiteDto,
+  type TestCasesByPlanDto, // ← importer le type si ce n'est pas déjà fait
 } from '@/app/core/services/testlab.service'
+
+
+interface UserPreview {
+  id: string
+  name?: string
+  picture?: string
+}
 
 @Component({
   selector: 'app-test-cases-home',
@@ -28,6 +36,8 @@ import {
   styleUrl: './test-cases-home.component.css',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
+
+
 export class TestCasesHomeComponent implements OnInit {
   private store = inject(Store)
   private authService = inject(AuthenticationService)
@@ -41,6 +51,9 @@ export class TestCasesHomeComponent implements OnInit {
   generatingPlanId = ''
   errorMessage = ''
   currentSuiteName = ''
+
+
+  readonly AVATAR_MAX = 4
 
   suites: TestSuiteDto[] = []
   expandedSuites: Record<string, boolean> = {}
@@ -72,6 +85,12 @@ export class TestCasesHomeComponent implements OnInit {
   liveCases: TestCaseDto[] = []
 
   private generationSubscription: Subscription | null = null
+
+  // ── Auteur par plan (utilisateur qui a généré) ───────────────────────
+  planAuthors: Record<string, { name?: string; picture?: string }> = {}
+
+  // Utilisateur courant (récupéré une fois au démarrage)
+  private currentUser: { name?: string; picture?: string } | null = null
 
   // ── Getters ──────────────────────────────────────────────────────────
 
@@ -107,6 +126,41 @@ export class TestCasesHomeComponent implements OnInit {
     return this.allPlans.find(p => p.id === this.livePlanId) || null
   }
 
+  /**
+   * CORRECTION : renvoie null si aucun auteur connu OU si l'auteur
+   * n'a ni name ni picture (évite une bulle vide avec juste "?").
+   */
+  get livePlanAuthor(): { name?: string; picture?: string } | null {
+    if (!this.livePlanId) return null
+    const a = this.planAuthors[this.livePlanId]
+    if (!a || (!a.name && !a.picture)) return null
+    return a
+  }
+
+  
+  /** Initiales à partir d'un nom */
+getInitials(name?: string): string {
+  if (!name) return '?'
+  return name
+    .trim()
+    .split(/\s+/)
+    .map(w => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+  /** URL avatar (passe-through, peut être étendu) */
+  resolveAvatarUrl(url?: string): string {
+    return url || ''
+  }
+
+  /** Fallback erreur image */
+  onAvatarError(event: Event): void {
+    const img = event.target as HTMLImageElement
+    if (img) img.style.display = 'none'
+  }
+
   // ── Lifecycle ─────────────────────────────────────────────────────────
 
   async ngOnInit() {
@@ -114,6 +168,9 @@ export class TestCasesHomeComponent implements OnInit {
       String(this.route.snapshot.paramMap.get('id') || '').trim() ||
       String(this.route.snapshot.queryParamMap.get('suiteId') || '').trim()
     this.currentSuiteName = String(this.route.snapshot.queryParamMap.get('suiteName') || '').trim()
+
+    // Récupérer l'utilisateur courant une fois
+    await this.resolveCurrentUser()
 
     const state = history.state as { plans?: TestPlanDto[] }
     this.plans = state?.plans || []
@@ -123,6 +180,20 @@ export class TestCasesHomeComponent implements OnInit {
       await this.loadPlansForSuite(this.testSuiteId)
     } else {
       await this.loadSuites()
+    }
+  }
+
+  /** Résout l'utilisateur courant et le stocke dans this.currentUser */
+  private async resolveCurrentUser(): Promise<void> {
+    try {
+      const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
+      const fullName = String(`${user?.firstName || ''} ${user?.lastName || ''}`).trim()
+      this.currentUser = {
+        name: String(fullName || user?.username || user?.email || '').trim() || undefined,
+        picture: String(user?.picture || '').trim() || undefined,
+      }
+    } catch {
+      this.currentUser = null
     }
   }
 
@@ -180,6 +251,12 @@ export class TestCasesHomeComponent implements OnInit {
           if (block?.planId) this.testCasesByPlan[block.planId] = block?.testCases || []
         }
         this.initializePlanStatuses(this.suitePlans[suiteId])
+
+        // CORRECTION : pré-remplir planAuthors depuis les données serveur
+        this.extractAuthorsFromBlocks(resp?.testCasesByPlan || [])
+
+        // CORRECTION : fallback currentUser pour les plans qui ont des cas
+        this.applyCurrentUserFallback(this.suitePlans[suiteId])
       } catch (err) {
         console.error('Error loading plans', err)
       } finally {
@@ -220,7 +297,6 @@ export class TestCasesHomeComponent implements OnInit {
   }
 
   closeModal() {
-    // Closing the generation modal while having unsaved generated changes should warn
     if (this.hasUnsavedChanges && this.modalOpen && !this.modalGenerating) {
       this.pendingAction = () => this.closeModalForce()
       void this.openUnsavedModal()
@@ -266,6 +342,12 @@ export class TestCasesHomeComponent implements OnInit {
         this.liveCases = [...this.modalCases]
         this.testCasesByPlan[plan.id] = this.modalCases
         this.planStatuses[plan.id] = this.modalCases.length ? 'reviewing' : 'pending'
+
+        // CORRECTION : enregistrer l'auteur — priorité currentUser (vient de générer)
+        if (this.currentUser && (this.currentUser.name || this.currentUser.picture)) {
+          this.planAuthors[plan.id] = { ...this.currentUser }
+        }
+
         this.refreshUnsavedFlag()
         this.toastr.success(`Test cases ${regenerate ? 'regenerated' : 'generated'} for ${plan.id}`, 'Generation')
       },
@@ -386,7 +468,6 @@ export class TestCasesHomeComponent implements OnInit {
   onBeforeUnload(event: BeforeUnloadEvent) {
     if (!this.hasUnsavedChanges) return
     event.preventDefault()
-    // Most browsers ignore custom text; setting returnValue triggers the prompt.
     event.returnValue = 'You have unsaved changes.'
   }
 
@@ -396,7 +477,6 @@ export class TestCasesHomeComponent implements OnInit {
   }
 
   private refreshUnsavedFlag() {
-    // "reviewing" = generated/modified but not saved
     const anyReviewing = this.allPlans.some((p) => this.getPlanStatus(p.id) === 'reviewing')
     const modalDirty = this.modalOpen && !this.modalGenerating && this.modalCases.length > 0 && this.modalPlan
       ? this.getPlanStatus(this.modalPlan.id) === 'reviewing'
@@ -470,12 +550,51 @@ export class TestCasesHomeComponent implements OnInit {
     })
   }
 
-  // ── Private ───────────────────────────────────────────────────────────
+  // ── Private helpers ───────────────────────────────────────────────────
 
   private initializePlanStatuses(plans: TestPlanDto[]) {
     for (const plan of plans || []) {
       if (!this.planStatuses[plan.id]) {
         this.planStatuses[plan.id] = 'pending'
+      }
+    }
+  }
+
+  /**
+   * CORRECTION : extrait les auteurs depuis les blocs testCasesByPlan
+   * en utilisant le type fort TestCasesByPlanDto au lieu de (block as any).
+   */
+  private extractAuthorsFromBlocks(blocks: TestCasesByPlanDto[]) {
+    for (const block of blocks || []) {
+      const planId = String(block?.planId || '').trim()
+      if (!planId) continue
+
+      // Déjà connu → ne pas écraser
+      if (this.planAuthors[planId]) continue
+
+      const author = block.generatedBy || block.author || block.createdBy
+      if (!author) continue
+
+      const a = author as Record<string, unknown>
+      const name = String(a['name'] || a['username'] || a['firstName'] || '').trim() || undefined
+      const picture = String(a['picture'] || a['avatar'] || '').trim() || undefined
+
+      if (name || picture) {
+        this.planAuthors[planId] = { name, picture }
+      }
+    }
+  }
+
+  /**
+   * CORRECTION : pour chaque plan qui a des test cases mais sans auteur connu,
+   * on utilise currentUser comme fallback (utile après rechargement de page).
+   */
+  private applyCurrentUserFallback(plans: TestPlanDto[]) {
+    if (!this.currentUser || (!this.currentUser.name && !this.currentUser.picture)) return
+
+    for (const plan of plans || []) {
+      if ((this.testCasesByPlan[plan.id] || []).length > 0 && !this.planAuthors[plan.id]) {
+        this.planAuthors[plan.id] = { ...this.currentUser }
       }
     }
   }
@@ -511,11 +630,18 @@ export class TestCasesHomeComponent implements OnInit {
           this.planStatuses[planId] = status as PlanValidationStatus
         }
       }
+
+      // CORRECTION : utiliser le type fort + la méthode dédiée
+      this.extractAuthorsFromBlocks(resp?.testCasesByPlan || [])
+
       for (const p of this.plans) {
         if ((this.testCasesByPlan[p.id] || []).length > 0 && !this.planStatuses[p.id]) {
           this.planStatuses[p.id] = 'reviewing'
         }
       }
+
+      // CORRECTION : fallback currentUser pour les plans chargés depuis le serveur
+      this.applyCurrentUserFallback(this.plans)
 
       if (this.plans[0]) {
         this.selectedPlanId = this.plans[0].id
@@ -536,4 +662,6 @@ export class TestCasesHomeComponent implements OnInit {
       return String(userLike['userId'] || userLike['id'] || userLike['_id'] || userLike['sub'] || '').trim()
     } catch { return '' }
   }
+
+  
 }

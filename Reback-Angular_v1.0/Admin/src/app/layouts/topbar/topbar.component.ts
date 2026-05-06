@@ -20,6 +20,7 @@ import { AuthenticationService } from '@/app/core/services/auth.service'
 import { ProjectInvitationsService } from '@/app/core/services/project-invitations.service'
 import type { ProjectInvitationDto } from '@/app/interfaces/project-invitations.interface'
 import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
+//import { ProjectsStateService } from '@/app/core/services/projects-state.service'
 import { ApiService } from '@/app/core/services/api.service'
 import { ToastrService } from 'ngx-toastr'
 import { firstValueFrom } from 'rxjs'
@@ -42,6 +43,7 @@ export class TopbarComponent implements OnInit {
   authService = inject(AuthenticationService)
   private invitationsService = inject(ProjectInvitationsService)
   private projectsRefresh = inject(ProjectsRefreshService)
+  //private projectsState = inject(ProjectsStateService)
   private toastr = inject(ToastrService)
   private api = inject(ApiService)
   destroyRef = inject(DestroyRef)
@@ -103,7 +105,8 @@ export class TopbarComponent implements OnInit {
       this.toastr.success('Project invitation accepted.', 'Project')
       await this.refreshInvitations()
 
-      // Refresh project lists across pages (Project + Test Plan dropdown, etc.)
+      // Real-time refresh project lists (Project + Test Plan dropdown, etc.)
+      // void this.projectsState.refresh(false)
       this.projectsRefresh.notify()
 
       const respProjectId = (resp as { projectId?: string | null } | null | undefined)?.projectId

@@ -47,6 +47,10 @@ export interface TestCasesByPlanDto {
   planId: string
   planTitle?: string
   testCases: TestCaseDto[]
+  generatedBy?: unknown
+  author?: unknown
+  createdBy?: unknown
+
 }
 
 export interface GetTestPlansResponse {

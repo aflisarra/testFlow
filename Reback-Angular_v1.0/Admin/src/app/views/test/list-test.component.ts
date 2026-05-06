@@ -15,9 +15,11 @@ import { CommonModule, DatePipe } from '@angular/common'
 import { Component, CUSTOM_ELEMENTS_SCHEMA, HostListener, inject, OnInit } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { ActivatedRoute, Router } from '@angular/router'
+import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
 import { Store } from '@ngrx/store'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
+import { ConfirmModalComponent } from '../admin/shared/confirm-modal.component'
 
 @Component({
   selector: 'app-test-cases-validation',
@@ -34,6 +36,7 @@ export class TestCasesValidationComponent implements OnInit {
   private testLabService = inject(TestLabService)
   private router = inject(Router)
   private route = inject(ActivatedRoute)
+  private modalService = inject(NgbModal)
 
   loading = false
   errorMessage = ''
@@ -75,6 +78,7 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
   selectedPlanId: string | null = null
   generatingCasesPlanId: string | null = null
   testCasesByPlan: Record<string, TestCaseDto[]> = {}
+  testCaseFilter: 'all' | 'valid' | 'invalid' = 'all'
 
   // Test Status System
   testGenerationStatus: TestGenerationStatus = 'Draft'
@@ -126,6 +130,23 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
 
   get selectedTestCases(): TestCaseDto[] {
     return this.testCasesByPlan[this.selectedPlanId ?? ''] ?? []
+  }
+
+  get filteredSelectedTestCases(): TestCaseDto[] {
+    const wanted = this.testCaseFilter
+    const cases = this.selectedTestCases
+    if (wanted === 'all') return cases
+
+    return cases.filter((tc) => {
+      const hasSteps = Array.isArray(tc?.steps) && tc.steps.length > 0
+      const hasExpected = String(tc?.expected_result || '').trim().length > 0
+      const isValid = hasSteps && hasExpected
+      return wanted === 'valid' ? isValid : !isValid
+    })
+  }
+
+  get totalTestCases(): number {
+    return this.getTotalCases(this.suiteDetail)
   }
 
   async ngOnInit() {
@@ -262,6 +283,28 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     await this.generateTestCases(plan, false)
   }
 
+  async onRunPlan(plan: TestPlanDto): Promise<void> {
+    this.selectedPlanId = plan.id
+    await this.onRunSuite()
+  }
+
+  onDeletePlan(plan: TestPlanDto): void {
+    const ref = this.modalService.open(ConfirmModalComponent, {
+      centered: true,
+      windowClass: 'confirm-modal-window',
+      backdropClass: 'confirm-modal-backdrop',
+    })
+    ref.componentInstance.title = 'Confirm'
+    ref.componentInstance.message = 'Are you sure you want to delete this test case?'
+    ref.componentInstance.confirmText = 'Delete'
+    ref.componentInstance.cancelText = 'Cancel'
+
+    ref.closed.subscribe(() => {
+      this.applyDeletePlanLocally(plan.id)
+      void this.refreshPlans()
+    })
+  }
+
   async onRegenerate(plan: TestPlanDto) {
     await this.generateTestCases(plan, true)
   }
@@ -270,6 +313,39 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     this.testCasesByPlan[planId] = (this.testCasesByPlan[planId] ?? []).filter(
       (tc) => tc.id !== testCaseId
     )
+  }
+
+  onConfirmDeleteTestCase(planId: string, testCaseId: string): void {
+    const ref = this.modalService.open(ConfirmModalComponent, {
+      centered: true,
+      windowClass: 'confirm-modal-window',
+      backdropClass: 'confirm-modal-backdrop',
+    })
+    ref.componentInstance.title = 'Confirm'
+    ref.componentInstance.message = 'Are you sure you want to delete this test case?'
+    ref.componentInstance.confirmText = 'Delete'
+    ref.componentInstance.cancelText = 'Cancel'
+
+    ref.closed.subscribe(() => {
+      this.onDeleteTestCase(planId, testCaseId)
+      void this.refreshPlans()
+    })
+  }
+
+  async onRunTestCase(planId: string, testCaseId: string): Promise<void> {
+    this.selectedPlanId = planId
+    if (!this.suiteDetail) return
+    this.loading = true
+    this.errorMessage = ''
+    try {
+      await this.router.navigate(['/test-cases/run'], {
+        queryParams: { suiteId: this.testSuiteId, planId, testCaseId },
+      })
+    } catch {
+      this.errorMessage = 'Unable to run test suite'
+    } finally {
+      this.loading = false
+    }
   }
 
   async onUploadSpec(event: Event, suiteId: string) {
@@ -367,25 +443,18 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     return name.slice(0, 2).toUpperCase()
   }
 
-  getTotalCases(suite: TestSuiteDto | null | undefined): number {
-    if (!suite) return 0
-    const localTotal = Object.values(this.testCasesByPlan).reduce(
-      (acc, cases) => acc + cases.length,
-      0
-    )
-    if (localTotal > 0) return localTotal
-
-    return (
-      suite.totalCases ??
-      suite.casesCount ??
-      suite.totalTestCases ??
-      (suite.testPlans?.reduce((acc: number, plan: TestPlanDto) => {
-        const fromCases = plan.testCases?.length ?? 0
-        const fromCount = plan.casesCount ?? 0
-        return acc + (fromCases || fromCount)
-      }, 0) ?? 0)
-    )
-  }
+getTotalCases(suite: TestSuiteDto | null | undefined): number {
+  if (!suite) return 0
+  return (
+    suite.totalCases ??
+    suite.casesCount ??
+    suite.totalTestCases ??
+    (suite.testPlans?.reduce((acc: number, plan: TestPlanDto) => {
+      return acc + (plan.testCases?.length ?? plan.casesCount ?? 0)
+    }, 0) ?? 0)
+  )
+}
+ 
 
   resolveAvatarUrl(pictureUrl?: string): string {
     if (!pictureUrl) return '/assets/images/users/default-user.svg'
@@ -509,7 +578,7 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
       // TODO: Implement Selenium execution workflow
       // For now, navigate to execution/run page or trigger execution
       await this.router.navigate(['/test-cases/run'], {
-        queryParams: { suiteId: this.testSuiteId },
+        queryParams: { suiteId: this.testSuiteId, planId: this.selectedPlanId || undefined },
       })
     } catch (err: unknown) {
       this.errorMessage =  'Unable to run test suite'
@@ -532,6 +601,24 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     const filterWrap = target?.closest('.tv-filter-wrap')
     if (!filterWrap) {
       this.filterOpen = false
+    }
+  }
+
+  private applyDeletePlanLocally(planId: string): void {
+    this.testPlans = this.testPlans.filter((p) => p.id !== planId)
+    delete this.testCasesByPlan[planId]
+    if (this.selectedPlanId === planId) {
+      this.selectedPlanId = this.testPlans[0]?.id ?? null
+    }
+  }
+
+  private async refreshPlans(): Promise<void> {
+    if (!this.testSuiteId) return
+    try {
+      const resp = await firstValueFrom(this.testLabService.getTestPlans(this.testSuiteId))
+      this.testPlans = resp?.testPlans ?? []
+    } catch {
+      // keep current list on failure
     }
   }
 }
