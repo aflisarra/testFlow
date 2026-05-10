@@ -29,27 +29,16 @@ module.exports = function requireAction(actionIdOrList) {
           }
 
           if (roleDoc && Array.isArray(roleDoc.actions)) {
-            const numeric = [];
-            let hasNonNumeric = false;
-            for (const id of roleDoc.actions) {
-              const n = typeof id === 'string' && /^\d+$/.test(id.trim()) ? Number(id.trim()) : Number(id);
-              if (Number.isFinite(n)) numeric.push(n);
-              else hasNonNumeric = true;
-            }
+  const numeric = roleDoc.actions
+    .map((id) => Number(id))
+    .filter(Number.isFinite)
 
-            // Option A expects numeric action ids. If we ever migrate to ObjectIds,
-            // keep allowing requests to pass via tokenActions, but warn loudly.
-            effectiveActions = numeric;
-            req.user.actions = effectiveActions;
-
-            if (hasNonNumeric) {
-              console.warn('[requireAction] roleDoc.actions contains non-numeric ids. Expected Numbers.', {
-                userId,
-                roleId: userDoc.roleId,
-                roleName: userDoc.role,
-              });
-            }
-          }
+  // only override token actions if DB actions exist
+  if (numeric.length > 0) {
+    effectiveActions = numeric
+    req.user.actions = effectiveActions
+  }
+}
         }
       }
 
@@ -61,9 +50,11 @@ module.exports = function requireAction(actionIdOrList) {
         });
       }
 
-      const allowed = required.some((id) => effectiveActions.includes(id));
+      const allowed = required.some(
+  (id) => effectiveActions.includes(Number(id)) || tokenActions.includes(Number(id))
+)
       if (!allowed) {
-        return res.status(403).json({ message: "Vous n'avez pas l'acces a ca" });
+        return res.status(403).json({ message: "You don't have access to that action" });
       }
 
       return next();

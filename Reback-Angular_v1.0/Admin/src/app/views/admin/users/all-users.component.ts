@@ -10,14 +10,15 @@ import { Store } from '@ngrx/store'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
-import { ToastrService } from 'ngx-toastr'
 import { Router } from '@angular/router'
 import { User } from '@store/authentication/auth.model'
 import { ApiService } from '@/app/core/services/api.service'
+import { UINotificationService } from '@/app/core/services/ui-notification.service'
+import { HasPermissionDirective } from '@/app/shared/directives/has-permission.directive'
 @Component({
   selector: 'app-all-users',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, NgbModalModule],
+  imports: [CommonModule, ReactiveFormsModule, NgbModalModule, HasPermissionDirective],
   templateUrl: './all-users.component.html',
   styleUrls: ['./all-users.component.css'],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
@@ -27,9 +28,9 @@ export class AllUsersComponent implements OnInit {
   private fb = inject(FormBuilder)
   private modalService = inject(NgbModal)
   private store = inject(Store)
-  private toastr = inject(ToastrService)
   private router = inject(Router)
   private api = inject(ApiService)
+  private uiNotify = inject(UINotificationService)
 
   users: AppUser[] = []
   readonly defaultAvatar = 'assets/images/users/default-user.svg'
@@ -42,10 +43,10 @@ export class AllUsersComponent implements OnInit {
   private currentUserId = ''
   private currentUserEmail = ''
 
-  private readonly ACTION_ADD_USER = 2
-  private readonly ACTION_EDIT_USER = 3
-  private readonly ACTION_VIEW_USER = 4
-  private readonly ACTION_DELETE_USER = 5
+  readonly ACTION_ADD_USER = 2
+  readonly ACTION_EDIT_USER = 3
+  readonly ACTION_VIEW_USER = 4
+  readonly ACTION_DELETE_USER = 5
 
   createUserForm = this.fb.group({
     name: ['', [Validators.required, Validators.pattern(/\S+/)]],
@@ -63,18 +64,21 @@ export class AllUsersComponent implements OnInit {
   readonly usersPerPage = 7
   currentUserPage = 1
 
-  async ngOnInit(): Promise<void> {
-    this.clearCreateUserCredentials()
-    await this.initPermissions()
-    this.syncCreateUserFormAccess()
+async ngOnInit(): Promise<void> {
+  this.clearCreateUserCredentials()
+  await this.initPermissions()
+  this.syncCreateUserFormAccess()
+
+  if (this.canAddUser || this.canEditUser) {
     this.loadRoles()
-    if (this.canViewUsers) {
-      this.loadUsers()
-    } else {
-      this.notifyPermissionDenied("Acces refuse: vous n'avez pas l'action View User.")
-      await this.router.navigate(['/unauthorized'], { replaceUrl: true })
-    }
   }
+
+  if (this.canViewUsers) {
+    this.loadUsers()
+  } else {
+    await this.router.navigate(['/unauthorized'], { replaceUrl: true })
+  }
+}
 
   private clearCreateUserCredentials(): void {
     this.createUserForm.patchValue(
@@ -109,20 +113,25 @@ private async initPermissions() {
     this.createUserForm.disable({ emitEvent: false })
   }
 
-  loadRoles(): void {
-    this.adminService.getRoles().subscribe({
-      next: (roles) => {
-        this.roles = roles || []
-      },
-      error: () => {
-        this.roles = []
-      },
-    })
+loadRoles(): void {
+  // prevent forbidden /api/roles call
+  if (!(this.canAddUser || this.canEditUser)) {
+    this.roles = []
+    return
   }
+
+  this.adminService.getRoles().subscribe({
+    next: (roles) => {
+      this.roles = roles || []
+    },
+    error: () => {
+      this.roles = []
+    },
+  })
+}
 
   loadUsers(): void {
     if (!this.canViewUsers) {
-      this.notifyPermissionDenied("Acces refuse: vous n'avez pas l'action View User.")
       this.users = []
       return
     }
@@ -176,7 +185,7 @@ private async initPermissions() {
     this.createSubmitted = true
 
     if (!this.canAddUser) {
-      this.notifyPermissionDenied('Action non autorisee: Add User.')
+      this.uiNotify.accessDenied('Action non autorisee: Add User.')
       return
 }
 
@@ -219,7 +228,7 @@ private async initPermissions() {
 
   onEditUser(user: AppUser) {
     if (!this.canEditUser) {
-      this.notifyPermissionDenied('Action non autorisee: Edit User.')
+      this.uiNotify.accessDenied('Action non autorisee: Edit User.')
       return
     }
 
@@ -242,7 +251,7 @@ private async initPermissions() {
 
   onDeleteUser(user: AppUser) {
     if (!this.canDeleteUser) {
-      this.notifyPermissionDenied('Action non autorisee: Delete User.')
+      this.uiNotify.accessDenied('Action non autorisee: Delete User.')
       return
     }
 
@@ -271,14 +280,9 @@ private async initPermissions() {
     })
   }
 
-  private notifyPermissionDenied(message: string) {
-    this.permissionAlert = message
-    this.toastr.warning(message, 'Permission')
-  }
-
   private showActionSuccess(action: 'created' | 'edited' | 'deleted') {
     const title = action.charAt(0).toUpperCase() + action.slice(1)
-    this.toastr.success('This action was completed successfully.', title)
+    this.uiNotify.success(`User ${title.toLowerCase()} successfully.`)
   }
 
   private isCurrentUser(user: AppUser): boolean {

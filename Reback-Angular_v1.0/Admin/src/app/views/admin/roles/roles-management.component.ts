@@ -16,11 +16,13 @@ import { ToastrService } from 'ngx-toastr'
 import { loginSuccess } from '@/app/store/authentication/authentication.actions'
 import { Router } from '@angular/router'
 import type { User } from '@/app/store/authentication/auth.model'
+import { UINotificationService } from '@/app/core/services/ui-notification.service'
+import { HasPermissionDirective } from '@/app/shared/directives/has-permission.directive'
 
 @Component({
   selector: 'app-roles-management',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, NgbModalModule, RoleUpsertModalComponent],
+  imports: [CommonModule, ReactiveFormsModule, NgbModalModule, RoleUpsertModalComponent, HasPermissionDirective],
   templateUrl: './roles-management.component.html',
   styleUrls: ['./roles-management.component.css'],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
@@ -31,6 +33,7 @@ export class RolesManagementComponent implements OnInit {
   private store = inject(Store)
   private toastr = inject(ToastrService)
   private router = inject(Router)
+  private uiNotify = inject(UINotificationService)
 
   roles: AppRole[] = []
   actions: AppAction[] = []
@@ -39,10 +42,10 @@ export class RolesManagementComponent implements OnInit {
   error = ''
   permissionAlert = ''
 
-  private readonly ACTION_ADD_ROLE = 6
-  private readonly ACTION_EDIT_ROLE = 7
-  private readonly ACTION_VIEW_ROLE = 8
-  private readonly ACTION_DELETE_ROLE = 9
+  readonly ACTION_ADD_ROLE = 6
+  readonly ACTION_EDIT_ROLE = 7
+  readonly ACTION_VIEW_ROLE = 8
+  readonly ACTION_DELETE_ROLE = 9
 
   canAddRole = false
   canEditRole = false
@@ -54,9 +57,14 @@ export class RolesManagementComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     await this.initPermissions()
     if (this.canViewRoles) {
-      this.loadData()
-    } else {
-      this.notifyPermissionDenied("Acces refuse: vous n'avez pas l'action View Role.")
+      this.loadRoles()
+    }
+
+    if (this.canAddRole || this.canViewRoles) {
+      this.loadActions()
+    }
+
+    if (!this.canAddRole && !this.canViewRoles) {
       await this.router.navigate(['/unauthorized'], { replaceUrl: true })
     }
   }
@@ -70,31 +78,31 @@ export class RolesManagementComponent implements OnInit {
     this.canViewRoles = actions.includes(this.ACTION_VIEW_ROLE)
   }
 
-  loadData(): void {
-    if (!this.canViewRoles) {
-      this.notifyPermissionDenied("Acces refuse: vous n'avez pas l'action View Role.")
-      this.roles = []
-      this.actions = []
-      return
-    }
-
+  loadRoles(): void {
+    if (!this.canViewRoles) return
     this.loading = true
     this.error = ''
+    this.adminService.getRoles().subscribe({
+      next: (roles) => {
+        this.roles = roles
+        this.clampRolePage()
+        this.loading = false
+      },
+      error: (err) => {
+        this.error = err?.error?.message || 'Unable to load roles'
+        this.loading = false
+      },
+    })
+  }
 
+  loadActions(): void {
+    if (!(this.canAddRole || this.canViewRoles)) return
+    this.loading = true
+    this.error = ''
     this.adminService.getActions().subscribe({
       next: (actions) => {
         this.actions = actions
-        this.adminService.getRoles().subscribe({
-          next: (roles) => {
-            this.roles = roles
-            this.clampRolePage()
-            this.loading = false
-          },
-          error: (err) => {
-            this.error = err?.error?.message || 'Unable to load roles'
-            this.loading = false
-          },
-        })
+        this.loading = false
       },
       error: (err) => {
         this.error = err?.error?.message || 'Unable to load actions'
@@ -107,7 +115,7 @@ export class RolesManagementComponent implements OnInit {
     if (created) {
       this.showActionSuccess('created')
       this.refreshCurrentUserPermissions()
-      this.loadData()
+      this.loadRoles()
     }
   }
 
@@ -139,7 +147,7 @@ export class RolesManagementComponent implements OnInit {
 
   onEditRole(role: AppRole) {
     if (!this.canEditRole) {
-      this.notifyPermissionDenied('Action non autorisee: Edit Role.')
+      this.uiNotify.accessDenied('Action non autorisee: Edit Role.')
       return
     }
 
@@ -162,13 +170,13 @@ export class RolesManagementComponent implements OnInit {
         this.showActionSuccess('edited')
         this.refreshCurrentUserPermissions()
       }
-      this.loadData()
+      this.loadRoles()
     })
   }
 
   async onDeleteRole(role: AppRole) {
     if (!this.canDeleteRole) {
-      this.notifyPermissionDenied('Action non autorisee: Delete Role.')
+      this.uiNotify.accessDenied('Action non autorisee: Delete Role.')
       return
     }
 
@@ -196,7 +204,7 @@ export class RolesManagementComponent implements OnInit {
         next: () => {
           this.showActionSuccess('deleted')
           this.refreshCurrentUserPermissions()
-          this.loadData()
+          this.loadRoles()
         },
         error: (err) => {
           const message = err?.error?.message || 'Unable to delete role'
@@ -207,14 +215,9 @@ export class RolesManagementComponent implements OnInit {
     })
   }
 
-  private notifyPermissionDenied(message: string) {
-    this.permissionAlert = message
-    this.toastr.warning(message, 'Permission')
-  }
-
   private showActionSuccess(action: 'created' | 'edited' | 'deleted') {
     const title = action.charAt(0).toUpperCase() + action.slice(1)
-    this.toastr.success('This action was completed successfully.', title)
+    this.uiNotify.success(`Role ${title.toLowerCase()} successfully.`)
   }
 
   private refreshCurrentUserPermissions() {

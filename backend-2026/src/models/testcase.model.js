@@ -1,5 +1,18 @@
 const mongoose = require('mongoose')
 
+const createdBySchema = new mongoose.Schema(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    name: { type: String, default: '' },
+    picture: { type: String, default: '' },
+  },
+  { _id: false }
+)
+
 const testCaseSchema = new mongoose.Schema(
   {
     testSuiteId: {
@@ -18,18 +31,16 @@ const testCaseSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     steps: { type: [String], default: [] },
     expected_result: { type: String, default: '', trim: true },
+
+    // ✅ FIXED
+    createdBy: {
+      type: createdBySchema,
+      default: null,
+    },
   },
   { timestamps: true }
 )
 
-// Prevent duplicated docs for the same suite + plan + case id during dual-write.
 testCaseSchema.index({ testSuiteId: 1, planId: 1, id: 1 }, { unique: true })
 
 module.exports = mongoose.model('TestCase', testCaseSchema)
-
-/*
-Future step:
-- migrate TestSuite.testCasesByPlan → TestCase collection
-- then remove embedded arrays safely
-*/
-

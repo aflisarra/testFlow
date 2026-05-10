@@ -1,4 +1,5 @@
 import { AuthenticationService } from '@/app/core/services/auth.service'
+import { UINotificationService } from '@/app/core/services/ui-notification.service'
 import {
   TestLabService,
   type TestCaseDto,
@@ -11,7 +12,7 @@ import { jwt_decode } from '@/app/core/utils/jwt-decode'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import type { TestGenerationStatus, TestSuiteStatusKey } from '@/app/views/test/models/status.types'
 import { getErrorMessage } from '@/app/views/test/utils/error.utils'
-import { CommonModule, DatePipe } from '@angular/common'
+import { CommonModule } from '@angular/common'
 import { Component, CUSTOM_ELEMENTS_SCHEMA, HostListener, inject, OnInit } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { ActivatedRoute, Router } from '@angular/router'
@@ -19,12 +20,12 @@ import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
 import { Store } from '@ngrx/store'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
-import { ConfirmModalComponent } from '../admin/shared/confirm-modal.component'
+import { ConfirmModalComponent } from '../../admin/shared/confirm-modal.component'
 
 @Component({
   selector: 'app-test-cases-validation',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe],
+  imports: [CommonModule, FormsModule],
   templateUrl: './list-test.component.html',
   styleUrls: ['./list-test.component.css'],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
@@ -33,6 +34,7 @@ import { ConfirmModalComponent } from '../admin/shared/confirm-modal.component'
 export class TestCasesValidationComponent implements OnInit {
   private store = inject(Store)
   private authService = inject(AuthenticationService)
+  private uiNotification = inject(UINotificationService)
   private testLabService = inject(TestLabService)
   private router = inject(Router)
   private route = inject(ActivatedRoute)
@@ -41,6 +43,7 @@ export class TestCasesValidationComponent implements OnInit {
   loading = false
   errorMessage = ''
   view: 'list' | 'detail' = 'list'
+  readonly vm = this
 
   // List
   suites: TestSuiteDto[] = []
@@ -64,7 +67,7 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
 
   // Pagination
   currentPage = 1
-  pageSize = 4
+  pageSize = 7
   exportingSuiteId: string | null = null
 
   // Detail
@@ -73,12 +76,14 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
   suiteDetail: TestSuiteDto | null = null
   projectDetail: TestLabProjectDto | null = null
   showTestDetails = false
+  membersOpen = false
 
   testPlans: TestPlanDto[] = []
   selectedPlanId: string | null = null
   generatingCasesPlanId: string | null = null
   testCasesByPlan: Record<string, TestCaseDto[]> = {}
   testCaseFilter: 'all' | 'valid' | 'invalid' = 'all'
+  caseOpen: Record<string, boolean> = {}
 
   // Test Status System
   testGenerationStatus: TestGenerationStatus = 'Draft'
@@ -228,9 +233,11 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     this.suiteDetail = null
     this.projectDetail = null
     this.showTestDetails = false
+    this.membersOpen = false
     this.testPlans = []
     this.selectedPlanId = null
     this.testCasesByPlan = {}
+    this.caseOpen = {}
     this.loading = true
     this.errorMessage = ''
 
@@ -264,6 +271,14 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
   }
   }
 
+  onSuiteRowClick(suite: TestSuiteDto): void {
+    if (suite?.canOpen === false) {
+      this.uiNotification.accessDenied("Access denied: you are not authorized to open this test.")
+      return
+    }
+    void this.onOpenSuite(suite)
+  }
+
   onBackToList() {
     this.view = 'list'
     this.testSuiteId = ''
@@ -271,10 +286,40 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     this.suiteDetail = null
     this.projectDetail = null
     this.showTestDetails = false
+    this.membersOpen = false
     this.testPlans = []
     this.selectedPlanId = null
     this.testCasesByPlan = {}
+    this.caseOpen = {}
     this.errorMessage = ''
+  }
+
+  private getCaseKey(planId: string | null | undefined, caseId: string): string {
+    return `${String(planId || '')}::${String(caseId || '')}`
+  }
+
+  isCaseOpen(planId: string | null | undefined, caseId: string): boolean {
+    return Boolean(this.caseOpen[this.getCaseKey(planId, caseId)])
+  }
+
+  toggleCase(planId: string | null | undefined, caseId: string): void {
+    const key = this.getCaseKey(planId, caseId)
+    this.caseOpen[key] = !this.caseOpen[key]
+  }
+
+  toggleMembers(): void {
+    this.membersOpen = !this.membersOpen
+  }
+
+  get projectMembers(): (TestLabProjectUserDto | string)[] {
+    const fromProject = this.projectDetail?.assignedUsers
+    const fromSuiteProject =
+      this.suiteDetail?.projectId && typeof this.suiteDetail.projectId === 'object'
+        ? (this.suiteDetail.projectId as TestLabProjectDto)?.assignedUsers
+        : undefined
+
+    const members = fromProject ?? fromSuiteProject ?? []
+    return Array.isArray(members) ? members : []
   }
 
   async onSelectPlan(plan: TestPlanDto) {
@@ -338,8 +383,23 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     this.loading = true
     this.errorMessage = ''
     try {
-      await this.router.navigate(['/test-cases/run'], {
-        queryParams: { suiteId: this.testSuiteId, planId, testCaseId },
+      const projectName =
+        this.projectDetail?.title || this.suiteDetail?.projectTitle || '—'
+      const suiteName = this.currentSuiteName || this.getSuiteDisplayName(this.suiteDetail)
+      const planName = this.testPlans.find((p) => p.id === planId)?.title || '—'
+      const testCaseName =
+        this.testCasesByPlan[planId]?.find((tc) => tc.id === testCaseId)?.title || testCaseId
+
+      await this.router.navigate(['/execution/Execution-Management'], {
+        queryParams: {
+          suiteId: this.testSuiteId,
+          planId,
+          testCaseId,
+          projectName,
+          suiteName,
+          planName,
+          testCaseName,
+        },
       })
     } catch {
       this.errorMessage = 'Unable to run test suite'
@@ -575,10 +635,20 @@ getTotalCases(suite: TestSuiteDto | null | undefined): number {
     this.errorMessage = ''
 
     try {
-      // TODO: Implement Selenium execution workflow
-      // For now, navigate to execution/run page or trigger execution
-      await this.router.navigate(['/test-cases/run'], {
-        queryParams: { suiteId: this.testSuiteId, planId: this.selectedPlanId || undefined },
+      const projectName =
+        this.projectDetail?.title || this.suiteDetail?.projectTitle || '—'
+      const suiteName = this.currentSuiteName || this.getSuiteDisplayName(this.suiteDetail)
+      const planId = this.selectedPlanId || undefined
+      const planName = planId ? (this.testPlans.find((p) => p.id === planId)?.title || '—') : '—'
+
+      await this.router.navigate(['/execution/Execution-Management'], {
+        queryParams: {
+          suiteId: this.testSuiteId,
+          planId,
+          projectName,
+          suiteName,
+          planName,
+        },
       })
     } catch (err: unknown) {
       this.errorMessage =  'Unable to run test suite'

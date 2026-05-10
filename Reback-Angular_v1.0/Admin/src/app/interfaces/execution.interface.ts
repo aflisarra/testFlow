@@ -37,6 +37,7 @@ export interface ErrorMeta {
 
 export interface TestScenario {
   projectName: string
+  suiteName: string
   planName: string
   caseName: string
   executionId: string
@@ -52,4 +53,3 @@ export interface TestScenario {
   errorMeta?: ErrorMeta
   failureSnapshot?: string
 }
-

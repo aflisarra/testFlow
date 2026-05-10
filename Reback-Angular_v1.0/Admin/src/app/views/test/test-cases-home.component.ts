@@ -18,10 +18,10 @@ import {
   type TestCaseDto,
   type TestPlanDto,
   type TestSuiteDto,
-  type TestCasesByPlanDto, // ← importer le type si ce n'est pas déjà fait
+  type TestCasesByPlanDto,
 } from '@/app/core/services/testlab.service'
 
-
+// ── Type unique pour les previews d'utilisateur ───────────────────────
 interface UserPreview {
   id: string
   name?: string
@@ -33,11 +33,9 @@ interface UserPreview {
   standalone: true,
   imports: [CommonModule],
   templateUrl: './test-cases-home.component.html',
-  styleUrl: './test-cases-home.component.css',
+  styleUrls: ['./test-cases-home.component.css'],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
-
-
 export class TestCasesHomeComponent implements OnInit {
   private store = inject(Store)
   private authService = inject(AuthenticationService)
@@ -51,7 +49,6 @@ export class TestCasesHomeComponent implements OnInit {
   generatingPlanId = ''
   errorMessage = ''
   currentSuiteName = ''
-
 
   readonly AVATAR_MAX = 4
 
@@ -72,10 +69,12 @@ export class TestCasesHomeComponent implements OnInit {
   modalPlan: TestPlanDto | null = null
   modalGenerating = false
   modalCases: TestCaseDto[] = []
+  editingCaseIds: Record<string, boolean> = {}
   private modalSubscription: Subscription | null = null
 
   // Unsaved changes protection
   hasUnsavedChanges = false
+  private dirtyPlans: Record<string, boolean> = {}
   unsavedModalOpen = false
   private unsavedResolve: ((ok: boolean) => void) | null = null
   private pendingAction: (() => void) | null = null
@@ -86,11 +85,9 @@ export class TestCasesHomeComponent implements OnInit {
 
   private generationSubscription: Subscription | null = null
 
-  // ── Auteur par plan (utilisateur qui a généré) ───────────────────────
+  // ── Auteurs par plan ─────────────────────────────────────────────────
+  // picture est toujours string | undefined ici (jamais null)
   planAuthors: Record<string, { name?: string; picture?: string }> = {}
-
-  // Utilisateur courant (récupéré une fois au démarrage)
-  private currentUser: { name?: string; picture?: string } | null = null
 
   // ── Getters ──────────────────────────────────────────────────────────
 
@@ -127,8 +124,8 @@ export class TestCasesHomeComponent implements OnInit {
   }
 
   /**
-   * CORRECTION : renvoie null si aucun auteur connu OU si l'auteur
-   * n'a ni name ni picture (évite une bulle vide avec juste "?").
+   * Auteur du plan actif dans le panneau droit.
+   * Renvoie null si ni name ni picture → pas de bulle vide.
    */
   get livePlanAuthor(): { name?: string; picture?: string } | null {
     if (!this.livePlanId) return null
@@ -137,28 +134,106 @@ export class TestCasesHomeComponent implements OnInit {
     return a
   }
 
-  
-  /** Initiales à partir d'un nom */
-getInitials(name?: string): string {
-  if (!name) return '?'
-  return name
-    .trim()
-    .split(/\s+/)
-    .map(w => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
+  /**
+   * Stack d'avatars pour le header — tous les auteurs distincts des plans.
+   */
+  get teamPreview(): { visible: UserPreview[]; overflow: number } {
+    const map = new Map<string, UserPreview>()
 
-  /** URL avatar (passe-through, peut être étendu) */
-  resolveAvatarUrl(url?: string): string {
-    return url || ''
+    for (const plan of this.allPlans) {
+      const author = this.planAuthors[plan.id]
+      if (!author) continue
+      const key = author.name || author.picture
+      if (!key || map.has(key)) continue
+      map.set(key, { id: key, name: author.name, picture: author.picture })
+    }
+
+    const users = Array.from(map.values())
+    return {
+      visible: users.slice(0, this.AVATAR_MAX),
+      overflow: Math.max(0, users.length - this.AVATAR_MAX),
+    }
   }
 
-  /** Fallback erreur image */
-  onAvatarError(event: Event): void {
+  // ── Helpers utilisateurs ──────────────────────────────────────────────
+
+  /**
+   * Détermine l'auteur à afficher pour un test case.
+   * Priorité:
+   * 1) testCase.createdBy
+   * 2) planAuthors[planId]
+   * Retourne null si aucune donnée exploitable (ni name ni picture).
+   */
+  getTestCaseAuthor(testCase: TestCaseDto, planId: string): UserPreview | null {
+    const fromCase = this.buildUserPreview((testCase as any)?.createdBy as unknown)
+    if (fromCase) return fromCase
+console.log('find user')
+    const normalizedPlanId = String(planId || '').trim()
+    if (!normalizedPlanId) return null
+
+    const author = this.planAuthors[normalizedPlanId]
+    console.log('user found')
+    if (!author || (!author.name && !author.picture)) return null
+console.log('author not found')
+    return {
+      id: `${normalizedPlanId}:${author.name || author.picture || 'unknown'}`,
+      name: author.name,
+      picture: author.picture,
+    }
+  }
+
+  /**
+   * Wrapper template: 0 ou 1 élément pour @for.
+   */
+  getTestCaseAuthorUsers(testCase: TestCaseDto, planId: string): UserPreview[] {
+    const author = this.getTestCaseAuthor(testCase, planId)
+    return author ? [author] : []
+  }
+
+  /**
+   * Utilisateurs pour la barre "N test cases générés".
+   * Priorité 1 : createdBy du premier test case.
+   * Priorité 2 : planAuthors[livePlanId].
+   */
+  getLiveCasesUsers(): UserPreview[] {
+    const first = this.liveCases?.[0]
+    if (first?.createdBy) {
+      const preview = this.buildUserPreview(first.createdBy as unknown)
+      if (preview) return [preview]
+    }
+
+    const author = this.livePlanId ? this.planAuthors[this.livePlanId] : null
+    if (author?.name || author?.picture) {
+      return [{
+        id: author!.name || author!.picture || 'unknown',
+        name: author!.name,
+        picture: author!.picture,
+      }]
+    }
+
+    return []
+  }
+
+  /** Initiales à partir d'un nom (1 ou 2 lettres) */
+  getInitials(name?: string): string {
+    if (!name) return '?'
+    return name
+      .trim()
+      .split(/\s+/)
+      .map(w => w[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
+  /**
+   * Gestion erreur image avatar :
+   * - Tente le fallback SVG ; si absent, masque l'img (les initiales restent visibles).
+   */
+  onAvatarImgError(event: Event): void {
     const img = event.target as HTMLImageElement
-    if (img) img.style.display = 'none'
+    if (!img) return
+    img.src = 'assets/images/users/default-user.svg'
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────
@@ -169,9 +244,6 @@ getInitials(name?: string): string {
       String(this.route.snapshot.queryParamMap.get('suiteId') || '').trim()
     this.currentSuiteName = String(this.route.snapshot.queryParamMap.get('suiteName') || '').trim()
 
-    // Récupérer l'utilisateur courant une fois
-    await this.resolveCurrentUser()
-
     const state = history.state as { plans?: TestPlanDto[] }
     this.plans = state?.plans || []
     this.initializePlanStatuses(this.plans)
@@ -180,20 +252,6 @@ getInitials(name?: string): string {
       await this.loadPlansForSuite(this.testSuiteId)
     } else {
       await this.loadSuites()
-    }
-  }
-
-  /** Résout l'utilisateur courant et le stocke dans this.currentUser */
-  private async resolveCurrentUser(): Promise<void> {
-    try {
-      const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
-      const fullName = String(`${user?.firstName || ''} ${user?.lastName || ''}`).trim()
-      this.currentUser = {
-        name: String(fullName || user?.username || user?.email || '').trim() || undefined,
-        picture: String(user?.picture || '').trim() || undefined,
-      }
-    } catch {
-      this.currentUser = null
     }
   }
 
@@ -251,12 +309,8 @@ getInitials(name?: string): string {
           if (block?.planId) this.testCasesByPlan[block.planId] = block?.testCases || []
         }
         this.initializePlanStatuses(this.suitePlans[suiteId])
-
-        // CORRECTION : pré-remplir planAuthors depuis les données serveur
         this.extractAuthorsFromBlocks(resp?.testCasesByPlan || [])
-
-        // CORRECTION : fallback currentUser pour les plans qui ont des cas
-        this.applyCurrentUserFallback(this.suitePlans[suiteId])
+        this.applyCaseAuthorFallback(this.suitePlans[suiteId])
       } catch (err) {
         console.error('Error loading plans', err)
       } finally {
@@ -279,6 +333,19 @@ getInitials(name?: string): string {
     this.liveCases = this.testCasesByPlan[planId] || []
   }
 
+  openEditCase(caseId: string, event: Event) {
+    event.stopPropagation()
+    const plan = this.livePlan
+    if (!plan) return
+    this.modalPlan = plan
+    this.modalCases = [...(this.testCasesByPlan[plan.id] || [])]
+    this.modalGenerating = false
+    this.modalOpen = true
+    this.editingCaseIds = {}
+    const normalizedId = String(caseId || '').trim()
+    if (normalizedId) this.editingCaseIds[normalizedId] = true
+  }
+
   // ── Modal ─────────────────────────────────────────────────────────────
 
   openModal(plan: TestPlanDto, event: Event) {
@@ -297,11 +364,6 @@ getInitials(name?: string): string {
   }
 
   closeModal() {
-    if (this.hasUnsavedChanges && this.modalOpen && !this.modalGenerating) {
-      this.pendingAction = () => this.closeModalForce()
-      void this.openUnsavedModal()
-      return
-    }
     this.closeModalForce()
   }
 
@@ -318,6 +380,7 @@ getInitials(name?: string): string {
     this.modalOpen = false
     this.modalPlan = null
     this.modalCases = []
+    this.editingCaseIds = {}
   }
 
   onModalGenerate(regenerate = false) {
@@ -343,13 +406,23 @@ getInitials(name?: string): string {
         this.testCasesByPlan[plan.id] = this.modalCases
         this.planStatuses[plan.id] = this.modalCases.length ? 'reviewing' : 'pending'
 
-        // CORRECTION : enregistrer l'auteur — priorité currentUser (vient de générer)
-        if (this.currentUser && (this.currentUser.name || this.currentUser.picture)) {
-          this.planAuthors[plan.id] = { ...this.currentUser }
+        // Auteur : extrait depuis le premier test case retourné
+        const first = this.modalCases[0]
+        const fromCase = first ? this.buildUserPreview(first.createdBy) : null
+        if (fromCase && (fromCase.name || fromCase.picture)) {
+          this.planAuthors[plan.id] = { name: fromCase.name, picture: fromCase.picture }
+        } else {
+          // Fallback : si l'API ne renvoie pas createdBy.name/picture,
+          // on utilise l'utilisateur connecté comme auteur du plan.
+          this.seedPlanAuthorFromCurrentUser(plan.id)
         }
 
+        this.setPlanDirty(plan.id, true)
         this.refreshUnsavedFlag()
-        this.toastr.success(`Test cases ${regenerate ? 'regenerated' : 'generated'} for ${plan.id}`, 'Generation')
+        this.toastr.success(
+          `Test cases ${regenerate ? 'regenerated' : 'generated'} for ${plan.id}`,
+          'Generation'
+        )
       },
       error: (err: unknown) => {
         this.planStatuses[plan.id] = 'pending'
@@ -359,6 +432,25 @@ getInitials(name?: string): string {
       complete: () => {
         this.modalGenerating = false
         this.modalSubscription = null
+      },
+    })
+  }
+
+  private seedPlanAuthorFromCurrentUser(planId: string): void {
+    const normalizedPlanId = String(planId || '').trim()
+    if (!normalizedPlanId) return
+
+    const existing = this.planAuthors[normalizedPlanId]
+    if (existing?.name || existing?.picture) return
+
+    this.store.select(getUser).pipe(take(1)).subscribe({
+      next: (user) => {
+        const preview = this.buildUserPreview(user as unknown)
+        if (!preview) return
+        this.planAuthors[normalizedPlanId] = { name: preview.name, picture: preview.picture }
+      },
+      error: () => {
+        // no-op
       },
     })
   }
@@ -393,6 +485,7 @@ getInitials(name?: string): string {
       next: () => {
         this.testCasesByPlan[plan.id] = [...this.modalCases]
         this.planStatuses[plan.id] = 'confirmed'
+        this.setPlanDirty(plan.id, false)
         this.refreshUnsavedFlag()
         this.toastr.success(`Plan ${plan.id} saved successfully.`, 'Saved')
         this.closeModal()
@@ -404,6 +497,57 @@ getInitials(name?: string): string {
   onModalDeleteCase(caseId: string) {
     this.modalCases = this.modalCases.filter(tc => tc.id !== caseId)
     this.liveCases = [...this.modalCases]
+    if (this.modalPlan) this.testCasesByPlan[this.modalPlan.id] = [...this.modalCases]
+    if (this.modalPlan) this.setPlanDirty(this.modalPlan.id, true)
+    this.refreshUnsavedFlag()
+  }
+
+  isEditingCase(caseId: string): boolean {
+    return Boolean(this.editingCaseIds[String(caseId || '').trim()])
+  }
+
+  toggleEditCase(caseId: string, event?: Event) {
+    event?.stopPropagation()
+    const normalizedId = String(caseId || '').trim()
+    if (!normalizedId) return
+    this.editingCaseIds[normalizedId] = !this.editingCaseIds[normalizedId]
+  }
+
+  onEditCaseTitle(caseId: string, value: string) {
+    this.updateModalCase(caseId, (tc) => ({ ...tc, title: String(value || '') }))
+  }
+
+  onEditCaseExpected(caseId: string, value: string) {
+    this.updateModalCase(caseId, (tc) => ({ ...tc, expected_result: String(value || '') }))
+  }
+
+  onEditCaseSteps(caseId: string, value: string) {
+    const steps = String(value || '')
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+    this.updateModalCase(caseId, (tc) => ({ ...tc, steps }))
+  }
+
+  private updateModalCase(caseId: string, updater: (tc: TestCaseDto) => TestCaseDto) {
+    const normalizedId = String(caseId || '').trim()
+    if (!normalizedId) return
+
+    const idx = this.modalCases.findIndex((tc) => String(tc?.id || '').trim() === normalizedId)
+    if (idx < 0) return
+
+    const updated = updater(this.modalCases[idx])
+    this.modalCases = [
+      ...this.modalCases.slice(0, idx),
+      updated,
+      ...this.modalCases.slice(idx + 1),
+    ]
+
+    this.liveCases = [...this.modalCases]
+    if (this.modalPlan) {
+      this.testCasesByPlan[this.modalPlan.id] = [...this.modalCases]
+      this.setPlanDirty(this.modalPlan.id, true)
+    }
     this.refreshUnsavedFlag()
   }
 
@@ -435,6 +579,7 @@ getInitials(name?: string): string {
     }).subscribe({
       next: () => {
         this.hasUnsavedChanges = false
+        this.dirtyPlans = {}
         this.toastr.success('All test cases saved.', 'Save')
       },
       error: (err) => this.toastr.error(err?.error?.message || 'Unable to save', 'Save'),
@@ -476,12 +621,16 @@ getInitials(name?: string): string {
     return this.openUnsavedModal()
   }
 
+  private setPlanDirty(planId: string, dirty = true) {
+    const normalizedPlanId = String(planId || '').trim()
+    if (!normalizedPlanId) return
+    if (dirty) this.dirtyPlans[normalizedPlanId] = true
+    else delete this.dirtyPlans[normalizedPlanId]
+    this.refreshUnsavedFlag()
+  }
+
   private refreshUnsavedFlag() {
-    const anyReviewing = this.allPlans.some((p) => this.getPlanStatus(p.id) === 'reviewing')
-    const modalDirty = this.modalOpen && !this.modalGenerating && this.modalCases.length > 0 && this.modalPlan
-      ? this.getPlanStatus(this.modalPlan.id) === 'reviewing'
-      : false
-    this.hasUnsavedChanges = Boolean(anyReviewing || modalDirty)
+    this.hasUnsavedChanges = Object.values(this.dirtyPlans).some(Boolean)
   }
 
   private openUnsavedModal(): Promise<boolean> {
@@ -503,6 +652,7 @@ getInitials(name?: string): string {
     const action = this.pendingAction
     this.pendingAction = null
     this.hasUnsavedChanges = false
+    this.dirtyPlans = {}
     this.unsavedResolve?.(true)
     this.unsavedResolve = null
     action?.()
@@ -537,6 +687,7 @@ getInitials(name?: string): string {
         this.unsavedSaving = false
         this.unsavedModalOpen = false
         this.hasUnsavedChanges = false
+        this.dirtyPlans = {}
         const action = this.pendingAction
         this.pendingAction = null
         this.unsavedResolve?.(true)
@@ -561,40 +712,69 @@ getInitials(name?: string): string {
   }
 
   /**
-   * CORRECTION : extrait les auteurs depuis les blocs testCasesByPlan
-   * en utilisant le type fort TestCasesByPlanDto au lieu de (block as any).
+   * Construit un UserPreview depuis n'importe quel objet user-like.
+   * Normalise null → undefined pour picture.
+   */
+  private buildUserPreview(user?: unknown | null): UserPreview | null {
+    if (!user) return null
+
+    const u = user as any
+
+    const name =
+      String(u['name'] || u['username'] || u['firstName'] || '').trim() || undefined
+
+    const picture =
+      (u['picture'] ?? u['avatar'] ?? undefined) as string | undefined
+
+    if (!name && !picture) return null
+
+    return {
+      id: String(u['userId'] || u['_id'] || u['id'] || name || 'unknown'),
+      name,
+      picture: picture || undefined,
+    }
+  }
+
+  /**
+   * Extrait les auteurs depuis les blocs testCasesByPlan (données serveur).
    */
   private extractAuthorsFromBlocks(blocks: TestCasesByPlanDto[]) {
     for (const block of blocks || []) {
-      const planId = String(block?.planId || '').trim()
-      if (!planId) continue
+      const planId = String((block as any)?.planId || '').trim()
+      if (!planId || this.planAuthors[planId]) continue
 
-      // Déjà connu → ne pas écraser
-      if (this.planAuthors[planId]) continue
-
-      const author = block.generatedBy || block.author || block.createdBy
+      const raw = block as Record<string, any>
+      const author =
+        raw['generatedBy'] || raw['author'] || raw['createdBy']
       if (!author) continue
 
-      const a = author as Record<string, unknown>
-      const name = String(a['name'] || a['username'] || a['firstName'] || '').trim() || undefined
-      const picture = String(a['picture'] || a['avatar'] || '').trim() || undefined
-
-      if (name || picture) {
-        this.planAuthors[planId] = { name, picture }
+      const preview = this.buildUserPreview(author)
+      if (preview) {
+        this.planAuthors[planId] = {
+          name: preview.name,
+          picture: preview.picture,
+        }
       }
     }
   }
 
   /**
-   * CORRECTION : pour chaque plan qui a des test cases mais sans auteur connu,
-   * on utilise currentUser comme fallback (utile après rechargement de page).
+   * Pour chaque plan ayant des test cases mais sans auteur connu,
+   * tente d'extraire l'auteur depuis le premier test case.
    */
-  private applyCurrentUserFallback(plans: TestPlanDto[]) {
-    if (!this.currentUser || (!this.currentUser.name && !this.currentUser.picture)) return
-
+  private applyCaseAuthorFallback(plans: TestPlanDto[]) {
     for (const plan of plans || []) {
-      if ((this.testCasesByPlan[plan.id] || []).length > 0 && !this.planAuthors[plan.id]) {
-        this.planAuthors[plan.id] = { ...this.currentUser }
+      if (this.planAuthors[plan.id]) continue
+
+      const first = (this.testCasesByPlan[plan.id] || [])[0]
+      if (!first) continue
+
+      const preview = this.buildUserPreview(first['createdBy'] as unknown)
+      if (preview) {
+        this.planAuthors[plan.id] = {
+          name: preview.name,
+          picture: preview.picture || undefined,
+        }
       }
     }
   }
@@ -622,16 +802,19 @@ getInitials(name?: string): string {
       const rows = Array.isArray(resp?.validationPlanStatuses)
         ? resp.validationPlanStatuses
         : (Array.isArray(resp?.planStatuses) ? resp.planStatuses : [])
+
       for (const row of rows) {
         const planId = String(row?.planId || '').trim()
         const status = String(row?.status || '').toLowerCase().trim()
         if (!planId) continue
-        if (status === 'pending' || status === 'generating' || status === 'reviewing' || status === 'confirmed') {
+        if (
+          status === 'pending' || status === 'generating' ||
+          status === 'reviewing' || status === 'confirmed'
+        ) {
           this.planStatuses[planId] = status as PlanValidationStatus
         }
       }
 
-      // CORRECTION : utiliser le type fort + la méthode dédiée
       this.extractAuthorsFromBlocks(resp?.testCasesByPlan || [])
 
       for (const p of this.plans) {
@@ -640,8 +823,7 @@ getInitials(name?: string): string {
         }
       }
 
-      // CORRECTION : fallback currentUser pour les plans chargés depuis le serveur
-      this.applyCurrentUserFallback(this.plans)
+      this.applyCaseAuthorFallback(this.plans)
 
       if (this.plans[0]) {
         this.selectedPlanId = this.plans[0].id
@@ -659,9 +841,9 @@ getInitials(name?: string): string {
     try {
       const decoded = jwt_decode<Record<string, unknown>>(token)
       const userLike = (decoded?.['user'] as Record<string, unknown>) || decoded || {}
-      return String(userLike['userId'] || userLike['id'] || userLike['_id'] || userLike['sub'] || '').trim()
+      return String(
+        userLike['userId'] || userLike['id'] || userLike['_id'] || userLike['sub'] || ''
+      ).trim()
     } catch { return '' }
   }
-
-  
 }

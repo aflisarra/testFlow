@@ -7,7 +7,7 @@ import { InviteUserComponent } from './admin/users/invite-user.component'
 import { ExecutionComponent } from './execution/Execution-Management/execution.component'
 import { UnauthorizedComponent } from './pages/unauthorized/unauthorized.component'
 import { ProjectManagementComponent } from './project/project-management.component'
-import { TestCasesValidationComponent } from './test/list-test.component'
+import { TestCasesValidationComponent } from './test/list-test/list-test.component'
 import { TestCasesHomeComponent } from './test/test-cases-home.component'
 import { TestSuiteConfigurationComponent } from './test/test-plan.component'
 
@@ -79,7 +79,7 @@ export const VIEW_ROUTES: Route[] = [
   {
     path: 'test-suites',
     loadComponent: () =>
-      import('./test/list-test.component')
+      import('./test/list-test/list-test.component')
         .then(m => m.TestCasesValidationComponent),
     data: { title: 'List of Tests' },
   },

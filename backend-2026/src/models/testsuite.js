@@ -4,7 +4,6 @@
 // Stores : description, docx file path, app URL, userId
 // After creation → AI generates the test plan (planSteps)
 // ============================================================
-
 const mongoose = require('mongoose');
 const planStepSchema = new mongoose.Schema(
     {

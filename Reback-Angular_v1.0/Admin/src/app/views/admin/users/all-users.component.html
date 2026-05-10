@@ -80,7 +80,7 @@
           </div>
 
           <div class="exec-button-container">
-            <button class="btn btn-brand btn-unified w-100" type="submit" [disabled]="submitting || !canAddUser">
+            <button *hasPermission="ACTION_ADD_USER" class="btn btn-brand btn-unified w-100" type="submit" [disabled]="submitting">
               {{ submitting ? 'Creating...' : 'Create User' }}
             </button>
           </div>
@@ -134,12 +134,12 @@
 
                 <td class="text-end">
                   <div class="d-inline-flex align-items-center flex-nowrap gap-2">
-                    <button class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified" type="button"
-                      title="Edit" (click)="onEditUser(user)" [disabled]="!canEditUser">
+                    <button *hasPermission="ACTION_EDIT_USER" class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified" type="button"
+                      title="Edit" (click)="onEditUser(user)">
                       <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
                     </button>
-                    <button class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button"
-                      title="Delete" (click)="onDeleteUser(user)" [disabled]="!canDeleteUser">
+                    <button *hasPermission="ACTION_DELETE_USER" class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button"
+                      title="Delete" (click)="onDeleteUser(user)">
                       <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
                     </button>
                   </div>

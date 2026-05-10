@@ -1,0 +1,27 @@
+<div class="modal-header">
+  <h5 class="modal-title">Edit Test Case</h5>
+  <button type="button" class="btn-close" aria-label="Close" (click)="onCancel()"></button>
+</div>
+
+<div class="modal-body">
+  <div class="mb-3">
+    <label class="form-label">Title</label>
+    <input class="form-control" [(ngModel)]="testCase.title" placeholder="Title" />
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Steps (one per line)</label>
+    <textarea class="form-control" rows="6" [(ngModel)]="stepsText" placeholder="Step 1&#10;Step 2"></textarea>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Expected Result</label>
+    <textarea class="form-control" rows="3" [(ngModel)]="testCase.expected_result" placeholder="Expected result"></textarea>
+  </div>
+</div>
+
+<div class="modal-footer">
+  <button type="button" class="btn btn-outline-secondary" (click)="onCancel()">Cancel</button>
+  <button type="button" class="btn btn-primary" (click)="onSave()">Save</button>
+</div>
+

@@ -23,11 +23,18 @@ export interface GeneratePlanResponse {
   reused?: boolean
 }
 
+export interface CreatedBy {
+  userId?: string
+  name?: string
+  picture?: string
+}
+
 export interface TestCaseDto {
   id: string
   title: string
   steps: string[]
   expected_result: string
+  createdBy?: CreatedBy
 }
 
 export interface GenerateTestCasesResponse {

@@ -7,6 +7,7 @@ import {
     DestroyRef,
     inject,
 } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { interval, Subscription } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
@@ -34,6 +35,7 @@ export class ExecutionComponent implements OnInit {
   private logStreamSubscription?: Subscription;
   private cdr = inject(ChangeDetectorRef);
   private destroyRef = inject(DestroyRef);
+  private route = inject(ActivatedRoute);
 
   activeTab: 'timeline' | 'logs' | 'screenshot' = 'timeline';
 
@@ -75,6 +77,23 @@ export class ExecutionComponent implements OnInit {
 
   ngOnInit(): void {
     this.startPassExecution();
+
+    const qp = this.route.snapshot.queryParamMap;
+    const projectName = qp.get('projectName');
+    const suiteName = qp.get('suiteName');
+    const planName = qp.get('planName');
+    const testCaseName = qp.get('testCaseName');
+
+    if (projectName || suiteName || planName || testCaseName) {
+      this.scenario = {
+        ...this.scenario,
+        projectName: projectName || this.scenario.projectName,
+        suiteName: suiteName || this.scenario.suiteName,
+        planName: planName || this.scenario.planName,
+        caseName: testCaseName || this.scenario.caseName,
+      };
+      this.cdr.markForCheck();
+    }
   }
 
   // ─── Public actions ───────────────────────────────────────────
@@ -123,8 +142,9 @@ element.click()`;
   private buildPassScenario(): TestScenario {
     return {
       projectName: 'Phoenix Nexus',
-      planName: 'E2E Regression Suite',
-      caseName: 'Checkout Flow Validation',
+      suiteName: 'E2E Regression Suite',
+      planName: 'Checkout Flow Validation',
+      caseName: 'TC-1.1',
       executionId: 'TX-B8402',
       environment: 'Staging',
       executionTime: '—',
@@ -146,6 +166,7 @@ element.click()`;
   private buildFailScenario(): TestScenario {
     return {
       projectName: 'Synthetik Core v2.4',
+      suiteName: 'Authentication Suite',
       planName: 'Authentication Flux',
       caseName: 'Auth Flow Validation',
       executionId: 'SR-9421',

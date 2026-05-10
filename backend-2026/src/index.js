@@ -15,6 +15,7 @@ const testSuiteRoutes = require('./routes/testsuite.routes');
 const authMagic = require("./routes/auth.magic.routes");
 // Routes
 const ollamaRoutes = require('./routes/ollama.routes')
+const seleniumRoutes = require('./routes/selenium.routes')
 ///////////////////////////////////////////////
 
 
@@ -131,6 +132,7 @@ app.use('/api/project-invitations', projectInvitationRoutes);
 app.use('/api/testsuites', testSuiteRoutes);
 //app.use("/api/ai", aiRoutes);
 app.use("/api/ollama", ollamaRoutes);
+app.use('/api/selenium', seleniumRoutes)
 app.use("/auth", authMagic);
 
 mongoose.connect(mongoUri, {
