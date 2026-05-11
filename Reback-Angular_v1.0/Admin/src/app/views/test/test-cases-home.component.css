@@ -4,8 +4,8 @@
 .tc-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 64px);
-  max-height: calc(100vh - 64px);
+  block-size: calc(100vh - 64px);
+  max-block-size: calc(100vh - 64px);
   overflow: hidden;
   padding: 0;
   background:
@@ -64,7 +64,7 @@
 .tc-breadcrumb-home { display: inline-flex; align-items: center; gap: 0.2rem; color: #475569; font-weight: 600; font-size: 0.75rem; }
 
 /* ═══ SPLIT ═══ */
-.tc-split { display: grid; grid-template-columns: 500px 1fr; flex: 1; overflow: hidden; height: 0; }
+.tc-split { display: grid; grid-template-columns: 500px 1fr; flex: 1; overflow: hidden; block-size: 0; }
 
 /* ══ LEFT TREE ══ */
 .tc-left {
@@ -242,18 +242,18 @@
 }
 
 .team-preview-item {
-  width:30px; height:30px; border-radius:50%;
-  overflow:hidden; margin-left:-8px;
+  inline-size:30px; block-size:30px; border-radius:50%;
+  overflow:hidden; margin-inline-start:-8px;
   border:2px solid #fff;
 }
 
-.team-preview-item:first-child { margin-left:0; }
+.team-preview-item:first-child { margin-inline-start:0; }
 
-.team-preview-avatar { width:100%; height:100%; object-fit:cover; }
+.team-preview-avatar { inline-size:100%; block-size:100%; object-fit:cover; }
 
 .team-preview-initials {
   display:flex; align-items:center; justify-content:center;
-  width:100%; height:100%;
+  inline-size:100%; block-size:100%;
 }
 
 .team-preview-item--empty { color: #94a3b8; font-size: 14px; background: #f1f5f9; }
@@ -320,7 +320,7 @@
 }
 
 .tc-case-textarea {
-  width: 100%;
+  inline-size: 100%;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 0.5rem 0.6rem;
@@ -473,8 +473,8 @@
 
 .team-avatar {
   position: relative;
-  width: 30px;
-  height: 30px;
+  inline-size: 30px;
+  block-size: 30px;
   border-radius: 50%;
   border: 2px solid #fff;          /* séparateur blanc entre bulles */
   background: #e2e8f0;
@@ -483,14 +483,14 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-left: -8px;               /* superposition */
+  margin-inline-start: -8px;               /* superposition */
   cursor: default;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 /* Premier à droite n'a pas de margin négatif */
 .team-stack .team-avatar:last-child {
-  margin-left: 0;
+  margin-inline-start: 0;
 }
 
 .team-avatar:hover {
@@ -502,8 +502,8 @@
 .team-avatar__img {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  inline-size: 100%;
+  block-size: 100%;
   object-fit: cover;
   border-radius: 50%;
   z-index: 1;

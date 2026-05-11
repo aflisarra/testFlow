@@ -1,6 +1,6 @@
 import type { TestCaseDto } from '@/app/core/services/testlab.service'
 import { CommonModule } from '@angular/common'
-import { Component, Input } from '@angular/core'
+import { Component, Input, inject } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap'
 
@@ -14,7 +14,7 @@ import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap'
 export class TestEditModalComponent {
   @Input({ required: true }) testCase!: TestCaseDto
 
-  constructor(public activeModal: NgbActiveModal) {}
+  activeModal = inject(NgbActiveModal)
 
   get stepsText(): string {
     return (this.testCase?.steps || []).join('\n')
@@ -42,4 +42,3 @@ export class TestEditModalComponent {
     this.activeModal.close(updated)
   }
 }
-

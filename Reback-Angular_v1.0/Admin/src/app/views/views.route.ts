@@ -88,4 +88,9 @@ export const VIEW_ROUTES: Route[] = [
     component: ExecutionComponent,
     data: { title: 'Test Execution' },
   },
+  {
+    path: 'execution/:id',
+    component: ExecutionComponent,
+    data: { title: 'Test Execution' },
+  },
 ]

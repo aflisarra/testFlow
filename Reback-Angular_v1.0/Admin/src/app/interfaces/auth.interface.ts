@@ -2,6 +2,7 @@ export interface AuthResponse {
   message: string
   token?: string
   accessToken?: string
+  refreshToken?: string
   user: {
     id?: string
     _id?: string
@@ -29,4 +30,3 @@ export interface SignupRole {
   name: string
   description?: string
 }
-

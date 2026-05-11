@@ -10,6 +10,6 @@ const magicTokenSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Suppression automatique par MongoDB après expiration
-magicTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+magicTokenSchema.index({ expiresAt: 2 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model("MagicToken", magicTokenSchema);

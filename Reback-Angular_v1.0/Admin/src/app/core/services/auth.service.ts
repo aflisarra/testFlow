@@ -10,6 +10,7 @@ export class AuthenticationService {
   user: AuthUser | null = null;
 
   public readonly authSessionKey = 'token';
+  public readonly refreshSessionKey = 'refreshToken'
   private api = inject(ApiService)
 
   // ✅ Login
@@ -18,6 +19,7 @@ export class AuthenticationService {
       map((response) => {
         const token = response?.accessToken || response?.token
         if (response && token) {
+          const refreshToken = (response as AuthResponse & { refreshToken?: string })?.refreshToken
           let derivedId = ''
           try {
             const decoded = jwt_decode<Record<string, unknown>>(token)
@@ -43,6 +45,9 @@ export class AuthenticationService {
             actions: response.user.actions || [],
           };
           this.saveSession(token); // stocke le token dans le localStorage
+          if (typeof refreshToken === 'string' && refreshToken.trim()) {
+            this.saveRefreshToken(refreshToken.trim())
+          }
         }
         return this.user;
       })
@@ -70,6 +75,7 @@ export class AuthenticationService {
       map((response) => {
         const token = response?.accessToken || response?.token
         if (response && token) {
+          const refreshToken = (response as AuthResponse & { refreshToken?: string })?.refreshToken
           let derivedId = ''
           try {
             const decoded = jwt_decode<Record<string, unknown>>(token)
@@ -95,6 +101,9 @@ export class AuthenticationService {
             actions: response.user.actions || [],
           };
           this.saveSession(token);
+          if (typeof refreshToken === 'string' && refreshToken.trim()) {
+            this.saveRefreshToken(refreshToken.trim())
+          }
         }
         return this.user;
       })
@@ -108,6 +117,7 @@ export class AuthenticationService {
 
   logout(): void {
     this.removeSession();
+    this.removeRefreshToken()
     this.user = null;
   }
 
@@ -117,6 +127,11 @@ export class AuthenticationService {
     return localStorage.getItem(this.authSessionKey) || '';
   }
 
+  /**
+   * Input: access token string.
+   * Output: void.
+   * Purpose: persist the access token for authenticated API requests.
+   */
   saveSession(token: string): void {
     if (typeof window === 'undefined') return;
     localStorage.setItem(this.authSessionKey, token);
@@ -125,6 +140,26 @@ export class AuthenticationService {
   removeSession(): void {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(this.authSessionKey);
+  }
+
+  get refreshToken(): string {
+    if (typeof window === 'undefined') return ''
+    return localStorage.getItem(this.refreshSessionKey) || ''
+  }
+
+  /**
+   * Input: refresh token string.
+   * Output: void.
+   * Purpose: persist the refresh token used to renew the access token silently.
+   */
+  saveRefreshToken(token: string): void {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(this.refreshSessionKey, token)
+  }
+
+  removeRefreshToken(): void {
+    if (typeof window === 'undefined') return
+    localStorage.removeItem(this.refreshSessionKey)
   }
 
   get decodedToken(): Record<string, unknown> | null {

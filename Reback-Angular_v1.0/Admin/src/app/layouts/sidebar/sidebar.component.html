@@ -59,6 +59,7 @@
   let-subMenuClassNames="subMenuClassNames"
 >
   <li [class]="itemClassName">
+    <!-- eslint-disable-next-line @angular-eslint/template/interactive-supports-focus -->
     <a
       [class]="linkClassName"
       [ngClass]="{ active: activeMenuItems.includes(menu.key) }"

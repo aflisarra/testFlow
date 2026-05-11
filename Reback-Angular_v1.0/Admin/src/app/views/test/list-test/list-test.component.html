@@ -97,11 +97,11 @@
             <table class="table table-hover align-middle mb-0 tv-table">
               <thead>
                 <tr>
-                  <th style="width: 22%;">User</th>
-                  <th style="width: 30%;">Test name</th>
-                  <th style="width: 16%;">Created</th>
-                  <th style="width: 16%;">Status</th>
-                  <th class="text-end" style="width: 16%;">Export</th>
+                  <th style="inline-size: 22%;">User</th>
+                  <th style="inline-size: 30%;">Test name</th>
+                  <th style="inline-size: 16%;">Created</th>
+                  <th style="inline-size: 16%;">Status</th>
+                  <th class="text-end" style="inline-size: 16%;">Export</th>
                 </tr>
               </thead>
               <tbody>
@@ -385,7 +385,7 @@
                   {{ vm.selectedPlan?.title || 'Select a plan' }}
                 </div>
                 @if (vm.selectedPlan?.description) {
-                  <div style="font-size: 0.76rem; color: #64748b; margin-top: 0.1rem">
+                  <div style="font-size: 0.76rem; color: #64748b; margin-block-start: 0.1rem">
                     {{ vm.selectedPlan?.description }}
                   </div>
                 }

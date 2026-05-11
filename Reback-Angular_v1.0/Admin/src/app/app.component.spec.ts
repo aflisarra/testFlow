@@ -16,8 +16,8 @@ describe('AppComponent', () => {
 
   it(`should have the 'Reback' title`, () => {
     const fixture = TestBed.createComponent(AppComponent)
-    const app = fixture.componentInstance
     // expect(app.title).toEqual('Reback')
+    void fixture
   })
 
   it('should render title', () => {

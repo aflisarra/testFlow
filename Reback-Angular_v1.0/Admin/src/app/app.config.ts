@@ -2,6 +2,8 @@ import {
     ApplicationConfig,
     importProvidersFrom,
     isDevMode,
+    inject,
+    provideAppInitializer,
     provideZoneChangeDetection
 } from '@angular/core'
 import {
@@ -30,6 +32,7 @@ import { AuthenticationEffects } from './store/authentication/authentication.eff
 import { localStorageSyncReducer } from './store/layout/layout-reducers'
 import { AuthInterceptor } from './core/interceptors/auth.interceptor'
 import { ForbiddenInterceptor } from './core/interceptors/forbidden.interceptor'
+import { AuthSessionMonitorService } from './core/services/auth-session-monitor.service'
 
 // scroll
 const scrollConfig: InMemoryScrollingOptions = {
@@ -43,6 +46,9 @@ const inMemoryScrollingFeatures: InMemoryScrollingFeature =
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
+    provideAppInitializer(() => {
+      inject(AuthSessionMonitorService).start()
+    }),
     provideRouter(routes, inMemoryScrollingFeatures),
     DecimalPipe,
     provideStore(rootReducer, { metaReducers: [localStorageSyncReducer] }),

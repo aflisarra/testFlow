@@ -47,15 +47,12 @@ isLoading = false
   login() {
     this.submitted = true;
     if (this.signInForm.invalid) {
-      console.warn('❌ Form is invalid', this.signInForm.errors);
       return;
     }
 
     this.isLoading = true;
     const email = this.formValues['email'].value;
     const password = this.formValues['password'].value;
-
-    console.log('🔐 Tentative de connexion avec:', { email, password });
 
     // Dispatch login action to store - NgRx effects will handle the API call
     this.store.dispatch(login({ email, password }));
@@ -67,4 +64,3 @@ isLoading = false
     }, 500);
   }
 }
-

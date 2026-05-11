@@ -69,6 +69,9 @@ export class TestCasesHomeComponent implements OnInit {
   modalPlan: TestPlanDto | null = null
   modalGenerating = false
   modalCases: TestCaseDto[] = []
+  /** Full plan cases used for saving; modalCases can be a subset when editing a single test case */
+  modalAllCases: TestCaseDto[] = []
+  editingSingleCase = false
   editingCaseIds: Record<string, boolean> = {}
   private modalSubscription: Subscription | null = null
 
@@ -165,16 +168,14 @@ export class TestCasesHomeComponent implements OnInit {
    * Retourne null si aucune donnée exploitable (ni name ni picture).
    */
   getTestCaseAuthor(testCase: TestCaseDto, planId: string): UserPreview | null {
-    const fromCase = this.buildUserPreview((testCase as any)?.createdBy as unknown)
+    const fromCase = this.buildUserPreview((testCase as { createdBy?: unknown })?.createdBy)
     if (fromCase) return fromCase
-console.log('find user')
+
     const normalizedPlanId = String(planId || '').trim()
     if (!normalizedPlanId) return null
 
     const author = this.planAuthors[normalizedPlanId]
-    console.log('user found')
     if (!author || (!author.name && !author.picture)) return null
-console.log('author not found')
     return {
       id: `${normalizedPlanId}:${author.name || author.picture || 'unknown'}`,
       name: author.name,
@@ -298,6 +299,9 @@ console.log('author not found')
   async toggleSuite(suite: TestSuiteDto) {
     const suiteId = suite._id
     if (!suiteId) return
+    // Keep a selected suite context so "Validate & Save" knows which suite to persist to.
+    this.testSuiteId = String(suiteId).trim()
+    this.currentSuiteName = this.currentSuiteName || String(suite?.nametest || suite?.nom || '').trim()
     this.expandedSuites[suiteId] = !this.expandedSuites[suiteId]
 
     if (this.expandedSuites[suiteId] && !this.suitePlans[suiteId] && !this.loadingSuitePlans[suiteId]) {
@@ -320,6 +324,10 @@ console.log('author not found')
   }
 
   togglePlan(planId: string) {
+    if (!this.testSuiteId) {
+      const inferred = this.resolveSuiteIdForPlan(planId)
+      if (inferred) this.testSuiteId = inferred
+    }
     this.expandedPlans[planId] = !this.expandedPlans[planId]
     this.selectedPlanId = planId
     if (this.expandedPlans[planId] && (this.testCasesByPlan[planId] || []).length) {
@@ -329,6 +337,10 @@ console.log('author not found')
   }
 
   selectPlanForLive(planId: string) {
+    if (!this.testSuiteId) {
+      const inferred = this.resolveSuiteIdForPlan(planId)
+      if (inferred) this.testSuiteId = inferred
+    }
     this.livePlanId = planId
     this.liveCases = this.testCasesByPlan[planId] || []
   }
@@ -337,12 +349,24 @@ console.log('author not found')
     event.stopPropagation()
     const plan = this.livePlan
     if (!plan) return
+    if (!this.testSuiteId) {
+      const inferred = this.resolveSuiteIdForPlan(plan.id)
+      if (inferred) this.testSuiteId = inferred
+    }
     this.modalPlan = plan
-    this.modalCases = [...(this.testCasesByPlan[plan.id] || [])]
+    this.modalAllCases = [...(this.testCasesByPlan[plan.id] || [])]
+
+    const normalizedId = String(caseId || '').trim()
+    const picked =
+      normalizedId
+        ? this.modalAllCases.find((tc) => String(tc?.id || '').trim() === normalizedId) || null
+        : null
+
+    this.editingSingleCase = Boolean(picked)
+    this.modalCases = picked ? [picked] : [...this.modalAllCases]
     this.modalGenerating = false
     this.modalOpen = true
     this.editingCaseIds = {}
-    const normalizedId = String(caseId || '').trim()
     if (normalizedId) this.editingCaseIds[normalizedId] = true
   }
 
@@ -350,10 +374,33 @@ console.log('author not found')
 
   openModal(plan: TestPlanDto, event: Event) {
     event.stopPropagation()
+    if (!this.testSuiteId) {
+      const inferred = this.resolveSuiteIdForPlan(plan.id)
+      if (inferred) this.testSuiteId = inferred
+    }
     this.modalPlan = plan
-    this.modalCases = [...(this.testCasesByPlan[plan.id] || [])]
+    this.editingSingleCase = false
+    this.modalAllCases = [...(this.testCasesByPlan[plan.id] || [])]
+    this.modalCases = [...this.modalAllCases]
     this.modalGenerating = false
     this.modalOpen = true
+  }
+
+  private resolveSuiteIdForPlan(planId: string): string {
+    const wanted = String(planId || '').trim()
+    if (!wanted) return ''
+
+    // If the current suite context already exists, keep it.
+    const current = String(this.testSuiteId || '').trim()
+    if (current) return current
+
+    // Infer from the suite tree cache (suitePlans).
+    for (const [suiteId, plans] of Object.entries(this.suitePlans)) {
+      if ((plans || []).some((p) => String(p?.id || '').trim() === wanted)) {
+        return String(suiteId).trim()
+      }
+    }
+    return ''
   }
 
   onRegeneratePlan(plan: TestPlanDto, event: Event, suiteId?: string) {
@@ -380,6 +427,8 @@ console.log('author not found')
     this.modalOpen = false
     this.modalPlan = null
     this.modalCases = []
+    this.modalAllCases = []
+    this.editingSingleCase = false
     this.editingCaseIds = {}
   }
 
@@ -402,6 +451,8 @@ console.log('author not found')
     }).subscribe({
       next: (resp) => {
         this.modalCases = resp?.testCases || []
+        this.modalAllCases = [...this.modalCases]
+        this.editingSingleCase = false
         this.liveCases = [...this.modalCases]
         this.testCasesByPlan[plan.id] = this.modalCases
         this.planStatuses[plan.id] = this.modalCases.length ? 'reviewing' : 'pending'
@@ -457,8 +508,13 @@ console.log('author not found')
 
   onModalValidate() {
     const plan = this.modalPlan
-    if (!plan || !this.testSuiteId) return
-    if (!this.modalCases.length) {
+    if (!plan) return
+    if (!this.testSuiteId) {
+      this.toastr.error('Missing test suite id. Please open a test suite before saving.', 'Save')
+      return
+    }
+    const casesToSave = this.editingSingleCase ? this.modalAllCases : this.modalCases
+    if (!casesToSave.length) {
       this.toastr.warning('Generate test cases first before validation.', 'Validation')
       return
     }
@@ -466,7 +522,7 @@ console.log('author not found')
     const testCasesByPlan = [{
       planId: plan.id,
       planTitle: plan.title,
-      testCases: this.modalCases,
+      testCases: casesToSave,
     }]
 
     const normalizedStatuses: Record<string, PlanValidationStatus> = { ...this.planStatuses }
@@ -483,11 +539,12 @@ console.log('author not found')
       testCasesByPlan,
     }).subscribe({
       next: () => {
-        this.testCasesByPlan[plan.id] = [...this.modalCases]
+        this.testCasesByPlan[plan.id] = [...casesToSave]
+        this.liveCases = [...casesToSave]
         this.planStatuses[plan.id] = 'confirmed'
         this.setPlanDirty(plan.id, false)
         this.refreshUnsavedFlag()
-        this.toastr.success(`Plan ${plan.id} saved successfully.`, 'Saved')
+        this.toastr.success(this.editingSingleCase ? 'Test case saved successfully.' : `Plan ${plan.id} saved successfully.`, 'Saved')
         this.closeModal()
       },
       error: (err) => this.toastr.error(err?.error?.message || 'Unable to save', 'Save'),
@@ -495,10 +552,17 @@ console.log('author not found')
   }
 
   onModalDeleteCase(caseId: string) {
-    this.modalCases = this.modalCases.filter(tc => tc.id !== caseId)
-    this.liveCases = [...this.modalCases]
-    if (this.modalPlan) this.testCasesByPlan[this.modalPlan.id] = [...this.modalCases]
-    if (this.modalPlan) this.setPlanDirty(this.modalPlan.id, true)
+    const normalizedId = String(caseId || '').trim()
+    if (!normalizedId) return
+
+    this.modalAllCases = this.modalAllCases.filter((tc) => String(tc?.id || '').trim() !== normalizedId)
+    this.modalCases = this.modalCases.filter((tc) => String(tc?.id || '').trim() !== normalizedId)
+
+    if (this.modalPlan) {
+      this.testCasesByPlan[this.modalPlan.id] = [...this.modalAllCases]
+      this.liveCases = [...this.modalAllCases]
+      this.setPlanDirty(this.modalPlan.id, true)
+    }
     this.refreshUnsavedFlag()
   }
 
@@ -533,19 +597,26 @@ console.log('author not found')
     const normalizedId = String(caseId || '').trim()
     if (!normalizedId) return
 
-    const idx = this.modalCases.findIndex((tc) => String(tc?.id || '').trim() === normalizedId)
-    if (idx < 0) return
+    const allIdx = this.modalAllCases.findIndex((tc) => String(tc?.id || '').trim() === normalizedId)
+    if (allIdx < 0) return
 
-    const updated = updater(this.modalCases[idx])
-    this.modalCases = [
-      ...this.modalCases.slice(0, idx),
+    const updated = updater(this.modalAllCases[allIdx])
+    this.modalAllCases = [
+      ...this.modalAllCases.slice(0, allIdx),
       updated,
-      ...this.modalCases.slice(idx + 1),
+      ...this.modalAllCases.slice(allIdx + 1),
     ]
 
-    this.liveCases = [...this.modalCases]
+    // Keep the modal view in sync (subset or full)
+    if (this.editingSingleCase) {
+      this.modalCases = [updated]
+    } else {
+      this.modalCases = [...this.modalAllCases]
+    }
+
     if (this.modalPlan) {
-      this.testCasesByPlan[this.modalPlan.id] = [...this.modalCases]
+      this.testCasesByPlan[this.modalPlan.id] = [...this.modalAllCases]
+      this.liveCases = [...this.modalAllCases]
       this.setPlanDirty(this.modalPlan.id, true)
     }
     this.refreshUnsavedFlag()
@@ -718,7 +789,7 @@ console.log('author not found')
   private buildUserPreview(user?: unknown | null): UserPreview | null {
     if (!user) return null
 
-    const u = user as any
+    const u = user as Record<string, unknown>
 
     const name =
       String(u['name'] || u['username'] || u['firstName'] || '').trim() || undefined
@@ -740,10 +811,10 @@ console.log('author not found')
    */
   private extractAuthorsFromBlocks(blocks: TestCasesByPlanDto[]) {
     for (const block of blocks || []) {
-      const planId = String((block as any)?.planId || '').trim()
+      const planId = String((block as { planId?: unknown })?.planId || '').trim()
       if (!planId || this.planAuthors[planId]) continue
 
-      const raw = block as Record<string, any>
+      const raw = block as unknown as Record<string, unknown>
       const author =
         raw['generatedBy'] || raw['author'] || raw['createdBy']
       if (!author) continue
@@ -769,7 +840,7 @@ console.log('author not found')
       const first = (this.testCasesByPlan[plan.id] || [])[0]
       if (!first) continue
 
-      const preview = this.buildUserPreview(first['createdBy'] as unknown)
+      const preview = this.buildUserPreview((first as { createdBy?: unknown })?.createdBy)
       if (preview) {
         this.planAuthors[plan.id] = {
           name: preview.name,

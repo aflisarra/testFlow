@@ -66,7 +66,7 @@ export class AuthMagicComponent {
 
     this.authMagicService.resetPassword(this.resetToken, password).subscribe({
       next: () => {
-        alert('Mot de passe réinitialisé !')
+        this.step = 4
       },
       error: (err: unknown) => console.error(err),
     })

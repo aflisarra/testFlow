@@ -51,15 +51,12 @@ export class ResetPassComponent implements OnInit {
 
   submitEmail() {
     if (!this.email) return
-    console.log("email valide")
     this.loading = true
     this.errorMsg = ''
-    console.log("message")
     this.auth.forgotPassword(this.email).subscribe({
 
       next: () => {
         this.step = 'otp'
-        console.log("hhhhhhhhhhh")
         this.loading = false
       },
 

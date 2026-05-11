@@ -14,11 +14,17 @@ const TestSuite = require("../models/testsuite");
 const Project = require("../models/project.model");
 const MESSAGES = require('../constants/messages.js');
 
+
+/**
+ * Input: one test suite
+ * Output: final status of the suite
+ */
 function computeSuiteStatusKey(suite) {
     const normalized = normalizeSuiteSessionState(suite)
     if (normalized.execution) return normalized.execution
     return normalized.validation
 }
+
 
 function normalizePlanStatusRows(rows) {
     return (Array.isArray(rows) ? rows : [])

@@ -9,24 +9,54 @@ const Action = require('../models/action.model');
 const { getJwtSecret, getJwtRefreshSecret } = require('../utils/jwt-secrets');
 const { isMongoObjectId } = require('../utils/mongo-objectid');
 
+/**
+ * Create a signed JWT access token.
+ * @param {object} payload - Token payload (e.g. userId, email, role, actions).
+ * @returns {string} Signed JWT access token (1h expiration).
+ */
 function generateToken(payload) {
   return jwt.sign(payload, getJwtSecret(), { expiresIn: '1h' });
 }
 
+/**
+ * Alias for generating an access token.
+ * @param {object} payload - Token payload.
+ * @returns {string} Signed JWT access token (1h expiration).
+ */
 function generateAccessToken(payload) {
   return generateToken(payload);
 }
 
+/**
+ * Create a signed JWT refresh token.
+ * @param {object} payload - Token payload (should include userId).
+ * @returns {string} Signed JWT refresh token (7d expiration).
+ */
 function generateRefreshToken(payload) {
   return jwt.sign(payload, getJwtRefreshSecret(), { expiresIn: '7d' });
 }
 
+/**
+ * Send an email (fallback stub).
+ * Input: `to`, `subject`, `message` (string values).
+ * Output: boolean success.
+ * @param {string} to - Recipient email.
+ * @param {string} subject - Subject line.
+ * @param {string} message - Email body (plain text or HTML depending on provider).
+ * @returns {Promise<boolean>} Always resolves true in this fallback implementation.
+ */
 async function sendEmail(to, subject, message) {
   // Fallback implementation to avoid runtime crashes when no mail provider is configured.
-  console.log('[MAIL]', { to, subject, message });
   return true;
 }
 
+/**
+ * Register a new user account.
+ * Input: user identity fields + optional role name.
+ * Output: the created User mongoose document.
+ * @param {{name:string,email:string,password:string,picture?:string|null,roleName?:string}} params
+ * @returns {Promise<any>} Created user document.
+ */
 const registerUser = async ({ name, email, password, picture, roleName }) => {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const existingUser = await User.findOne({ email: normalizedEmail });
@@ -71,6 +101,13 @@ const registerUser = async ({ name, email, password, picture, roleName }) => {
   return newUser;
 };
 
+/**
+ * Refresh access/refresh tokens from a refresh token value.
+ * Input: refreshToken string.
+ * Output: `{ accessToken, refreshToken }` on success or `{ error }` on failure.
+ * @param {string} refreshTokenValue
+ * @returns {Promise<{accessToken?:string,refreshToken?:string,error?:string}>}
+ */
 async function refreshToken(refreshTokenValue) {
   if (!refreshTokenValue) {
     return { error: 'No refresh token provided' };
@@ -126,6 +163,13 @@ async function refreshToken(refreshTokenValue) {
   }
 }
 
+/**
+ * Authenticate a user (email/password).
+ * Input: `{ email, password }`.
+ * Output: `{ accessToken, refreshToken, user }`.
+ * @param {{email:string,password:string}} params
+ * @returns {Promise<{accessToken:string,refreshToken:string,user:{id:any,name:any,email:any,picture:any,role:any,roleId:any,actions:any[]}}>}
+ */
 const loginUser = async ({ email, password }) => {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const user = await User.findOne({ email: normalizedEmail });

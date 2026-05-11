@@ -1,5 +1,7 @@
 const { Builder, By, until } = require('selenium-webdriver')
 const chrome = require('selenium-webdriver/chrome')
+const fs = require('fs')
+const path = require('path')
 
 function getEnvBool(name, defaultValue = false) {
   const raw = process.env[name]
@@ -115,6 +117,97 @@ function resolveTestCaseUrl(testCase) {
   return url || null
 }
 
+function resolveCredentials(testCase) {
+  const email =
+    testCase?.credentials?.email ??
+    testCase?.email ??
+    process.env.SELENIUM_LOGIN_EMAIL ??
+    ''
+  const password =
+    testCase?.credentials?.password ??
+    testCase?.password ??
+    process.env.SELENIUM_LOGIN_PASSWORD ??
+    ''
+
+  const normalizedEmail = String(email || '').trim()
+  const normalizedPassword = String(password || '').trim()
+  return { email: normalizedEmail, password: normalizedPassword }
+}
+
+function toAbsoluteUrl(baseUrl, maybePath) {
+  const base = String(baseUrl || '').trim()
+  const rel = String(maybePath || '').trim()
+  if (!base) return null
+  try {
+    return new URL(rel, base.endsWith('/') ? base : `${base}/`).toString()
+  } catch {
+    return null
+  }
+}
+
+function normalizeHumanStepText(step) {
+  return String(step || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+}
+
+function inferHumanStepAction(stepText) {
+  const t = normalizeHumanStepText(stepText)
+  if (!t) return null
+
+  if (t.includes('open application url') || t === 'open url' || t === 'open application') {
+    return { kind: 'open_app' }
+  }
+  if (t.includes('go to login') || t.includes('go to sign in') || t.includes('go to signin') || t.includes('login page')) {
+    return { kind: 'go_login' }
+  }
+  if (t.includes('fill email')) {
+    return { kind: 'fill_email' }
+  }
+  if (t.includes('fill password')) {
+    return { kind: 'fill_password' }
+  }
+  if (t.includes('click login') || t.includes('click sign in') || t.includes('submit login') || t.includes('click submit')) {
+    return { kind: 'click_login' }
+  }
+  if (t.includes('verify redirect') || t.includes('verify dashboard') || t.includes('redirect to dashboard')) {
+    return { kind: 'verify_dashboard' }
+  }
+
+  return null
+}
+
+async function ensureDir(dirPath) {
+  await fs.promises.mkdir(dirPath, { recursive: true })
+}
+
+function toSafeFilePart(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]+/g, '-')
+    .slice(0, 60) || 'testcase'
+}
+
+
+async function captureFailureScreenshot(driver, { testCaseId, stepIndex }) {
+  const root = path.resolve(__dirname, '..', '..')
+  const outDir = path.join(root, 'uploads', 'selenium')
+  await ensureDir(outDir)
+
+  const ts = new Date().toISOString().replace(/[:.]/g, '-')
+  const tc = toSafeFilePart(testCaseId)
+  const fileName = `${ts}_${tc}_step-${stepIndex + 1}.png`
+  const fullPath = path.join(outDir, fileName)
+
+  const b64 = await driver.takeScreenshot()
+  await fs.promises.writeFile(fullPath, b64, 'base64')
+
+  // Return a path that maps to `GET /api/uploads/<screenshotPath>`
+  return `selenium/${fileName}`
+}
+
 async function runStep(driver, step, timeouts) {
   const normalized = normalizeStep(step)
   if (!normalized) return
@@ -159,6 +252,67 @@ async function runStep(driver, step, timeouts) {
   throw new Error(`Unsupported step action: "${action}" (supported: click, type, wait)`)
 }
 
+async function runHumanStep(driver, stepText, ctx, timeouts) {
+  const action = inferHumanStepAction(stepText)
+  if (!action) {
+    throw new Error(
+      `Unsupported step text: "${String(stepText)}". Supported (v1): Open application URL, Go to login page, Fill email field, Fill password field, Click login button, Verify redirect to dashboard.`
+    )
+  }
+
+  // Fixed selectors for your current login page template
+  const SELECTORS = {
+    email: By.css('#example-email'),
+    password: By.css('#example-password'),
+    submit: By.css('form.authentication-form button[type="submit"]'),
+  }
+
+  if (action.kind === 'open_app') {
+    await driver.get(ctx.baseUrl)
+    return
+  }
+
+  if (action.kind === 'go_login') {
+    const loginUrl = toAbsoluteUrl(ctx.baseUrl, '/auth/sign-in')
+    if (!loginUrl) throw new Error('Unable to compute login URL from base url.')
+    await driver.get(loginUrl)
+    return
+  }
+
+  if (action.kind === 'fill_email') {
+    if (!ctx.credentials.email) throw new Error('Missing email (provide testCase.email or testCase.credentials.email).')
+    const el = await driver.wait(until.elementLocated(SELECTORS.email), timeouts.stepTimeoutMs)
+    await driver.wait(until.elementIsVisible(el), timeouts.stepTimeoutMs)
+    await el.clear()
+    await el.sendKeys(ctx.credentials.email)
+    return
+  }
+
+  if (action.kind === 'fill_password') {
+    if (!ctx.credentials.password) throw new Error('Missing password (provide testCase.password or testCase.credentials.password).')
+    const el = await driver.wait(until.elementLocated(SELECTORS.password), timeouts.stepTimeoutMs)
+    await driver.wait(until.elementIsVisible(el), timeouts.stepTimeoutMs)
+    await el.clear()
+    await el.sendKeys(ctx.credentials.password)
+    return
+  }
+
+  if (action.kind === 'click_login') {
+    const el = await driver.wait(until.elementLocated(SELECTORS.submit), timeouts.stepTimeoutMs)
+    await driver.wait(until.elementIsVisible(el), timeouts.stepTimeoutMs)
+    await driver.wait(until.elementIsEnabled(el), timeouts.stepTimeoutMs)
+    await el.click()
+    return
+  }
+
+  if (action.kind === 'verify_dashboard') {
+    await driver.wait(until.urlContains('/dashboard'), timeouts.stepTimeoutMs)
+    return
+  }
+
+  throw new Error(`Unsupported step kind: "${action.kind}"`)
+}
+
 async function runTestCase(testCase) {
   const url = resolveTestCaseUrl(testCase)
   if (!url) {
@@ -189,16 +343,56 @@ async function runTestCase(testCase) {
   try {
     driver = await new Builder().forBrowser('chrome').setChromeOptions(options).build()
     await driver.manage().setTimeouts({ pageLoad: pageLoadTimeoutMs })
-    await driver.get(url)
+
+    const credentials = resolveCredentials(testCase)
+    const testCaseId = String(testCase?.id || testCase?._id || testCase?.title || 'testcase')
+    const stepResults = []
+    const ctx = { baseUrl: url, credentials, testCaseId }
 
     for (let i = 0; i < steps.length; i++) {
-      await runStep(driver, steps[i], { stepTimeoutMs })
+      const name = typeof steps[i] === 'string' ? steps[i] : (steps[i]?.name || steps[i]?.label || steps[i]?.action || `Step ${i + 1}`)
+      const result = { index: i + 1, name: String(name || `Step ${i + 1}`), status: 'passed' }
+      try {
+        if (typeof steps[i] === 'string') {
+          await runHumanStep(driver, steps[i], ctx, { stepTimeoutMs })
+        } else {
+          await runStep(driver, steps[i], { stepTimeoutMs })
+        }
+        stepResults.push(result)
+      } catch (err) {
+        const msg = err && typeof err === 'object' && 'message' in err ? String(err.message) : String(err)
+        let screenshotPath = null
+        try {
+          screenshotPath = await captureFailureScreenshot(driver, { testCaseId, stepIndex: i })
+        } catch {
+          screenshotPath = null
+        }
+
+        stepResults.push({
+          ...result,
+          status: 'failed',
+          message: msg || 'Step failed.',
+          screenshotPath,
+        })
+
+        return {
+          status: 'failed',
+          message: msg || 'Test case failed.',
+          errorMessage: msg || 'Test case failed.',
+          screenshotPath,
+          stepResults,
+        }
+      }
     }
 
-    return { status: 'passed', message: 'Test case executed successfully.' }
+    return {
+      status: 'passed',
+      message: 'Test case executed successfully.',
+      stepResults,
+    }
   } catch (err) {
     const msg = err && typeof err === 'object' && 'message' in err ? String(err.message) : String(err)
-    return { status: 'failed', message: msg || 'Test case failed.' }
+    return { status: 'failed', message: msg || 'Test case failed.', errorMessage: msg || 'Test case failed.', stepResults: [] }
   } finally {
     try {
       if (driver) await driver.quit()
@@ -211,4 +405,3 @@ async function runTestCase(testCase) {
 module.exports = {
   runTestCase,
 }
-

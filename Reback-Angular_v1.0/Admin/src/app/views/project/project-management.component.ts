@@ -6,12 +6,14 @@ import { CommonModule } from '@angular/common'
 import {
   CUSTOM_ELEMENTS_SCHEMA,
   Component,
+  DestroyRef,
   HostListener,
   OnInit,
   ViewChild,
   TemplateRef,
   inject,
 } from '@angular/core'
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms'
 import { Router } from '@angular/router'
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap'
@@ -21,6 +23,7 @@ import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { ConfirmModalComponent } from '../admin/shared/confirm-modal.component'
 import { ApiService } from '@/app/core/services/api.service'
+import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
 
 import type { TeamMemberView } from '@/app/interfaces/project-management.interface'
 import type { UserWithActions } from '@/app/interfaces/authorization.interface'
@@ -43,6 +46,8 @@ export class ProjectManagementComponent implements OnInit {
   private store = inject(Store)
   private router = inject(Router)
   private api = inject(ApiService)
+  private projectsRefresh = inject(ProjectsRefreshService)
+  private destroyRef = inject(DestroyRef)
 
 
   
@@ -227,6 +232,10 @@ get viewProjectTeamMembers(): TeamMemberView[] {
   // ─── Lifecycle ──────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
+    this.projectsRefresh.changes$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.loadProjects())
+
     void this.initializePage()
   }
 

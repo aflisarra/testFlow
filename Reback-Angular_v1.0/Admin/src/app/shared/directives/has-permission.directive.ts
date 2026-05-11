@@ -4,6 +4,7 @@ import { Subscription } from 'rxjs'
 
 import { getUser } from '@/app/store/authentication/authentication.selector'
 
+/* eslint-disable @angular-eslint/directive-selector -- Keep selector name for backward compatibility. */
 type PermissionInput = number | number[] | null | undefined
 
 @Directive({

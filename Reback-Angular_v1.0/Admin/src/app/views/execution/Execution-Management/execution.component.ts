@@ -8,12 +8,12 @@ import {
     inject,
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { interval, Subscription } from 'rxjs';
+import { interval, Subscription, firstValueFrom } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { TestLabService } from '@/app/core/services/testlab.service'
+import { SeleniumRunnerService, type SeleniumRunResponseDto, type SeleniumStepResultDto } from '@/app/core/services/selenium-runner.service'
 
 import type {
-  AiRecommendation,
-  ErrorMeta,
   ExecutionStep,
   LogLine,
   NodeMetrics,
@@ -33,9 +33,13 @@ import type {
 export class ExecutionComponent implements OnInit {
   private metricsSubscription?: Subscription;
   private logStreamSubscription?: Subscription;
+  private runSubscription?: Subscription;
+  private fakeTimelineSubscription?: Subscription;
   private cdr = inject(ChangeDetectorRef);
   private destroyRef = inject(DestroyRef);
   private route = inject(ActivatedRoute);
+  private testLabService = inject(TestLabService)
+  private seleniumRunner = inject(SeleniumRunnerService)
 
   activeTab: 'timeline' | 'logs' | 'screenshot' = 'timeline';
 
@@ -46,6 +50,11 @@ export class ExecutionComponent implements OnInit {
 
   scenario: TestScenario = this.buildPassScenario();
   isStreaming = false;
+  private suiteId = ''
+  private planId = ''
+  private testCaseId = ''
+  private loadedTestCase: { id: string; title: string; steps: string[]; urlCible: string } | null = null
+  screenshotUrl: string | null = null
 
   private readonly PASS_LOGS: LogLine[] = [
     { index: 1, level: 'INFO', message: 'Initializing remote driver session' },
@@ -76,9 +85,13 @@ export class ExecutionComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    this.startPassExecution();
-
     const qp = this.route.snapshot.queryParamMap;
+    const pp = this.route.snapshot.paramMap;
+
+    this.suiteId = String(qp.get('suiteId') || '').trim()
+    this.planId = String(qp.get('planId') || '').trim()
+    this.testCaseId = String(pp.get('id') || qp.get('testCaseId') || '').trim()
+
     const projectName = qp.get('projectName');
     const suiteName = qp.get('suiteName');
     const planName = qp.get('planName');
@@ -94,22 +107,19 @@ export class ExecutionComponent implements OnInit {
       };
       this.cdr.markForCheck();
     }
+
+    void this.loadAndRun()
   }
 
   // ─── Public actions ───────────────────────────────────────────
 
   toggleScenario(): void {
-    this.stopAll();
-    if (this.scenario.status === 'passed' || this.scenario.status === 'in-progress') {
-      this.loadFailScenario();
-    } else {
-      this.startPassExecution();
-    }
+    this.rerun()
   }
 
   rerun(): void {
     this.stopAll();
-    this.startPassExecution();
+    void this.executeLoadedTestCase()
   }
 
   abort(): void {
@@ -300,6 +310,8 @@ element.click()`;
     this.isStreaming = false;
     this.stopMetrics();
     this.logStreamSubscription?.unsubscribe();
+    this.runSubscription?.unsubscribe();
+    this.fakeTimelineSubscription?.unsubscribe();
   }
 
   // ─── Template helpers ──────────────────────────────────────────
@@ -374,5 +386,230 @@ element.click()`;
 
   trackByLog(_: number, log: LogLine): number {
     return log.index;
+  }
+
+  // â”€â”€â”€ Real execution flow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  private async loadAndRun(): Promise<void> {
+    this.screenshotUrl = null
+
+    if (!this.suiteId || !this.planId || !this.testCaseId) {
+      this.scenario = {
+        ...this.scenario,
+        status: 'failed',
+        progressPercent: 0,
+        progressLabel: 'Missing navigation parameters',
+        activeStepLabel: '⚠ Missing suiteId/planId/testCaseId',
+        steps: [],
+      }
+      this.streamedLogs = [
+        { index: 1, level: 'ERROR', message: 'Missing suiteId, planId or testCaseId. Navigate from Test List → Run.' },
+      ]
+      this.cdr.markForCheck()
+      return
+    }
+
+    try {
+      const suite = await firstValueFrom(this.testLabService.getTestSuiteById(this.suiteId))
+      const urlCible = String((suite as any)?.urlCible || (suite as any)?.url || '').trim()
+      const plans = ((suite as any)?.testCasesByPlan || []) as Array<{ planId: string; planTitle?: string; testCases?: any[] }>
+      const plan = plans.find((p) => String(p.planId || '').trim() === this.planId) || null
+      const cases = (plan?.testCases || []) as Array<{ id: string; title: string; steps?: string[] }>
+      const tc = cases.find((c) => String(c.id || '').trim() === this.testCaseId) || null
+
+      if (!tc) {
+        throw new Error(`Test case "${this.testCaseId}" not found in plan "${this.planId}".`)
+      }
+      if (!urlCible) {
+        throw new Error('Missing suite urlCible (application URL).')
+      }
+
+      const steps = Array.isArray(tc.steps) ? tc.steps.map((s) => String(s)) : []
+      this.loadedTestCase = { id: String(tc.id), title: String(tc.title || tc.id), steps, urlCible }
+
+      // Fill breadcrumb labels if not provided
+      const qp = this.route.snapshot.queryParamMap
+      this.scenario = {
+        ...this.scenario,
+        suiteName: qp.get('suiteName') || this.scenario.suiteName,
+        planName: qp.get('planName') || this.scenario.planName,
+        caseName: qp.get('testCaseName') || this.loadedTestCase.title,
+      }
+
+      await this.executeLoadedTestCase()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      this.scenario = {
+        ...this.scenario,
+        status: 'failed',
+        progressPercent: 0,
+        progressLabel: 'Failed to load test case',
+        activeStepLabel: '✖ Failed',
+        steps: [],
+      }
+      this.streamedLogs = [{ index: 1, level: 'ERROR', message: msg || 'Unable to load test case.' }]
+      this.cdr.markForCheck()
+    }
+  }
+
+  private buildTimelineSteps(stepTexts: string[]): ExecutionStep[] {
+    const ts = new Date().toLocaleTimeString()
+    return stepTexts.map((s, idx) => ({
+      id: idx + 1,
+      name: s || `Step ${idx + 1}`,
+      subtitle: 'Waiting...',
+      status: 'waiting',
+      timestamp: ts,
+    }))
+  }
+
+  private startFakeTimeline(totalSteps: number): void {
+    if (totalSteps <= 0) return
+    let idx = 0
+    this.fakeTimelineSubscription?.unsubscribe()
+    this.fakeTimelineSubscription = interval(650)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (!this.isStreaming) return
+        idx = Math.min(idx, totalSteps - 1)
+
+        const steps = [...this.scenario.steps]
+        for (let i = 0; i < steps.length; i++) {
+          if (steps[i].status === 'pass' || steps[i].status === 'fail') continue
+          steps[i] = { ...steps[i], status: i === idx ? 'running' : 'waiting' }
+        }
+
+        const progress = Math.min(95, Math.round(((idx + 1) / totalSteps) * 95))
+        this.scenario = {
+          ...this.scenario,
+          status: 'in-progress',
+          steps,
+          progressPercent: progress,
+          progressLabel: `Running step ${idx + 1}/${totalSteps}...`,
+          activeStepLabel: `▶ Step ${idx + 1}`,
+        }
+        this.cdr.markForCheck()
+
+        idx++
+        if (idx >= totalSteps) idx = totalSteps - 1
+      })
+  }
+
+  private mapStepResultsToScenarioSteps(stepResults: SeleniumStepResultDto[]): ExecutionStep[] {
+    const now = new Date().toLocaleTimeString()
+    return (stepResults || []).map((r) => ({
+      id: Number(r.index) || 0,
+      name: String(r.name || `Step ${r.index}`),
+      subtitle: r.status === 'passed' ? 'Passed' : (r.message || 'Failed'),
+      status: r.status === 'passed' ? 'pass' : 'fail',
+      timestamp: now,
+    }))
+  }
+
+  private mapRunResponseToLogs(resp: SeleniumRunResponseDto): LogLine[] {
+    const stepResults = Array.isArray(resp?.stepResults) ? resp.stepResults : []
+    const logs: LogLine[] = []
+    let i = 1
+    logs.push({ index: i++, level: 'INFO', message: 'Selenium execution started' })
+    for (const s of stepResults) {
+      if (s.status === 'passed') {
+        logs.push({ index: i++, level: 'SUCCESS', message: `Step ${s.index}: ${s.name} → passed` })
+      } else {
+        logs.push({ index: i++, level: 'FAIL', message: `Step ${s.index}: ${s.name} → failed` })
+        if (s.message) logs.push({ index: i++, level: 'ERROR', message: String(s.message) })
+        if (s.screenshotPath) logs.push({ index: i++, level: 'INFO', message: `Screenshot: /api/uploads/${s.screenshotPath}` })
+      }
+    }
+    if (resp?.status === 'passed') logs.push({ index: i++, level: 'SUCCESS', message: 'Test PASSED' })
+    if (resp?.status === 'failed') logs.push({ index: i++, level: 'FAIL', message: 'Test FAILED' })
+    if (resp?.status === 'error') logs.push({ index: i++, level: 'ERROR', message: resp.errorMessage || resp.message || 'Test ERROR' })
+    return logs
+  }
+
+  private async executeLoadedTestCase(): Promise<void> {
+    if (!this.loadedTestCase) return
+
+    this.stopAll()
+    this.isStreaming = true
+    this.screenshotUrl = null
+    this.metrics = { cpu: 24, memory: 1.2, latency: 42, threads: 8 }
+    this.startMetricsAnimation()
+
+    const steps = this.buildTimelineSteps(this.loadedTestCase.steps)
+    this.scenario = {
+      ...this.scenario,
+      status: 'in-progress',
+      executionTime: '—',
+      steps,
+      progressPercent: 5,
+      progressLabel: 'Starting Selenium execution...',
+      activeStepLabel: '▶ Starting',
+    }
+    this.streamedLogs = [{ index: 1, level: 'INFO', message: 'Preparing Selenium request...' }]
+    this.cdr.markForCheck()
+
+    this.startFakeTimeline(steps.length)
+
+    const startedAt = Date.now()
+    const payload = {
+      id: this.loadedTestCase.id,
+      title: this.loadedTestCase.title,
+      urlCible: this.loadedTestCase.urlCible,
+      steps: this.loadedTestCase.steps,
+    }
+
+    this.runSubscription = this.seleniumRunner.runSingleTestCase(payload)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (resp) => {
+          const elapsed = Math.max(0, Date.now() - startedAt)
+          const secs = `${Math.max(1, Math.round(elapsed / 1000))}s`
+          const stepResults = Array.isArray(resp?.stepResults) ? resp.stepResults : []
+          const mappedSteps = stepResults.length ? this.mapStepResultsToScenarioSteps(stepResults) : this.scenario.steps
+
+          const failedStep = stepResults.find((s) => s.status === 'failed') || null
+          const screenshotPath = String(failedStep?.screenshotPath || resp?.screenshotPath || '').trim()
+          this.screenshotUrl = screenshotPath ? `/api/uploads/${screenshotPath}` : null
+
+          this.isStreaming = false
+          this.fakeTimelineSubscription?.unsubscribe()
+          this.stopMetrics()
+
+          this.scenario = {
+            ...this.scenario,
+            status: resp?.status === 'passed' ? 'passed' : 'failed',
+            executionTime: secs,
+            steps: mappedSteps,
+            progressPercent: 100,
+            progressLabel: resp?.status === 'passed' ? 'Completed' : 'Completed with errors',
+            activeStepLabel: resp?.status === 'passed' ? '✓ Completed' : '✖ Failed',
+            errorMeta: screenshotPath ? {
+              errorType: 'SeleniumStepFailed',
+              stepName: String(failedStep?.name || ''),
+              screenshot: screenshotPath,
+              duration: secs,
+            } : undefined,
+          }
+
+          const logs = this.mapRunResponseToLogs(resp || { status: 'error' })
+          this.startLogStream(logs)
+          this.cdr.markForCheck()
+        },
+        error: (err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err)
+          this.isStreaming = false
+          this.fakeTimelineSubscription?.unsubscribe()
+          this.stopMetrics()
+          this.scenario = {
+            ...this.scenario,
+            status: 'failed',
+            progressPercent: 100,
+            progressLabel: 'Failed',
+            activeStepLabel: '✖ Failed',
+          }
+          this.streamedLogs = [{ index: 1, level: 'ERROR', message: msg || 'Selenium request failed.' }]
+          this.cdr.markForCheck()
+        },
+      })
   }
 }

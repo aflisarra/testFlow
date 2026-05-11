@@ -140,9 +140,13 @@ mongoose.connect(mongoUri, {
   useUnifiedTopology: true
 })
   .then(() => {
-    console.log('✅ Connecté à MongoDB');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('✅ Connecté à MongoDB');
+    }
     app.listen(port, () => {
-      console.log(`🚀 Server running at http://localhost:${port}`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`🚀 Server running at http://localhost:${port}`);
+      }
     });
   })
   .catch(err => {

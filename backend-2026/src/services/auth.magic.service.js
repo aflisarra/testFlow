@@ -9,7 +9,9 @@ const { getJwtSecret } = require('../utils/jwt-secrets');
 
 // ── SMTP Transporter Configuration ──
 if (!process.env.SMTP_HOST) {
-    console.warn('⚠️ AVERTISSEMENT: SMTP_HOST est manquant dans .env. Les emails ne pourront pas être envoyés.');
+    if (process.env.NODE_ENV !== 'production') {
+        console.warn('⚠️ AVERTISSEMENT: SMTP_HOST est manquant dans .env. Les emails ne pourront pas être envoyés.');
+    }
 }
 
 const transporter = nodemailer.createTransport({
@@ -23,7 +25,12 @@ const transporter = nodemailer.createTransport({
 });
 
 /**
- * Generate password reset email template
+ * Generate password reset email HTML template.
+ * Input: magicUrl (string), code (string/number).
+ * Output: HTML string.
+ * @param {string} magicUrl - Frontend link containing the magic JWT token.
+ * @param {string} code - 6-digit OTP code shown to the user.
+ * @returns {string} HTML email body.
  */
 const generatePasswordResetEmailTemplate = (magicUrl, code) => {
     return `
@@ -56,7 +63,11 @@ const generatePasswordResetEmailTemplate = (magicUrl, code) => {
 };
 
 /**
- * ÉTAPE 1 : Send forgot password email
+ * ÉTAPE 1 : Send forgot password email.
+ * Input: email string.
+ * Output: safe response message (always generic).
+ * @param {string} email
+ * @returns {Promise<{message:string}>}
  */
 const sendForgotPasswordEmail = async (email) => {
     const normalizedEmail = String(email || '').trim().toLowerCase();
@@ -106,7 +117,9 @@ const sendForgotPasswordEmail = async (email) => {
             html: htmlContent,
         });
 
-        console.log('📨 Email sent. Preview URL:', nodemailer.getTestMessageUrl(info));
+        if (process.env.NODE_ENV !== 'production') {
+            console.log('📨 Email sent. Preview URL:', nodemailer.getTestMessageUrl(info));
+        }
 
         return SAFE_RESPONSE;
 
@@ -117,7 +130,11 @@ const sendForgotPasswordEmail = async (email) => {
 };
 
 /**
- * ÉTAPE 2a : Verify magic token (from URL query param)
+ * ÉTAPE 2a : Verify magic token (from URL query param).
+ * Input: magic token string (JWT).
+ * Output: `{ resetToken, valid: true }` if valid.
+ * @param {string} token
+ * @returns {Promise<{resetToken:string,valid:true}>}
  */
 const verifyMagicToken = async (token) => {
     if (!token) {
@@ -158,7 +175,12 @@ const verifyMagicToken = async (token) => {
 };
 
 /**
- * ÉTAPE 2b : Verify OTP code (fallback)
+ * ÉTAPE 2b : Verify OTP code (fallback).
+ * Input: email string, code string (6 digits).
+ * Output: `{ resetToken, valid: true }` if valid.
+ * @param {string} email
+ * @param {string} code
+ * @returns {Promise<{resetToken:string,valid:true}>}
  */
 const verifyOTP = async (email, code) => {
     const normalizedEmail = String(email || '').trim().toLowerCase();
@@ -198,7 +220,12 @@ const verifyOTP = async (email, code) => {
 };
 
 /**
- * ÉTAPE 3 : Reset password
+ * ÉTAPE 3 : Reset password.
+ * Input: resetToken (JWT), newPassword (string).
+ * Output: success message.
+ * @param {string} resetToken
+ * @param {string} newPassword
+ * @returns {Promise<{message:string}>}
  */
 const resetPassword = async (resetToken, newPassword) => {
     if (!resetToken || !newPassword) {

@@ -25,24 +25,18 @@ export class AuthenticationEffects {
     this.actions$.pipe(
       ofType(login),
       exhaustMap(({ email, password }) => {
-        console.log('🔄 NgRx Effect login$ launched with:', { email, password });
         return this.authenticationService.login(email, password).pipe(
           filter((user) => {
-            console.log('🔍 Filter - user is null?', user === null);
             return user !== null;
           }),
           map((user) => {
-            console.log('✨ Login Success - user:', user);
             const returnUrl =
               this.route.snapshot.queryParams['returnUrl'] || '/'
-            console.log('📍 Redirection vers:', returnUrl);
             this.router.navigateByUrl(returnUrl)
             return loginSuccess({ user: user! })
           }),
           catchError((error) => {
-            console.error('❌ Erreur dans login effect:', error);
             const errorMessage = error.error?.error || error.message || 'Login failed';
-            console.error('📝 Message d\'erreur:', errorMessage);
             return of(loginFailure({ error: errorMessage }))
           })
         )
