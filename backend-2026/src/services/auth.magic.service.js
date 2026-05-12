@@ -36,22 +36,22 @@ const generatePasswordResetEmailTemplate = (magicUrl, code) => {
     return `
       <!DOCTYPE html>
       <html>
-      <body style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1e293b">
-        <h2 style="margin-bottom:8px">Réinitialisation du mot de passe</h2>
-        <p style="color:#64748b;margin-bottom:24px">
+      <body style="font-family:sans-serif;max-inline-size:480px;margin:0 auto;padding:24px;color:#1e293b">
+        <h2 style="margin-block-end:8px">Réinitialisation du mot de passe</h2>
+        <p style="color:#64748b;margin-block-end:24px">
           Cliquez sur le bouton ci-dessous. Ce lien expire dans <strong>15 minutes</strong>.
         </p>
         <a href="${magicUrl}"
            style="display:inline-block;background:#EC8A00;color:#ffffff;
                   font-weight:700;padding:14px 32px;border-radius:8px;
-                  text-decoration:none;font-size:15px;margin-bottom:32px">
+                  text-decoration:none;font-size:15px;margin-block-end:32px">
           Réinitialiser mon mot de passe
         </a>
-        <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0"/>
-        <p style="font-size:13px;color:#94a3b8;margin-bottom:8px">
+        <hr style="border:none;border-block-start:1px solid #e2e8f0;margin:24px 0"/>
+        <p style="font-size:13px;color:#94a3b8;margin-block-end:8px">
           Le bouton ne fonctionne pas ? Utilisez ce code :
         </p>
-        <div style="font-size:28px;font-weight:900;letter-spacing:10px;color:#EC8A00;margin-bottom:8px">
+        <div style="font-size:28px;font-weight:900;letter-spacing:10px;color:#EC8A00;margin-block-end:8px">
           ${code}
         </div>
         <p style="font-size:12px;color:#cbd5e1">

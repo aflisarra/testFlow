@@ -1,15 +1,18 @@
-<div class="container-fluid py-3 test-validation-page">
-  <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-4">
-    <div>
-      <button type="button" class="btn btn-sm btn-outline-secondary mb-2" (click)="vm.onBackToList()">
-        <iconify-icon icon="mdi:chevron-left" class="me-1"></iconify-icon>
-        Back to list
-      </button>
-      <h4 class="app-title mb-1">
-        <iconify-icon icon="iconamoon:folder-check-duotone" class="app-title-icon"></iconify-icon>
-        <span>Suite: {{ vm.currentSuiteName || vm.testSuiteId }}</span>
-      </h4>
-      <p class="text-muted mb-0">{{ vm.testPlans.length }} Test Plans • {{ vm.totalTestCases }} Test Cases</p>
+<div class="tv-page">
+
+  <div class="tv-page__header">
+    <div class="tv-header-row">
+      <div>
+        <button type="button" class="tv-back-btn mb-2" (click)="vm.onBackToList()">
+          <iconify-icon icon="mdi:chevron-left"></iconify-icon>
+          Back to list
+        </button>
+        <h4 class="app-title mb-0">
+          <iconify-icon icon="iconamoon:folder-check-duotone" class="app-title-icon"></iconify-icon>
+          <span>Suite: {{ vm.currentSuiteName || vm.testSuiteId }}</span>
+        </h4>
+        <p class="tv-subtitle">{{ vm.testPlans.length }} Test Plans • {{ vm.totalTestCases }} Test Cases</p>
+      </div>
     </div>
   </div>
 
@@ -172,7 +175,7 @@
                 {{ vm.selectedPlan?.title || 'Select a plan' }}
               </div>
               @if (vm.selectedPlan?.description) {
-                <div style="font-size: 0.76rem; color: #64748b; margin-top: 0.1rem">
+                <div style="font-size: 0.76rem; color: #64748b; margin-block-start: 0.1rem">
                   {{ vm.selectedPlan?.description }}
                 </div>
               }
@@ -180,7 +183,7 @@
 
             <div class="d-inline-flex align-items-center gap-2">
               <label class="text-muted small mb-0" for="tcFilter">Filter</label>
-              <select id="tcFilter" class="form-select form-select-sm" style="width: 130px" [(ngModel)]="vm.testCaseFilter">
+              <select id="tcFilter" class="form-select form-select-sm" style="inline-size: 130px" [(ngModel)]="vm.testCaseFilter">
                 <option value="all">all</option>
                 <option value="valid">valid</option>
                 <option value="invalid">invalid</option>

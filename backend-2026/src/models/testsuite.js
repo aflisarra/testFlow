@@ -79,8 +79,22 @@ const lastActionBySchema = new mongoose.Schema(
         },
         action: {
             type: String,
-            enum: ['generate-plan', 'generate-test-case', 'regenerate-plan', 'regenerate-test-case'],
-            default: null
+            default: null,
+            set: (value) => {
+                if (value === null || value === undefined) return null
+                const v = String(value || '').trim()
+                return v || null
+            },
+            validate: {
+                validator: (value) => {
+                    if (value === null || value === undefined) return true
+                    return ['generate-plan', 'generate-test-case', 'regenerate-plan', 'regenerate-test-case'].includes(
+                        String(value).trim()
+                    )
+                },
+                message:
+                    'lastActionBy.action must be "generate-plan", "generate-test-case", "regenerate-plan", "regenerate-test-case", or null',
+            },
         },
         at: {
             type: Date,

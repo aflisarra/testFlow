@@ -1,0 +1,639 @@
+const path = require('path')
+const fs = require('fs/promises')
+const os = require('os')
+const { spawn } = require('child_process')
+const axios = require('axios')
+const jwt = require('jsonwebtoken')
+
+const TestSuite = require('../models/testsuite')
+const TestPlan = require('../models/testplan.model')
+const TestCase = require('../models/testcase.model')
+const Project = require('../models/project.model')
+const User = require('../models/user.model')
+
+const { getJwtSecret } = require('../utils/jwt-secrets')
+
+function httpError(statusCode, message) {
+  const err = new Error(message || 'Error')
+  err.statusCode = Number(statusCode) || 500
+  return err
+}
+
+function getFastApiBaseUrl() {
+  const raw = String(process.env.FASTAPI_BASE_URL || '').trim()
+  if (!raw) throw httpError(500, 'FASTAPI_BASE_URL is not set')
+  return raw.replace(/\/$/, '')
+}
+
+function getFastApiHeaders() {
+  const secret = String(process.env.FASTAPI_SECRET || '').trim()
+  return secret ? { 'X-Internal-Token': secret } : {}
+}
+
+function truncateSpecText(text, maxChars = 800) {
+  const str = String(text || '').trim()
+  if (str.length <= maxChars) return str
+  const cut = str.slice(0, maxChars)
+  const lastDot = cut.lastIndexOf('.')
+  return lastDot > maxChars / 2 ? cut.slice(0, lastDot + 1) : cut + '...'
+}
+
+function parseBoolean(value) {
+  if (typeof value === 'boolean') return value
+  if (typeof value !== 'string') return false
+  return ['1', 'true', 'yes', 'y', 'on'].includes(value.trim().toLowerCase())
+}
+
+function normalizeUniqueTestPlans(rawPlans) {
+  const list = Array.isArray(rawPlans) ? rawPlans : []
+  const used = new Set()
+
+  return list
+    .map((p, idx) => {
+      const fallbackId = `TP-${idx + 1}`
+      const baseId = String(p?.id || p?.planId || '').trim() || fallbackId
+
+      let nextId = baseId
+      let suffix = 2
+      while (!nextId || used.has(nextId)) {
+        nextId = `${baseId}-${suffix++}`
+      }
+      used.add(nextId)
+
+      return {
+        id: nextId,
+        title: String(p?.title || `Test Plan ${idx + 1}`).trim(),
+        description: String(p?.description || '').trim(),
+      }
+    })
+    .slice(0, 20)
+}
+
+function normalizePlanStepsPayload(raw) {
+  const list = Array.isArray(raw) ? raw : []
+  return list
+    .map((s, idx) => {
+      if (typeof s === 'string') {
+        const contenu = s.trim()
+        if (!contenu) return null
+        return { contenu, ordre: idx + 1 }
+      }
+      if (s && typeof s === 'object') {
+        const contenu = String(s.contenu ?? s.content ?? s.step ?? '').trim()
+        if (!contenu) return null
+        const ordre = Number(s.ordre ?? s.order ?? idx + 1)
+        return { contenu, ordre: Number.isFinite(ordre) ? ordre : idx + 1 }
+      }
+      return null
+    })
+    .filter(Boolean)
+    .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
+}
+
+function getUserIdFromAuthHeader(req) {
+  const authHeader = String(req?.headers?.authorization || '').trim()
+  if (!authHeader.toLowerCase().startsWith('bearer ')) return ''
+
+  const token = authHeader.slice(7).trim()
+  if (!token) return ''
+
+  let secret = ''
+  try {
+    secret = getJwtSecret()
+  } catch {
+    return ''
+  }
+
+  try {
+    const decoded = jwt.verify(token, secret)
+    const userLike = decoded?.user || decoded
+    return String(
+      userLike?.userId ||
+        userLike?.id ||
+        userLike?._id ||
+        userLike?.sub ||
+        ''
+    ).trim()
+  } catch {
+    return ''
+  }
+}
+
+function getActorFromReq(req) {
+  const raw = req?.user || null
+  const id =
+    String(raw?.userId || raw?.id || raw?._id || '').trim() ||
+    getUserIdFromAuthHeader(req)
+  const name = String(raw?.name || raw?.nom || raw?.username || '').trim()
+  return { userId: id || null, name }
+}
+
+async function resolveActorName({ userId, name }) {
+  if (!userId) return { userId: null, name: '' }
+  if (name) return { userId, name }
+
+  try {
+    const user = await User.findById(userId).select('_id name nom').lean()
+    const resolved = String(user?.name || user?.nom || '').trim()
+    return { userId, name: resolved }
+  } catch {
+    return { userId, name: '' }
+  }
+}
+
+async function dualWriteTestPlans({ testSuiteId, testPlans }) {
+  const plans = Array.isArray(testPlans) ? testPlans : []
+  if (!testSuiteId || plans.length === 0) return
+
+  const ops = plans
+    .map((p) => {
+      const id = String(p?.id || '').trim()
+      if (!id) return null
+
+      return {
+        updateOne: {
+          filter: { testSuiteId, id },
+          update: {
+            $set: {
+              testSuiteId,
+              id,
+              title: String(p?.title || '').trim() || id,
+              description: String(p?.description || '').trim(),
+            },
+          },
+          upsert: true,
+        },
+      }
+    })
+    .filter(Boolean)
+
+  if (ops.length) await TestPlan.bulkWrite(ops, { ordered: false })
+}
+
+async function dualWriteTestCases({ testSuiteId, planKey, testCases }) {
+  const stablePlanId = String(planKey || '').trim()
+  const list = Array.isArray(testCases) ? testCases : []
+  if (!testSuiteId || !stablePlanId || list.length === 0) return
+
+  const plan = await TestPlan.findOne({ testSuiteId, id: stablePlanId }).select('_id').lean()
+  const testPlanId = plan?._id || null
+  if (!testPlanId) return
+
+  const ops = list
+    .map((tc) => {
+      const id = String(tc?.id || '').trim()
+      if (!id) return null
+      return {
+        updateOne: {
+          filter: { testSuiteId, testPlanId, id },
+          update: {
+            $set: {
+              testSuiteId,
+              testPlanId,
+              id,
+              title: String(tc?.title || '').trim() || id,
+              steps: Array.isArray(tc?.steps)
+                ? tc.steps.map((s) => String(s || '').trim()).filter(Boolean)
+                : [],
+              expected_result: String(tc?.expected_result || tc?.expectedResult || '').trim(),
+            },
+          },
+          upsert: true,
+        },
+      }
+    })
+    .filter(Boolean)
+
+  if (ops.length) await TestCase.bulkWrite(ops, { ordered: false })
+}
+
+function runPowerShell(command) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      'powershell',
+      ['-NoProfile', '-NonInteractive', '-Command', command],
+      { windowsHide: true }
+    )
+
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', (d) => (stdout += String(d)))
+    child.stderr.on('data', (d) => (stderr += String(d)))
+    child.on('error', reject)
+    child.on('close', (code) => {
+      if (code === 0) return resolve({ stdout, stderr })
+      const error = new Error(stderr || stdout || `PowerShell exited with code ${code}`)
+      error.code = code
+      reject(error)
+    })
+  })
+}
+
+function decodeXmlEntities(value) {
+  return String(value || '')
+    .replaceAll('&amp;', '&')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&#39;', "'")
+}
+
+function extractTextFromDocumentXml(xml) {
+  const source = String(xml || '')
+    .replaceAll(/<w:tab[^>]*\/>/g, '\t')
+    .replaceAll(/<w:br[^>]*\/>/g, '\n')
+
+  const paragraphs = source.match(/<w:p[\s\S]*?<\/w:p>/g) || []
+  const lines = paragraphs.map((p) => {
+    const parts = [...p.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map((m) =>
+      decodeXmlEntities(m[1])
+    )
+    return parts.join('').trimEnd()
+  })
+
+  return lines
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+async function extractDocxText(buffer) {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'docx-'))
+  // Expand-Archive refuses unknown extensions like .docx even if it's a ZIP internally,
+  // so we write the buffer as .zip for PowerShell.
+  const zipPath = path.join(tempRoot, 'spec.zip')
+  const unzipDir = path.join(tempRoot, 'unzipped')
+
+  try {
+    await fs.writeFile(zipPath, buffer)
+
+    if (process.platform !== 'win32') {
+      throw httpError(
+        400,
+        'DOCX extraction requires Windows PowerShell Expand-Archive (current platform not supported).'
+      )
+    }
+
+    await fs.mkdir(unzipDir, { recursive: true })
+    const cmd = `Expand-Archive -Path '${zipPath.replaceAll("'", "''")}' -DestinationPath '${unzipDir.replaceAll(
+      "'",
+      "''"
+    )}' -Force`
+    await runPowerShell(cmd)
+
+    const documentXmlPath = path.join(unzipDir, 'word', 'document.xml')
+    const xml = await fs.readFile(documentXmlPath, 'utf8')
+    return extractTextFromDocumentXml(xml)
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+async function readSpecTextFromUpload(file) {
+  if (!file) throw httpError(400, 'file (.docx/.md/.txt) is required')
+
+  const fileBuffer = file?.buffer || (file?.path ? await fs.readFile(file.path) : null)
+  if (!fileBuffer) throw httpError(400, 'file (.docx/.md/.txt) is required')
+
+  const ext = path.extname(String(file?.originalname || '')).toLowerCase()
+  if (ext === '.docx') {
+    const specText = await extractDocxText(fileBuffer)
+    if (!specText) throw httpError(400, 'Unable to extract text from .docx')
+    return specText
+  }
+
+  const specText = String(Buffer.from(fileBuffer).toString('utf8') || '').trim()
+  if (!specText) throw httpError(400, 'Unable to read text from file')
+  return specText
+}
+
+async function fastApiHealth() {
+  const baseUrl = getFastApiBaseUrl()
+  const response = await axios.get(`${baseUrl}/`, { timeout: 10_000, headers: getFastApiHeaders() })
+  return response.data
+}
+
+async function fastApiChat(message) {
+  const baseUrl = getFastApiBaseUrl()
+  const response = await axios.post(
+    `${baseUrl}/chat`,
+    { message },
+    { timeout: 120_000, headers: getFastApiHeaders() }
+  )
+  return { reply: response?.data?.reply }
+}
+
+async function getTestsuitePlan(testSuiteId) {
+  const id = String(testSuiteId || '').trim()
+  if (!id) throw httpError(400, 'testSuiteId is required')
+
+  const suite = await TestSuite.findById(id)
+  if (!suite) throw httpError(404, 'TestSuite not found')
+
+  if (Array.isArray(suite.planSteps) && suite.planSteps.length) {
+    const plans = [...suite.planSteps]
+      .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
+      .map((p) => ({
+        _id: p._id,
+        contenu: p.contenu,
+        ordre: p.ordre,
+        testSuiteId: id,
+      }))
+    return { plans, steps: plans.map((p) => p.contenu) }
+  }
+
+  return { plans: [], steps: [] }
+}
+
+async function getTestsuiteTestPlans(testSuiteId) {
+  const id = String(testSuiteId || '').trim()
+  if (!id) throw httpError(400, 'testSuiteId is required')
+
+  const suite = await TestSuite.findById(id)
+  if (!suite) throw httpError(404, 'TestSuite not found')
+
+  const normalizedPlans = normalizeUniqueTestPlans(suite.testPlans)
+  const changed =
+    normalizedPlans.length !== (suite?.testPlans?.length || 0) ||
+    normalizedPlans.some((p, i) => String(suite.testPlans?.[i]?.id || '').trim() !== p.id)
+
+  if (changed) {
+    suite.testPlans = normalizedPlans
+    await suite.save()
+  }
+
+  return {
+    testSuiteId: String(suite._id),
+    testPlans: suite.testPlans || [],
+    testCasesByPlan: suite.testCasesByPlan || [],
+    testStatus: suite.testStatus || 'Draft',
+    lastGeneratedAt: suite.lastGeneratedAt || null,
+    savedAt: suite.savedAt || null,
+    executedAt: suite.executedAt || null,
+    sessionSavedAt: suite.sessionSavedAt || null,
+    validationStatus: suite.validationStatus || 'invalid',
+    validationSavedAt: suite.validationSavedAt || null,
+  }
+}
+
+async function generatePlan({ req, body, file }) {
+  const urlCible = String(body?.urlCible || body?.url_cible || '').trim()
+  const userIdBody = String(body?.userId || '').trim()
+  const providedTestSuiteId = String(body?.testSuiteId || '').trim()
+  const suiteName = String(body?.nom || '').trim()
+  const testName = String(body?.nametest || body?.nameTest || '').trim()
+  const projectId = String(body?.projectId || '').trim()
+  const styleConfig = String(
+    body?.styleConfig ||
+      body?.style_config ||
+      body?.style_configuration ||
+      body?.description ||
+      ''
+  ).trim()
+  const regenerate = parseBoolean(body?.regenerate)
+
+  const userId = userIdBody || getUserIdFromAuthHeader(req)
+  const specText = await readSpecTextFromUpload(file)
+  const specTextStored = specText.slice(0, 50_000)
+
+  const combinedDescription = [styleConfig, '', '---- SPEC EXTRACT ----', specText]
+    .join('\n')
+    .trim()
+    .slice(0, 20_000)
+
+  let suite = null
+  let projectTitle = ''
+
+  if (providedTestSuiteId) {
+    suite = await TestSuite.findById(providedTestSuiteId)
+    if (!suite) throw httpError(404, 'TestSuite not found')
+
+    const updates = {
+      description: combinedDescription,
+      urlCible,
+      specText: specTextStored,
+      styleConfig,
+      specFileName: file?.originalname || null,
+      specFilePath: file?.filename ? `uploads/specs/${file.filename}` : null,
+    }
+    if (suiteName) updates.nom = suiteName
+    if (testName) updates.nametest = testName
+
+    if (projectId) {
+      const project = await Project.findById(projectId).select('_id title').lean()
+      if (!project) throw httpError(404, 'Project not found')
+      updates.projectId = projectId
+      projectTitle = String(project?.title || '')
+    } else if (suite?.projectId) {
+      const project = await Project.findById(suite.projectId).select('_id title').lean()
+      projectTitle = String(project?.title || '')
+    }
+
+    suite = await TestSuite.findByIdAndUpdate(providedTestSuiteId, updates, { new: true })
+  } else {
+    if (!userId) throw httpError(400, 'userId is required to create a TestSuite')
+    if (!projectId) throw httpError(400, 'projectId is required to create a TestSuite')
+
+    const project = await Project.findById(projectId).select('_id title ownerId').lean()
+    if (!project) throw httpError(404, 'Project not found')
+    projectTitle = String(project?.title || '')
+
+    const now = new Date()
+    const defaultName = `Test Suite - ${now.toISOString().slice(0, 19).replace('T', ' ')}`
+    suite = await TestSuite.create({
+      nom: suiteName || defaultName,
+      nametest: testName || suiteName || defaultName,
+      description: combinedDescription,
+      urlCible,
+      userId,
+      specText: specTextStored,
+      styleConfig,
+      specFileName: file?.originalname || null,
+      specFilePath: file?.filename ? `uploads/specs/${file.filename}` : null,
+      projectId,
+    })
+  }
+
+  const testSuiteId = String(suite._id)
+
+  if (!regenerate) {
+    if (Array.isArray(suite.testPlans) && suite.testPlans.length) {
+      const normalized = normalizeUniqueTestPlans(suite.testPlans)
+      const changed =
+        normalized.length !== suite.testPlans.length ||
+        normalized.some((p, i) => String(suite.testPlans?.[i]?.id || '').trim() !== p.id)
+
+      if (changed) {
+        suite.testPlans = normalized
+        await suite.save()
+      }
+
+      return { testSuiteId, testPlans: changed ? normalized : suite.testPlans, reused: true }
+    }
+  } else {
+    suite.planSteps = []
+    suite.testPlans = []
+    suite.testCasesByPlan = []
+    suite.testStatus = 'Draft'
+    suite.savedAt = null
+    suite.executedAt = null
+    await suite.save()
+  }
+
+  suite.testStatus = 'Generating'
+  await suite.save()
+
+  const baseUrl = getFastApiBaseUrl()
+  const fastApiResponse = await axios.post(
+    `${baseUrl}/generate-plan`,
+    {
+      spec_text: specText,
+      url_cible: urlCible,
+      style_config: styleConfig,
+      description: styleConfig,
+      project_id: projectId || undefined,
+      project_title: projectTitle || undefined,
+    },
+    { timeout: 185_000, headers: getFastApiHeaders() }
+  )
+
+  const testPlans = fastApiResponse?.data?.test_plans || fastApiResponse?.data?.testPlans
+  if (!Array.isArray(testPlans) || !testPlans.length) {
+    await TestSuite.findByIdAndUpdate(testSuiteId, {
+      testStatus: 'Incomplete',
+      lastGeneratedAt: new Date(),
+    }).catch(() => {})
+    throw httpError(502, 'FastAPI returned empty test plans')
+  }
+
+  suite.testPlans = normalizeUniqueTestPlans(testPlans)
+
+  const maybeSteps =
+    fastApiResponse?.data?.plan_steps ||
+    fastApiResponse?.data?.planSteps ||
+    fastApiResponse?.data?.steps ||
+    fastApiResponse?.data?.plan
+
+  const normalizedSteps = normalizePlanStepsPayload(maybeSteps)
+  if (normalizedSteps.length) suite.planSteps = normalizedSteps
+
+  const action = regenerate ? 'regenerate-plan' : 'generate-plan'
+  const actor = await resolveActorName(getActorFromReq(req))
+  suite.lastActionBy = { userId: actor.userId, name: actor.name || '', action, at: new Date() }
+
+  suite.testStatus = 'Draft'
+  suite.lastGeneratedAt = new Date()
+  suite.savedAt = null
+  await suite.save()
+
+  await dualWriteTestPlans({ testSuiteId: suite._id, testPlans: suite.testPlans }).catch(() => {})
+
+  return {
+    testSuiteId,
+    testPlans: suite.testPlans,
+    projectId: String(suite.projectId || projectId || ''),
+    reused: false,
+  }
+}
+
+async function generateTestCases({ req, body }) {
+  const testSuiteId = String(body?.testSuiteId || '').trim()
+  const planId = String(body?.planId || body?.plan_id || '').trim()
+  const planTitle = String(body?.planTitle || body?.plan_title || '').trim()
+  const planDescription = String(body?.planDescription || body?.plan_description || '').trim()
+  const regenerate = parseBoolean(body?.regenerate)
+
+  if (!testSuiteId) throw httpError(400, 'testSuiteId is required')
+  if (!planId) throw httpError(400, 'planId is required')
+
+  const suite = await TestSuite.findById(testSuiteId)
+  if (!suite) throw httpError(404, 'TestSuite not found')
+
+  const existing = Array.isArray(suite.testCasesByPlan)
+    ? suite.testCasesByPlan.find((x) => String(x.planId) === planId)
+    : null
+
+  if (existing && existing.testCases?.length && !regenerate) {
+    return {
+      testSuiteId,
+      planId,
+      planTitle: existing.planTitle,
+      testCases: existing.testCases,
+      reused: true,
+    }
+  }
+
+  await TestSuite.findByIdAndUpdate(testSuiteId, { testStatus: 'Generating' }).catch(() => {})
+
+  const baseUrl = getFastApiBaseUrl()
+  const project = suite?.projectId
+    ? await Project.findById(suite.projectId).select('_id title').lean()
+    : null
+
+  const fastApiResponse = await axios.post(
+    `${baseUrl}/generate-test-cases`,
+    {
+      plan_id: planId,
+      plan_title: planTitle || planId,
+      plan_description: planDescription || '',
+      spec_text: truncateSpecText(suite.specText, 800),
+      style_config: String(suite.styleConfig || ''),
+      project_id: project ? String(project._id) : undefined,
+      project_title: project ? String(project.title || '') : undefined,
+    },
+    { timeout: 185_000, headers: getFastApiHeaders() }
+  )
+
+  const testCases = fastApiResponse?.data?.test_cases || fastApiResponse?.data?.testCases
+  const resolvedTitle = String(fastApiResponse?.data?.plan_title || planTitle || planId).trim()
+  if (!Array.isArray(testCases) || !testCases.length) {
+    await TestSuite.findByIdAndUpdate(testSuiteId, {
+      testStatus: 'Incomplete',
+      lastGeneratedAt: new Date(),
+    }).catch(() => {})
+    throw httpError(502, 'FastAPI returned empty test cases')
+  }
+
+  const normalized = testCases
+    .map((tc, idx) => ({
+      id: String(tc?.id || `TC-${idx + 1}`).trim(),
+      title: String(tc?.title || `Test Case ${idx + 1}`).trim(),
+      steps: Array.isArray(tc?.steps)
+        ? tc.steps.map((s) => String(s || '').trim()).filter(Boolean)
+        : [],
+      expected_result: String(tc?.expected_result || tc?.expectedResult || '').trim(),
+    }))
+    .slice(0, 50)
+
+  suite.testCasesByPlan = (suite.testCasesByPlan || []).filter((x) => String(x.planId) !== planId)
+  suite.testCasesByPlan.push({ planId, planTitle: resolvedTitle, testCases: normalized })
+
+  const action = regenerate ? 'regenerate-test-case' : 'generate-test-case'
+  const actor = await resolveActorName(getActorFromReq(req))
+  suite.lastActionBy = { userId: actor.userId, name: actor.name || '', action, at: new Date() }
+  suite.testStatus = 'Draft'
+  suite.lastGeneratedAt = new Date()
+  suite.savedAt = null
+  await suite.save()
+
+  await dualWriteTestCases({ testSuiteId: suite._id, planKey: planId, testCases: normalized }).catch(
+    () => {}
+  )
+
+  return { testSuiteId, planId, planTitle: resolvedTitle, testCases: normalized, reused: false }
+}
+
+module.exports = {
+  httpError,
+  parseBoolean,
+  getFastApiBaseUrl,
+  fastApiHealth,
+  fastApiChat,
+  getTestsuitePlan,
+  getTestsuiteTestPlans,
+  generatePlan,
+  generateTestCases,
+}
+

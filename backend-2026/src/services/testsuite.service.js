@@ -8,11 +8,12 @@ const path = require("path");
 const fs = require("fs/promises");
 const os = require("os");
 const { spawn } = require("child_process");
-const axios = require("axios");
+//const axios = require("axios");
 
 const TestSuite = require("../models/testsuite");
 const Project = require("../models/project.model");
-const MESSAGES = require('../constants/messages.js');
+//const MESSAGES = require('../constants/messages.js');
+const mongoose = require('mongoose')
 
 
 /**
@@ -20,115 +21,46 @@ const MESSAGES = require('../constants/messages.js');
  * Output: final status of the suite
  */
 function computeSuiteStatusKey(suite) {
-    const normalized = normalizeSuiteSessionState(suite)
-    if (normalized.execution) return normalized.execution
-    return normalized.validation
-}
-
-
-function normalizePlanStatusRows(rows) {
-    return (Array.isArray(rows) ? rows : [])
-        .map((p) => ({
-            planId: String(p?.planId || '').trim(),
-            status: String(p?.status || '').toLowerCase().trim(),
-        }))
-
-        .filter((p) => p.planId && p.status)
-}
-
-function computeValidationStatus(suite) {
     const hasPlans = (suite?.testPlans?.length || 0) > 0
     const hasCases = (suite?.testCasesByPlan?.length || 0) > 0
+    const isSaved = !!suite?.savedAt
 
-    const fullyGenerated = hasPlans && hasCases
-    if (!fullyGenerated) return 'invalid'
-
-    // We do not add an `isSaved` field to Mongo. Equivalent signal is `savedAt`.
-    const isSaved = suite?.savedAt instanceof Date || !!suite?.savedAt
-    if (isSaved) return 'validated'
-
+    if (hasPlans && hasCases && isSaved) {
+        return 'validated'
+    }
     return 'invalid'
-}
-
-function normalizeSuiteSessionState(suite) {
-    const validationPlanRows = normalizePlanStatusRows(suite?.validationPlanStatuses)
-    const executionPlanRows = normalizePlanStatusRows(suite?.executionPlanStatuses)
-
-    let validationStatus = String(suite?.validationStatus || '').toLowerCase().trim()
-    if (!['validated', 'invalid'].includes(validationStatus)) validationStatus = ''
-
-    let executionStatus = String(suite?.executionStatus || '').toLowerCase().trim()
-    if (!['completed', 'incomplete'].includes(executionStatus)) executionStatus = ''
-
-    const legacyPlanRows = normalizePlanStatusRows(suite?.planStatuses)
-    const legacySessionStatus = String(suite?.sessionStatus || '').toLowerCase().trim()
-
-    const legacyValidationRows = legacyPlanRows.filter((p) =>
-        ['pending', 'generating', 'reviewing', 'confirmed', 'rejected'].includes(p.status)
-    )
-    const legacyExecutionRows = legacyPlanRows.filter((p) =>
-        ['completed', 'incomplete'].includes(p.status)
-    )
-
-    const inferredValidationPlanRows =
-        validationPlanRows.length > 0 ? validationPlanRows : legacyValidationRows
-    const inferredExecutionPlanRows =
-        executionPlanRows.length > 0 ? executionPlanRows : legacyExecutionRows
-
-    const inferredExecution =
-        executionStatus ||
-        (inferredExecutionPlanRows.length > 0
-            ? inferredExecutionPlanRows.some((p) => p.status === 'incomplete')
-                ? 'incomplete'
-                : inferredExecutionPlanRows.every((p) => p.status === 'completed')
-                    ? 'completed'
-                    : ''
-            : '')
-
-    // Validation is now intentionally simplified to 2 states.
-    // Prefer computed result (generated content presence + savedAt) over legacy per-plan statuses.
-    const computedValidation = computeValidationStatus(suite)
-    const inferredValidation = computedValidation || validationStatus || ''
-
-    // Legacy fallback when we only have suite.sessionStatus
-    const legacyOnly =
-        !inferredExecution &&
-        !inferredValidation &&
-        (legacySessionStatus === 'complete' || legacySessionStatus === 'incomplete')
-
-    if (legacyOnly) {
-        // Old flows used `complete` to mean "validated" (plan config) or "completed" (execution).
-        // When we don't have per-plan rows, prefer treating it as validation.
-        return {
-            execution: '',
-            validation: legacySessionStatus === 'complete' ? 'validated' : 'invalid',
-        }
-    }
-
-    return {
-        execution: inferredExecution,
-        validation: inferredValidation || 'invalid',
-    }
 }
 // ============================================================
 // HELPERS UTILITAIRES
 // ============================================================
 
 // Lit l'URL de FastAPI depuis .env
-function getFastApiBaseUrl() {
+/*function getFastApiBaseUrl() {
     return String(process.env.FASTAPI_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
-}
+}*/
 
 const TEST_STATUS_VALUES = new Set(["Draft", "Generating", "Incomplete", "Ready", "Passed", "Failed"])
 
+/**Input:
+- value → status string
+
+Output:
+- normalized status
+- "" if invalid */
 function normalizeTestStatus(value) {
     const raw = String(value || '').trim()
     if (!raw) return ''
-    // preserve canonical casing for UI consistency
+    
     const match = [...TEST_STATUS_VALUES].find((v) => v.toLowerCase() === raw.toLowerCase())
     return match || ''
 }
+/**
+Input:
+- testSuiteId → suite id
+- nextStatus → new status
 
+Output:
+- updated TestSuite object */
 async function updateTestSuiteStatus(testSuiteId, nextStatus) {
     const id = String(testSuiteId || '').trim()
     const status = normalizeTestStatus(nextStatus)
@@ -184,6 +116,11 @@ async function updateTestSuiteStatus(testSuiteId, nextStatus) {
     return updated
 }
 
+/**Input:
+- testSuiteId
+
+Output:
+- updated suite with Ready status */
 async function markTestSuiteSaved(testSuiteId) {
     const id = String(testSuiteId || '').trim()
     if (!id) {
@@ -208,6 +145,89 @@ async function markTestSuiteSaved(testSuiteId) {
     return updated
 }
 
+/**
+ * Assign/unassign a suite to a project (persisted in DB).
+ * - Admin can assign to any existing project.
+ * - Non-admin: can assign only to a project where the user is owner or assigned.
+ */
+async function setTestSuiteProject(testSuiteId, nextProjectId, viewer) {
+    const suiteId = String(testSuiteId || '').trim()
+    if (!suiteId) {
+        const error = new Error('TestSuite id is required')
+        error.statusCode = 400
+        throw error
+    }
+    if (!mongoose.Types.ObjectId.isValid(suiteId)) {
+        const error = new Error('Invalid testSuite ID')
+        error.statusCode = 400
+        throw error
+    }
+
+    const viewerUserId = String(viewer?.viewerUserId || '').trim()
+    const role = String(viewer?.role || '').toLowerCase().trim()
+
+    const suite = await TestSuite.findById(suiteId).select('_id projectId userId').lean()
+    if (!suite) {
+        const error = new Error('TestSuite not found')
+        error.statusCode = 404
+        throw error
+    }
+
+    const raw = nextProjectId === null || nextProjectId === undefined ? '' : String(nextProjectId || '').trim()
+
+    // Unassign
+    if (!raw) {
+        const updated = await TestSuite.findByIdAndUpdate(
+            suiteId,
+            { projectId: null },
+            { new: true }
+        ).lean()
+        return updated
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(raw)) {
+        const error = new Error('Invalid project ID')
+        error.statusCode = 400
+        throw error
+    }
+
+    const project = await Project.findById(raw).select('_id ownerId assignedUsers').lean()
+    if (!project) {
+        const error = new Error('Project not found')
+        error.statusCode = 404
+        throw error
+    }
+
+    if (role !== 'admin') {
+        if (!viewerUserId) {
+            const error = new Error('Unauthorized')
+            error.statusCode = 401
+            throw error
+        }
+        const isOwner = String(project.ownerId) === String(viewerUserId)
+        const isAssigned = Array.isArray(project.assignedUsers)
+            ? project.assignedUsers.some((u) => String(u?._id || u) === String(viewerUserId))
+            : false
+
+        // If the suite has no project, creator can still assign only to accessible projects.
+        if (!isOwner && !isAssigned) {
+            const error = new Error('Forbidden')
+            error.statusCode = 403
+            throw error
+        }
+    }
+
+    const updated = await TestSuite.findByIdAndUpdate(
+        suiteId,
+        { projectId: new mongoose.Types.ObjectId(raw) },
+        { new: true }
+    )
+        .populate('projectId', 'title')
+        .lean()
+
+    return updated
+}
+
 // Convertit "true" / "1" / "yes" en vrai boolean
 function parseBoolean(value) {
     if (typeof value === "boolean") return value;
@@ -216,6 +236,11 @@ function parseBoolean(value) {
 }
 
 // Supprime les ``` de code que l'IA ajoute parfois dans sa réponse
+/**Input:
+- markdown text
+
+Output:
+- cleaned text without ``` */
 function stripCodeFences(text) {
     const trimmed = String(text || "").trim();
     if (!trimmed.startsWith("```")) return trimmed;
@@ -224,45 +249,10 @@ function stripCodeFences(text) {
 
 // Parse la réponse de l'IA en tableau de steps
 // L'IA peut répondre en JSON array ou en liste de lignes
-function parseStepsFromModel(content) {
-    const raw = stripCodeFences(content);
 
-    // Essai 1 : parser en JSON array ["step1", "step2"]
-    try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-            return parsed.map(String).map((s) => s.trim()).filter(Boolean);
-        }
-    } catch {
-        // pas du JSON — on continue
-    }
-
-    // Essai 2 : trouver un array JSON dans le texte
-    const left = raw.indexOf("[");
-    const right = raw.lastIndexOf("]");
-    if (left !== -1 && right > left) {
-        try {
-            const parsed = JSON.parse(raw.slice(left, right + 1));
-            if (Array.isArray(parsed)) {
-                return parsed.map(String).map((s) => s.trim()).filter(Boolean);
-            }
-        } catch {
-            // pas du JSON — on continue
-        }
-    }
-
-    // Essai 3 : parser ligne par ligne (liste à puces ou numérotée)
-    return raw
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) => line.replace(/^[-*•]\s+/, "").replace(/^\d+[\).\s-]+\s*/, ""))
-        .map((line) => line.trim())
-        .filter(Boolean);
-}
 
 // Formate une erreur FastAPI proprement
-function normalizeFastApiError(error) {
+/*function normalizeFastApiError(error) {
     const status = error?.response?.status;
     const message =
         error?.response?.data?.reply ||
@@ -273,13 +263,18 @@ function normalizeFastApiError(error) {
     normalized.statusCode = status || 500;
     normalized.code = error?.code || MESSAGES.TESTSUITE.ERROR;
     return normalized;
-}
+}*/
 
 // ============================================================
 // HELPERS LECTURE .DOCX
 // ============================================================
 
 // Décode les caractères spéciaux XML (&amp; → & etc.)
+/** Input:
+- encoded XML text
+
+Output:
+- decoded readable text*/
 function decodeXmlEntities(value) {
     return String(value || "")
         .replaceAll("&amp;", "&")
@@ -290,6 +285,11 @@ function decodeXmlEntities(value) {
 }
 
 // Extrait le texte lisible depuis le contenu XML de document.xml
+/** Input:
+- XML content
+
+Output:
+- extracted readable text*/
 function extractTextFromDocumentXml(xml) {
     const source = String(xml || "")
         .replaceAll(/<w:tab[^>]*\/>/g, "\t")
@@ -312,6 +312,11 @@ function extractTextFromDocumentXml(xml) {
 }
 
 // Lance une commande PowerShell (Windows uniquement) pour dézipper le .docx
+/** Input:
+- PowerShell command
+
+Output:
+- { stdout, stderr }*/
 function runPowerShell(command) {
     return new Promise((resolve, reject) => {
         const child = spawn(
@@ -336,6 +341,11 @@ function runPowerShell(command) {
 // ============================================================
 // FONCTION PRINCIPALE 1 : Extraire le texte d'un .docx
 // ============================================================
+/** Input:
+- .docx file buffer
+
+Output:
+- extracted document text*/
 async function extractDocxText(buffer) {
     // ✅ Dossier séparé pour les specs — pas mélangé avec uploads/users/
     const specsDir = path.join(__dirname, "..", "uploads", "specs");
@@ -367,6 +377,13 @@ async function extractDocxText(buffer) {
 // ============================================================
 // FONCTION PRINCIPALE 3 : Créer ou mettre à jour une TestSuite
 // ============================================================
+/** 
+ * Input:
+- suite data object
+
+Output:
+- created or updated TestSuite
+*/
 async function createOrUpdateTestSuite({
     providedTestSuiteId,
     userId,
@@ -410,7 +427,7 @@ async function createOrUpdateTestSuite({
 // ============================================================
 // FONCTION PRINCIPALE 4 : Sauvegarder les steps (embedded dans TestSuite)
 // ============================================================
-async function saveEmbeddedPlanSteps(steps, testSuiteId) {
+/*async function saveEmbeddedPlanSteps(steps, testSuiteId) {
     const docs = steps
         .map((s) => String(s || "").trim())
         .filter(Boolean)
@@ -434,12 +451,22 @@ async function saveEmbeddedPlanSteps(steps, testSuiteId) {
             ordre: p.ordre,
             testSuiteId,
         }));
-}
+}*/
 
 // ============================================================
 // FONCTION PRINCIPALE 5 : Flux complet — génération du plan
 // Appelée par le controller
 // ============================================================
+/** Input:
+- file
+- urlCible
+- userId
+- suiteName
+- description
+- regenerate
+
+Output:
+- generated/reused plan object*/
 async function generatePlan({
     file,
     urlCible,
@@ -515,6 +542,11 @@ async function generatePlan({
 // ============================================================
 // FONCTION PRINCIPALE 6 : Récupérer un plan existant
 // ============================================================
+/** Input:
+- testSuiteId
+
+Output:
+- plans and steps*/
 async function getPlanByTestSuiteId(testSuiteId) {
     const suite = await TestSuite.findById(testSuiteId);
     if (suite?.planSteps?.length) {
@@ -532,7 +564,11 @@ async function getPlanByTestSuiteId(testSuiteId) {
     return { plans: [], steps: [] };
 }
 
+/** Input:
+- userId
 
+Output:
+- array of accessible test suites*/
 async function getTestSuitesByUser(userId) {
     const safeUserId = String(userId || '').trim();
     // Public listing mode: return all suites regardless of connected user.
@@ -579,7 +615,11 @@ async function getTestSuitesByUser(userId) {
         }
     })
 }
+/** Input:
+- viewerUserId
 
+Output:
+- array of all test suites*/
 async function getAllTestSuites(viewerUserId) {
     const safeUserId = String(viewerUserId || '').trim();
 
@@ -631,6 +671,13 @@ async function getAllTestSuites(viewerUserId) {
         }
     })
 }
+/** 
+Input:
+- testSuiteId
+- viewerUserId
+
+Output:
+- full TestSuite details*/
 
 async function getTestSuiteById(testSuiteId, viewerUserId) {
     const safeTestSuiteId = String(testSuiteId || '').trim()
@@ -686,7 +733,11 @@ async function getTestSuiteById(testSuiteId, viewerUserId) {
         status: computeSuiteStatusKey(suite),
     }
 }
+/** Input:
+- testSuiteId
 
+Output:
+- plans + test cases + statuses*/
 async function getTestPlansByTestSuiteId(testSuiteId) {
     const suite = await TestSuite.findById(testSuiteId)
         .select('_id testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt lastActionBy')
@@ -741,23 +792,13 @@ async function getTestPlansByTestSuiteId(testSuiteId) {
         executionSavedAt: suite.executionSavedAt || null,
     }
 }
+/** Input:
+- testSuiteId
+- payload
 
+Output:
+- updated TestSuite session*/
 async function saveSuiteSession(testSuiteId, payload = {}) {
-    const planStatusesInput = payload?.planStatuses || {}
-    const rawRows = Object.entries(planStatusesInput)
-        .map(([planId, status]) => ({
-            planId: String(planId || '').trim(),
-            status: String(status || '').toLowerCase().trim(),
-        }))
-        .filter((item) => item.planId && item.status)
-
-    const providedKind = String(payload?.sessionKind || payload?.kind || '').toLowerCase().trim()
-    const hasExecutionRows = rawRows.some((r) => ['completed', 'incomplete'].includes(r.status))
-    const sessionKind =
-        providedKind === 'validation' || providedKind === 'execution'
-            ? providedKind
-            : (hasExecutionRows ? 'execution' : 'validation')
-
     const now = new Date()
     const update = {
         sessionSavedAt: now,
@@ -770,39 +811,6 @@ async function saveSuiteSession(testSuiteId, payload = {}) {
     const currentSuite = await TestSuite.findById(testSuiteId).select('testPlans testCasesByPlan')
     const existingCases = Array.isArray(currentSuite?.testCasesByPlan) ? currentSuite.testCasesByPlan : []
     const existingPlans = Array.isArray(currentSuite?.testPlans) ? currentSuite.testPlans : []
-
-    if (sessionKind === 'execution') {
-        const executionPlanStatuses = rawRows
-            .filter((r) => ['completed', 'incomplete'].includes(r.status))
-            .map((r) => ({ planId: r.planId, status: r.status }))
-
-        const executionStatus =
-            ['completed', 'incomplete'].includes(String(payload?.suiteStatus || '').toLowerCase().trim())
-                ? String(payload.suiteStatus).toLowerCase().trim()
-                : (executionPlanStatuses.length > 0 && executionPlanStatuses.every((r) => r.status === 'completed'))
-                    ? 'completed'
-                    : 'incomplete'
-
-        update.executionStatus = executionStatus
-        update.executionPlanStatuses = executionPlanStatuses
-        update.executionSavedAt = now
-
-        // Backward compatibility: keep old fields for execution only.
-        update.sessionStatus = executionStatus === 'completed' ? 'complete' : 'incomplete'
-        update.planStatuses = executionPlanStatuses
-    } else {
-        const validationPlanStatuses = rawRows
-            .filter((r) => ['pending', 'generating', 'reviewing', 'confirmed', 'rejected'].includes(r.status))
-            .map((r) => ({ planId: r.planId, status: r.status }))
-
-        update.validationStatus = computeValidationStatus({
-            testPlans: existingPlans,
-            testCasesByPlan: existingCases,
-            savedAt: now,
-        })
-        update.validationPlanStatuses = validationPlanStatuses
-        update.validationSavedAt = now
-    }
 
     // Merge test cases instead of replacing (fix for losing test cases)
     if (payload?.testCasesByPlan && Array.isArray(payload.testCasesByPlan)) {
@@ -827,13 +835,12 @@ async function saveSuiteSession(testSuiteId, payload = {}) {
         update.testCasesByPlan = Object.values(casesByPlanId)
     }
 
-    if (sessionKind !== 'execution') {
-        update.validationStatus = computeValidationStatus({
-            testPlans: update.testPlans || existingPlans,
-            testCasesByPlan: update.testCasesByPlan || existingCases,
-            savedAt: now,
-        })
-    }
+    // Validation status: only "validated" if plans + cases exist and savedAt exists.
+    update.validationStatus = computeSuiteStatusKey({
+        testPlans: update.testPlans || existingPlans,
+        testCasesByPlan: update.testCasesByPlan || existingCases,
+        savedAt: now,
+    })
 
     const suite = await TestSuite.findByIdAndUpdate(
         testSuiteId,
@@ -849,7 +856,11 @@ async function saveSuiteSession(testSuiteId, payload = {}) {
 
     return suite
 }
+/** Input:
+- projectId
 
+Output:
+- array of project test suites*/
 async function getTestSuitesByProject(projectId) {
     const safeProjectId = String(projectId || '').trim();
 
@@ -892,5 +903,6 @@ module.exports = {
     saveSuiteSession,
     updateTestSuiteStatus,
     markTestSuiteSaved,
+    setTestSuiteProject,
     parseBoolean,
 };

@@ -26,8 +26,20 @@
     @if (testSuiteId && allPlans.length) {
     <div class="d-flex gap-2 align-items-center">
 
-      <button class="btn btn-sm btn-outline-secondary" (click)="onRegenerateAll()">
-        <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>Regenerate All
+      <select
+        class="form-select form-select-sm"
+        style="inline-size: 240px"
+        [(ngModel)]="selectedProjectId"
+        [disabled]="loadingProjects"
+      >
+        <option value="">Select project…</option>
+        @for (p of projects; track p._id) {
+          <option [value]="p._id">{{ p.title }}</option>
+        }
+      </select>
+
+      <button class="btn btn-sm btn-outline-secondary" (click)="onApplySelectedProject()" [disabled]="!selectedProjectId || loadingProjects || loading">
+        <iconify-icon icon="mdi:check-circle-outline" class="me-1"></iconify-icon>{{ selectedProjectTitle || 'Met Selected' }}
       </button>
       <button class="btn btn-sm btn-brand" (click)="onSaveAll()">
         <iconify-icon icon="iconamoon:disk-duotone" class="me-1"></iconify-icon>Save All
@@ -290,8 +302,8 @@
 
 <!-- ═══ MODAL ═══ -->
 @if (modalOpen && modalPlan) {
-<div class="tc-modal-backdrop" (click)="closeModal()">
-  <div class="tc-modal" (click)="$event.stopPropagation()">
+<button class="tc-modal-backdrop" (click)="closeModal()">
+  <button class="tc-modal" (click)="$event.stopPropagation()">
     <div class="tc-modal-header">
       <div>
         <span class="tc-modal-plan-id">{{ modalPlan.id }}</span>
@@ -404,14 +416,14 @@
       <button class="btn btn-outline-danger px-4" (click)="closeModal()">Stop Generation</button>
       }
     </div>
-  </div>
-</div>
+  </button>
+</button>
 }
 
 <!-- ── Unsaved Changes Modal ── -->
 @if (unsavedModalOpen) {
-<div class="tc-modal-backdrop" (click)="onUnsavedCancel()">
-  <div class="tc-modal tc-modal--unsaved" (click)="$event.stopPropagation()">
+<button class="tc-modal-backdrop" (click)="onUnsavedCancel()">
+  <button class="tc-modal tc-modal--unsaved" (click)="$event.stopPropagation()">
     <div class="tc-modal-header">
       <div>
         <h5 class="tc-modal-title mb-0">Unsaved Changes</h5>
@@ -429,6 +441,6 @@
       <button class="btn btn-cancel px-4" [disabled]="unsavedSaving"
         (click)="onUnsavedCancel()">Cancel</button>
     </div>
-  </div>
-</div>
+  </button>
+</button>
 }

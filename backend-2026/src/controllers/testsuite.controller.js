@@ -206,6 +206,26 @@ exports.updateStatus = async (req, res) => {
   }
 };
 
+exports.updateProject = async (req, res) => {
+  try {
+    const viewerUserId = String(
+      req.user?.userId || req.user?.id || req.user?._id || ''
+    ).trim();
+    const role = String(req.user?.role || '').toLowerCase().trim();
+    const projectId = req.body?.projectId ?? null;
+
+    const suite = await testSuiteService.setTestSuiteProject(
+      req.params.id,
+      projectId,
+      { viewerUserId, role }
+    );
+
+    res.status(200).json({ suite });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ message: error.message });
+  }
+}
+
 
 exports.save = async (req, res) => {
   try {

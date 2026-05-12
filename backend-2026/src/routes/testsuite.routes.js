@@ -20,6 +20,7 @@ router.get('/:id/plans', requireTestSuiteAccess, controller.getPlans)
 router.patch('/:id/session', requireTestSuiteAccess, controller.saveSession);
 router.patch('/:id/status', requireTestSuiteAccess, controller.updateStatus);
 router.patch('/:id/save', requireTestSuiteAccess, controller.save);
+router.patch('/:id/project', requireTestSuiteAccess, controller.updateProject);
 router.post('/:id/execute', requireTestSuiteAccess, controller.execute);
 
 // Export Word (.docx)

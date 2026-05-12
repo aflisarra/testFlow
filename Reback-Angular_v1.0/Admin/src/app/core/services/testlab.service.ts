@@ -66,6 +66,11 @@ export class TestLabService {
     return this.api.get<TestSuiteDto>(`/api/testsuites/${testSuiteId}`)
   }
 
+  // ✅ PATCH /api/testsuites/:id/project
+  setTestSuiteProject(testSuiteId: string, projectId: string | null): Observable<{ suite: TestSuiteDto }> {
+    return this.api.patch<{ suite: TestSuiteDto }>(`/api/testsuites/${testSuiteId}/project`, { projectId })
+  }
+
   // ✅ GET /api/test-plans/project/:projectId
   getTestPlanByProject(projectId: string): Observable<TestSuiteDto | null> {
     // Backend returns an array (most-recent first): GET /api/testsuites/project/:projectId

@@ -2,7 +2,13 @@
 const Project = require('../models/project.model')
 const User = require('../models/user.model')
 const ProjectInvitation = require('../models/projectInvitation.model')
+/** 
+ * Input:
+- ids → array of ids
 
+Output:
+- array of valid MongoDB ObjectIds
+*/
 function toObjectIdList(ids) {
   if (!Array.isArray(ids)) return []
   return ids
@@ -11,7 +17,14 @@ function toObjectIdList(ids) {
     .filter((id) => mongoose.Types.ObjectId.isValid(id))
     .map((id) => new mongoose.Types.ObjectId(id))
 }
+/** Input:
+- userIds → array of ObjectIds
 
+Output:
+- validated user ids array
+
+Error:
+- throws error if one or more users do not exist*/
 async function validateUsers(userIds) {
   if (!userIds.length) return []
   const count = await User.countDocuments({ _id: { $in: userIds } })
@@ -20,7 +33,18 @@ async function validateUsers(userIds) {
   }
   return userIds
 }
+/** Input:
+- ownerId
+- title
+- description
+- startDate
+- endDate
+- milestoneDate
+- status
+- assignedUsers
 
+Output:
+- created project document*/
 exports.createProject = async ({ ownerId, title, description, startDate, endDate, milestoneDate, status, assignedUsers }) => {
   const normalizedUsers = await validateUsers(toObjectIdList(assignedUsers))
 
@@ -39,7 +63,17 @@ exports.createProject = async ({ ownerId, title, description, startDate, endDate
   await syncInvitationsForProject(saved, { invitedBy: ownerId })
   return saved
 }
+/** Input:
+- ownerId (optional)
+- userId (optional)
 
+Output:
+- array of projects
+
+Behavior:
+- if ownerId exists → returns owner projects
+- if userId exists → returns accessible projects
+- otherwise → returns all projects*/
 exports.getProjects = async ({ ownerId, userId } = {}) => {
   if (ownerId) {
     return Project.find({ ownerId })
@@ -65,13 +99,22 @@ exports.getProjects = async ({ ownerId, userId } = {}) => {
     .populate('assignedUsers', 'name email role picture')
     .sort({ createdAt: -1 })
 }
+/** Input:
+- project id
 
+Output:
+- single populated project*/
 exports.getProjectById = async (id) => {
   return Project.findById(id)
     .populate('ownerId', 'name email role')
     .populate('assignedUsers', 'name email role picture')
 }
+/** Input:
+- id → project id
+- payload → updated fields
 
+Output:
+- updated project document*/
 exports.updateProject = async (id, payload) => {
   const update = {}
   if (payload.title !== undefined) update.title = String(payload.title || '').trim()
@@ -95,7 +138,12 @@ exports.updateProject = async (id, payload) => {
   }
   return updated
 }
+/** Input:
+- id → project id
+- assignedUsers → array of users
 
+Output:
+- updated project with assigned users*/
 exports.assignUsers = async (id, assignedUsers) => {
   const normalizedUsers = await validateUsers(toObjectIdList(assignedUsers))
 
@@ -112,11 +160,25 @@ exports.assignUsers = async (id, assignedUsers) => {
   }
   return updated
 }
+/** Input:
+- project id
 
+Output:
+- deleted project document*/
 exports.deleteProject = async (id) => {
   return Project.findByIdAndDelete(id)
 }
+/** Input:
+- project
+- invitedBy
 
+Output:
+- synchronizes project invitations
+
+Behavior:
+- creates pending invitations
+- keeps accepted invitations
+- revokes removed users invitations*/
 async function syncInvitationsForProject(project, { invitedBy }) {
   const projectId = project?._id
   if (!projectId) return

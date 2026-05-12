@@ -3,6 +3,16 @@ const mongoose = require('mongoose')
 const ProjectInvitation = require('../models/projectInvitation.model')
 const Project = require('../models/project.model')
 
+
+/** Input:
+- value → MongoDB id
+- name → field name
+
+Output:
+- valid ObjectId
+
+Error:
+- throws error if id is invalid*/
 function ensureObjectId(value, name = 'id') {
   const raw = String(value || '').trim()
   if (!raw || !mongoose.Types.ObjectId.isValid(raw)) {
@@ -12,7 +22,11 @@ function ensureObjectId(value, name = 'id') {
   }
   return new mongoose.Types.ObjectId(raw)
 }
+/** Input:
+- userId
 
+Output:
+- array of pending invitations for the user*/
 async function listPendingInvitationsForUser(userId) {
   const userObjectId = ensureObjectId(userId, 'userId')
 
@@ -29,6 +43,18 @@ async function listPendingInvitationsForUser(userId) {
     return assigned.some((id) => String(id) === String(userObjectId))
   })
 }
+/** Input:
+- invitationId
+- userId
+
+Output:
+- accepted invitation with populated project and inviter data
+
+Error:
+- invitation not found
+- invitation already handled
+- project deleted
+- invitation revoked*/
 
 async function acceptInvitation(invitationId, userId) {
   const inviteObjectId = ensureObjectId(invitationId, 'invitationId')
@@ -81,7 +107,16 @@ async function acceptInvitation(invitationId, userId) {
 
   return populated || saved
 }
+/** Input:
+- invitationId
+- userId
 
+Output:
+- ignored invitation with populated project and inviter data
+
+Error:
+- invitation not found
+- invitation already handled*/
 async function ignoreInvitation(invitationId, userId) {
   const inviteObjectId = ensureObjectId(invitationId, 'invitationId')
   const userObjectId = ensureObjectId(userId, 'userId')

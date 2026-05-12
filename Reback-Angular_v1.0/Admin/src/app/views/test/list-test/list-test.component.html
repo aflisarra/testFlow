@@ -1,20 +1,23 @@
 @if (view === 'list') {
-  <div class="container-fluid py-3 test-validation-page">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-      <div>
-        <h4 class="app-title mb-1">
-          <iconify-icon icon="iconamoon:task-duotone" class="app-title-icon"></iconify-icon>
-          <span>Tests</span>
-        </h4>
-        <p class="text-muted mb-0">List of test suites.</p>
-      </div>
+  <div class="tv-page">
 
-      <div class="d-flex gap-2 align-items-center">
-        <span class="badge rounded-pill brand-badge tv-pill">{{ vm.suites.length }} Suites</span>
-        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="vm.loadSuites()" [disabled]="vm.loading">
-          <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
-          Refresh
-        </button>
+    <div class="tv-page__header">
+      <div class="tv-header-row">
+        <div>
+          <h4 class="app-title mb-0">
+            <iconify-icon icon="iconamoon:task-duotone" class="app-title-icon"></iconify-icon>
+            <span>Tests</span>
+          </h4>
+          <p class="tv-subtitle">List of test suites.</p>
+        </div>
+
+        <div class="tv-header-actions">
+          <span class="badge rounded-pill brand-badge tv-pill">{{ vm.suites.length }} Suites</span>
+          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="vm.loadSuites()" [disabled]="vm.loading">
+            <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
+            Refresh
+          </button>
+        </div>
       </div>
     </div>
 
@@ -101,13 +104,14 @@
                   <th style="inline-size: 30%;">Test name</th>
                   <th style="inline-size: 16%;">Created</th>
                   <th style="inline-size: 16%;">Status</th>
+                  <th class="text-end" style="inline-size: 10%;">Run</th>
                   <th class="text-end" style="inline-size: 16%;">Export</th>
                 </tr>
               </thead>
               <tbody>
                 @if (vm.paginatedSuites.length === 0) {
                   <tr>
-                    <td colspan="5" class="text-center text-muted py-4">No tests found.</td>
+                    <td colspan="6" class="text-center text-muted py-4">No tests found.</td>
                   </tr>
                 }
 
@@ -134,6 +138,16 @@
                       <span class="badge rounded-pill" [ngClass]="vm.getBadgeClass(suite)">
                         {{ vm.getSuiteStatusLabel(suite) }}
                       </span>
+                    </td>
+                    <td class="text-end" (click)="$event.stopPropagation()">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-success"
+                        title="Run suite"
+                        (click)="vm.onRunSuiteFromList(suite)"
+                      >
+                        Run
+                      </button>
                     </td>
                     <td class="text-end" (click)="$event.stopPropagation()">
                       <div class="d-inline-flex align-items-center gap-2 tv-actions">
@@ -282,7 +296,7 @@
                 <div class="tv-field-content">
                   <div class="tv-members-header">
                     <span class="tv-meta-label mb-0">Members</span>
-                    <button type="button" class="tv-members-toggle" (click)="vm.toggleMembers()">
+                    <button type="button" class="tv-members-toggle" (click)="vm.toggleMembers(); $event.stopPropagation()">
                       <iconify-icon [icon]="vm.membersOpen ? 'mdi:chevron-up' : 'mdi:chevron-down'"></iconify-icon>
                       {{ vm.membersOpen ? 'Hide' : 'Show' }}
                     </button>
@@ -343,7 +357,7 @@
             type="button"
             class="tv-jump-btn"
             [class.tv-jump-btn--active]="vm.showTestDetails"
-            (click)="vm.toggleTestDetails()"
+            (click)="vm.toggleTestDetails(); $event.stopPropagation()"
           >
             <iconify-icon
               [icon]="vm.showTestDetails ? 'mdi:chevron-up' : 'mdi:arrow-down-bold-circle-outline'"
@@ -412,7 +426,7 @@
                         <button
                           type="button"
                           class="btn-toggle-steps"
-                          (click)="vm.toggleCase(vm.selectedPlanId, tc.id)"
+                          (click)="vm.toggleCase(vm.selectedPlanId, tc.id); $event.stopPropagation()"
                           [attr.aria-expanded]="vm.isCaseOpen(vm.selectedPlanId, tc.id)"
                         >
                           <iconify-icon [icon]="vm.isCaseOpen(vm.selectedPlanId, tc.id) ? 'mdi:chevron-up' : 'mdi:chevron-down'"></iconify-icon>
@@ -428,18 +442,16 @@
                       </div>
                     </div>
 
-                    @if (vm.isCaseOpen(vm.selectedPlanId, tc.id)) {
-                      <div class="tv-case-body">
-                        <ol>
-                          @for (step of tc.steps; track $index) {
-                            <li>{{ step }}</li>
-                          }
-                        </ol>
-                        <div class="tv-case-expected">
-                          <span class="fw-semibold">Expected:</span> {{ tc.expected_result }}
-                        </div>
-                      </div>
-                    }
+                <div class="tv-case-body" [hidden]="!vm.isCaseOpen(vm.selectedPlanId, tc.id)">
+  <ol>
+    @for (step of tc.steps; track $index) {
+      <li>{{ step }}</li>
+    }
+  </ol>
+  <div class="tv-case-expected">
+    <span class="fw-semibold">Expected:</span> {{ tc.expected_result }}
+  </div>
+</div>
                   </div>
                 }
 

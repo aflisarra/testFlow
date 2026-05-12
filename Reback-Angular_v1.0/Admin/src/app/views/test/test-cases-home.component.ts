@@ -6,12 +6,15 @@ import { Subscription, firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { ToastrService } from 'ngx-toastr'
 import { HostListener, OnInit } from '@angular/core'
+import { FormsModule } from '@angular/forms'
 
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import type { PlanValidationStatus, SuiteSessionStatus } from '@/app/views/test/models/status.types'
 import { getErrorMessage } from '@/app/views/test/utils/error.utils'
+import { ProjectsStateService } from '@/app/core/services/projects-state.service'
+import type { AppProject } from '@/app/interfaces/admin-management.interface'
 
 import {
   TestLabService,
@@ -31,7 +34,7 @@ interface UserPreview {
 @Component({
   selector: 'app-test-cases-home',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './test-cases-home.component.html',
   styleUrls: ['./test-cases-home.component.css'],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
@@ -40,6 +43,7 @@ export class TestCasesHomeComponent implements OnInit {
   private store = inject(Store)
   private authService = inject(AuthenticationService)
   private testLabService = inject(TestLabService)
+  private projectsState = inject(ProjectsStateService)
   private router = inject(Router)
   private route = inject(ActivatedRoute)
   private toastr = inject(ToastrService)
@@ -56,6 +60,10 @@ export class TestCasesHomeComponent implements OnInit {
   expandedSuites: Record<string, boolean> = {}
   suitePlans: Record<string, TestPlanDto[]> = {}
   loadingSuitePlans: Record<string, boolean> = {}
+
+  projects: AppProject[] = []
+  selectedProjectId = ''
+  loadingProjects = false
 
   plans: TestPlanDto[] = []
   planStatuses: Record<string, PlanValidationStatus> = {}
@@ -78,6 +86,7 @@ export class TestCasesHomeComponent implements OnInit {
   // Unsaved changes protection
   hasUnsavedChanges = false
   private dirtyPlans: Record<string, boolean> = {}
+  private dirtySuite = false
   unsavedModalOpen = false
   private unsavedResolve: ((ok: boolean) => void) | null = null
   private pendingAction: (() => void) | null = null
@@ -93,6 +102,12 @@ export class TestCasesHomeComponent implements OnInit {
   planAuthors: Record<string, { name?: string; picture?: string }> = {}
 
   // ── Getters ──────────────────────────────────────────────────────────
+
+  get selectedProjectTitle(): string {
+    const id = String(this.selectedProjectId || '').trim()
+    if (!id) return ''
+    return String(this.projects.find(p => p._id === id)?.title || '').trim()
+  }
 
   get allPlans(): TestPlanDto[] {
     if (this.plans.length) return this.plans
@@ -245,6 +260,8 @@ export class TestCasesHomeComponent implements OnInit {
       String(this.route.snapshot.queryParamMap.get('suiteId') || '').trim()
     this.currentSuiteName = String(this.route.snapshot.queryParamMap.get('suiteName') || '').trim()
 
+    void this.loadProjects()
+
     const state = history.state as { plans?: TestPlanDto[] }
     this.plans = state?.plans || []
     this.initializePlanStatuses(this.plans)
@@ -253,6 +270,96 @@ export class TestCasesHomeComponent implements OnInit {
       await this.loadPlansForSuite(this.testSuiteId)
     } else {
       await this.loadSuites()
+    }
+  }
+
+  async loadProjects() {
+    this.loadingProjects = true
+    try {
+      // Load all projects then filter to projects accessible by current user (owner or assigned user).
+      await this.projectsState.refresh(false)
+      const all = await firstValueFrom(this.projectsState.projects$.pipe(take(1)))
+
+      const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
+      let userId = String(user?.id ?? user?._id ?? '').trim()
+      const token = String(user?.token || this.authService.session || '').trim()
+      if (!userId && token) userId = this.resolveUserIdFromToken(token)
+
+      this.projects = (Array.isArray(all) ? all : []).filter((p) => {
+        if (!userId) return true
+
+        const owner = (p as any)?.ownerId
+        const ownerId = String(typeof owner === 'object' ? owner?._id : owner || '').trim()
+        if (ownerId && ownerId === userId) return true
+
+        const assigned = Array.isArray((p as any)?.assignedUsers) ? (p as any).assignedUsers : []
+        for (const u of assigned) {
+          const id = String(typeof u === 'object' ? u?._id : u || '').trim()
+          if (id && id === userId) return true
+        }
+        return false
+      })
+
+      // Pré-sélection: si on a déjà un projet dans la suite courante
+      const fromSuite = (this.suites || []).find(s => String((s as any)?._id || '').trim() === String(this.testSuiteId || '').trim())
+      const projectId = String((fromSuite as any)?.projectId?._id ?? (fromSuite as any)?.projectId ?? '').trim()
+      if (projectId) this.selectedProjectId = projectId
+    } catch {
+      // Best-effort: keep projects empty if API fails
+      this.projects = []
+    } finally {
+      this.loadingProjects = false
+    }
+  }
+
+  onApplySelectedProject() {
+    if (!this.selectedProjectId) return
+    if (this.hasUnsavedChanges) {
+      this.pendingAction = () => this.onApplySelectedProject()
+      void this.openUnsavedModal()
+      return
+    }
+    void this.applySelectedProjectInternal()
+  }
+
+  private async applySelectedProjectInternal() {
+    this.loading = true
+    this.errorMessage = ''
+    try {
+      const selectedProjectTitle = this.selectedProjectTitle
+      if (!this.testSuiteId) {
+        this.toastr.warning('Open a test suite first before changing project.', 'Project')
+        return
+      }
+
+      await firstValueFrom(this.testLabService.setTestSuiteProject(this.testSuiteId, this.selectedProjectId))
+      if (selectedProjectTitle) this.currentSuiteName = selectedProjectTitle
+
+      // Reset view state before loading the new suite
+      this.plans = []
+      this.planStatuses = {}
+      this.testCasesByPlan = {}
+      this.expandedPlans = {}
+      this.livePlanId = ''
+      this.liveCases = []
+      this.selectedPlanId = ''
+      this.dirtyPlans = {}
+      this.setSuiteDirty(true)
+
+      await this.loadPlansForSuite(this.testSuiteId)
+      void this.router.navigate(['/test-cases'], {
+        queryParams: { suiteId: this.testSuiteId, suiteName: this.currentSuiteName },
+      })
+
+      if (selectedProjectTitle) {
+        this.toastr.success(`Project changed to: ${selectedProjectTitle}`, 'Project')
+      } else {
+        this.toastr.success('Project changed.', 'Project')
+      }
+    } catch (err: unknown) {
+      this.errorMessage = getErrorMessage(err, 'Unable to load project suite')
+    } finally {
+      this.loading = false
     }
   }
 
@@ -299,9 +406,27 @@ export class TestCasesHomeComponent implements OnInit {
   async toggleSuite(suite: TestSuiteDto) {
     const suiteId = suite._id
     if (!suiteId) return
+
+    const nextSuiteId = String(suiteId).trim()
+    const currentSuiteId = String(this.testSuiteId || '').trim()
+
+    // If user has unsaved changes, confirm before switching suites.
+    if (this.hasUnsavedChanges && currentSuiteId && currentSuiteId !== nextSuiteId) {
+      this.pendingAction = () => { void this.toggleSuite(suite) }
+      void this.openUnsavedModal()
+      return
+    }
+
     // Keep a selected suite context so "Validate & Save" knows which suite to persist to.
-    this.testSuiteId = String(suiteId).trim()
-    this.currentSuiteName = this.currentSuiteName || String(suite?.nametest || suite?.nom || '').trim()
+    this.testSuiteId = nextSuiteId
+
+    // Always refresh the header/breadcrumb suite name on selection
+    const suiteName = String((suite as any)?.nametest ?? (suite as any)?.nom ?? (suite as any)?.name ?? '').trim()
+    if (suiteName) this.currentSuiteName = suiteName
+
+    // Keep project selector in sync with the suite's projectId (string or populated object)
+    const suiteProjectId = String((suite as any)?.projectId?._id ?? (suite as any)?.projectId ?? '').trim()
+    if (suiteProjectId) this.selectedProjectId = suiteProjectId
     this.expandedSuites[suiteId] = !this.expandedSuites[suiteId]
 
     if (this.expandedSuites[suiteId] && !this.suitePlans[suiteId] && !this.loadingSuitePlans[suiteId]) {
@@ -649,8 +774,9 @@ export class TestCasesHomeComponent implements OnInit {
       testCasesByPlan,
     }).subscribe({
       next: () => {
-        this.hasUnsavedChanges = false
         this.dirtyPlans = {}
+        this.dirtySuite = false
+        this.refreshUnsavedFlag()
         this.toastr.success('All test cases saved.', 'Save')
       },
       error: (err) => this.toastr.error(err?.error?.message || 'Unable to save', 'Save'),
@@ -697,11 +823,19 @@ export class TestCasesHomeComponent implements OnInit {
     if (!normalizedPlanId) return
     if (dirty) this.dirtyPlans[normalizedPlanId] = true
     else delete this.dirtyPlans[normalizedPlanId]
+
+    // Any plan change implies the suite has unsaved changes too.
+    if (dirty) this.dirtySuite = true
+    this.refreshUnsavedFlag()
+  }
+
+  private setSuiteDirty(dirty = true) {
+    this.dirtySuite = !!dirty
     this.refreshUnsavedFlag()
   }
 
   private refreshUnsavedFlag() {
-    this.hasUnsavedChanges = Object.values(this.dirtyPlans).some(Boolean)
+    this.hasUnsavedChanges = this.dirtySuite || Object.values(this.dirtyPlans).some(Boolean)
   }
 
   private openUnsavedModal(): Promise<boolean> {
@@ -724,6 +858,7 @@ export class TestCasesHomeComponent implements OnInit {
     this.pendingAction = null
     this.hasUnsavedChanges = false
     this.dirtyPlans = {}
+    this.dirtySuite = false
     this.unsavedResolve?.(true)
     this.unsavedResolve = null
     action?.()
@@ -757,8 +892,9 @@ export class TestCasesHomeComponent implements OnInit {
       next: () => {
         this.unsavedSaving = false
         this.unsavedModalOpen = false
-        this.hasUnsavedChanges = false
         this.dirtyPlans = {}
+        this.dirtySuite = false
+        this.refreshUnsavedFlag()
         const action = this.pendingAction
         this.pendingAction = null
         this.unsavedResolve?.(true)
@@ -857,12 +993,23 @@ export class TestCasesHomeComponent implements OnInit {
       const resp = await firstValueFrom(this.testLabService.getTestPlans(testSuiteId))
       this.plans = resp?.testPlans || []
 
-      const matched = this.suites.find(s => s._id === testSuiteId)
-      this.currentSuiteName =
-        this.currentSuiteName ||
-        matched?.nametest ||
-        matched?.nom ||
-        'Suite sans nom'
+      // Always refresh the suite name when switching suites.
+      // Also tolerate _id/id type mismatches (string vs ObjectId-like).
+      const suiteId = String(testSuiteId || '').trim()
+      const matched = this.suites.find(s => {
+        const id = String((s as any)?._id ?? (s as any)?.id ?? '').trim()
+        return !!suiteId && !!id && id === suiteId
+      })
+      const suiteName = String(
+        (matched as any)?.nametest ??
+          (matched as any)?.nom ??
+          (matched as any)?.name ??
+          (resp as any)?.suiteName ??
+          (resp as any)?.testSuiteName ??
+          ''
+      ).trim()
+      if (suiteName) this.currentSuiteName = suiteName
+      else if (!this.currentSuiteName) this.currentSuiteName = 'Suite sans nom'
 
       this.testCasesByPlan = {}
       for (const block of resp?.testCasesByPlan || []) {

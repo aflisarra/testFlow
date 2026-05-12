@@ -1,5 +1,6 @@
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import { UINotificationService } from '@/app/core/services/ui-notification.service'
+import {  ChangeDetectorRef } from '@angular/core'
 import {
   TestLabService,
   type TestCaseDto,
@@ -39,7 +40,7 @@ export class TestCasesValidationComponent implements OnInit {
   private router = inject(Router)
   private route = inject(ActivatedRoute)
   private modalService = inject(NgbModal)
-
+private cdr = inject(ChangeDetectorRef)
   loading = false
   errorMessage = ''
   view: 'list' | 'detail' = 'list'
@@ -280,6 +281,46 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     void this.onOpenSuite(suite)
   }
 
+  async onRunSuiteFromList(suite: TestSuiteDto): Promise<void> {
+    if (suite?.canOpen === false) {
+      this.uiNotification.accessDenied("Access denied: you are not authorized to run this test.")
+      return
+    }
+
+    const suiteId = String(suite?._id || '').trim()
+    if (!suiteId) return
+
+    this.loading = true
+    this.errorMessage = ''
+
+    try {
+      const detail = await firstValueFrom(this.testLabService.getTestSuiteById(suiteId))
+
+      const projectName =
+        (detail?.projectId && typeof detail.projectId === 'object'
+          ? (detail.projectId as TestLabProjectDto)?.title
+          : undefined) ||
+        (detail as any)?.projectTitle ||
+        '—'
+
+      const suiteName = this.getSuiteDisplayName(detail) || this.getSuiteDisplayName(suite) || '—'
+
+      await this.router.navigate(['/execution/Execution-Management'], {
+        queryParams: {
+          suiteId,
+          projectName,
+          suiteName,
+          planId: undefined,
+          planName: '—',
+        },
+      })
+    } catch (err: unknown) {
+      this.errorMessage = getErrorMessage(err, 'Unable to run test suite')
+    } finally {
+      this.loading = false
+    }
+  }
+
   onBackToList() {
     this.view = 'list'
     this.testSuiteId = ''
@@ -303,10 +344,11 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     return Boolean(this.caseOpen[this.getCaseKey(planId, caseId)])
   }
 
-  toggleCase(planId: string | null | undefined, caseId: string): void {
-    const key = this.getCaseKey(planId, caseId)
-    this.caseOpen[key] = !this.caseOpen[key]
-  }
+toggleCase(planId: string | null | undefined, caseId: string): void {
+  const key = this.getCaseKey(planId, caseId)
+  this.caseOpen = { ...this.caseOpen, [key]: !this.caseOpen[key] }
+  this.cdr.detectChanges()
+}
 
   toggleMembers(): void {
     this.membersOpen = !this.membersOpen
@@ -665,14 +707,16 @@ getTotalCases(suite: TestSuiteDto | null | undefined): number {
     return this.statusFilters.find((f) => f.key === key)?.label ?? key
   }
 
-  @HostListener('document:click', ['$event'])
-  closeDropdown(event: MouseEvent): void {
-    const target = event.target as HTMLElement
-    const filterWrap = target?.closest('.tv-filter-wrap')
-    if (!filterWrap) {
-      this.filterOpen = false
-    }
+@HostListener('document:click', ['$event'])
+closeDropdown(event: MouseEvent): void {
+  const target = event.target as HTMLElement
+  // Ne pas interférer avec les clics dans tv-cases-body
+  if (target?.closest('.tv-cases-body')) return
+  const filterWrap = target?.closest('.tv-filter-wrap')
+  if (!filterWrap) {
+    this.filterOpen = false
   }
+}
 
   private applyDeletePlanLocally(planId: string): void {
     this.testPlans = this.testPlans.filter((p) => p.id !== planId)
