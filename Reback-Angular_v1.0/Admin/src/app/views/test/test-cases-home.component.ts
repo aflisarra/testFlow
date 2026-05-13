@@ -91,6 +91,12 @@ export class TestCasesHomeComponent implements OnInit {
   private unsavedResolve: ((ok: boolean) => void) | null = null
   private pendingAction: (() => void) | null = null
   unsavedSaving = false
+  generationGuardModalOpen = false
+  generationStopping = false
+  private generationGuardResolve: ((ok: boolean) => void) | null = null
+  private allowGenerationNavigation = false
+  private pendingBrowserReload = false
+  private activeCaseGenerationRequestId = ''
 
   livePlanId = ''
   liveCases: TestCaseDto[] = []
@@ -123,12 +129,12 @@ export class TestCasesHomeComponent implements OnInit {
     return (this.testCasesByPlan[planId] || []).length > 0 ? 'reviewing' : 'pending'
   }
 
-  getCompletionLabel(planId: string): 'Validated' | 'Not validated' {
-    return this.getPlanStatus(planId) === 'confirmed' ? 'Validated' : 'Not validated'
+  getCompletionLabel(planId: string): 'Completed' | 'Incomplete' {
+    return this.getPlanStatus(planId) === 'confirmed' ? 'Completed' : 'Incomplete'
   }
 
-  getSuiteCardStatus(suite: TestSuiteDto): 'Validated' | 'Not validated' {
-    return this.isSuiteValidated(suite) ? 'Validated' : 'Not validated'
+  getSuiteCardStatus(suite: TestSuiteDto): 'Completed' | 'Incomplete' {
+    return this.isSuiteValidated(suite) ? 'Completed' : 'Incomplete'
   }
 
   getLastActorBubble(suite: TestSuiteDto): string {
@@ -536,6 +542,11 @@ export class TestCasesHomeComponent implements OnInit {
   }
 
   closeModal() {
+    if (this.modalGenerating) {
+      this.pendingBrowserReload = false
+      void this.openGenerationGuardModal()
+      return
+    }
     this.closeModalForce()
   }
 
@@ -561,6 +572,8 @@ export class TestCasesHomeComponent implements OnInit {
     const plan = this.modalPlan
     if (!plan || !this.testSuiteId || this.modalGenerating) return
 
+    const requestId = this.newGenerationRequestId()
+    this.activeCaseGenerationRequestId = requestId
     this.modalGenerating = true
     this.modalCases = []
     this.planStatuses[plan.id] = 'generating'
@@ -573,6 +586,7 @@ export class TestCasesHomeComponent implements OnInit {
       planTitle: plan.title,
       planDescription: plan.description,
       regenerate,
+      generationRequestId: requestId,
     }).subscribe({
       next: (resp) => {
         this.modalCases = resp?.testCases || []
@@ -604,10 +618,12 @@ export class TestCasesHomeComponent implements OnInit {
         this.planStatuses[plan.id] = 'pending'
         this.errorMessage = getErrorMessage(err, 'Unable to generate test cases')
         this.modalGenerating = false
+        this.activeCaseGenerationRequestId = ''
       },
       complete: () => {
         this.modalGenerating = false
         this.modalSubscription = null
+        this.activeCaseGenerationRequestId = ''
       },
     })
   }
@@ -655,7 +671,7 @@ export class TestCasesHomeComponent implements OnInit {
 
     const suiteStatus: SuiteSessionStatus = this.allPlans.length > 0 && this.allPlans.every(
       p => (normalizedStatuses[p.id] || this.getPlanStatus(p.id)) === 'confirmed'
-    ) ? 'validated' : 'invalid'
+    ) ? 'completed' : 'incomplete'
 
     this.testLabService.saveSuiteSession(this.testSuiteId, {
       sessionKind: 'validation',
@@ -759,7 +775,7 @@ export class TestCasesHomeComponent implements OnInit {
 
     const suiteStatus: SuiteSessionStatus = this.allPlans.length > 0 && this.allPlans.every(
       p => normalizedStatuses[p.id] === 'confirmed'
-    ) ? 'validated' : 'invalid'
+    ) ? 'completed' : 'incomplete'
 
     const testCasesByPlan = this.allPlans.map(p => ({
       planId: p.id,
@@ -791,31 +807,79 @@ export class TestCasesHomeComponent implements OnInit {
     }
   }
 
-  getPlanValidationLabel(planId: string): 'Validated' | 'Not validated' | 'Generating...' {
+  getPlanValidationLabel(planId: string): 'Completed' | 'Incomplete' | 'Generating...' {
     const status = this.getPlanStatus(planId)
     if (status === 'generating') return 'Generating...'
-    return status === 'confirmed' ? 'Validated' : 'Not validated'
+    return status === 'confirmed' ? 'Completed' : 'Incomplete'
   }
 
   private isSuiteValidated(suite: TestSuiteDto): boolean {
-    return (
-      String(suite?.status || '').toLowerCase().trim() === 'validated' ||
-      String(suite?.validationStatus || '').toLowerCase().trim() === 'validated'
-    )
+    const status = String(suite?.status || '').toLowerCase().trim()
+    const validation = String(suite?.validationStatus || '').toLowerCase().trim()
+    return status === 'completed' || status === 'validated' || validation === 'completed' || validation === 'validated'
   }
 
   // ── Unsaved changes modal ─────────────────────────────────────────────
 
   @HostListener('window:beforeunload', ['$event'])
   onBeforeUnload(event: BeforeUnloadEvent) {
+    if (this.isGenerationInProgress()) {
+      event.preventDefault()
+      event.returnValue = 'Generation in progress.'
+      return
+    }
     if (!this.hasUnsavedChanges) return
     event.preventDefault()
     event.returnValue = 'You have unsaved changes.'
   }
 
+  @HostListener('window:keydown', ['$event'])
+  onWindowKeydown(event: KeyboardEvent): void {
+    if (!this.isGenerationInProgress()) return
+    const key = String(event.key || '').toLowerCase()
+    const wantsReload = key === 'f5' || ((event.ctrlKey || event.metaKey) && key === 'r')
+    if (!wantsReload) return
+    event.preventDefault()
+    if (this.generationGuardModalOpen) return
+    this.pendingBrowserReload = true
+    void this.openGenerationGuardModal()
+  }
+
   canDeactivate(): boolean | Promise<boolean> {
+    if (this.allowGenerationNavigation) {
+      this.allowGenerationNavigation = false
+      return true
+    }
+    if (this.isGenerationInProgress()) return this.openGenerationGuardModal()
     if (!this.hasUnsavedChanges) return true
     return this.openUnsavedModal()
+  }
+
+  onGenerationGuardYes(): void {
+    const shouldReload = this.pendingBrowserReload
+    this.pendingBrowserReload = false
+    this.allowGenerationNavigation = true
+    this.closeGenerationGuardModal(true)
+    if (shouldReload) {
+      setTimeout(() => window.location.reload(), 0)
+    }
+  }
+
+  async onGenerationGuardNo(): Promise<void> {
+    if (this.generationStopping) return
+    this.generationStopping = true
+    const shouldReload = this.pendingBrowserReload
+    try {
+      await this.stopCaseGenerationFlow()
+      this.pendingBrowserReload = false
+      this.allowGenerationNavigation = true
+      this.closeGenerationGuardModal(true)
+      if (shouldReload) {
+        setTimeout(() => window.location.reload(), 0)
+      }
+    } finally {
+      this.generationStopping = false
+    }
   }
 
   private setPlanDirty(planId: string, dirty = true) {
@@ -843,6 +907,59 @@ export class TestCasesHomeComponent implements OnInit {
     return new Promise<boolean>((resolve) => {
       this.unsavedResolve = resolve
     })
+  }
+
+  private isGenerationInProgress(): boolean {
+    return this.modalGenerating || this.generating
+  }
+
+  private openGenerationGuardModal(): Promise<boolean> {
+    this.generationGuardModalOpen = true
+    return new Promise<boolean>((resolve) => {
+      this.generationGuardResolve = resolve
+    })
+  }
+
+  private closeGenerationGuardModal(allowed: boolean): void {
+    this.generationGuardModalOpen = false
+    this.generationGuardResolve?.(allowed)
+    this.generationGuardResolve = null
+  }
+
+  private async stopCaseGenerationFlow(): Promise<void> {
+    const plan = this.modalPlan
+    const planId = String(plan?.id || this.livePlanId || '').trim()
+    const suiteId = String(this.testSuiteId || '').trim()
+
+    this.modalSubscription?.unsubscribe()
+    this.modalSubscription = null
+    this.generationSubscription?.unsubscribe()
+    this.generationSubscription = null
+    this.modalGenerating = false
+    this.generating = false
+    if (planId && this.planStatuses[planId] === 'generating') {
+      this.planStatuses[planId] = 'pending'
+    }
+
+    try {
+      await firstValueFrom(this.testLabService.cancelGeneration({
+        testSuiteId: suiteId || undefined,
+        planId: planId || undefined,
+        scope: 'cases',
+        requestId: this.activeCaseGenerationRequestId || undefined,
+      }))
+      this.toastr.info('Generation stopped.', 'Generation')
+    } catch {
+      this.toastr.info('Generation stopped on UI. Backend cancellation endpoint unavailable.', 'Generation')
+    } finally {
+      this.activeCaseGenerationRequestId = ''
+      this.closeModalForce()
+    }
+  }
+
+  private newGenerationRequestId(): string {
+    const rand = Math.random().toString(36).slice(2, 10)
+    return `cases-${Date.now()}-${rand}`
   }
 
   onUnsavedCancel() {
@@ -875,7 +992,7 @@ export class TestCasesHomeComponent implements OnInit {
 
     const suiteStatus: SuiteSessionStatus = this.allPlans.length > 0 && this.allPlans.every(
       p => normalizedStatuses[p.id] === 'confirmed'
-    ) ? 'validated' : 'invalid'
+    ) ? 'completed' : 'incomplete'
 
     const testCasesByPlan = this.allPlans.map(p => ({
       planId: p.id,

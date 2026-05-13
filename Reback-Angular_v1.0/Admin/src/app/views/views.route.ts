@@ -51,6 +51,7 @@ export const VIEW_ROUTES: Route[] = [
   {
     path: 'test',
     component: TestSuiteConfigurationComponent,
+    canDeactivate: [unsavedChangesGuard],
     data: { title: 'Test' },
   },
   {

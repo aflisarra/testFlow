@@ -66,6 +66,11 @@ async function generatePlan(req, res) {
     const data = await ollamaService.generatePlan({ req, body: req.body, file: req.file })
     return res.json(data)
   } catch (error) {
+    const status = statusFromError(error, 500)
+    if (status === 409) {
+      return res.status(409).json({ message: messageFromError(error, 'Generation cancelled by user.') })
+    }
+
     const maybeId = String(req.body?.testSuiteId || '').trim()
     if (maybeId) {
       // Keep old behavior: mark suite incomplete on failure if id exists.
@@ -75,8 +80,6 @@ async function generatePlan(req, res) {
         lastGeneratedAt: new Date(),
       }).catch(() => {})
     }
-
-    const status = statusFromError(error, 500)
     return res.status(status).json({ message: messageFromError(error, 'Generate plan failed') })
   }
 }
@@ -86,6 +89,11 @@ async function generateTestCases(req, res) {
     const data = await ollamaService.generateTestCases({ req, body: req.body })
     return res.json(data)
   } catch (error) {
+    const status = statusFromError(error, 500)
+    if (status === 409) {
+      return res.status(409).json({ message: messageFromError(error, 'Generation cancelled by user.') })
+    }
+
     const testSuiteId = String(req.body?.testSuiteId || '').trim()
     if (testSuiteId) {
       const TestSuite = require('../models/testsuite')
@@ -94,11 +102,21 @@ async function generateTestCases(req, res) {
         lastGeneratedAt: new Date(),
       }).catch(() => {})
     }
-
-    const status = statusFromError(error, 500)
     return res
       .status(status)
       .json({ message: messageFromError(error, 'Generate test cases failed') })
+  }
+}
+
+async function cancelGeneration(req, res) {
+  try {
+    const data = await ollamaService.cancelGeneration(req.body || {})
+    return res.json(data)
+  } catch (error) {
+    const status = statusFromError(error, 502)
+    return res.status(status).json({
+      message: messageFromError(error, 'Cancel generation failed'),
+    })
   }
 }
 
@@ -109,5 +127,5 @@ module.exports = {
   getTestPlans,
   generatePlan,
   generateTestCases,
+  cancelGeneration,
 }
-

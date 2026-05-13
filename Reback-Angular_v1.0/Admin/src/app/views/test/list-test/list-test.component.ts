@@ -61,8 +61,6 @@ private cdr = inject(ChangeDetectorRef)
 readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = [
   { key: 'completed', label: 'Completed' },
   { key: 'incomplete', label: 'Incomplete' },
-  { key: 'validated', label: 'Validated' },
-  { key: 'invalid', label: 'Invalid' },
   { key: 'all', label: 'All' },
 ]
 
@@ -498,16 +496,18 @@ toggleCase(planId: string | null | undefined, caseId: string): void {
   }
 
   getSuiteStatusKey(suite: TestSuiteDto): Exclude<TestSuiteStatusKey, 'all'> {
-    const raw = suite.status ?? 'invalid'
+    const raw = suite.status ?? suite.validationStatus ?? 'incomplete'
     const key = this.normalizeStatusKey(raw)
     switch (key) {
       case 'completed':
       case 'incomplete':
-      case 'validated':
-      case 'invalid':
         return key
+      case 'validated':
+        return 'completed'
+      case 'invalid':
+        return 'incomplete'
       default:
-        return 'invalid'
+        return 'incomplete'
     }
   }
 
@@ -516,8 +516,6 @@ toggleCase(planId: string | null | undefined, caseId: string): void {
     const labels: Record<Exclude<TestSuiteStatusKey, 'all'>, string> = {
       completed: 'Completed',
       incomplete: 'Incomplete',
-      validated: 'Validated',
-      invalid: 'Invalid',
     }
     return labels[key]
   }
@@ -527,8 +525,6 @@ toggleCase(planId: string | null | undefined, caseId: string): void {
     const map: Record<Exclude<TestSuiteStatusKey, 'all'>, string> = {
       completed: 'text-bg-success',
       incomplete: 'text-bg-danger',
-      validated: 'text-bg-primary',
-      invalid: 'text-bg-warning',
     }
     return map[status]
   }

@@ -176,7 +176,7 @@ const testSuiteSchema = new mongoose.Schema({
     // Enterprise Test Status System (AI generation + save + execution)
     // ============================================================
     // NOTE: This is intentionally separate from the computed `status` field
-    // returned by services (validated/invalid/completed/incomplete) to avoid
+    // returned by services (completed/incomplete) to avoid
     // breaking existing UI flows.
     testStatus: {
         type: String,
@@ -202,8 +202,8 @@ const testSuiteSchema = new mongoose.Schema({
     // Manual validation of AI-generated plans/cases
     validationStatus: {
         type: String,
-        enum: ['validated', 'invalid'],
-        default: 'invalid'
+        enum: ['completed', 'incomplete'],
+        default: 'incomplete'
     },
     validationPlanStatuses: {
         type: [validationPlanStatusSchema],

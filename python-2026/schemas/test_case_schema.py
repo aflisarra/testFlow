@@ -26,6 +26,9 @@ class GenerateTestCasesRequest(BaseModel):
     style_config: Optional[str] = Field(default=None, alias="styleConfig", description="UI style config")
     project_title: Optional[str] = Field(default=None, alias="projectTitle", description="Optional project name/title (context only)")
     project_id: Optional[str] = Field(default=None, alias="projectId", description="Optional project id (context only)")
+    test_suite_id: Optional[str] = Field(default=None, alias="testSuiteId", description="Optional test suite id used for cancellation scope")
+    generation_scope: Optional[str] = Field(default="cases", alias="generationScope", description="Optional generation scope for cancellation")
+    generation_request_id: Optional[str] = Field(default=None, alias="generationRequestId", description="Optional generation request id used for cancellation")
 
     # Pydantic v2 uses `model_config`; v1 uses inner `Config`.
     if _MODEL_CONFIG is not None:  # type: ignore[truthy-bool]

@@ -10,10 +10,11 @@ import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.ser
 import { ProjectsStateService } from '@/app/core/services/projects-state.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
 import { getUser } from '@/app/store/authentication/authentication.selector'
+import type { CanDeactivateComponent } from '@/app/interfaces/route-guards.interface'
 import type { PlanStatus } from '@/app/views/test/models/status.types'
 import { getErrorMessage, getErrorStatus } from '@/app/views/test/utils/error.utils'
 import { CommonModule } from '@angular/common'
-import { Component, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, ElementRef, inject, NgZone, ViewChild } from '@angular/core'
+import { Component, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, ElementRef, HostListener, inject, NgZone, ViewChild } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms'
 import { ActivatedRoute, Router } from '@angular/router'
@@ -31,7 +32,7 @@ import { take } from 'rxjs/operators'
   styleUrl: './test-plan.component.css',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
-export class TestSuiteConfigurationComponent {
+export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   private store = inject(Store)
   private testLabService = inject(TestLabService)
   private authService = inject(AuthenticationService)
@@ -54,7 +55,7 @@ export class TestSuiteConfigurationComponent {
   // Reactive Form
   testPlanForm: FormGroup = this.fb.group({
     name: ['', Validators.required],
-    specDocument: [''],
+    specDocument: ['', Validators.required],
     projectId: ['', Validators.required],
   })
 
@@ -88,6 +89,15 @@ export class TestSuiteConfigurationComponent {
   finishing = false
   plansValidated = false
   sessionSaved = false
+  generationGuardModalOpen = false
+  generationStopping = false
+  private generationGuardResolve: ((allowed: boolean) => void) | null = null
+  private allowGenerationNavigation = false
+  private pendingBrowserReload = false
+  private plansGenerationToken = 0
+  private casesGenerationToken = 0
+  private activePlanGenerationRequestId = ''
+  private activeCaseGenerationRequestId = ''
 
   // Getters for backward compatibility
   get selectedProjectId(): string {
@@ -125,17 +135,11 @@ export class TestSuiteConfigurationComponent {
   private async initializeFromQueryParams(): Promise<void> {
     this.activatedRoute.queryParams.subscribe(async (params) => {
       const projectId = String(params['projectId'] || '').trim()
-      const projectName = String(params['projectName'] || '').trim()
 
       if (!projectId) return
 
       this.testPlanForm.patchValue({ projectId })
       this.lastProjectId = projectId
-
-      // Default name if empty, then show existing banner (user decides to use it or not)
-      if (projectName && !String(this.testPlanForm.get('name')?.value || '').trim()) {
-        this.testPlanForm.patchValue({ name: `${projectName} Test Suite` })
-      }
 
       await this.loadExistingTestPlanBanner(projectId)
     })
@@ -180,12 +184,6 @@ export class TestSuiteConfigurationComponent {
       }
       this.lastProjectId = normalizedProjectId
 
-      // Default name if empty
-      const title = this.selectedProjectTitle
-      if (title && !String(this.testPlanForm.get('name')?.value || '').trim()) {
-        this.testPlanForm.patchValue({ name: `${title} Test Suite` })
-      }
-
       await this.loadExistingTestPlanBanner(normalizedProjectId)
     } catch (error) {
       console.error('Error checking for existing test plan:', error)
@@ -201,8 +199,7 @@ export class TestSuiteConfigurationComponent {
     this.currentTestSuiteId = ''
     this.selectedFile = null
     this.uploadedFileName = ''
-    this.testPlanForm.patchValue({ specDocument: '' })
-    // Keep "name" as-is; caller may set a new default name for the new project
+    this.testPlanForm.patchValue({ specDocument: '', name: '' })
   }
 
   private async loadExistingTestPlanBanner(projectId: string): Promise<void> {
@@ -239,7 +236,6 @@ export class TestSuiteConfigurationComponent {
     if (this.existingTestPlan) {
       this.currentTestSuiteId = this.existingTestPlan.suiteId
       this.testPlanForm.patchValue({
-        name: this.existingTestPlan.name,
         specDocument: this.existingTestPlan.specFileName,
       })
       this.uploadedFileName = this.existingTestPlan.specFileName
@@ -253,9 +249,8 @@ export class TestSuiteConfigurationComponent {
   }
 
   declineExistingData(): void {
-    const title = this.selectedProjectTitle
     this.testPlanForm.patchValue({
-      name: title ? `${title} Test Suite` : '',
+      name: '',
       specDocument: ''
     })
     this.uploadedFileName = ''
@@ -319,10 +314,72 @@ export class TestSuiteConfigurationComponent {
 
   // ðŸ”¹ Bouton "Generate Plan"
   onGeneratePlan() {
+    this.testPlanForm.markAllAsTouched()
+    if (this.testPlanForm.invalid) {
+      this.toastr.warning('Please fill all required fields.', 'Validation')
+      return
+    }
     const hasProject = Boolean(String(this.testPlanForm.getRawValue().projectId || '').trim())
     const hasFile = Boolean(this.selectedFile)
     void this.generatePlans()
     if (hasProject && hasFile) this.scrollToPlansResult()
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  onBeforeUnload(event: BeforeUnloadEvent): void {
+    if (!this.isGenerationInProgress()) return
+    event.preventDefault()
+    event.returnValue = 'Generation in progress.'
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  onWindowKeydown(event: KeyboardEvent): void {
+    if (!this.isGenerationInProgress()) return
+    const key = String(event.key || '').toLowerCase()
+    const wantsReload =
+      key === 'f5' || ((event.ctrlKey || event.metaKey) && key === 'r')
+    if (!wantsReload) return
+
+    event.preventDefault()
+    if (this.generationGuardModalOpen) return
+    this.pendingBrowserReload = true
+    void this.openGenerationGuardModal()
+  }
+
+  canDeactivate(): boolean | Promise<boolean> {
+    if (this.allowGenerationNavigation) {
+      this.allowGenerationNavigation = false
+      return true
+    }
+    if (!this.isGenerationInProgress()) return true
+    return this.openGenerationGuardModal()
+  }
+
+  onGenerationGuardYes(): void {
+    const shouldReload = this.pendingBrowserReload
+    this.pendingBrowserReload = false
+    this.allowGenerationNavigation = true
+    this.closeGenerationGuardModal(true)
+    if (shouldReload) {
+      setTimeout(() => window.location.reload(), 0)
+    }
+  }
+
+  async onGenerationGuardNo(): Promise<void> {
+    if (this.generationStopping) return
+    this.generationStopping = true
+    const shouldReload = this.pendingBrowserReload
+    try {
+      await this.stopGenerationFlow()
+      this.pendingBrowserReload = false
+      this.allowGenerationNavigation = true
+      this.closeGenerationGuardModal(true)
+      if (shouldReload) {
+        setTimeout(() => window.location.reload(), 0)
+      }
+    } finally {
+      this.generationStopping = false
+    }
   }
 
   onValidatePlans() {
@@ -337,17 +394,31 @@ export class TestSuiteConfigurationComponent {
 
   onTogglePlanValidation(planId: string) {
     const current = this.planStatuses[planId]
-    if (current !== 'pending' && current !== 'confirmed') return
+    if (current !== 'reviewing' && current !== 'pending' && current !== 'confirmed') return
 
     this.planStatuses[planId] = current === 'confirmed' ? 'pending' : 'confirmed'
     this.plansValidated = this.allPlansConfirmed
     this.sessionSaved = false
   }
 
+  getValidateButtonClass(planId: string): string {
+    const current = this.planStatuses[planId]
+    if (current === 'confirmed') return 'testlab-validate-btn--green'
+    if (current === 'pending') return 'testlab-validate-btn--orange'
+    return 'testlab-validate-btn--gray'
+  }
+
+  getValidateButtonLabel(planId: string): string {
+    const current = this.planStatuses[planId]
+    if (current === 'confirmed') return 'Validated'
+    if (current === 'pending') return 'Invalidated'
+    return 'Validate'
+  }
+
   // Remplacer onSaveSession() â€” retourne false si erreur et affiche toastr
   async onSaveSession(): Promise<boolean> {
     if (!this.testPlans.length || !this.currentTestSuiteId) return false
-    const suiteStatus = this.allPlansConfirmed ? 'validated' : 'invalid'
+    const suiteStatus = this.allPlansConfirmed ? 'completed' : 'incomplete'
     try {
       await firstValueFrom(
         this.testLabService.saveSuiteSession(this.currentTestSuiteId, {
@@ -635,6 +706,9 @@ export class TestSuiteConfigurationComponent {
     const plan = this.currentPlan
     if (!plan) return
 
+    const currentCaseToken = ++this.casesGenerationToken
+    const requestId = this.newGenerationRequestId('cases')
+    this.activeCaseGenerationRequestId = requestId
     this.errorMessage = ''
     this.generatingCases = true
     this.planStatuses[plan.id] = 'generating'
@@ -647,15 +721,21 @@ export class TestSuiteConfigurationComponent {
           planTitle: plan.title,
           planDescription: plan.description,
           regenerate,
+          generationRequestId: requestId,
         })
       )
+      if (currentCaseToken !== this.casesGenerationToken) return
       this.testCasesByPlan[plan.id] = resp?.testCases || []
       this.planStatuses[plan.id] = 'reviewing'
     } catch (err: unknown) {
+      if (currentCaseToken !== this.casesGenerationToken) return
       this.errorMessage = getErrorMessage(err, 'Erreur génération test cases')
       this.planStatuses[plan.id] = 'pending'
     } finally {
-      this.generatingCases = false
+      if (currentCaseToken === this.casesGenerationToken) {
+        this.generatingCases = false
+        this.activeCaseGenerationRequestId = ''
+      }
     }
   }
 
@@ -689,6 +769,9 @@ export class TestSuiteConfigurationComponent {
   }
 
   private async generatePlans(regenerate = false) {
+    const currentPlanToken = ++this.plansGenerationToken
+    const requestId = this.newGenerationRequestId('plans')
+    this.activePlanGenerationRequestId = requestId
     this.errorMessage = ''
     this.generatingPlans = true
     this.syncProjectIdControlDisabled()
@@ -701,6 +784,12 @@ export class TestSuiteConfigurationComponent {
 
     try {
       const rawForm = this.testPlanForm.getRawValue()
+      this.testPlanForm.markAllAsTouched()
+      if (this.testPlanForm.invalid) {
+        this.errorMessage = 'Veuillez remplir tous les champs obligatoires.'
+        this.toastr.warning(this.errorMessage, 'Validation')
+        return
+      }
       if (!this.selectedFile) {
         this.errorMessage = 'Veuillez uploader un fichier (.docx / .md / .txt)'
         this.toastr.warning(this.errorMessage, 'Test Plan')
@@ -736,8 +825,10 @@ export class TestSuiteConfigurationComponent {
       if (this.currentTestSuiteId) formData.append('testSuiteId', this.currentTestSuiteId)
       formData.append('projectId', String(rawForm.projectId || '').trim())
       formData.append('regenerate', regenerate ? 'true' : 'false')
+      formData.append('generationRequestId', requestId)
 
       const result = await firstValueFrom(this.testLabService.generatePlanFromDocx(formData))
+      if (currentPlanToken !== this.plansGenerationToken) return
 
       this.currentTestSuiteId = String(result?.testSuiteId || '')
       if (String(result?.projectId || '').trim()) {
@@ -745,8 +836,8 @@ export class TestSuiteConfigurationComponent {
       }
       this.testPlans = Array.isArray(result?.testPlans) ? result.testPlans : []
 
-      // Initialiser tous les plans A "pending"
-      this.testPlans.forEach((p) => (this.planStatuses[p.id] = 'pending'))
+      // Initialiser tous les plans en "reviewing" pour afficher le bouton gris avant validation.
+      this.testPlans.forEach((p) => (this.planStatuses[p.id] = 'reviewing'))
 
       if (!this.testPlans.length) {
         this.errorMessage = 'Aucun test plan gÃ©nÃ©rÃ©.'
@@ -755,6 +846,7 @@ export class TestSuiteConfigurationComponent {
         //TODO: afficher un message "Plans generated, generating test cases..." et ne pas scroll si on vient de cliquer sur "Regenerate" d'un plan (car dans ce cas on reste sur le mÃªme plan et on veut voir les changements)
       }
     } catch (err: unknown) {
+      if (currentPlanToken !== this.plansGenerationToken) return
       const status = getErrorStatus(err)
       if (status === 0) {
         this.errorMessage =
@@ -769,9 +861,71 @@ export class TestSuiteConfigurationComponent {
       }
       this.toastr.error(this.errorMessage, 'Generation')
     } finally {
-      this.generatingPlans = false
-      this.syncProjectIdControlDisabled()
+      if (currentPlanToken === this.plansGenerationToken) {
+        this.generatingPlans = false
+        this.activePlanGenerationRequestId = ''
+        this.syncProjectIdControlDisabled()
+      }
     }
+  }
+
+  private isGenerationInProgress(): boolean {
+    return this.generatingPlans || this.generatingCases
+  }
+
+  private openGenerationGuardModal(): Promise<boolean> {
+    this.generationGuardModalOpen = true
+    return new Promise<boolean>((resolve) => {
+      this.generationGuardResolve = resolve
+    })
+  }
+
+  private closeGenerationGuardModal(allowed: boolean): void {
+    this.generationGuardModalOpen = false
+    this.generationGuardResolve?.(allowed)
+    this.generationGuardResolve = null
+  }
+
+  private async stopGenerationFlow(): Promise<void> {
+    const wasGeneratingPlans = this.generatingPlans
+    const wasGeneratingCases = this.generatingCases
+    const activePlanId = this.currentPlan?.id || ''
+
+    // Invalidate running async requests on UI side.
+    this.plansGenerationToken++
+    this.casesGenerationToken++
+    this.generatingPlans = false
+    this.generatingCases = false
+    if (activePlanId && this.planStatuses[activePlanId] === 'generating') {
+      this.planStatuses[activePlanId] = 'pending'
+    }
+    this.syncProjectIdControlDisabled()
+
+    // Best effort: if backend endpoint exists, request cancellation.
+    try {
+      await firstValueFrom(
+        this.testLabService.cancelGeneration({
+          testSuiteId: this.currentTestSuiteId || undefined,
+          planId: activePlanId || undefined,
+          scope: wasGeneratingPlans && wasGeneratingCases
+            ? 'all'
+            : wasGeneratingPlans
+              ? 'plans'
+              : 'cases',
+          requestId: wasGeneratingPlans
+            ? this.activePlanGenerationRequestId || undefined
+            : this.activeCaseGenerationRequestId || undefined,
+        })
+      )
+      this.toastr.info('Generation stopped.', 'Generation')
+    } catch {
+      this.toastr.info('Generation stopped on UI. Backend cancellation endpoint unavailable.', 'Generation')
+    }
+  }
+
+  private newGenerationRequestId(scope: 'plans' | 'cases'): string {
+    const rand = Math.random().toString(36).slice(2, 10)
+    return `${scope}-${Date.now()}-${rand}`
   }
 
   private syncProjectIdControlDisabled(): void {

@@ -67,7 +67,9 @@
                 <div class="testlab-select-icon">
                   <iconify-icon icon="iconamoon:folder-open-duotone"></iconify-icon>
                 </div>
-                <select class="form-select testlab-project-select" formControlName="projectId"
+                <select class="form-select testlab-project-select"
+                  [class.is-invalid]="testPlanForm.get('projectId')?.touched && testPlanForm.get('projectId')?.invalid"
+                  formControlName="projectId"
                   (change)="onProjectChange()">
                   <option value="">-- Select a project --</option>
                   @for (p of projects; track p._id) {
@@ -98,6 +100,9 @@
             @if (!projects.length && !loadingProjects) {
             <p class="small text-muted mb-0 mt-2">No projects found.</p>
             }
+            @if (testPlanForm.get('projectId')?.touched && testPlanForm.get('projectId')?.errors?.['required']) {
+            <div class="invalid-feedback d-block mt-2">Project is required.</div>
+            }
           </div>
 
           <!-- Test Name -->
@@ -112,11 +117,15 @@
             <div class="testlab-input-wrapper">
               <iconify-icon icon="iconamoon:text-duotone" class="testlab-input-icon-left"></iconify-icon>
               <input type="text" class="testlab-input testlab-input--with-icon"
+              [class.is-invalid]="testPlanForm.get('name')?.touched && testPlanForm.get('name')?.invalid"
               placeholder="Enter a descriptive name for your test suite" formControlName="name" />
               @if (testPlanForm.get('name')?.value) {
             <iconify-icon icon="iconamoon:check-circle-1-duotone" class="testlab-input-icon-check"
               ></iconify-icon>}
             </div>
+            @if (testPlanForm.get('name')?.touched && testPlanForm.get('name')?.errors?.['required']) {
+            <div class="invalid-feedback d-block mt-2">Test name is required.</div>
+            }
           </div>
 
           <!-- Style Configuration -->
@@ -177,7 +186,9 @@
 
             <div class="testlab-input-wrapper mt-3">
               <iconify-icon icon="iconamoon:document-duotone" class="testlab-input-icon-left"></iconify-icon>
-              <input type="text" class="testlab-input testlab-input--with-icon" formControlName="specDocument"
+              <input type="text" class="testlab-input testlab-input--with-icon"
+                [class.is-invalid]="testPlanForm.get('specDocument')?.touched && testPlanForm.get('specDocument')?.invalid"
+                formControlName="specDocument"
                 placeholder="No spec document selected" readonly />
               @if (testPlanForm.get('specDocument')?.value) {
   <iconify-icon
@@ -186,6 +197,9 @@
   </iconify-icon>
 }
             </div>
+            @if (testPlanForm.get('specDocument')?.touched && testPlanForm.get('specDocument')?.errors?.['required']) {
+            <div class="invalid-feedback d-block mt-2">Specification document is required.</div>
+            }
           </div>
 
           <!-- Finalize + CTA -->
@@ -398,7 +412,7 @@
           <h4 class="testlab-result-title mb-1">Generated Test Plans</h4>
 
         </div>
-        <span class="testlab-pill">{{ testPlans.length }} plans</span>
+        <span class="testlab-pill">{{ testPlans.length }} Plans</span>
       </div>
 
       <!-- Plans List (Read-only) -->
@@ -411,23 +425,12 @@
               <span class="testlab-plan-name">{{ plan.title }}</span>
             </div>
             <div class="d-flex align-items-center gap-2">
-              <span class="badge text-capitalize"
-                [ngClass]="planStatuses[plan.id] === 'confirmed' ? 'text-bg-success' : 'text-bg-warning'">
-                <iconify-icon
-                  [icon]="planStatuses[plan.id] === 'confirmed' ? 'iconamoon:check-circle-1-duotone' : 'iconamoon:clock-duotone'"></iconify-icon>
-                {{ planStatuses[plan.id] === 'confirmed' ? 'Validated' : 'Not validated' }}
-              </span>
               <button type="button" class="btn btn-sm btn-validate testlab-validate-btn"
-                [ngClass]="planStatuses[plan.id] === 'confirmed' ? 'btn-success' : 'btn-outline-success'"
+                [ngClass]="getValidateButtonClass(plan.id)"
                 [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
                 (click)="onTogglePlanValidation(plan.id)">
-                @if (planStatuses[plan.id] === 'confirmed') {
-                <iconify-icon icon="iconamoon:check-duotone"></iconify-icon>
-                <span>Validated</span>
-                } @else {
-                <iconify-icon icon="iconamoon:check-circle-1-duotone"></iconify-icon>
-                <span>Validate</span>
-                }
+                <iconify-icon [icon]="planStatuses[plan.id] === 'confirmed' ? 'iconamoon:check-duotone' : 'iconamoon:check-circle-1-duotone'"></iconify-icon>
+                <span>{{ getValidateButtonLabel(plan.id) }}</span>
               </button>
               <button type="button" class="btn btn-sm btn-regenerate testlab-regenerate-btn"
                 [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
@@ -682,3 +685,29 @@
 
   </div>
 </div>
+
+@if (generationGuardModalOpen) {
+<div class="tc-modal-backdrop"></div>
+<div class="tc-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="generationGuardTitle">
+  <div class="tc-modal-card">
+    <div class="tc-modal-head">
+      <h5 id="generationGuardTitle" class="mb-0">Generation In Progress</h5>
+    </div>
+    <div class="tc-modal-body">
+      <p class="mb-0">
+        Test plan generation is still running.<br />
+        Do you want to continue test generation?
+      </p>
+    </div>
+    <div class="tc-modal-actions">
+      <button type="button" class="btn btn-validate px-4" (click)="onGenerationGuardYes()">
+        Yes
+      </button>
+      <button type="button" class="btn btn-cancel px-4"
+        [disabled]="generationStopping" (click)="onGenerationGuardNo()">
+        {{ generationStopping ? 'Stopping...' : 'No' }}
+      </button>
+    </div>
+  </div>
+</div>
+}

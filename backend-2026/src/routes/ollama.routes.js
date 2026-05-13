@@ -13,6 +13,6 @@ router.get('/testsuite/:id/test-plans', ollamaController.getTestPlans)
 
 router.post('/generate-plan', upload.single('file'), ollamaController.generatePlan)
 router.post('/generate-test-cases', ollamaController.generateTestCases)
+router.post('/cancel-generation', ollamaController.cancelGeneration)
 
 module.exports = router
-

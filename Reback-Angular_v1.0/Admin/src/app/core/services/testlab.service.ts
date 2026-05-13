@@ -45,8 +45,18 @@ export class TestLabService {
     planTitle?: string
     planDescription?: string
     regenerate?: boolean
+    generationRequestId?: string
   }): Observable<GenerateTestCasesResponse> {
     return this.api.post<GenerateTestCasesResponse>(`/api/ollama/generate-test-cases`, payload)
+  }
+
+  cancelGeneration(payload: {
+    testSuiteId?: string
+    planId?: string
+    scope?: 'plans' | 'cases' | 'all'
+    requestId?: string
+  }): Observable<{ message?: string }> {
+    return this.api.post<{ message?: string }>(`/api/ollama/cancel-generation`, payload)
   }
 
   // ── Test Suites ─────────────────────────────────────────────
@@ -93,7 +103,7 @@ export class TestLabService {
     testSuiteId: string,
     payload: {
       sessionKind?: 'validation' | 'execution'
-      suiteStatus: 'validated' | 'invalid' | 'completed' | 'incomplete'
+      suiteStatus: 'completed' | 'incomplete'
       planStatuses: Record<string, string>
       testCasesByPlan?: TestCasesByPlanDto[]
     }
@@ -108,7 +118,7 @@ export class TestLabService {
       sessionStatus: 'complete' | 'incomplete'
       planStatuses: { planId: string; status: string }[]
       sessionSavedAt: string | null
-      validationStatus?: 'validated' | 'invalid'
+      validationStatus?: 'completed' | 'incomplete'
       validationPlanStatuses?: { planId: string; status: string }[]
       validationSavedAt?: string | null
       executionStatus?: 'completed' | 'incomplete' | null
@@ -123,7 +133,7 @@ export class TestLabService {
         sessionStatus: 'complete' | 'incomplete'
         planStatuses: { planId: string; status: string }[]
         sessionSavedAt: string | null
-        validationStatus?: 'validated' | 'invalid'
+        validationStatus?: 'completed' | 'incomplete'
         validationPlanStatuses?: { planId: string; status: string }[]
         validationSavedAt?: string | null
         executionStatus?: 'completed' | 'incomplete' | null

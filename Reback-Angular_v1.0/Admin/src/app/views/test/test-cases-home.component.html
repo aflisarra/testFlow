@@ -420,6 +420,30 @@
 </button>
 }
 
+@if (generationGuardModalOpen) {
+<div class="tc-modal-backdrop"></div>
+<div class="tc-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="generationGuardTitleCases">
+  <div class="tc-modal-card">
+    <div class="tc-modal-head">
+      <h5 id="generationGuardTitleCases" class="mb-0">Generation In Progress</h5>
+    </div>
+    <div class="tc-modal-body">
+      <p class="mb-0">
+        Test case generation is still running.<br />
+        Do you want to continue test generation?
+      </p>
+    </div>
+    <div class="tc-modal-actions">
+      <button type="button" class="btn btn-validate px-4" (click)="onGenerationGuardYes()">Yes</button>
+      <button type="button" class="btn btn-cancel px-4"
+        [disabled]="generationStopping" (click)="onGenerationGuardNo()">
+        {{ generationStopping ? 'Stopping...' : 'No' }}
+      </button>
+    </div>
+  </div>
+</div>
+}
+
 <!-- ── Unsaved Changes Modal ── -->
 @if (unsavedModalOpen) {
 <button class="tc-modal-backdrop" (click)="onUnsavedCancel()">

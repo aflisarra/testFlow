@@ -382,6 +382,12 @@
           <input class="form-control"
             [class.is-invalid]="editProjectForm.controls.title.touched && editProjectForm.controls.title.invalid"
             formControlName="title" />
+          @if (editProjectForm.controls.title.touched && editProjectForm.controls.title.errors?.['required']) {
+          <div class="invalid-feedback d-block">Project title is required.</div>
+          }
+          @if (editProjectForm.controls.title.touched && editProjectForm.controls.title.errors?.['pattern']) {
+          <div class="invalid-feedback d-block">Project title cannot be empty spaces.</div>
+          }
         </div>
         <div class="col-12">
           <label class="form-label pm-label" for="description">Description</label>
@@ -389,17 +395,32 @@
         </div>
         <div class="col-4">
           <label class="form-label pm-label" for="startDate">Start Date <span class="text-danger">*</span></label>
-          <input type="date" class="form-control" formControlName="startDate" />
+          <input type="date" class="form-control"
+            [class.is-invalid]="editProjectForm.controls.startDate.touched && editProjectForm.controls.startDate.invalid"
+            formControlName="startDate" />
+          @if (editProjectForm.controls.startDate.touched && editProjectForm.controls.startDate.errors?.['required']) {
+          <div class="invalid-feedback d-block">Start date is required.</div>
+          }
         </div>
         <div class="col-4">
           <label class="form-label pm-label" for="endDate">End Date <span class="text-danger">*</span></label>
-          <input type="date" class="form-control" formControlName="endDate" />
+          <input type="date" class="form-control"
+            [class.is-invalid]="editProjectForm.controls.endDate.touched && editProjectForm.controls.endDate.invalid"
+            formControlName="endDate" />
+          @if (editProjectForm.controls.endDate.touched && editProjectForm.controls.endDate.errors?.['required']) {
+          <div class="invalid-feedback d-block">End date is required.</div>
+          }
         </div>
         <div class="col-4">
           <label class="form-label pm-label" for="milestoneDate">Milestone Date <span class="text-danger">*</span></label>
-          <input type="date" class="form-control" formControlName="milestoneDate" />
+          <input type="date" class="form-control"
+            [class.is-invalid]="editProjectForm.controls.milestoneDate.touched && editProjectForm.controls.milestoneDate.invalid"
+            formControlName="milestoneDate" />
+          @if (editProjectForm.controls.milestoneDate.touched && editProjectForm.controls.milestoneDate.errors?.['required']) {
+          <div class="invalid-feedback d-block">Milestone date is required.</div>
+          }
           @if (hasInvalidEditDateOrder()) {
-            <div class="invalid-feedback d-block">Invalid date order.</div>
+            <div class="invalid-feedback d-block">End/Milestone date cannot be before start date.</div>
           }
         </div>
         <div class="col-12">

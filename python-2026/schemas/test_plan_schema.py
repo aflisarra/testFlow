@@ -14,6 +14,9 @@ class GeneratePlanRequest(BaseModel):
     style_config: Optional[str] = Field(default=None, description="UI style config (colors, shapes, fonts...)")
     project_title: Optional[str] = Field(default=None, description="Optional project name/title (context only)")
     project_id: Optional[str] = Field(default=None, description="Optional project id (context only)")
+    test_suite_id: Optional[str] = Field(default=None, description="Optional test suite id used for cancellation scope")
+    generation_scope: Optional[str] = Field(default="plans", description="Optional generation scope for cancellation")
+    generation_request_id: Optional[str] = Field(default=None, description="Optional generation request id used for cancellation")
 
 
 class TestPlan(BaseModel):
@@ -24,4 +27,3 @@ class TestPlan(BaseModel):
 
 class GeneratePlanResponse(BaseModel):
     test_plans: List[TestPlan]
-

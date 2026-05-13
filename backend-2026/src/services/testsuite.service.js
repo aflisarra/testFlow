@@ -26,9 +26,17 @@ function computeSuiteStatusKey(suite) {
     const isSaved = !!suite?.savedAt
 
     if (hasPlans && hasCases && isSaved) {
-        return 'validated'
+        return 'completed'
     }
-    return 'invalid'
+    return 'incomplete'
+}
+
+function normalizeCompletionStatus(value) {
+    const raw = String(value || '').toLowerCase().trim()
+    if (!raw) return 'incomplete'
+    if (raw === 'completed' || raw === 'complete' || raw === 'validated') return 'completed'
+    if (raw === 'incomplete' || raw === 'invalid') return 'incomplete'
+    return 'incomplete'
 }
 // ============================================================
 // HELPERS UTILITAIRES
@@ -784,7 +792,7 @@ async function getTestPlansByTestSuiteId(testSuiteId) {
         sessionStatus: suite.sessionStatus || 'incomplete',
         planStatuses: suite.planStatuses || [],
         sessionSavedAt: suite.sessionSavedAt || null,
-        validationStatus: suite.validationStatus || 'invalid',
+        validationStatus: normalizeCompletionStatus(suite.validationStatus),
         validationPlanStatuses: suite.validationPlanStatuses || [],
         validationSavedAt: suite.validationSavedAt || null,
         executionStatus: suite.executionStatus || null,
@@ -835,7 +843,7 @@ async function saveSuiteSession(testSuiteId, payload = {}) {
         update.testCasesByPlan = Object.values(casesByPlanId)
     }
 
-    // Validation status: only "validated" if plans + cases exist and savedAt exists.
+    // Validation status: only "completed" if plans + cases exist and savedAt exists.
     update.validationStatus = computeSuiteStatusKey({
         testPlans: update.testPlans || existingPlans,
         testCasesByPlan: update.testCasesByPlan || existingCases,

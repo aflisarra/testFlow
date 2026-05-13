@@ -535,12 +535,30 @@
     align-items: center;
     gap: 0.55rem;
     white-space: nowrap;
-     background: #ec8a00;
-  border: 1px solid #ec8a00;
-  color: #fff;
+    background: #94a3b8;
+    border: 1px solid #94a3b8;
+    color: #fff;
   font-weight: 400 !important;
  margin-block-start: 0.6rem;
 
+}
+
+.testlab-validate-btn--gray {
+    background: #94a3b8;
+    border-color: #94a3b8;
+    color: #fff;
+}
+
+.testlab-validate-btn--green {
+    background: #10b981;
+    border-color: #10b981;
+    color: #fff;
+}
+
+.testlab-validate-btn--orange {
+    background: #ec8a00;
+    border-color: #ec8a00;
+    color: #fff;
 }
 
 .testlab-dropzone::before {
@@ -1494,4 +1512,53 @@
 
 h1 {
     margin-block-start: 0;
+}
+
+.tc-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgb(15 23 42 / 45%);
+    backdrop-filter: blur(4px);
+    z-index: 1060;
+}
+
+.tc-modal-wrap {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 1070;
+}
+
+.tc-modal-card {
+    inline-size: min(560px, 96vw);
+    background: #fff;
+    border: 1px solid #dbe3ee;
+    border-radius: 16px;
+    box-shadow: 0 22px 52px rgb(15 23 42 / 22%);
+    overflow: hidden;
+}
+
+.tc-modal-head {
+    padding: 1.15rem 1.35rem 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fff;
+}
+
+.tc-modal-body {
+    padding: 0.25rem 1.35rem 1rem;
+    color: #64748b;
+    font-size: 1.05rem;
+}
+
+.tc-modal-actions {
+    padding: 1.15rem 1.35rem;
+    display: flex;
+    gap: 0.6rem;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
 }

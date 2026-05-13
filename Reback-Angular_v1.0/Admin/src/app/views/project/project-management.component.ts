@@ -544,6 +544,9 @@ applyEliteTeamSelection(modal: NgbModalRef): void {
     if (!this.editingProjectId) return
     if (this.editProjectForm.invalid || this.hasInvalidEditDateOrder()) {
       this.editProjectForm.markAllAsTouched()
+      if (this.hasInvalidEditDateOrder()) {
+        this.error = 'Please verify dates: end and milestone dates must be on or after start date.'
+      }
       return
     }
     const trimmedTitle = String(this.editProjectForm.value.title || '').trim()
@@ -556,9 +559,9 @@ applyEliteTeamSelection(modal: NgbModalRef): void {
     const payload = {
       title: trimmedTitle,
       description: String(this.editProjectForm.value.description || '').trim(),
-      startDate: this.editProjectForm.value.startDate || null,
-      endDate: this.editProjectForm.value.endDate || null,
-      milestoneDate: this.editProjectForm.value.milestoneDate || null,
+      startDate: this.normalizeDateForApi(this.editProjectForm.value.startDate),
+      endDate: this.normalizeDateForApi(this.editProjectForm.value.endDate),
+      milestoneDate: this.normalizeDateForApi(this.editProjectForm.value.milestoneDate),
       status: this.editProjectForm.value.status || 'draft',
       assignedUsers: Array.from(this.editAssignedUserIds),
     }

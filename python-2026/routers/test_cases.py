@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 
 from core.config import get_settings
 from schemas.test_case_schema import GenerateTestCasesRequest, TestCasesResponse
+from services.cancellation_service import is_cancelled
 from services.case_service import generate_test_cases
 
 
@@ -49,6 +50,14 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
     if not spec_text:
         return JSONResponse(status_code=400, content={"error": "spec_text is required"})
 
+    if is_cancelled(
+        test_suite_id=payload.test_suite_id,
+        plan_id=plan_id,
+        scope=payload.generation_scope or "cases",
+        request_id=payload.generation_request_id,
+    ):
+        return JSONResponse(status_code=409, content={"error": "Generation cancelled by user."})
+
     try:
         cases = generate_test_cases(
             plan_id=plan_id,
@@ -58,6 +67,13 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
             style_config=style_config,
             project_title=project_title,
         )
+        if is_cancelled(
+            test_suite_id=payload.test_suite_id,
+            plan_id=plan_id,
+            scope=payload.generation_scope or "cases",
+            request_id=payload.generation_request_id,
+        ):
+            return JSONResponse(status_code=409, content={"error": "Generation cancelled by user."})
         return {"plan_id": plan_id, "plan_title": plan_title, "test_cases": cases}
     except FileNotFoundError:
         return JSONResponse(status_code=500, content=_error_payload("Ollama not found. Install from https://ollama.com"))
@@ -69,4 +85,3 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
         return JSONResponse(status_code=502, content=_error_payload("Ollama error.", str(exc)))
     except Exception as exc:
         return JSONResponse(status_code=500, content=_error_payload("Internal error.", str(exc)))
-

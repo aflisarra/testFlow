@@ -325,6 +325,16 @@ async function fastApiChat(message) {
   return { reply: response?.data?.reply }
 }
 
+async function cancelGeneration(payload) {
+  const baseUrl = getFastApiBaseUrl()
+  const body = payload && typeof payload === 'object' ? payload : {}
+  const response = await axios.post(`${baseUrl}/cancel-generation`, body, {
+    timeout: 15_000,
+    headers: getFastApiHeaders(),
+  })
+  return response?.data || { message: 'Cancellation requested.' }
+}
+
 async function getTestsuitePlan(testSuiteId) {
   const id = String(testSuiteId || '').trim()
   if (!id) throw httpError(400, 'testSuiteId is required')
@@ -373,7 +383,7 @@ async function getTestsuiteTestPlans(testSuiteId) {
     savedAt: suite.savedAt || null,
     executedAt: suite.executedAt || null,
     sessionSavedAt: suite.sessionSavedAt || null,
-    validationStatus: suite.validationStatus || 'invalid',
+    validationStatus: suite.validationStatus || 'incomplete',
     validationSavedAt: suite.validationSavedAt || null,
   }
 }
@@ -393,6 +403,7 @@ async function generatePlan({ req, body, file }) {
       ''
   ).trim()
   const regenerate = parseBoolean(body?.regenerate)
+  const generationRequestId = String(body?.generationRequestId || body?.generation_request_id || '').trim()
 
   const userId = userIdBody || getUserIdFromAuthHeader(req)
   const specText = await readSpecTextFromUpload(file)
@@ -405,10 +416,13 @@ async function generatePlan({ req, body, file }) {
 
   let suite = null
   let projectTitle = ''
+  let previousTestStatus = 'Draft'
+  let newSuitePayload = null
 
   if (providedTestSuiteId) {
     suite = await TestSuite.findById(providedTestSuiteId)
     if (!suite) throw httpError(404, 'TestSuite not found')
+    previousTestStatus = String(suite.testStatus || 'Draft')
 
     const updates = {
       description: combinedDescription,
@@ -442,7 +456,7 @@ async function generatePlan({ req, body, file }) {
 
     const now = new Date()
     const defaultName = `Test Suite - ${now.toISOString().slice(0, 19).replace('T', ' ')}`
-    suite = await TestSuite.create({
+    newSuitePayload = {
       nom: suiteName || defaultName,
       nametest: testName || suiteName || defaultName,
       description: combinedDescription,
@@ -453,12 +467,12 @@ async function generatePlan({ req, body, file }) {
       specFileName: file?.originalname || null,
       specFilePath: file?.filename ? `uploads/specs/${file.filename}` : null,
       projectId,
-    })
+    }
   }
 
-  const testSuiteId = String(suite._id)
+  const testSuiteId = suite?._id ? String(suite._id) : ''
 
-  if (!regenerate) {
+  if (!regenerate && suite) {
     if (Array.isArray(suite.testPlans) && suite.testPlans.length) {
       const normalized = normalizeUniqueTestPlans(suite.testPlans)
       const changed =
@@ -472,43 +486,70 @@ async function generatePlan({ req, body, file }) {
 
       return { testSuiteId, testPlans: changed ? normalized : suite.testPlans, reused: true }
     }
-  } else {
-    suite.planSteps = []
-    suite.testPlans = []
-    suite.testCasesByPlan = []
-    suite.testStatus = 'Draft'
-    suite.savedAt = null
-    suite.executedAt = null
+  }
+
+  if (suite) {
+    suite.testStatus = 'Generating'
     await suite.save()
   }
 
-  suite.testStatus = 'Generating'
-  await suite.save()
-
   const baseUrl = getFastApiBaseUrl()
-  const fastApiResponse = await axios.post(
-    `${baseUrl}/generate-plan`,
-    {
-      spec_text: specText,
-      url_cible: urlCible,
-      style_config: styleConfig,
-      description: styleConfig,
-      project_id: projectId || undefined,
-      project_title: projectTitle || undefined,
-    },
-    { timeout: 185_000, headers: getFastApiHeaders() }
-  )
+  let fastApiResponse
+  try {
+    fastApiResponse = await axios.post(
+      `${baseUrl}/generate-plan`,
+      {
+        spec_text: specText,
+        url_cible: urlCible,
+        style_config: styleConfig,
+        description: styleConfig,
+        project_id: projectId || undefined,
+        project_title: projectTitle || undefined,
+        test_suite_id: testSuiteId,
+        generation_scope: 'plans',
+        generation_request_id: generationRequestId || undefined,
+      },
+      { timeout: 185_000, headers: getFastApiHeaders() }
+    )
+  } catch (error) {
+    const status = Number(error?.response?.status || error?.statusCode || 500)
+    if (status === 409) {
+      if (suite) {
+        await TestSuite.findByIdAndUpdate(testSuiteId, {
+          testStatus: previousTestStatus || 'Draft',
+          lastGeneratedAt: new Date(),
+        }).catch(() => {})
+      }
+      throw httpError(409, 'Generation cancelled by user.')
+    }
+    throw error
+  }
 
   const testPlans = fastApiResponse?.data?.test_plans || fastApiResponse?.data?.testPlans
   if (!Array.isArray(testPlans) || !testPlans.length) {
-    await TestSuite.findByIdAndUpdate(testSuiteId, {
-      testStatus: 'Incomplete',
-      lastGeneratedAt: new Date(),
-    }).catch(() => {})
+    if (suite) {
+      await TestSuite.findByIdAndUpdate(testSuiteId, {
+        testStatus: 'Incomplete',
+        lastGeneratedAt: new Date(),
+      }).catch(() => {})
+    }
     throw httpError(502, 'FastAPI returned empty test plans')
   }
 
-  suite.testPlans = normalizeUniqueTestPlans(testPlans)
+  const normalizedPlansList = normalizeUniqueTestPlans(testPlans)
+  if (!suite) {
+    suite = await TestSuite.create({
+      ...(newSuitePayload || {}),
+      testPlans: normalizedPlansList,
+    })
+  } else {
+    suite.testPlans = normalizedPlansList
+  }
+
+  if (regenerate) {
+    suite.planSteps = []
+    suite.testCasesByPlan = []
+  }
 
   const maybeSteps =
     fastApiResponse?.data?.plan_steps ||
@@ -531,7 +572,7 @@ async function generatePlan({ req, body, file }) {
   await dualWriteTestPlans({ testSuiteId: suite._id, testPlans: suite.testPlans }).catch(() => {})
 
   return {
-    testSuiteId,
+    testSuiteId: String(suite._id),
     testPlans: suite.testPlans,
     projectId: String(suite.projectId || projectId || ''),
     reused: false,
@@ -544,12 +585,14 @@ async function generateTestCases({ req, body }) {
   const planTitle = String(body?.planTitle || body?.plan_title || '').trim()
   const planDescription = String(body?.planDescription || body?.plan_description || '').trim()
   const regenerate = parseBoolean(body?.regenerate)
+  const generationRequestId = String(body?.generationRequestId || body?.generation_request_id || '').trim()
 
   if (!testSuiteId) throw httpError(400, 'testSuiteId is required')
   if (!planId) throw httpError(400, 'planId is required')
 
   const suite = await TestSuite.findById(testSuiteId)
   if (!suite) throw httpError(404, 'TestSuite not found')
+  const previousTestStatus = String(suite.testStatus || 'Draft')
 
   const existing = Array.isArray(suite.testCasesByPlan)
     ? suite.testCasesByPlan.find((x) => String(x.planId) === planId)
@@ -572,19 +615,35 @@ async function generateTestCases({ req, body }) {
     ? await Project.findById(suite.projectId).select('_id title').lean()
     : null
 
-  const fastApiResponse = await axios.post(
-    `${baseUrl}/generate-test-cases`,
-    {
-      plan_id: planId,
-      plan_title: planTitle || planId,
-      plan_description: planDescription || '',
-      spec_text: truncateSpecText(suite.specText, 800),
-      style_config: String(suite.styleConfig || ''),
-      project_id: project ? String(project._id) : undefined,
-      project_title: project ? String(project.title || '') : undefined,
-    },
-    { timeout: 185_000, headers: getFastApiHeaders() }
-  )
+  let fastApiResponse
+  try {
+    fastApiResponse = await axios.post(
+      `${baseUrl}/generate-test-cases`,
+      {
+        plan_id: planId,
+        plan_title: planTitle || planId,
+        plan_description: planDescription || '',
+        spec_text: truncateSpecText(suite.specText, 800),
+        style_config: String(suite.styleConfig || ''),
+        project_id: project ? String(project._id) : undefined,
+        project_title: project ? String(project.title || '') : undefined,
+        test_suite_id: testSuiteId,
+        generation_scope: 'cases',
+        generation_request_id: generationRequestId || undefined,
+      },
+      { timeout: 185_000, headers: getFastApiHeaders() }
+    )
+  } catch (error) {
+    const status = Number(error?.response?.status || error?.statusCode || 500)
+    if (status === 409) {
+      await TestSuite.findByIdAndUpdate(testSuiteId, {
+        testStatus: previousTestStatus || 'Draft',
+        lastGeneratedAt: new Date(),
+      }).catch(() => {})
+      throw httpError(409, 'Generation cancelled by user.')
+    }
+    throw error
+  }
 
   const testCases = fastApiResponse?.data?.test_cases || fastApiResponse?.data?.testCases
   const resolvedTitle = String(fastApiResponse?.data?.plan_title || planTitle || planId).trim()
@@ -635,5 +694,5 @@ module.exports = {
   getTestsuiteTestPlans,
   generatePlan,
   generateTestCases,
+  cancelGeneration,
 }
-

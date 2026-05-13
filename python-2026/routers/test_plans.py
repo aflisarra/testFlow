@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 
 from core.config import get_settings
 from schemas.test_plan_schema import GeneratePlanRequest, GeneratePlanResponse
+from services.cancellation_service import is_cancelled
 from services.plan_service import generate_test_plans
 from services.spec_service import extract_spec_text_from_docx_bytes
 
@@ -63,8 +64,23 @@ def generate_plan(payload: GeneratePlanRequest):
     if not spec_text:
         return JSONResponse(status_code=400, content={"error": "spec_text is required"})
 
+    if is_cancelled(
+        test_suite_id=payload.test_suite_id,
+        plan_id="",
+        scope=payload.generation_scope or "plans",
+        request_id=payload.generation_request_id,
+    ):
+        return JSONResponse(status_code=409, content={"error": "Generation cancelled by user."})
+
     try:
         plans = generate_test_plans(spec_text=spec_text, style_config=style_config, project_title=project_title)
+        if is_cancelled(
+            test_suite_id=payload.test_suite_id,
+            plan_id="",
+            scope=payload.generation_scope or "plans",
+            request_id=payload.generation_request_id,
+        ):
+            return JSONResponse(status_code=409, content={"error": "Generation cancelled by user."})
         return {"test_plans": plans}
     except FileNotFoundError:
         return JSONResponse(status_code=500, content=_error_payload("Ollama not found. Install from https://ollama.com"))
@@ -79,4 +95,3 @@ def generate_plan(payload: GeneratePlanRequest):
         return JSONResponse(status_code=502, content=_error_payload("Ollama error.", str(exc)))
     except Exception as exc:
         return JSONResponse(status_code=500, content=_error_payload("Internal error.", str(exc)))
-

@@ -71,7 +71,7 @@ export interface GetTestPlansResponse {
   sessionStatus?: 'complete' | 'incomplete'
   planStatuses?: PlanStatusRow[]
   sessionSavedAt?: string | null
-  validationStatus?: 'validated' | 'invalid'
+  validationStatus?: 'completed' | 'incomplete'
   validationPlanStatuses?: PlanStatusRow[]
   validationSavedAt?: string | null
   executionStatus?: 'completed' | 'incomplete' | null
@@ -105,7 +105,7 @@ export interface TestSuiteDto {
   creatorName?: string
   picture?: string
   canOpen?: boolean
-  status?: 'completed' | 'incomplete' | 'validated' | 'invalid'
+  status?: 'completed' | 'incomplete'
   testStatus?: 'Draft' | 'Generating' | 'Incomplete' | 'Ready' | 'Passed' | 'Failed'
   lastGeneratedAt?: string | null
   savedAt?: string | null
@@ -119,7 +119,7 @@ export interface TestSuiteDto {
   sessionStatus?: 'complete' | 'incomplete'
   planStatuses?: PlanStatusRow[]
   sessionSavedAt?: string | null
-  validationStatus?: 'validated' | 'invalid'
+  validationStatus?: 'completed' | 'incomplete'
   validationPlanStatuses?: PlanStatusRow[]
   validationSavedAt?: string | null
   executionStatus?: 'completed' | 'incomplete' | null

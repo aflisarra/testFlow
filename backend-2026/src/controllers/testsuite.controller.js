@@ -172,7 +172,7 @@ exports.saveSession = async (req, res) => {
         sessionStatus: suite.sessionStatus,
         planStatuses: suite.planStatuses || [],
         sessionSavedAt: suite.sessionSavedAt || null,
-        validationStatus: suite.validationStatus || 'invalid',
+        validationStatus: suite.validationStatus || 'incomplete',
         validationPlanStatuses: suite.validationPlanStatuses || [],
         validationSavedAt: suite.validationSavedAt || null,
         executionStatus: suite.executionStatus || null,
