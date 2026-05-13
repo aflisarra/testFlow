@@ -187,6 +187,14 @@
   gap: 1rem; padding-block-end: 1rem; border-block-end: 1px solid #e2e8f0;
 }
 
+.tc-generate-main-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  line-height: 1;
+}
+
 .tc-right-plan-id {
   font-size: 0.7rem; font-weight: 700; color: #0d6efd;
   background: rgb(13 110 253 / 8%); padding: 2px 8px;
@@ -242,8 +250,8 @@
 }
 
 .team-preview-item {
-  inline-size:30px; block-size:30px; border-radius:50%;
-  overflow:hidden; margin-inline-start:-8px;
+  inline-size:22px; block-size:22px; border-radius:50%;
+  overflow:hidden; margin-inline-start:-6px;
   border:2px solid #fff;
 }
 
@@ -473,8 +481,8 @@
 
 .team-avatar {
   position: relative;
-  inline-size: 30px;
-  block-size: 30px;
+  inline-size: 22px;
+  block-size: 22px;
   border-radius: 50%;
   border: 2px solid #fff;          /* séparateur blanc entre bulles */
   background: #e2e8f0;
@@ -483,7 +491,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-inline-start: -8px;               /* superposition */
+  margin-inline-start: -6px;               /* superposition */
   cursor: default;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
@@ -511,7 +519,7 @@
 
 /* Initiales */
 .team-avatar__initials {
-  font-size: 0.62rem;
+  font-size: 0.52rem;
   font-weight: 700;
   color: #475569;
   letter-spacing: 0.02em;

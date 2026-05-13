@@ -11,7 +11,7 @@ import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap'
 })
 export class ConfirmModalComponent {
   @Input() title = 'Confirm'
-  @Input() message = 'Are you sure you want to delete it?'
+  @Input() message = 'Are you sure you want to delete'
   @Input() entityName = ''
   @Input() details = ''
   @Input() confirmText = 'Confirm'

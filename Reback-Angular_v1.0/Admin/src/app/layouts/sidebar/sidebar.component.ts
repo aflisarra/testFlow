@@ -248,6 +248,11 @@ export class SidebarComponent implements OnInit, AfterViewInit {
       })
     }
 
+    const testMenu = clonedMenu.find((m) => m.key === 'test')
+    if (testMenu?.subMenu && !canListProjects) {
+      testMenu.subMenu = []
+    }
+
     return clonedMenu.filter(
       (m) => !m.subMenu || m.subMenu.length > 0 || m.isTitle
     )

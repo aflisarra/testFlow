@@ -1,4 +1,5 @@
 import { AuthenticationService } from '@/app/core/services/auth.service'
+import { ApiService } from '@/app/core/services/api.service'
 import { UINotificationService } from '@/app/core/services/ui-notification.service'
 import {  ChangeDetectorRef } from '@angular/core'
 import {
@@ -35,6 +36,7 @@ import { ConfirmModalComponent } from '../../admin/shared/confirm-modal.componen
 export class TestCasesValidationComponent implements OnInit {
   private store = inject(Store)
   private authService = inject(AuthenticationService)
+  private apiService = inject(ApiService)
   private uiNotification = inject(UINotificationService)
   private testLabService = inject(TestLabService)
   private router = inject(Router)
@@ -354,13 +356,32 @@ toggleCase(planId: string | null | undefined, caseId: string): void {
 
   get projectMembers(): (TestLabProjectUserDto | string)[] {
     const fromProject = this.projectDetail?.assignedUsers
+    const fromProjectOwner =
+      this.projectDetail?.ownerId && typeof this.projectDetail.ownerId === 'object'
+        ? [this.projectDetail.ownerId as TestLabProjectUserDto]
+        : []
     const fromSuiteProject =
       this.suiteDetail?.projectId && typeof this.suiteDetail.projectId === 'object'
         ? (this.suiteDetail.projectId as TestLabProjectDto)?.assignedUsers
         : undefined
+    const fromSuiteProjectOwner =
+      this.suiteDetail?.projectId &&
+      typeof this.suiteDetail.projectId === 'object' &&
+      (this.suiteDetail.projectId as TestLabProjectDto)?.ownerId &&
+      typeof (this.suiteDetail.projectId as TestLabProjectDto).ownerId === 'object'
+        ? [((this.suiteDetail.projectId as TestLabProjectDto).ownerId as TestLabProjectUserDto)]
+        : []
 
-    const members = fromProject ?? fromSuiteProject ?? []
-    return Array.isArray(members) ? members : []
+    const baseMembers = (fromProject ?? fromSuiteProject ?? []) as (TestLabProjectUserDto | string)[]
+    const merged = [...fromProjectOwner, ...fromSuiteProjectOwner, ...baseMembers]
+    const seen = new Set<string>()
+    return merged.filter((member) => {
+      const id = this.getMemberId(member)
+      if (!id) return false
+      if (seen.has(id)) return false
+      seen.add(id)
+      return true
+    })
   }
 
   async onSelectPlan(plan: TestPlanDto) {
@@ -556,11 +577,7 @@ getTotalCases(suite: TestSuiteDto | null | undefined): number {
 
   resolveAvatarUrl(pictureUrl?: string): string {
     if (!pictureUrl) return '/assets/images/users/default-user.svg'
-    try {
-      return new URL(pictureUrl).toString()
-    } catch {
-      return pictureUrl || '/assets/images/users/default-user.svg'
-    }
+    return this.apiService.toAbsoluteUrl(pictureUrl)
   }
 
   scrollToSection(sectionId: string): void {
@@ -594,7 +611,7 @@ getTotalCases(suite: TestSuiteDto | null | undefined): number {
 
   getMemberPicture(member: TestLabProjectUserDto | string | null | undefined): string {
     if (!member || typeof member === 'string') return ''
-    return String(member.picture || '').trim()
+    return this.resolveAvatarUrl(String(member.picture || '').trim())
   }
 
   getUserInitials(value?: string): string {

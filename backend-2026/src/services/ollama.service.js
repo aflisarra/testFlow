@@ -125,19 +125,25 @@ function getActorFromReq(req) {
     String(raw?.userId || raw?.id || raw?._id || '').trim() ||
     getUserIdFromAuthHeader(req)
   const name = String(raw?.name || raw?.nom || raw?.username || '').trim()
-  return { userId: id || null, name }
+  const picture = String(raw?.picture || raw?.avatar || '').trim()
+  return { userId: id || null, name, picture }
 }
 
-async function resolveActorName({ userId, name }) {
-  if (!userId) return { userId: null, name: '' }
-  if (name) return { userId, name }
+async function resolveActorName({ userId, name, picture }) {
+  if (!userId) return { userId: null, name: '', picture: '' }
+  if (name && picture) return { userId, name, picture }
 
   try {
-    const user = await User.findById(userId).select('_id name nom').lean()
-    const resolved = String(user?.name || user?.nom || '').trim()
-    return { userId, name: resolved }
+    const user = await User.findById(userId).select('_id name nom picture').lean()
+    const resolvedName = String(user?.name || user?.nom || '').trim() || String(name || '').trim()
+    const resolvedPicture = String(user?.picture || '').trim() || String(picture || '').trim()
+    return { userId, name: resolvedName, picture: resolvedPicture }
   } catch {
-    return { userId, name: '' }
+    return {
+      userId,
+      name: String(name || '').trim(),
+      picture: String(picture || '').trim(),
+    }
   }
 }
 
@@ -196,6 +202,13 @@ async function dualWriteTestCases({ testSuiteId, planKey, testCases }) {
                 ? tc.steps.map((s) => String(s || '').trim()).filter(Boolean)
                 : [],
               expected_result: String(tc?.expected_result || tc?.expectedResult || '').trim(),
+              createdBy: tc?.createdBy
+                ? {
+                    userId: tc.createdBy.userId || null,
+                    name: String(tc.createdBy.name || '').trim(),
+                    picture: String(tc.createdBy.picture || '').trim(),
+                  }
+                : null,
             },
           },
           upsert: true,
@@ -663,6 +676,7 @@ async function generateTestCases({ req, body }) {
         ? tc.steps.map((s) => String(s || '').trim()).filter(Boolean)
         : [],
       expected_result: String(tc?.expected_result || tc?.expectedResult || '').trim(),
+      createdBy: null,
     }))
     .slice(0, 50)
 
@@ -671,6 +685,18 @@ async function generateTestCases({ req, body }) {
 
   const action = regenerate ? 'regenerate-test-case' : 'generate-test-case'
   const actor = await resolveActorName(getActorFromReq(req))
+  const createdBy = actor?.userId
+    ? {
+        userId: String(actor.userId),
+        name: String(actor.name || '').trim() || undefined,
+        picture: String(actor.picture || '').trim() || undefined,
+      }
+    : null
+  if (createdBy) {
+    for (const item of normalized) {
+      item.createdBy = createdBy
+    }
+  }
   suite.lastActionBy = { userId: actor.userId, name: actor.name || '', action, at: new Date() }
   suite.testStatus = 'Draft'
   suite.lastGeneratedAt = new Date()

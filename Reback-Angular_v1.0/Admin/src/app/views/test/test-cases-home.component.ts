@@ -14,6 +14,7 @@ import { getUser } from '@/app/store/authentication/authentication.selector'
 import type { PlanValidationStatus, SuiteSessionStatus } from '@/app/views/test/models/status.types'
 import { getErrorMessage } from '@/app/views/test/utils/error.utils'
 import { ProjectsStateService } from '@/app/core/services/projects-state.service'
+import { ApiService } from '@/app/core/services/api.service'
 import type { AppProject } from '@/app/interfaces/admin-management.interface'
 
 import {
@@ -44,6 +45,7 @@ export class TestCasesHomeComponent implements OnInit {
   private authService = inject(AuthenticationService)
   private testLabService = inject(TestLabService)
   private projectsState = inject(ProjectsStateService)
+  private apiService = inject(ApiService)
   private router = inject(Router)
   private route = inject(ActivatedRoute)
   private toastr = inject(ToastrService)
@@ -106,6 +108,7 @@ export class TestCasesHomeComponent implements OnInit {
   // ── Auteurs par plan ─────────────────────────────────────────────────
   // picture est toujours string | undefined ici (jamais null)
   planAuthors: Record<string, { name?: string; picture?: string }> = {}
+  currentUserPreview: UserPreview | null = null
 
   // ── Getters ──────────────────────────────────────────────────────────
 
@@ -255,7 +258,13 @@ export class TestCasesHomeComponent implements OnInit {
   onAvatarImgError(event: Event): void {
     const img = event.target as HTMLImageElement
     if (!img) return
-    img.src = 'assets/images/users/default-user.svg'
+    img.src = '/assets/images/users/default-user.svg'
+  }
+
+  resolveAvatarUrl(picture?: string): string {
+    const raw = String(picture || '').trim()
+    if (!raw) return ''
+    return this.apiService.toAbsoluteUrl(raw)
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────
@@ -265,6 +274,7 @@ export class TestCasesHomeComponent implements OnInit {
       String(this.route.snapshot.paramMap.get('id') || '').trim() ||
       String(this.route.snapshot.queryParamMap.get('suiteId') || '').trim()
     this.currentSuiteName = String(this.route.snapshot.queryParamMap.get('suiteName') || '').trim()
+    this.hydrateCurrentUserPreview()
 
     void this.loadProjects()
 
@@ -589,11 +599,12 @@ export class TestCasesHomeComponent implements OnInit {
       generationRequestId: requestId,
     }).subscribe({
       next: (resp) => {
-        this.modalCases = resp?.testCases || []
-        this.modalAllCases = [...this.modalCases]
+        const generatedCases = this.applyCurrentUserAsAuthorIfMissing(resp?.testCases || [], plan.id)
+        this.modalCases = generatedCases
+        this.modalAllCases = [...generatedCases]
         this.editingSingleCase = false
-        this.liveCases = [...this.modalCases]
-        this.testCasesByPlan[plan.id] = this.modalCases
+        this.liveCases = [...generatedCases]
+        this.testCasesByPlan[plan.id] = [...generatedCases]
         this.planStatuses[plan.id] = this.modalCases.length ? 'reviewing' : 'pending'
 
         // Auteur : extrait depuis le premier test case retourné
@@ -634,6 +645,13 @@ export class TestCasesHomeComponent implements OnInit {
 
     const existing = this.planAuthors[normalizedPlanId]
     if (existing?.name || existing?.picture) return
+    if (this.currentUserPreview) {
+      this.planAuthors[normalizedPlanId] = {
+        name: this.currentUserPreview.name,
+        picture: this.currentUserPreview.picture,
+      }
+      return
+    }
 
     this.store.select(getUser).pipe(take(1)).subscribe({
       next: (user) => {
@@ -660,10 +678,11 @@ export class TestCasesHomeComponent implements OnInit {
       return
     }
 
+    const normalizedCasesToSave = this.ensureCasesHaveAuthor(plan.id, casesToSave)
     const testCasesByPlan = [{
       planId: plan.id,
       planTitle: plan.title,
-      testCases: casesToSave,
+      testCases: normalizedCasesToSave,
     }]
 
     const normalizedStatuses: Record<string, PlanValidationStatus> = { ...this.planStatuses }
@@ -680,8 +699,8 @@ export class TestCasesHomeComponent implements OnInit {
       testCasesByPlan,
     }).subscribe({
       next: () => {
-        this.testCasesByPlan[plan.id] = [...casesToSave]
-        this.liveCases = [...casesToSave]
+        this.testCasesByPlan[plan.id] = [...normalizedCasesToSave]
+        this.liveCases = [...normalizedCasesToSave]
         this.planStatuses[plan.id] = 'confirmed'
         this.setPlanDirty(plan.id, false)
         this.refreshUnsavedFlag()
@@ -741,7 +760,7 @@ export class TestCasesHomeComponent implements OnInit {
     const allIdx = this.modalAllCases.findIndex((tc) => String(tc?.id || '').trim() === normalizedId)
     if (allIdx < 0) return
 
-    const updated = updater(this.modalAllCases[allIdx])
+    const updated = this.attachCurrentUserAuthor(updater(this.modalAllCases[allIdx]))
     this.modalAllCases = [
       ...this.modalAllCases.slice(0, allIdx),
       updated,
@@ -780,7 +799,7 @@ export class TestCasesHomeComponent implements OnInit {
     const testCasesByPlan = this.allPlans.map(p => ({
       planId: p.id,
       planTitle: p.title,
-      testCases: this.testCasesByPlan[p.id] || [],
+      testCases: this.ensureCasesHaveAuthor(p.id, this.testCasesByPlan[p.id] || []),
     }))
 
     this.testLabService.saveSuiteSession(this.testSuiteId, {
@@ -1042,21 +1061,83 @@ export class TestCasesHomeComponent implements OnInit {
   private buildUserPreview(user?: unknown | null): UserPreview | null {
     if (!user) return null
 
-    const u = user as Record<string, unknown>
+    const root = user as Record<string, unknown>
+    const nestedUser =
+      root['user'] && typeof root['user'] === 'object'
+        ? (root['user'] as Record<string, unknown>)
+        : null
+    const u = nestedUser || root
 
     const name =
-      String(u['name'] || u['username'] || u['firstName'] || '').trim() || undefined
+      String(u['name'] || u['nom'] || u['username'] || u['firstName'] || '').trim() || undefined
 
-    const picture =
+    const pictureRaw =
       (u['picture'] ?? u['avatar'] ?? undefined) as string | undefined
+    const picture = this.resolveAvatarUrl(pictureRaw)
 
     if (!name && !picture) return null
 
     return {
-      id: String(u['userId'] || u['_id'] || u['id'] || name || 'unknown'),
+      id: String(u['userId'] || u['_id'] || u['id'] || root['userId'] || root['_id'] || root['id'] || name || 'unknown'),
       name,
       picture: picture || undefined,
     }
+  }
+
+  private hydrateCurrentUserPreview(): void {
+    this.store.select(getUser).pipe(take(1)).subscribe({
+      next: (user) => {
+        this.currentUserPreview = this.buildUserPreview(user as unknown)
+      },
+      error: () => {
+        this.currentUserPreview = null
+      },
+    })
+  }
+
+  private attachCurrentUserAuthor(testCase: TestCaseDto): TestCaseDto {
+    const current = this.currentUserPreview
+    if (!current) return testCase
+    return {
+      ...testCase,
+      createdBy: {
+        userId: current.id,
+        name: current.name,
+        picture: current.picture,
+      },
+    } as TestCaseDto
+  }
+
+  private applyCurrentUserAsAuthorIfMissing(cases: TestCaseDto[], planId: string): TestCaseDto[] {
+    const preview = this.currentUserPreview
+    if (preview?.name || preview?.picture) {
+      this.planAuthors[String(planId || '').trim()] = {
+        name: preview?.name,
+        picture: preview?.picture,
+      }
+    }
+
+    return (cases || []).map((tc) => {
+      const existing = this.buildUserPreview((tc as { createdBy?: unknown })?.createdBy)
+      if (existing?.name || existing?.picture) return tc
+      return this.attachCurrentUserAuthor(tc)
+    })
+  }
+
+  private ensureCasesHaveAuthor(planId: string, cases: TestCaseDto[]): TestCaseDto[] {
+    const author = this.planAuthors[String(planId || '').trim()]
+    if (!author?.name && !author?.picture) return cases
+    return (cases || []).map((tc) => {
+      const hasAuthor = Boolean((tc as { createdBy?: unknown })?.createdBy)
+      if (hasAuthor) return tc
+      return {
+        ...tc,
+        createdBy: {
+          name: author.name,
+          picture: author.picture,
+        },
+      } as TestCaseDto
+    })
   }
 
   /**

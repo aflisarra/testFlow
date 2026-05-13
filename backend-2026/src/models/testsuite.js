@@ -32,7 +32,16 @@ const testCaseSchema = new mongoose.Schema(
         id: { type: String, required: true, trim: true },
         title: { type: String, required: true, trim: true },
         steps: { type: [String], default: [] },
-        expected_result: { type: String, default: "", trim: true }
+        expected_result: { type: String, default: "", trim: true },
+        createdBy: {
+            userId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User',
+                default: null
+            },
+            name: { type: String, default: '' },
+            picture: { type: String, default: '' }
+        }
     },
     { _id: false }
 );
@@ -202,7 +211,13 @@ const testSuiteSchema = new mongoose.Schema({
     // Manual validation of AI-generated plans/cases
     validationStatus: {
         type: String,
-        enum: ['completed', 'incomplete'],
+        enum: ['completed', 'incomplete', 'validated', 'invalid'],
+        set: (value) => {
+            const raw = String(value || '').toLowerCase().trim()
+            if (raw === 'validated' || raw === 'completed' || raw === 'complete') return 'completed'
+            if (raw === 'invalid' || raw === 'incomplete') return 'incomplete'
+            return 'incomplete'
+        },
         default: 'incomplete'
     },
     validationPlanStatuses: {

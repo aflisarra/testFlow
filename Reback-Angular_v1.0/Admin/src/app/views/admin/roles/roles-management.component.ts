@@ -191,7 +191,7 @@ export class RolesManagementComponent implements OnInit {
       windowClass: 'confirm-modal-window',
       backdropClass: 'confirm-modal-backdrop',
     })
-    ref.componentInstance.title = 'Delete role ?'
+    ref.componentInstance.title = 'Delete role'
     //ref.componentInstance.message = 'This will delete'
     ref.componentInstance.entityName = role.name
     //ref.componentInstance.details = 'This action cannot be undone.'

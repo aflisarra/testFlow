@@ -28,7 +28,19 @@ class AiService:
         )
         try:
             reply = run_ollama(prompt, timeout=timeout)
-            data = safe_json_loads(reply)
+            try:
+                data = safe_json_loads(reply)
+            except Exception:
+                # One lightweight self-healing pass:
+                # ask model to reformat its previous output as strict JSON only.
+                repair_prompt = (
+                    "Return ONLY valid minified JSON. Do not add markdown, explanations, or code fences.\n"
+                    "Fix escaping, commas, and quotes while preserving meaning.\n"
+                    "Input:\n"
+                    f"{reply}"
+                )
+                repaired_reply = run_ollama(repair_prompt, timeout=max(20, int(timeout * 0.35)))
+                data = safe_json_loads(repaired_reply)
             log_event(logger, "ai_generation_success", elapsed_ms=int((time.monotonic() - started) * 1000))
             return data
         except Exception as exc:

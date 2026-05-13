@@ -200,14 +200,12 @@
           <p class="tc-right-plan-desc mb-0">{{ livePlan?.description }}</p>
         </div>
         <div class="d-flex gap-2 align-items-center">
-          <span class="badge"
-            [ngClass]="getPlanStatus(livePlanId) === 'confirmed' ? 'text-bg-success' :
-                       getPlanStatus(livePlanId) === 'generating' ? 'text-bg-primary' : 'text-bg-warning'">
-            {{ getPlanValidationLabel(livePlanId) }}
-          </span>
           @if (livePlan) {
-          <button class="btn btn-sm btn-brand" (click)="openModal(livePlan, $event)">
-            <iconify-icon icon="iconamoon:sparkles-duotone" class="me-1"></iconify-icon>
+          <button class="btn btn-sm btn-brand tc-generate-main-btn" (click)="openModal(livePlan, $event)">
+            <iconify-icon
+              [icon]="(testCasesByPlan[livePlanId] || []).length ? 'iconamoon:restart-duotone' : 'iconamoon:sparkles-duotone'"
+              class="me-1"
+            ></iconify-icon>
             {{ (testCasesByPlan[livePlanId] || []).length ? 'Regenerate' : 'Generate' }}
           </button>
           }
@@ -234,10 +232,8 @@
         <div class="team-stack ms-auto">
           @for (user of getLiveCasesUsers(); track user.id) {
           <span class="team-avatar" [attr.title]="user.name">
-            @if (user.picture) {
-              <img [src]="user.picture" [alt]="user.name || ''"
-                   class="team-avatar__img" (error)="onAvatarImgError($event)" />
-            }
+            <img [src]="resolveAvatarUrl(user.picture) || '/assets/images/users/default-user.svg'" [alt]="user.name || ''"
+                 class="team-avatar__img" (error)="onAvatarImgError($event)" />
             <span class="team-avatar__initials">{{ getInitials(user.name) }}</span>
           </span>
           }
@@ -263,10 +259,8 @@
               <div class="team-stack">
                 @for (user of getTestCaseAuthorUsers(tc, livePlanId); track user.id) {
                 <span class="team-avatar" [attr.title]="user.name">
-                  @if (user.picture) {
-                    <img [src]="user.picture" [alt]="user.name || ''"
-                         class="team-avatar__img" (error)="onAvatarImgError($event)" />
-                  }
+                  <img [src]="resolveAvatarUrl(user.picture) || '/assets/images/users/default-user.svg'" [alt]="user.name || ''"
+                       class="team-avatar__img" (error)="onAvatarImgError($event)" />
                   <span class="team-avatar__initials">{{ getInitials(user.name) }}</span>
                 </span>
                 }
@@ -344,10 +338,8 @@
             <div class="team-stack ms-auto">
               @for (user of getTestCaseAuthorUsers(tc, modalPlan.id); track user.id) {
               <span class="team-avatar" [attr.title]="user.name">
-                @if (user.picture) {
-                  <img [src]="user.picture" [alt]="user.name || ''"
-                       class="team-avatar__img" (error)="onAvatarImgError($event)" />
-                }
+                <img [src]="resolveAvatarUrl(user.picture) || '/assets/images/users/default-user.svg'" [alt]="user.name || ''"
+                     class="team-avatar__img" (error)="onAvatarImgError($event)" />
                 <span class="team-avatar__initials">{{ getInitials(user.name) }}</span>
               </span>
               }

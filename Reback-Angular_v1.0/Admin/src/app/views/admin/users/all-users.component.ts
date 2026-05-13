@@ -260,9 +260,9 @@ loadRoles(): void {
       windowClass: 'confirm-modal-window',
       backdropClass: 'confirm-modal-backdrop',
     })
-    ref.componentInstance.title = 'Delete user ?'
+    ref.componentInstance.title = 'Delete user'
     //ref.componentInstance.message = 'This will delete'
-    ref.componentInstance.entityName = user.email
+    ref.componentInstance.entityName = user.name
     //ref.componentInstance.details = 'This action cannot be undone.'
     ref.componentInstance.confirmText = 'Delete'
     ref.componentInstance.cancelText = 'Cancel'

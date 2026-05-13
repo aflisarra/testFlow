@@ -25,317 +25,305 @@
       <div class="alert alert-danger">{{ vm.errorMessage }}</div>
     }
 
-    <div class="card shadow-sm panel-card">
-      <div class="card-header tv-toolbar">
-        <span class="tv-count-label">Showing {{ vm.visibleStart }}–{{ vm.visibleEnd }} of {{ vm.filteredSuites.length }}</span>
+    <div class="tv-page__body">
+      <div class="card shadow-sm panel-card">
+        <div class="card-header tv-toolbar">
+          <span class="tv-count-label">{{ vm.visibleStart }}–{{ vm.visibleEnd }} / {{ vm.filteredSuites.length }}</span>
 
-        <div class="tv-search-wrap">
-          <iconify-icon icon="iconamoon:search-duotone" class="tv-search-icon"></iconify-icon>
-          <input
-            class="tv-search-input"
-            type="text"
-            placeholder="Search..."
-            [value]="vm.searchQuery"
-            (input)="vm.onSearchQueryInput($event)"
-          />
-        </div>
+          <div class="tv-search-wrap">
+            <iconify-icon icon="iconamoon:search-duotone" class="tv-search-icon"></iconify-icon>
+            <input
+              class="tv-search-input"
+              type="text"
+              placeholder="Search suites..."
+              [value]="vm.searchQuery"
+              (input)="vm.onSearchQueryInput($event)"
+            />
+          </div>
 
-        <div class="tv-filter-wrap">
-          <button
-            type="button"
-            class="tv-filter-btn"
-            [class.tv-filter-btn--active]="vm.statusFilter !== 'all'"
-            (click)="vm.toggleFilterDropdown(); $event.stopPropagation()"
-          >
-            <iconify-icon icon="iconamoon:filter-duotone"></iconify-icon>
-            <span>{{ vm.statusFilter !== 'all' ? vm.getFilterLabel(vm.statusFilter) : 'Filter' }}</span>
-            @if (vm.statusFilter !== 'all') {
-              <span class="tv-filter-badge">1</span>
-            }
-            <span class="tv-filter-arrow">{{ vm.filterOpen ? '▴' : '▾' }}</span>
-          </button>
+          <div class="tv-filter-wrap">
+            <button
+              type="button"
+              class="tv-filter-btn"
+              [class.tv-filter-btn--active]="vm.statusFilter !== 'all'"
+              (click)="vm.toggleFilterDropdown(); $event.stopPropagation()"
+            >
+              <iconify-icon icon="iconamoon:filter-duotone"></iconify-icon>
+              <span>{{ vm.statusFilter !== 'all' ? vm.getFilterLabel(vm.statusFilter) : 'Filter' }}</span>
+              @if (vm.statusFilter !== 'all') {
+                <span class="tv-filter-badge">1</span>
+              }
+              <span class="tv-filter-arrow">{{ vm.filterOpen ? '▴' : '▾' }}</span>
+            </button>
 
-          <div class="tv-dropdown" [class.tv-dropdown--open]="vm.filterOpen">
-            <div class="tv-dd-header">Status</div>
-
-            @for (f of vm.statusFilters; track f.key) {
-              <button
-                type="button"
-                class="tv-dd-option"
-                [class.tv-dd-option--active]="vm.statusFilter === f.key"
-                (click)="vm.setStatusFilter(f.key); vm.filterOpen = false"
-              >
-                <div class="tv-dd-left">
-                  <span class="tv-dd-dot tv-dd-dot--{{ f.key }}"></span>
-                  <span class="tv-dd-label">{{ f.label }}</span>
-                </div>
-                <span class="tv-dd-count">{{ vm.countByStatus(f.key) }}</span>
-              </button>
-            }
-
-            <div class="tv-dd-footer">
-              <button type="button" class="tv-dd-clear" (click)="vm.setStatusFilter('all'); vm.filterOpen = false">
-                Clear filter
-              </button>
+            <div class="tv-dropdown" [class.tv-dropdown--open]="vm.filterOpen">
+              <div class="tv-dd-header">Status</div>
+              @for (f of vm.statusFilters; track f.key) {
+                <button
+                  type="button"
+                  class="tv-dd-option"
+                  [class.tv-dd-option--active]="vm.statusFilter === f.key"
+                  (click)="vm.setStatusFilter(f.key); vm.filterOpen = false"
+                >
+                  <div class="tv-dd-left">
+                    <span class="tv-dd-dot tv-dd-dot--{{ f.key }}"></span>
+                    <span class="tv-dd-label">{{ f.label }}</span>
+                  </div>
+                  <span class="tv-dd-count">{{ vm.countByStatus(f.key) }}</span>
+                </button>
+              }
+              <div class="tv-dd-footer">
+                <button type="button" class="tv-dd-clear" (click)="vm.setStatusFilter('all'); vm.filterOpen = false">
+                  Clear filter
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      @if (vm.statusFilter !== 'all') {
-        <div class="tv-active-tag-row">
-          <span class="tv-active-tag-label">Active:</span>
-          <span class="tv-active-tag">
-            {{ vm.getFilterLabel(vm.statusFilter) }}
-            <button type="button" class="tv-active-tag-x" (click)="vm.setStatusFilter('all')">✕</button>
-          </span>
-        </div>
-      }
+        @if (vm.statusFilter !== 'all') {
+          <div class="tv-active-tag-row">
+            <span class="tv-active-tag-label">Active:</span>
+            <span class="tv-active-tag">
+              {{ vm.getFilterLabel(vm.statusFilter) }}
+              <button type="button" class="tv-active-tag-x" (click)="vm.setStatusFilter('all')">✕</button>
+            </span>
+          </div>
+        }
 
-      <div class="card-body p-0">
-        @if (vm.loading) {
-          <div class="p-4 text-center text-muted small">Loading test suites...</div>
-        } @else {
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 tv-table">
-              <thead>
-                <tr>
-                  <th style="inline-size: 22%;">User</th>
-                  <th style="inline-size: 30%;">Test name</th>
-                  <th style="inline-size: 16%;">Created</th>
-                  <th style="inline-size: 16%;">Status</th>
-                  <th class="text-end" style="inline-size: 10%;">Run</th>
-                  <th class="text-end" style="inline-size: 16%;">Export</th>
-                </tr>
-              </thead>
-              <tbody>
-                @if (vm.paginatedSuites.length === 0) {
+        <div class="card-body p-0 tv-table-wrap">
+          @if (vm.loading) {
+            <div class="tv-loading-state">
+              <iconify-icon icon="iconamoon:loading-duotone" class="tv-loading-icon"></iconify-icon>
+              <span>Loading test suites…</span>
+            </div>
+          } @else {
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0 tv-table">
+                <thead>
                   <tr>
-                    <td colspan="6" class="text-center text-muted py-4">No tests found.</td>
+                    <th style="width: 22%;">Creator</th>
+                    <th style="width: 30%;">Suite name</th>
+                    <th style="width: 16%;">Created</th>
+                    <th style="width: 14%;">Status</th>
+                    <th class="text-end" style="width: 9%;">Run</th>
+                    <th class="text-end" style="width: 9%;">Export</th>
                   </tr>
-                }
+                </thead>
+                <tbody>
+                  @if (vm.paginatedSuites.length === 0) {
+                    <tr>
+                      <td colspan="6" class="tv-empty-row">
+                        <iconify-icon icon="iconamoon:search-light" style="font-size: 1.5rem; opacity: 0.35;"></iconify-icon>
+                        <span>No suites found.</span>
+                      </td>
+                    </tr>
+                  }
 
-                @for (suite of vm.paginatedSuites; track suite._id) {
-                  <tr
-                    class="tv-row"
-                    tabindex="0"
-                    (keydown.enter)="vm.onSuiteRowClick(suite)"
-                    (click)="vm.onSuiteRowClick(suite)"
-                  >
-                    <td>
-                      <div class="d-flex align-items-center gap-2">
-                        <div class="tv-avatar">{{ vm.getUserInitials(suite.creatorName) }}</div>
-                        <span class="fw-semibold">{{ suite.creatorName || '—' }}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span class="fw-semibold">{{ vm.getSuiteDisplayName(suite) }}</span>
-                    </td>
-                    <td class="text-muted small">
-                      {{ suite.createdAt ? (suite.createdAt | date: 'dd MMM yyyy') : '—' }}
-                    </td>
-                    <td>
-                      <span class="badge rounded-pill" [ngClass]="vm.getBadgeClass(suite)">
-                        {{ vm.getSuiteStatusLabel(suite) }}
-                      </span>
-                    </td>
-                    <td class="text-end" (click)="$event.stopPropagation()">
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-outline-success"
-                        title="Run suite"
-                        (click)="vm.onRunSuiteFromList(suite)"
-                      >
-                        Run
-                      </button>
-                    </td>
-                    <td class="text-end" (click)="$event.stopPropagation()">
-                      <div class="d-inline-flex align-items-center gap-2 tv-actions">
+                  @for (suite of vm.paginatedSuites; track suite._id) {
+                    <tr
+                      class="tv-row"
+                      tabindex="0"
+                      (keydown.enter)="vm.onSuiteRowClick(suite)"
+                      (click)="vm.onSuiteRowClick(suite)"
+                    >
+                      <td>
+                        <div class="tv-user-cell">
+                          <div class="tv-avatar">{{ vm.getUserInitials(suite.creatorName) }}</div>
+                          <span class="tv-user-name">{{ suite.creatorName || '—' }}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span class="tv-suite-name">{{ vm.getSuiteDisplayName(suite) }}</span>
+                      </td>
+                      <td class="tv-date-cell">
+                        {{ suite.createdAt ? (suite.createdAt | date: 'dd MMM yyyy') : '—' }}
+                      </td>
+                      <td>
+                        <span class="tv-status-badge" [ngClass]="vm.getBadgeClass(suite)">
+                          <span class="tv-status-dot"></span>
+                          {{ vm.getSuiteStatusLabel(suite) }}
+                        </span>
+                      </td>
+                      <td class="text-end" (click)="$event.stopPropagation()">
                         <button
                           type="button"
-                          class="btn btn-sm btn-action"
+                          class="tv-btn-run"
+                          title="Run suite"
+                          (click)="vm.onRunSuiteFromList(suite)"
+                        >
+                          <iconify-icon icon="mdi:play-circle-outline"></iconify-icon>
+                          Run
+                        </button>
+                      </td>
+                      <td class="text-end" (click)="$event.stopPropagation()">
+                        <button
+                          type="button"
+                          class="tv-btn-export"
                           title="Export Word"
                           (click)="vm.onExportSuite(suite)"
                           [disabled]="suite.canOpen === false || vm.exportingSuiteId === suite._id"
                         >
-                          <iconify-icon icon="mdi:file-word-outline" class="action-icon"></iconify-icon>
+                          <iconify-icon icon="mdi:file-word-outline"></iconify-icon>
                         </button>
-                      </div>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        }
-      </div>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
 
-      <div class="card-footer d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <span class="text-muted small">Page {{ vm.currentPage }} / {{ vm.totalPages }}</span>
-        <div class="d-flex gap-2">
-          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="vm.goToPreviousPage()" [disabled]="vm.currentPage === 1">
-            Previous
-          </button>
-          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="vm.goToNextPage()" [disabled]="vm.currentPage === vm.totalPages">
-            Next
-          </button>
+        <div class="card-footer tv-footer">
+          <span class="tv-footer-page">Page {{ vm.currentPage }} of {{ vm.totalPages }}</span>
+          <div class="tv-footer-nav">
+            <button type="button" class="tv-page-btn" (click)="vm.goToPreviousPage()" [disabled]="vm.currentPage === 1">
+              <iconify-icon icon="mdi:chevron-left"></iconify-icon>
+              Prev
+            </button>
+            <button type="button" class="tv-page-btn" (click)="vm.goToNextPage()" [disabled]="vm.currentPage === vm.totalPages">
+              Next
+              <iconify-icon icon="mdi:chevron-right"></iconify-icon>
+            </button>
+          </div>
         </div>
       </div>
     </div>
+
   </div>
 }
 
 @if (view === 'detail') {
-  <div class="container-fluid py-3 test-validation-page">
+  <div class="tv-detail-page">
 
     <!-- ── Page header ── -->
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-4">
-      <div>
-        <button type="button" class="btn btn-sm btn-outline-secondary mb-2" (click)="vm.onBackToList()">
-          <iconify-icon icon="mdi:chevron-left" class="me-1"></iconify-icon>
-          Back to list
-        </button>
-        <h4 class="app-title mb-1">
+    <div class="tv-detail-page__header">
+      <button type="button" class="tv-back-btn" (click)="vm.onBackToList()">
+        <iconify-icon icon="mdi:chevron-left"></iconify-icon>
+        Back to list
+      </button>
+      <div class="tv-detail-page__title-row">
+        <h4 class="app-title mb-0">
           <iconify-icon icon="iconamoon:folder-check-duotone" class="app-title-icon"></iconify-icon>
-          <span>Suite: {{ vm.currentSuiteName || vm.testSuiteId }}</span>
+          <span>{{ vm.currentSuiteName || vm.testSuiteId }}</span>
         </h4>
-        <p class="text-muted mb-0">{{ vm.testPlans.length }} Test Plans • {{ vm.totalTestCases }} Test Cases</p>
+        <p class="tv-subtitle">{{ vm.testPlans.length }} Test Plans · {{ vm.totalTestCases }} Test Cases</p>
       </div>
     </div>
 
     @if (vm.errorMessage) {
-      <div class="alert alert-danger">{{ vm.errorMessage }}</div>
+      <div class="alert alert-danger mx-3 mt-2">{{ vm.errorMessage }}</div>
     }
 
-    @if (vm.loading) {
-      <div class="p-4 text-center text-muted small">Loading...</div>
-    } @else {
+    <div class="tv-detail-page__body">
 
-      <!-- ── Detail card (new design) ── -->
-      <div class="tv-detail-card mb-3">
-
-        <!-- Card header -->
-        <div class="tv-detail-header">
-          <div class="d-flex align-items-center gap-2">
-            <div class="tv-detail-header-icon">
-              <iconify-icon icon="iconamoon:task-duotone"></iconify-icon>
-            </div>
-            <span class="tv-detail-header-title">Test details</span>
-          </div>
-          @if (vm.suiteDetail) {
-            <span class="badge rounded-pill tv-status-badge" [ngClass]="vm.getBadgeClass(vm.suiteDetail)">
-              {{ vm.getSuiteStatusLabel(vm.suiteDetail) }}
-            </span>
-          }
+      @if (vm.loading) {
+        <div class="tv-loading-state">
+          <iconify-icon icon="iconamoon:loading-duotone" class="tv-loading-icon"></iconify-icon>
+          <span>Loading suite details…</span>
         </div>
+      } @else {
 
-        <!-- Card body — 3-column grid -->
-        <div class="tv-detail-body">
-          <div class="tv-detail-grid">
+        <!-- ── Info card ── -->
+        <div class="tv-info-card">
 
-            <!-- Col 1 : Suite -->
-            <div class="tv-detail-col">
-              <div class="tv-col-label">Suite</div>
-              <div class="tv-field">
-                <div class="tv-field-icon">
-                  <iconify-icon icon="mdi:clipboard-text-outline"></iconify-icon>
-                </div>
-                <div class="tv-field-content">
-                  <div class="tv-meta-label">Name</div>
-                  <div class="tv-meta-value">{{ vm.currentSuiteName || '—' }}</div>
+          <div class="tv-info-card__header">
+            <div class="tv-info-card__header-left">
+              <div class="tv-info-icon">
+                <iconify-icon icon="iconamoon:task-duotone"></iconify-icon>
+              </div>
+              <span class="tv-info-card__title">Suite details</span>
+            </div>
+            @if (vm.suiteDetail) {
+              <span class="tv-status-badge" [ngClass]="vm.getBadgeClass(vm.suiteDetail)">
+                <span class="tv-status-dot"></span>
+                {{ vm.getSuiteStatusLabel(vm.suiteDetail) }}
+              </span>
+            }
+          </div>
+
+          <div class="tv-info-card__body">
+
+            <!-- Col: Suite -->
+            <div class="tv-info-col">
+              <div class="tv-col-heading">Suite</div>
+              <div class="tv-info-field">
+                <div class="tv-field-ico"><iconify-icon icon="mdi:clipboard-text-outline"></iconify-icon></div>
+                <div>
+                  <div class="tv-field-label">Name</div>
+                  <div class="tv-field-value">{{ vm.currentSuiteName || '—' }}</div>
                 </div>
               </div>
             </div>
 
-            <div class="tv-col-divider"></div>
+            <div class="tv-info-divider"></div>
 
-            <!-- Col 2 : Project -->
-            <div class="tv-detail-col">
-              <div class="tv-col-label">Project</div>
+            <!-- Col: Project -->
+            <div class="tv-info-col">
+              <div class="tv-col-heading">Project</div>
 
-              <!-- Project title — highlighted box -->
-              <div class="tv-project-box">
-                <div class="tv-field-icon tv-field-icon--amber">
-                  <iconify-icon icon="mdi:folder-outline"></iconify-icon>
-                </div>
-                <div class="tv-field-content">
-                  <div class="tv-meta-label">Title</div>
-                  <div class="tv-meta-value fw-semibold">
-                    {{ vm.projectDetail?.title || vm.suiteDetail?.projectTitle || '—' }}
-                  </div>
+              <div class="tv-project-highlight">
+                <div class="tv-field-ico tv-field-ico--amber"><iconify-icon icon="mdi:folder-outline"></iconify-icon></div>
+                <div>
+                  <div class="tv-field-label">Title</div>
+                  <div class="tv-field-value fw-semibold">{{ vm.projectDetail?.title || vm.suiteDetail?.projectTitle || '—' }}</div>
                 </div>
               </div>
 
-              <!-- Start date -->
-              <div class="tv-field">
-                <div class="tv-field-icon">
-                  <iconify-icon icon="mdi:calendar-start"></iconify-icon>
-                </div>
-                <div class="tv-field-content">
-                  <div class="tv-meta-label">Start date</div>
-                  <div class="tv-meta-value">{{ (vm.projectDetail?.startDate | date: 'mediumDate') || '—' }}</div>
+              <div class="tv-info-field">
+                <div class="tv-field-ico"><iconify-icon icon="mdi:calendar-start"></iconify-icon></div>
+                <div>
+                  <div class="tv-field-label">Start date</div>
+                  <div class="tv-field-value">{{ (vm.projectDetail?.startDate | date: 'mediumDate') || '—' }}</div>
                 </div>
               </div>
 
-              <!-- End date -->
-              <div class="tv-field">
-                <div class="tv-field-icon">
-                  <iconify-icon icon="mdi:calendar-end"></iconify-icon>
-                </div>
-                <div class="tv-field-content">
-                  <div class="tv-meta-label">End date</div>
-                  <div class="tv-meta-value">{{ (vm.projectDetail?.endDate | date: 'mediumDate') || '—' }}</div>
+              <div class="tv-info-field">
+                <div class="tv-field-ico"><iconify-icon icon="mdi:calendar-end"></iconify-icon></div>
+                <div>
+                  <div class="tv-field-label">End date</div>
+                  <div class="tv-field-value">{{ (vm.projectDetail?.endDate | date: 'mediumDate') || '—' }}</div>
                 </div>
               </div>
 
-              <!-- Members -->
-              <div class="tv-field tv-field--members">
-                <div class="tv-field-icon">
-                  <iconify-icon icon="mdi:account-multiple-outline"></iconify-icon>
-                </div>
-                <div class="tv-field-content">
+              <div class="tv-info-field tv-info-field--align-start">
+                <div class="tv-field-ico"><iconify-icon icon="mdi:account-multiple-outline"></iconify-icon></div>
+                <div style="flex: 1; min-width: 0;">
                   <div class="tv-members-header">
-                    <span class="tv-meta-label mb-0">Members</span>
+                    <span class="tv-field-label mb-0">Members</span>
                     <button type="button" class="tv-members-toggle" (click)="vm.toggleMembers(); $event.stopPropagation()">
                       <iconify-icon [icon]="vm.membersOpen ? 'mdi:chevron-up' : 'mdi:chevron-down'"></iconify-icon>
                       {{ vm.membersOpen ? 'Hide' : 'Show' }}
                     </button>
                   </div>
-
                   @if (vm.membersOpen) {
                     @if (vm.projectMembers?.length) {
                       <div class="tv-members-list">
                         @for (member of vm.projectMembers; track vm.getMemberId(member)) {
                           <div class="tv-member">
                             @if (vm.getMemberPicture(member)) {
-                              <img
-                                class="tv-member-avatar"
-                                [src]="vm.getMemberPicture(member)"
-                                [alt]="vm.getMemberDisplayName(member)"
-                                (error)="vm.onAvatarError($event)"
-                              />
+                              <img class="tv-member-avatar" [src]="vm.getMemberPicture(member)" [alt]="vm.getMemberDisplayName(member)" (error)="vm.onAvatarError($event)" />
                             } @else {
-                              <div class="tv-member-avatar tv-member-avatar--fallback">
-                                {{ vm.getUserInitials(vm.getMemberDisplayName(member)) }}
-                              </div>
+                              <div class="tv-member-avatar tv-member-avatar--fallback">{{ vm.getUserInitials(vm.getMemberDisplayName(member)) }}</div>
                             }
                             <span class="tv-member-name text-truncate">{{ vm.getMemberDisplayName(member) }}</span>
                           </div>
                         }
                       </div>
                     } @else {
-                      <div class="tv-meta-value">—</div>
+                      <div class="tv-field-value">—</div>
                     }
                   }
                 </div>
               </div>
             </div>
 
-            <div class="tv-col-divider"></div>
+            <div class="tv-info-divider"></div>
 
-            <!-- Col 3 : Stats -->
-            <div class="tv-detail-col">
-              <div class="tv-col-label">Stats</div>
+            <!-- Col: Stats -->
+            <div class="tv-info-col">
+              <div class="tv-col-heading">Stats</div>
               <div class="tv-stat-grid">
                 <div class="tv-stat tv-stat--blue">
                   <div class="tv-stat-value">{{ vm.testPlans.length }}</div>
@@ -348,122 +336,130 @@
               </div>
             </div>
 
-          </div>
-        </div>
+          </div><!-- /tv-info-card__body -->
 
-        <!-- Card footer -->
-        <div class="tv-detail-footer">
-          <button
-            type="button"
-            class="tv-jump-btn"
-            [class.tv-jump-btn--active]="vm.showTestDetails"
-            (click)="vm.toggleTestDetails(); $event.stopPropagation()"
-          >
-            <iconify-icon
-              [icon]="vm.showTestDetails ? 'mdi:chevron-up' : 'mdi:arrow-down-bold-circle-outline'"
-              class="me-1"
-            ></iconify-icon>
-            {{ vm.showTestDetails ? 'Hide test details' : 'Show test details' }}
-          </button>
-        </div>
-      </div>
-
-      <!-- ── Test plans + cases ── -->
-      @if (vm.showTestDetails) {
-        <div id="tv-test-section" class="tv-plans-area">
-
-          <div class="tv-plans-sidebar">
-            <div class="tv-plans-sidebar-header">Test Plans</div>
-            <div class="tv-plans-list">
-              @for (plan of vm.testPlans; track plan.id) {
-                <button
-                  type="button"
-                  class="tv-plan-item"
-                  [class.active]="vm.selectedPlanId === plan.id"
-                  (click)="vm.onSelectPlan(plan)"
-                >
-                  <div class="tv-plan-id">{{ plan.id }}</div>
-                  <div class="tv-plan-title">{{ plan.title }}</div>
-                </button>
-              }
-              @if (!vm.testPlans.length) {
-                <div class="tv-empty">No plans available.</div>
-              }
-            </div>
+          <div class="tv-info-card__footer">
+            <button
+              type="button"
+              class="tv-toggle-details-btn"
+              [class.tv-toggle-details-btn--active]="vm.showTestDetails"
+              (click)="vm.toggleTestDetails(); $event.stopPropagation()"
+            >
+              <iconify-icon [icon]="vm.showTestDetails ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="me-1"></iconify-icon>
+              {{ vm.showTestDetails ? 'Hide test details' : 'Show test details' }}
+            </button>
           </div>
 
-          <div class="tv-cases-panel">
-            <div class="tv-cases-header">
-              <div class="tv-cases-header-info">
-                <div class="fw-semibold" style="font-size: 0.88rem">
-                  {{ vm.selectedPlan?.title || 'Select a plan' }}
-                </div>
-                @if (vm.selectedPlan?.description) {
-                  <div style="font-size: 0.76rem; color: #64748b; margin-block-start: 0.1rem">
-                    {{ vm.selectedPlan?.description }}
-                  </div>
+        </div><!-- /tv-info-card -->
+
+        <!-- ── Test plans + cases — rendered BELOW the card, never inside ── -->
+        @if (vm.showTestDetails) {
+          <div class="tv-plans-area">
+
+            <!-- Sidebar: plan list -->
+            <div class="tv-plans-sidebar">
+              <div class="tv-plans-sidebar-header">
+                <iconify-icon icon="mdi:view-list-outline" class="me-1"></iconify-icon>
+                Test Plans
+              </div>
+              <div class="tv-plans-list">
+                @for (plan of vm.testPlans; track plan.id) {
+                  <button
+                    type="button"
+                    class="tv-plan-item"
+                    [class.active]="vm.selectedPlanId === plan.id"
+                    (click)="vm.onSelectPlan(plan)"
+                  >
+                    <span class="tv-plan-id">{{ plan.id }}</span>
+                    <span class="tv-plan-title">{{ plan.title }}</span>
+                  </button>
+                }
+                @if (!vm.testPlans.length) {
+                  <div class="tv-empty">No plans available.</div>
                 }
               </div>
-
-              <button type="button" class="tv-section-back" (click)="vm.toggleTestDetails()">
-                <iconify-icon icon="mdi:chevron-up"></iconify-icon>
-                Hide
-              </button>
             </div>
 
-            <div class="tv-cases-body">
-              @if (vm.generatingCasesPlanId === vm.selectedPlanId) {
-                <div class="tv-loading">Generating test cases...</div>
-              } @else {
-                @for (tc of vm.filteredSelectedTestCases; track tc.id) {
-                  <div class="tv-case">
-                    <div class="tv-case-header">
-                      <span class="badge brand-badge rounded-pill" style="font-size: 0.65rem; flex-shrink: 0">
-                        {{ tc.id }}
-                      </span>
-                      <div class="tv-case-title">{{ tc.title }}</div>
-                      <div class="tv-case-actions">
-                        <button
-                          type="button"
-                          class="btn-toggle-steps"
-                          (click)="vm.toggleCase(vm.selectedPlanId, tc.id); $event.stopPropagation()"
-                          [attr.aria-expanded]="vm.isCaseOpen(vm.selectedPlanId, tc.id)"
-                        >
-                          <iconify-icon [icon]="vm.isCaseOpen(vm.selectedPlanId, tc.id) ? 'mdi:chevron-up' : 'mdi:chevron-down'"></iconify-icon>
-                          {{ vm.isCaseOpen(vm.selectedPlanId, tc.id) ? 'Hide' : 'Show' }}
-                        </button>
-                        <button type="button" class="btn-run" (click)="vm.onRunTestCase(vm.selectedPlanId!, tc.id)">
-                          Run
-                          <iconify-icon icon="mdi:play-circle-outline"></iconify-icon>
-                        </button>
-                        <button type="button" class="btn-delete-icon" (click)="vm.onConfirmDeleteTestCase(vm.selectedPlanId!, tc.id)">
-                          <iconify-icon icon="mdi:trash-can-outline"></iconify-icon>
-                        </button>
-                      </div>
-                    </div>
+            <!-- Main: cases panel -->
+            <div class="tv-cases-panel">
+              <div class="tv-cases-header">
+                <div class="tv-cases-header-info">
+                  <div class="tv-cases-plan-title">{{ vm.selectedPlan?.title || 'Select a plan' }}</div>
+                  @if (vm.selectedPlan?.description) {
+                    <div class="tv-cases-plan-desc">{{ vm.selectedPlan?.description }}</div>
+                  }
+                </div>
 
-                <div class="tv-case-body" [hidden]="!vm.isCaseOpen(vm.selectedPlanId, tc.id)">
-  <ol>
-    @for (step of tc.steps; track $index) {
-      <li>{{ step }}</li>
-    }
-  </ol>
-  <div class="tv-case-expected">
-    <span class="fw-semibold">Expected:</span> {{ tc.expected_result }}
-  </div>
-</div>
+                <button type="button" class="tv-section-back" (click)="vm.toggleTestDetails()">
+                  <iconify-icon icon="mdi:chevron-up"></iconify-icon>
+                  Hide
+                </button>
+              </div>
+
+              <div class="tv-cases-body">
+                @if (vm.generatingCasesPlanId === vm.selectedPlanId) {
+                  <div class="tv-loading-state tv-loading-state--inline">
+                    <iconify-icon icon="iconamoon:loading-duotone" class="tv-loading-icon"></iconify-icon>
+                    <span>Generating test cases…</span>
                   </div>
-                }
+                } @else {
+                  @for (tc of vm.filteredSelectedTestCases; track tc.id) {
+                    <div class="tv-case" [class.tv-case--open]="vm.isCaseOpen(vm.selectedPlanId, tc.id)">
 
-                @if (!vm.filteredSelectedTestCases.length) {
-                  <div class="tv-empty">No test cases generated yet.</div>
+                      <div class="tv-case-header">
+                        <span class="tv-case-id">{{ tc.id }}</span>
+                        <div class="tv-case-title">{{ tc.title }}</div>
+                        <div class="tv-case-actions">
+                          <button
+                            type="button"
+                            class="tv-btn-toggle"
+                            (click)="vm.toggleCase(vm.selectedPlanId, tc.id); $event.stopPropagation()"
+                            [attr.aria-expanded]="vm.isCaseOpen(vm.selectedPlanId, tc.id)"
+                          >
+                            <iconify-icon [icon]="vm.isCaseOpen(vm.selectedPlanId, tc.id) ? 'mdi:chevron-up' : 'mdi:chevron-down'"></iconify-icon>
+                            {{ vm.isCaseOpen(vm.selectedPlanId, tc.id) ? 'Hide' : 'Steps' }}
+                          </button>
+                          <button type="button" class="tv-btn-run" (click)="vm.onRunTestCase(vm.selectedPlanId!, tc.id)">
+                            <iconify-icon icon="mdi:play-circle-outline"></iconify-icon>
+                            Run
+                          </button>
+                          <button type="button" class="tv-btn-delete" (click)="vm.onConfirmDeleteTestCase(vm.selectedPlanId!, tc.id)" title="Delete">
+                            <iconify-icon icon="mdi:trash-can-outline"></iconify-icon>
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- Steps: use CSS class toggling instead of [hidden] to avoid layout clipping -->
+                      <div class="tv-case-body">
+                        <ol class="tv-steps">
+                          @for (step of tc.steps; track $index) {
+                            <li>{{ step }}</li>
+                          }
+                        </ol>
+                        <div class="tv-case-expected">
+                          <span class="tv-expected-label">Expected result</span>
+                          <span>{{ tc.expected_result }}</span>
+                        </div>
+                      </div>
+
+                    </div>
+                  }
+
+                  @if (!vm.filteredSelectedTestCases.length) {
+                    <div class="tv-empty">
+                      <iconify-icon icon="mdi:test-tube-empty" style="font-size: 2rem; opacity: 0.25;"></iconify-icon>
+                      <p>No test cases generated yet.</p>
+                    </div>
+                  }
                 }
-              }
+              </div>
             </div>
-          </div>
 
-        </div>
+          </div>
+        }
+
       }
-    }
+    </div><!-- /tv-detail-page__body -->
+
   </div>
 }
