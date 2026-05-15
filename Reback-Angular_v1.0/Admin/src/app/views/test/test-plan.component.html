@@ -422,9 +422,24 @@
           <div class="testlab-plan-title d-flex align-items-center justify-content-between gap-2">
             <div>
               <span class="testlab-plan-badge">#{{ i + 1 }}</span>
+              @if (isPlanEditing(plan.id)) {
+              <input
+                type="text"
+                class="testlab-plan-edit-input"
+                [value]="plan.title"
+                (input)="onPlanTitleInput(plan, $event)"
+              />
+              } @else {
               <span class="testlab-plan-name">{{ plan.title }}</span>
+              }
             </div>
             <div class="d-flex align-items-center gap-2">
+              <button type="button" class="btn btn-sm btn-cancel testlab-manual-edit-btn"
+                [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
+                (click)="onToggleManualPlanEdit(plan.id)">
+                <iconify-icon [icon]="isPlanEditing(plan.id) ? 'iconamoon:check-duotone' : 'iconamoon:edit-duotone'"></iconify-icon>
+                <span>{{ isPlanEditing(plan.id) ? 'Done' : 'Edit manually' }}</span>
+              </button>
               <button type="button" class="btn btn-sm btn-validate testlab-validate-btn"
                 [ngClass]="getValidateButtonClass(plan.id)"
                 [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
@@ -445,7 +460,15 @@
               </button>
             </div>
           </div>
+          @if (isPlanEditing(plan.id)) {
+          <textarea
+            class="testlab-plan-edit-textarea"
+            [value]="plan.description"
+            (input)="onPlanDescriptionInput(plan, $event)"
+          ></textarea>
+          } @else {
           <div class="testlab-plan-desc">{{ plan.description }}</div>
+          }
         </div>
         }
       </div>

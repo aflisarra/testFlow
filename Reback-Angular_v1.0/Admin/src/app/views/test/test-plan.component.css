@@ -969,6 +969,44 @@
     font-weight: 400;
 }
 
+.testlab-manual-edit-btn {
+    white-space: nowrap;
+}
+
+.testlab-plan-edit-input,
+.testlab-plan-edit-textarea {
+    width: min(100%, 720px);
+    border: 1px solid #dbe7f7;
+    border-radius: 10px;
+    background: #fff;
+    color: var(--pm-text-primary);
+    font: inherit;
+    outline: none;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.testlab-plan-edit-input {
+    min-height: 42px;
+    padding: 0.55rem 0.75rem;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.testlab-plan-edit-textarea {
+    min-height: 86px;
+    resize: vertical;
+    padding: 0.75rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.testlab-plan-edit-input:focus,
+.testlab-plan-edit-textarea:focus {
+    border-color: rgb(236 138 0 / 70%);
+    box-shadow: 0 0 0 4px rgb(236 138 0 / 15%);
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    PROGRESS BAR
    ═══════════════════════════════════════════════════════════════════ */

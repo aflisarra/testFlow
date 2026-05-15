@@ -5,6 +5,7 @@ module.exports = {
     DELETED: 'User deleted successfully',
     ERROR: 'Get users error',
     NOT_FOUND: 'User not found',
+    ACTIVE_PROJECT_TEAM_MEMBER: 'Cannot delete this user because they are assigned to an unfinished project team.',
     REGISTERED: 'User registered successfully',
     SIGNUP_ERROR: 'Signup error:',
     CANNOT_ASSIGN_ADMIN_ROLE: 'Cannot assign admin role on signup',
@@ -25,6 +26,7 @@ module.exports = {
   ERROR: {
     SERVER: 'Server error',
     EMAIL_EXISTS: 'Email already in use',
+    NAME_EXISTS: "Name already exists"
   },
   PROFILE:{
     ERROR: 'Get profile error',

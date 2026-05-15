@@ -51,7 +51,7 @@ export class RolesManagementComponent implements OnInit {
   canEditRole = false
   canDeleteRole = false
   canViewRoles = false
-  readonly rolesPerPage = 6
+  readonly rolesPerPage = 4
   currentRolePage = 1
 
   async ngOnInit(): Promise<void> {
@@ -174,46 +174,113 @@ export class RolesManagementComponent implements OnInit {
     })
   }
 
-  async onDeleteRole(role: AppRole) {
-    if (!this.canDeleteRole) {
-      this.uiNotify.accessDenied('Action non autorisee: Delete Role.')
-      return
-    }
-
-    const roleId = String(role?._id || '').trim()
-    if (!roleId) {
-      this.toastr.warning('Role id is missing. Please reload the roles list.', 'Role')
-      return
-    }
-
-    const ref = this.modalService.open(ConfirmModalComponent, {
-      centered: true,
-      windowClass: 'confirm-modal-window',
-      backdropClass: 'confirm-modal-backdrop',
-    })
-    ref.componentInstance.title = 'Delete role'
-    //ref.componentInstance.message = 'This will delete'
-    ref.componentInstance.entityName = role.name
-    //ref.componentInstance.details = 'This action cannot be undone.'
-    ref.componentInstance.confirmText = 'Delete'
-    ref.componentInstance.cancelText = 'Cancel'
-    ref.componentInstance.confirmButtonClass = 'btn-brand'
-
-    ref.closed.subscribe(() => {
-      this.adminService.deleteRole(roleId).subscribe({
-        next: () => {
-          this.showActionSuccess('deleted')
-          this.refreshCurrentUserPermissions()
-          this.loadRoles()
-        },
-        error: (err) => {
-          const message = err?.error?.message || 'Unable to delete role'
-          this.error = message
-          this.toastr.warning(message, 'Role')
-        },
-      })
-    })
+onDeleteRole(role: AppRole) {
+  if (!this.canDeleteRole) {
+    this.uiNotify.accessDenied('Action non autorisee: Delete Role.')
+    return
   }
+
+  const roleId = String(role?._id || '').trim()
+  if (!roleId) {
+    this.toastr.warning('Role id is missing. Please reload.', 'Role')
+    return
+  }
+
+  const ref = this.modalService.open(ConfirmModalComponent, {
+    centered: true,
+    windowClass: 'confirm-modal-window',
+    backdropClass: 'confirm-modal-backdrop',
+  })
+
+  ref.componentInstance.title = 'Delete role'
+  ref.componentInstance.entityName = role.name
+  ref.componentInstance.confirmText = 'Delete'
+  ref.componentInstance.cancelText = 'Cancel'
+  ref.componentInstance.confirmButtonClass = 'btn-brand'
+
+  ref.closed.subscribe(() => {
+    this.adminService.deleteRole(roleId).subscribe({
+      next: () => {
+        this.showActionSuccess('deleted')
+        this.refreshCurrentUserPermissions()
+        this.loadRoles()
+      },
+      error: (err) => {
+        const code = err?.error?.code
+
+        if (code === 'ROLE_IN_USE') {
+          const usersCount = Number(err?.error?.usersCount ?? err?.error?.users?.length ?? 0)
+          this.openRoleInUseModal(role, usersCount)
+          return
+        }
+
+        this.toastr.warning(err?.error?.message || 'Unable to delete role', 'Role')
+      },
+    })
+  })
+}
+
+openRoleInUseModal(role: AppRole, usersCount: number) {
+  const userLabel = usersCount === 1 ? 'user' : 'users'
+  const ref = this.modalService.open(ConfirmModalComponent, {
+    centered: true,
+    windowClass: 'confirm-modal-window',
+    backdropClass: 'confirm-modal-backdrop',
+  })
+
+  ref.componentInstance.title = 'Role in use'
+  ref.componentInstance.message = `This role is assigned to ${usersCount} ${userLabel}.`
+  ref.componentInstance.details = `Reassign users before deleting ${role.name}.`
+  ref.componentInstance.confirmText = 'Reassign'
+  ref.componentInstance.cancelText = 'Cancel'
+  ref.componentInstance.confirmButtonClass = 'btn-brand'
+  ref.componentInstance.icon = 'iconamoon:attention-circle-duotone'
+
+  ref.closed.subscribe(() => {
+    this.openReassignModal(role)
+  })
+}
+
+openReassignModal(role: AppRole) {
+  const options = this.roles
+    .filter((r) => r._id !== role._id)
+    .map((r) => ({ value: r._id, label: r.name }))
+
+  const ref = this.modalService.open(ConfirmModalComponent, {
+    centered: true,
+    windowClass: 'confirm-modal-window',
+    backdropClass: 'confirm-modal-backdrop',
+  })
+
+  ref.componentInstance.title = 'Reassign role'
+  ref.componentInstance.message = `Choose a new role for users assigned to ${role.name}.`
+  ref.componentInstance.confirmText = 'Reassign'
+  ref.componentInstance.cancelText = 'Cancel'
+  ref.componentInstance.confirmButtonClass = 'btn-brand'
+  ref.componentInstance.icon = 'iconamoon:swap-duotone'
+  ref.componentInstance.selectLabel = 'New role'
+  ref.componentInstance.selectOptions = options
+  ref.componentInstance.requireSelection = true
+
+  ref.closed.subscribe((newRoleId) => {
+    if (!newRoleId) return
+    this.reassignAndDeleteRole(role._id, newRoleId)
+  })
+}
+
+reassignAndDeleteRole(oldRoleId: string, newRoleId: string) {
+  this.adminService.reassignAndDelete(oldRoleId, newRoleId)
+    .subscribe({
+      next: () => {
+        this.uiNotify.success('Role replaced successfully')
+        this.loadRoles()
+      },
+
+      error: () => {
+        this.uiNotify.accessDenied('Operation failed')
+      }
+    })
+}
 
   private showActionSuccess(action: 'created' | 'edited' | 'deleted') {
     const title = action.charAt(0).toUpperCase() + action.slice(1)

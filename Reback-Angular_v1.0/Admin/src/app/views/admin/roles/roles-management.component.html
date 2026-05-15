@@ -57,10 +57,15 @@
                     title="Edit" (click)="onEditRole(role)">
                     <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
                   </button>
-                  <button *hasPermission="ACTION_DELETE_ROLE" class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button"
-                    title="Delete" (click)="onDeleteRole(role)">
-                    <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
-                  </button>
+                  <button *hasPermission="ACTION_DELETE_ROLE"
+        class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified"
+        type="button"
+        title="Delete"
+        (click)="onDeleteRole(role)">
+  <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
+</button>
+
+
                 </td>
               </tr>
               }

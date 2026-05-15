@@ -46,6 +46,8 @@
                   <label class="date-range-label" for="startDate">Start Date <span class="text-danger">*</span></label>
                   <input type="date" class="form-control"
                     [class.is-invalid]="projectForm.controls.startDate.touched && projectForm.controls.startDate.invalid"
+                    class="form-control"
+                    [min]="todayDate"
                     formControlName="startDate" />
                   @if (projectForm.controls.startDate.touched && projectForm.controls.startDate.errors?.['required']) {
                   <div class="invalid-feedback d-block">Start date is required.</div>
@@ -55,6 +57,7 @@
                   <label class="date-range-label" for="endDate">End Date <span class="text-danger">*</span></label>
                   <input type="date" class="form-control"
                     [class.is-invalid]="projectForm.controls.endDate.touched && projectForm.controls.endDate.invalid"
+                    [min]="createMinAfterStartDate"
                     formControlName="endDate" />
                   @if (projectForm.controls.endDate.touched && projectForm.controls.endDate.errors?.['required']) {
                   <div class="invalid-feedback d-block">End date is required.</div>
@@ -64,6 +67,9 @@
                   <label class="date-range-label" for="milestoneDate">Milestone Date <span class="text-danger">*</span></label>
                   <input type="date" class="form-control"
                     [class.is-invalid]="projectForm.controls.milestoneDate.touched && projectForm.controls.milestoneDate.invalid"
+                      class="form-control"
+  [min]="createMinAfterStartDate"
+  [max]="projectForm.value.endDate"
                     formControlName="milestoneDate" />
                   @if (projectForm.controls.milestoneDate.touched && projectForm.controls.milestoneDate.errors?.['required']) {
                   <div class="invalid-feedback d-block">Milestone date is required.</div>
@@ -397,6 +403,8 @@
           <label class="form-label pm-label" for="startDate">Start Date <span class="text-danger">*</span></label>
           <input type="date" class="form-control"
             [class.is-invalid]="editProjectForm.controls.startDate.touched && editProjectForm.controls.startDate.invalid"
+            class="form-control"
+            [min]="todayDate"
             formControlName="startDate" />
           @if (editProjectForm.controls.startDate.touched && editProjectForm.controls.startDate.errors?.['required']) {
           <div class="invalid-feedback d-block">Start date is required.</div>
@@ -406,6 +414,7 @@
           <label class="form-label pm-label" for="endDate">End Date <span class="text-danger">*</span></label>
           <input type="date" class="form-control"
             [class.is-invalid]="editProjectForm.controls.endDate.touched && editProjectForm.controls.endDate.invalid"
+            [min]="editMinAfterStartDate"
             formControlName="endDate" />
           @if (editProjectForm.controls.endDate.touched && editProjectForm.controls.endDate.errors?.['required']) {
           <div class="invalid-feedback d-block">End date is required.</div>
@@ -415,12 +424,26 @@
           <label class="form-label pm-label" for="milestoneDate">Milestone Date <span class="text-danger">*</span></label>
           <input type="date" class="form-control"
             [class.is-invalid]="editProjectForm.controls.milestoneDate.touched && editProjectForm.controls.milestoneDate.invalid"
+              class="form-control"
+             [min]="createMinAfterStartDate"
+             [max]="projectForm.value.endDate"
             formControlName="milestoneDate" />
           @if (editProjectForm.controls.milestoneDate.touched && editProjectForm.controls.milestoneDate.errors?.['required']) {
           <div class="invalid-feedback d-block">Milestone date is required.</div>
           }
-          @if (hasInvalidEditDateOrder()) {
-            <div class="invalid-feedback d-block">End/Milestone date cannot be before start date.</div>
+         <!-- End Date -->
+  @if (hasInvalidEditEndDate()) {
+  <div class="invalid-feedback d-block">
+    End date cannot be before start date.
+  </div>
+}
+
+<!-- Milestone Date -->
+@if (hasInvalidEditMilestoneDate()) {
+  <div class="invalid-feedback d-block">
+    Milestone date cannot be before start date.
+  </div>
+
           }
         </div>
         <div class="col-12">

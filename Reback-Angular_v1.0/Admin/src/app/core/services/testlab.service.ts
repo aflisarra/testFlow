@@ -12,6 +12,7 @@ import type {
   GenerateTestCasesResponse,
   GetTestPlansResponse,
   PlanTestDto,
+  TestPlanDto,
   TestCasesByPlanDto,
   TestSuiteDto,
 } from '@/app/interfaces/testlab.interface'
@@ -94,6 +95,16 @@ export class TestLabService {
       )
   }
 
+  getTestSuitesByProject(projectId: string): Observable<TestSuiteDto[]> {
+    return this.api.get<TestSuiteDto[] | TestSuiteDto | null>(`/api/testsuites/project/${projectId}`)
+      .pipe(
+        map((resp) => {
+          if (!resp) return []
+          return Array.isArray(resp) ? resp : [resp]
+        })
+      )
+  }
+
   // ✅ GET /api/testsuites/:id/plans
   getTestPlans(testSuiteId: string): Observable<GetTestPlansResponse> {
     return this.api.get<GetTestPlansResponse>(`/api/testsuites/${testSuiteId}/plans`)
@@ -105,6 +116,7 @@ export class TestLabService {
       sessionKind?: 'validation' | 'execution'
       suiteStatus: 'completed' | 'incomplete'
       planStatuses: Record<string, string>
+      testPlans?: TestPlanDto[]
       testCasesByPlan?: TestCasesByPlanDto[]
     }
   ): Observable<{

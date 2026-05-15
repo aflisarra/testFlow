@@ -127,9 +127,16 @@ private normalizeRole(raw: unknown): AppRole {
 )
   }
 
-  deleteRole(roleId: string): Observable<{ message: string }> {
-    return this.api.delete<{ message: string }>(`/api/roles/${roleId}`)
-  }
+deleteRole(id: string) {
+  return this.api.delete(`/api/roles/${id}`)
+}
+
+reassignAndDelete(oldRoleId: string, newRoleId: string) {
+  return this.api.post(`/api/roles/reassign-delete`, {
+    oldRoleId,
+    newRoleId,
+  })
+}
 
   getActions(): Observable<AppAction[]> {
     return this.api.get<AppAction[]>(`/api/actions`)

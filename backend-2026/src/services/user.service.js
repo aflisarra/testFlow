@@ -1,5 +1,6 @@
 const User = require('../models/user.model');
 const Role = require('../models/role.model');
+const Project = require('../models/project.model');
 const MESSAGES = require('../constants/messages.js'); // Assure-toi que le chemin est correct
 // ✅ Create a new user
 // Input:
@@ -8,7 +9,7 @@ const MESSAGES = require('../constants/messages.js'); // Assure-toi que le chemi
 //   - saved user object
 const bcrypt = require('bcryptjs'); // bien importer si ce n'est pas déjà fait
 
-exports.createUser = async (userData) => {
+/*exports.createUser = async (userData) => {
   const { email, password } = userData;
 
   const existingUser = await User.findOne({ email });
@@ -31,6 +32,51 @@ exports.createUser = async (userData) => {
     roleId: roleDoc._id,
     role: roleDoc.name,
     
+    description: userData.description,
+    picture: userData.picture || null,
+  });
+
+  return await newUser.save();
+};*/
+
+exports.createUser = async (userData) => {
+  const { name, email, password } = userData;
+
+  // Check email
+  const existingUser = await User.findOne({ email });
+
+  if (existingUser) {
+    throw new Error(MESSAGES.ERROR.EMAIL_EXISTS);
+  }
+
+  // Check name
+  const existingName = await User.findOne({ name });
+
+  if (existingName) {
+    throw new Error(MESSAGES.ERROR.NAME_EXISTS);
+  }
+
+  // Hash password
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  // Check role
+  const roleName = (userData.role || MESSAGES.USER.USER).trim();
+
+  const roleDoc = await Role.findOne({
+    name: roleName
+  });
+
+  if (!roleDoc) {
+    throw new Error(MESSAGES.ERROR.ROLE_NOT_FOUND);
+  }
+
+  // Create user
+  const newUser = new User({
+    name: userData.name,
+    email: email,
+    password: hashedPassword,
+    roleId: roleDoc._id,
+    role: roleDoc.name,
     description: userData.description,
     picture: userData.picture || null,
   });
@@ -70,5 +116,29 @@ exports.updateUser = async (userId, updateData) => {
 // Input: id (String) - the ID of the user to delete
 // Output: deleted user object, or null if not found
 exports.deleteUser = async (id) => {
+  const blockingProjects = await Project.find({
+    assignedUsers: id,
+    $or: [
+      { status: { $ne: 'completed' } },
+      { endDate: null },
+      { endDate: { $exists: false } },
+    ],
+  })
+    .select('title status endDate')
+    .lean();
+
+  if (blockingProjects.length > 0) {
+    const error = new Error(MESSAGES.USER.ACTIVE_PROJECT_TEAM_MEMBER);
+    error.statusCode = 409;
+    error.code = 'USER_IN_ACTIVE_PROJECT';
+    error.projects = blockingProjects.map((project) => ({
+      _id: project._id,
+      title: project.title,
+      status: project.status,
+      endDate: project.endDate,
+    }));
+    throw error;
+  }
+
   return await User.findByIdAndDelete(id);
 };

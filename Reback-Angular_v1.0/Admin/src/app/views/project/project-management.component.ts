@@ -14,7 +14,14 @@ import {
   inject,
 } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
-import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms'
+import {
+  AbstractControl,
+  FormBuilder,
+  FormsModule,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms'
 import { Router } from '@angular/router'
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap'
 import { Store } from '@ngrx/store'
@@ -117,6 +124,14 @@ export class ProjectManagementComponent implements OnInit {
   })
 
   // ─── Getters ───────────────────────────────────────────────────────────────
+
+  get createMinAfterStartDate(): string {
+    return String(this.projectForm.value.startDate || '')
+  }
+
+  get editMinAfterStartDate(): string {
+    return String(this.editProjectForm.value.startDate || '')
+  }
 
   get selectedProject(): AppProject | null {
     if (!this.selectedProjectId) return null
@@ -232,6 +247,8 @@ get viewProjectTeamMembers(): TeamMemberView[] {
   // ─── Lifecycle ──────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
+    this.projectForm.setValidators(this.dateOrderValidatorForCreate)
+    this.editProjectForm.setValidators(this.dateOrderValidatorForEdit)
     this.projectsRefresh.changes$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.loadProjects())
@@ -542,7 +559,11 @@ applyEliteTeamSelection(modal: NgbModalRef): void {
       return
     }
     if (!this.editingProjectId) return
-    if (this.editProjectForm.invalid || this.hasInvalidEditDateOrder()) {
+    if (
+  this.editProjectForm.invalid ||
+  this.hasInvalidEditEndDate() ||
+  this.hasInvalidEditMilestoneDate()
+) {
       this.editProjectForm.markAllAsTouched()
       if (this.hasInvalidEditDateOrder()) {
         this.error = 'Please verify dates: end and milestone dates must be on or after start date.'
@@ -600,6 +621,10 @@ applyEliteTeamSelection(modal: NgbModalRef): void {
     this.editEliteTeamOpen = !this.editEliteTeamOpen
   }
 
+  get todayDate(): string {
+  return new Date().toISOString().split('T')[0]
+}
+
   toggleEditAll(checked: boolean): void {
     if (checked) {
       this.editAssignedUserIds = new Set(this.users.map((u) => u._id))
@@ -623,6 +648,112 @@ applyEliteTeamSelection(modal: NgbModalRef): void {
 
   // ─── Date helpers ───────────────────────────────────────────────────────────
 
+  private setControlError(
+    control: AbstractControl | null,
+    key: string,
+    present: boolean
+  ): void {
+    if (!control) return
+    const existing = control.errors || {}
+    if (present) {
+      if (existing[key]) return
+      control.setErrors({ ...existing, [key]: true })
+      return
+    }
+    if (!existing[key]) return
+    const { [key]: _removed, ...rest } = existing
+    control.setErrors(Object.keys(rest).length ? rest : null)
+  }
+
+private readonly dateOrderValidatorForCreate = (
+  group: AbstractControl
+): ValidationErrors | null => {
+
+  const start = this.normalizeDateForApi(group.get('startDate')?.value) || ''
+  const end = this.normalizeDateForApi(group.get('endDate')?.value) || ''
+  const milestone =
+    this.normalizeDateForApi(group.get('milestoneDate')?.value) || ''
+
+  const today = new Date().toISOString().split('T')[0]
+
+  const invalidStart = !!(start && start < today)
+
+  const invalidEnd = !!(start && end && end < start)
+
+  const invalidMilestone =
+    !!(
+      start &&
+      end &&
+      milestone &&
+      (milestone < start || milestone > end)
+    )
+
+  this.setControlError(
+    group.get('startDate'),
+    'beforeToday',
+    invalidStart
+  )
+
+  this.setControlError(
+    group.get('endDate'),
+    'beforeStartDate',
+    invalidEnd
+  )
+
+  this.setControlError(
+    group.get('milestoneDate'),
+    'invalidMilestoneRange',
+    invalidMilestone
+  )
+
+  return invalidStart || invalidEnd || invalidMilestone
+    ? { dateOrder: true }
+    : null
+}
+
+  private readonly dateOrderValidatorForEdit = (group: AbstractControl): ValidationErrors | null => {
+     const start = this.normalizeDateForApi(group.get('startDate')?.value) || ''
+  const end = this.normalizeDateForApi(group.get('endDate')?.value) || ''
+  const milestone =
+    this.normalizeDateForApi(group.get('milestoneDate')?.value) || ''
+
+  const today = new Date().toISOString().split('T')[0]
+
+  const invalidStart = !!(start && start < today)
+
+  const invalidEnd = !!(start && end && end < start)
+
+  const invalidMilestone =
+    !!(
+      start &&
+      end &&
+      milestone &&
+      (milestone < start || milestone > end)
+    )
+
+  this.setControlError(
+    group.get('startDate'),
+    'beforeToday',
+    invalidStart
+  )
+
+  this.setControlError(
+    group.get('endDate'),
+    'beforeStartDate',
+    invalidEnd
+  )
+
+  this.setControlError(
+    group.get('milestoneDate'),
+    'invalidMilestoneRange',
+    invalidMilestone
+  )
+
+  return invalidStart || invalidEnd || invalidMilestone
+    ? { dateOrder: true }
+    : null
+  }
+
   hasInvalidDateOrder(): boolean {
     const start = this.normalizeDateForApi(this.projectForm.value.startDate) || ''
     const end = this.normalizeDateForApi(this.projectForm.value.endDate) || ''
@@ -640,6 +771,20 @@ applyEliteTeamSelection(modal: NgbModalRef): void {
     if (start && milestone && milestone < start) return true
     return false
   }
+
+  hasInvalidEditEndDate(): boolean {
+  const start = this.editProjectForm.value.startDate || ''
+  const end = this.editProjectForm.value.endDate || ''
+
+  return !!(start && end && end < start)
+}
+
+hasInvalidEditMilestoneDate(): boolean {
+  const start = this.editProjectForm.value.startDate || ''
+  const milestone = this.editProjectForm.value.milestoneDate || ''
+
+  return !!(start && milestone && milestone < start)
+}
 
   private toDateInput(value?: string | null): string {
     if (!value) return ''

@@ -92,6 +92,7 @@ exports.updateRole = async (id, updateData) => {
 }
 
 // ✅ Delete a role (supports legacy numeric _id)
+
 exports.deleteRole = async (id) => {
   const parsed = parseRoleId(id)
   if (parsed.kind === 'invalid') return null
@@ -103,32 +104,69 @@ exports.deleteRole = async (id) => {
 
   if (!role) return null
 
-  const roleName = String(role?.name || '').trim()
-  const roleObjectId = parsed.kind === 'objectid' ? toObjectId(parsed.value) : null
-  const roleIdFilterValue =
-    parsed.kind === 'objectid' && roleObjectId ? roleObjectId : parsed.value
+  const roleName = role?.name?.trim()
 
-  const assignedCount = await User.collection.countDocuments({
-    $or: [{ roleId: roleIdFilterValue }, ...(roleName ? [{ role: roleName }] : [])],
-  })
+  const roleObjectId =
+    parsed.kind === 'objectid' ? toObjectId(parsed.value) : null
 
-  if (assignedCount > 0) {
-    const err = new Error(
-      `Vous ne pouvez pas supprimer ce rôle car ${assignedCount} utilisateur(s) sont assignés à ce rôle.`
-    )
+  const roleIdFilter =
+    parsed.kind === 'objectid' && roleObjectId
+      ? roleObjectId
+      : parsed.value
+
+  // 🔥 GET USERS
+  const users = await User.find(
+    {
+      $or: [
+        { roleId: roleIdFilter },
+        ...(roleName ? [{ role: roleName }] : []),
+      ],
+    },
+    { _id: 1, name: 1, email: 1 }
+  )
+
+  // 🔥 IF USERS EXIST → BLOCK DELETE
+  if (users.length > 0) {
+    const err = new Error('ROLE_IN_USE')
     err.statusCode = 409
     err.code = 'ROLE_IN_USE'
+    err.usersCount = users.length
+    err.users = users
     throw err
   }
 
-  await RoleAction.collection.deleteMany({ roleId: roleIdFilterValue })
+  await RoleAction.deleteMany({ roleId: roleIdFilter })
 
   if (parsed.kind === 'objectid') {
     await Role.findByIdAndDelete(parsed.value)
-    return role
+  } else {
+    await Role.collection.deleteOne({ _id: parsed.value })
   }
 
-  await Role.collection.deleteOne({ _id: parsed.value })
-  return role
+  return true
+}
+// ✅ Reassign users then delete role
+exports.reassignUsersAndDeleteRole = async ({ oldRoleId, newRoleId }) => {
+  const oldRole = await Role.findById(oldRoleId)
+  const newRole = await Role.findById(newRoleId)
+
+  if (!oldRole || !newRole) {
+    throw new Error('ROLE_NOT_FOUND')
+  }
+
+  await User.updateMany(
+    { roleId: oldRole._id },
+    {
+      $set: {
+        roleId: newRole._id,
+        role: newRole.name,
+      },
+    }
+  )
+
+  await RoleAction.deleteMany({ roleId: oldRole._id })
+  await Role.findByIdAndDelete(oldRole._id)
+
+  return true
 }
 

@@ -6,7 +6,7 @@ const MESSAGES = require('../constants/messages.js');
 // ✅ Create a new user
 // Route: POST /api/users
 // Access: Private (admin only or similar logic)
-exports.createUser = async (req, res) => {
+/*exports.createUser = async (req, res) => {
   try {
     const { name, email, password, role, description } = req.body;
     const picture = req.file ? `/api/uploads/users/${req.file.filename}` : null;
@@ -27,6 +27,67 @@ exports.createUser = async (req, res) => {
       return res.status(400).json({ message: err.message });
     }
     res.status(500).json({ message: MESSAGES.ERROR.SERVER });
+  }
+};*/
+
+exports.createUser = async (req, res) => {
+  try {
+    const { name, email, password, role, description } = req.body;
+
+    const picture = req.file
+      ? `/api/uploads/users/${req.file.filename}`
+      : null;
+
+    const userData = {
+      name,
+      email,
+      password,
+      role,
+      description,
+      picture
+    };
+
+    const newUser = await userService.createUser(userData);
+
+    const userObj =
+      typeof newUser?.toObject === 'function'
+        ? newUser.toObject()
+        : newUser;
+
+    if (userObj && userObj.password) {
+      delete userObj.password;
+    }
+
+    res.status(201).json({
+      message: MESSAGES.USER.CREATED,
+      user: userObj
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    if (err.message === MESSAGES.ERROR.EMAIL_EXISTS) {
+      return res.status(400).json({
+        message: err.message
+      });
+    }
+
+    // ADD THIS
+    if (err.message === MESSAGES.ERROR.NAME_EXISTS) {
+      return res.status(400).json({
+        message: err.message
+      });
+    }
+
+    if (err.message === MESSAGES.ROLE.NOT_FOUND) {
+      return res.status(400).json({
+        message: err.message
+      });
+    }
+
+    res.status(500).json({
+      message: MESSAGES.ERROR.SERVER
+    });
   }
 };
 
@@ -150,6 +211,14 @@ exports.deleteUser = async (req, res) => {
     });
 
   } catch (error) {
+    if (error.code === 'USER_IN_ACTIVE_PROJECT') {
+      return res.status(error.statusCode || 409).json({
+        code: error.code,
+        message: error.message,
+        projects: error.projects || [],
+      });
+    }
+
     console.error(MESSAGES.USER.ERROR, error);
 
     // 400 : ID invalide

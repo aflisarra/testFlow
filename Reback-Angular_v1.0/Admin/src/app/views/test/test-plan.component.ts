@@ -5,7 +5,9 @@ import {
   TestLabService,
   type TestCaseDto,
   type TestPlanDto,
+  type TestSuiteDto,
 } from '@/app/core/services/testlab.service'
+import { ConfirmModalComponent } from '@/app/views/admin/shared/confirm-modal.component'
 import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
 import { ProjectsStateService } from '@/app/core/services/projects-state.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
@@ -18,6 +20,7 @@ import { Component, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, ElementRef, HostListener
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms'
 import { ActivatedRoute, Router } from '@angular/router'
+import { NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap'
 import { Store } from '@ngrx/store'
 import { ToastrService } from 'ngx-toastr'
 import { firstValueFrom } from 'rxjs'
@@ -27,7 +30,7 @@ import { take } from 'rxjs/operators'
 @Component({
   selector: 'app-test-suite-configuration',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, NgbModalModule],
   templateUrl: './test-plan.component.html',
   styleUrl: './test-plan.component.css',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
@@ -41,6 +44,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   private projectsState = inject(ProjectsStateService)
   private router = inject(Router)
   private activatedRoute = inject(ActivatedRoute)
+  private modalService = inject(NgbModal)
   private toastr = inject(ToastrService)
   private zone = inject(NgZone)
   private fb = inject(FormBuilder)
@@ -62,6 +66,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   // Banner for existing test plan
   showExistingBanner = false
   existingTestPlan: { suiteId: string; name: string; specFileName: string } | null = null
+  private suppressExistingProjectModal = false
 
   styleConfig = ''
   uploadedFileName = ''
@@ -74,6 +79,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   currentTestSuiteId = ''
   testPlans: TestPlanDto[] = []
   testCasesByPlan: Record<string, TestCaseDto[]> = {}
+  editingPlanIds: Record<string, boolean> = {}
 
   // â”€â”€â”€ Flux sÃ©quentiel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   /** Index du plan actuellement affichÃ©/traitÃ© (0-based). -1 = pas encore dÃ©marrÃ© */
@@ -184,7 +190,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       }
       this.lastProjectId = normalizedProjectId
 
-      await this.loadExistingTestPlanBanner(normalizedProjectId)
+      await this.loadExistingTestPlanBanner(normalizedProjectId, true)
     } catch (error) {
       console.error('Error checking for existing test plan:', error)
       this.showExistingBanner = false
@@ -202,7 +208,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
     this.testPlanForm.patchValue({ specDocument: '', name: '' })
   }
 
-  private async loadExistingTestPlanBanner(projectId: string): Promise<void> {
+  private async loadExistingTestPlanBanner(projectId: string, promptToEdit = false): Promise<void> {
     if (!projectId) {
       this.showExistingBanner = false
       this.existingTestPlan = null
@@ -210,7 +216,8 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
     }
 
     try {
-      const suite = await firstValueFrom(this.testLabService.getTestPlanByProject(projectId))
+      const suites = await firstValueFrom(this.testLabService.getTestSuitesByProject(projectId))
+      const suite = suites[0] || null
       if (!suite) {
         this.showExistingBanner = false
         this.existingTestPlan = null
@@ -224,12 +231,104 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
         specFileName: suite.specFileName || 'No spec document',
       }
       this.showExistingBanner = true
+
+      if (promptToEdit && !this.suppressExistingProjectModal) {
+        await this.handleExistingProjectTests(projectId, suites)
+      }
     } catch (error) {
       console.error('Error checking for existing test plan:', error)
       this.showExistingBanner = false
       this.existingTestPlan = null
       this.currentTestSuiteId = ''
     }
+  }
+
+  private async handleExistingProjectTests(projectId: string, suites: TestSuiteDto[]): Promise<void> {
+    if (!suites.length) return
+    if (suites.length === 1) {
+      await this.loadExistingSuiteForEditing(suites[0])
+      return
+    }
+
+    const projectTitle = this.selectedProjectTitle || 'this project'
+    const ref = this.modalService.open(ConfirmModalComponent, {
+      centered: true,
+      windowClass: 'confirm-modal-window',
+      backdropClass: 'confirm-modal-backdrop',
+    })
+
+    ref.componentInstance.title = 'Choose test to edit'
+    ref.componentInstance.message = `This project already has ${suites.length} tests.`
+    ref.componentInstance.details = 'Select the test you want to edit manually.'
+    ref.componentInstance.confirmText = 'Open'
+    ref.componentInstance.cancelText = 'Cancel'
+    ref.componentInstance.confirmButtonClass = 'btn-brand'
+    ref.componentInstance.icon = 'iconamoon:document-check-duotone'
+
+    ref.componentInstance.selectLabel = `Test for ${projectTitle}`
+    ref.componentInstance.selectPlaceholder = '-- Select test --'
+    ref.componentInstance.selectOptions = suites.map((suite) => ({
+      value: String(suite._id || '').trim(),
+      label: this.getSuiteDisplayName(suite),
+    }))
+    ref.componentInstance.selectedValue = String(suites[0]?._id || '').trim()
+    ref.componentInstance.requireSelection = true
+
+    ref.closed.subscribe((result) => {
+      const selectedSuiteId = String(result || '').trim()
+      if (!selectedSuiteId) return
+
+      const suite = suites.find((item) => String(item?._id || '').trim() === selectedSuiteId)
+      if (suite) void this.loadExistingSuiteForEditing(suite)
+    })
+  }
+
+  private async loadExistingSuiteForEditing(suite: TestSuiteDto): Promise<void> {
+    const suiteId = String(suite?._id || '').trim()
+    if (!suiteId) return
+
+    this.suppressExistingProjectModal = true
+    this.currentTestSuiteId = suiteId
+    this.currentPlanIndex = -1
+    this.errorMessage = ''
+    this.generatingPlans = false
+    this.regeneratingPlanId = null
+    this.editingPlanIds = {}
+    this.testPlanForm.patchValue({
+      name: this.getSuiteDisplayName(suite),
+      specDocument: suite.specFileName || 'Existing specification',
+    })
+    this.uploadedFileName = suite.specFileName || ''
+    this.selectedFile = null
+
+    try {
+      const resp = await firstValueFrom(this.testLabService.getTestPlans(suiteId))
+      this.testPlans = Array.isArray(resp?.testPlans) ? resp.testPlans : []
+      this.testCasesByPlan = {}
+      this.planStatuses = {}
+      for (const plan of this.testPlans) {
+        this.planStatuses[plan.id] = 'reviewing'
+      }
+      for (const row of resp?.validationPlanStatuses || resp?.planStatuses || []) {
+        const planId = String(row?.planId || '').trim()
+        const status = String(row?.status || '').trim().toLowerCase()
+        if (planId) this.planStatuses[planId] = status === 'completed' || status === 'confirmed' ? 'confirmed' : 'pending'
+      }
+      this.plansValidated = this.allPlansConfirmed
+      this.sessionSaved = true
+      this.showExistingBanner = false
+      this.scrollToPlansResult()
+    } catch (err: unknown) {
+      this.errorMessage = getErrorMessage(err, 'Unable to load existing test plans')
+      this.toastr.error(this.errorMessage, 'Test Plan')
+    }
+  }
+
+  private getSuiteDisplayName(suite: TestSuiteDto): string {
+    const userFacing = String(suite?.nametest || '').trim()
+    if (userFacing) return userFacing
+    const name = String(suite?.nom || '').trim()
+    return name || String(suite?._id || 'Unnamed test')
   }
 
   useExistingData(): void {
@@ -401,6 +500,26 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
     this.sessionSaved = false
   }
 
+  onToggleManualPlanEdit(planId: string): void {
+    const id = String(planId || '').trim()
+    if (!id) return
+    this.editingPlanIds[id] = !this.editingPlanIds[id]
+  }
+
+  isPlanEditing(planId: string): boolean {
+    return Boolean(this.editingPlanIds[String(planId || '').trim()])
+  }
+
+  onPlanTitleInput(plan: TestPlanDto, event: Event): void {
+    plan.title = (event.target as HTMLInputElement | null)?.value ?? ''
+    this.sessionSaved = false
+  }
+
+  onPlanDescriptionInput(plan: TestPlanDto, event: Event): void {
+    plan.description = (event.target as HTMLTextAreaElement | null)?.value ?? ''
+    this.sessionSaved = false
+  }
+
   getValidateButtonClass(planId: string): string {
     const current = this.planStatuses[planId]
     if (current === 'confirmed') return 'testlab-validate-btn--green'
@@ -424,6 +543,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
         this.testLabService.saveSuiteSession(this.currentTestSuiteId, {
           sessionKind: 'validation',
           suiteStatus,
+          testPlans: this.testPlans,
           planStatuses: this.planStatuses,
         })
       )

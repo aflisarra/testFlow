@@ -23,6 +23,12 @@ router.get('/:id', requireAction(8), roleController.getRole);
 // PUT /api/roles/:id
 router.put('/:id', requireAction(7), roleController.updateRole);
 
+
+router.post(
+  '/reassign-delete',
+  roleController.reassignAndDelete
+)
+
 // ✅ Delete a role
 // DELETE /api/roles/:id
 router.delete('/:id', requireAction(9), roleController.deleteRole);

@@ -820,6 +820,16 @@ async function saveSuiteSession(testSuiteId, payload = {}) {
     const existingCases = Array.isArray(currentSuite?.testCasesByPlan) ? currentSuite.testCasesByPlan : []
     const existingPlans = Array.isArray(currentSuite?.testPlans) ? currentSuite.testPlans : []
 
+    if (payload?.testPlans && Array.isArray(payload.testPlans)) {
+        update.testPlans = payload.testPlans
+            .map((plan, index) => ({
+                id: String(plan?.id || `TP-${index + 1}`).trim(),
+                title: String(plan?.title || '').trim(),
+                description: String(plan?.description || '').trim(),
+            }))
+            .filter((plan) => plan.id && plan.title)
+    }
+
     // Merge test cases instead of replacing (fix for losing test cases)
     if (payload?.testCasesByPlan && Array.isArray(payload.testCasesByPlan)) {
         const incomingCases = payload.testCasesByPlan

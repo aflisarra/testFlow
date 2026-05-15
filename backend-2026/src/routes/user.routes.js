@@ -24,6 +24,7 @@ router.get('/:id', requireAction(4), userController.getUser);
 // Update user
 router.put('/:id', requireAction(3), upload.single('picture'), userController.updateUser);
 
+
 // Delete user
 router.delete('/:id', requireAction(5), userController.deleteUser);
 

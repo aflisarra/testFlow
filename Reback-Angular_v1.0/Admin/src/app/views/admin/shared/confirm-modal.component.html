@@ -21,14 +21,40 @@
       }
     </p>
 
+    @if (hasSelect) {
+      <div class="confirm-field">
+        @if (selectLabel) {
+          <label class="confirm-label" for="confirm-modal-select">{{ selectLabel }}</label>
+        }
+        <select
+          id="confirm-modal-select"
+          class="form-select confirm-select"
+          [(ngModel)]="selectedValue"
+        >
+          <option value="">{{ selectPlaceholder }}</option>
+          @for (option of selectOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+      </div>
+    }
+
     <div class="confirm-actions d-flex justify-content-center gap-2">
-      <button type="button" class="btn btn-lg" [ngClass]="confirmButtonClass" (click)="activeModal.close(true)">
+      <button
+        type="button"
+        class="btn btn-lg"
+        [ngClass]="confirmButtonClass"
+        [disabled]="confirmDisabled"
+        (click)="confirm()"
+      >
         {{ confirmText }}
       </button>
 
-      <button type="button" class="btn btn-lg btn-confirm-cancel" (click)="activeModal.dismiss(false)">
-        {{ cancelText }}
-      </button>
+      @if (showCancel) {
+        <button type="button" class="btn btn-lg btn-confirm-cancel" (click)="activeModal.dismiss(false)">
+          {{ cancelText }}
+        </button>
+      }
     </div>
   </div>
 

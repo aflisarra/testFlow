@@ -53,6 +53,7 @@ private cdr = inject(ChangeDetectorRef)
   searchQuery = ''
   statusFilter: TestSuiteStatusKey = 'all'
   filterOpen = false
+  projectFilterId = ''
 
   onSearchQueryInput(event: Event): void {
     const target = event.target as HTMLInputElement | null
@@ -104,10 +105,12 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
       const name = this.getSuiteDisplayName(suite).toLowerCase()
       const description = String(suite.description || '').toLowerCase()
       const creator = String(suite.creatorName || '').toLowerCase()
+      const suiteProjectId = this.getSuiteProjectId(suite)
       const matchesSearch =
         !q || name.includes(q) || description.includes(q) || creator.includes(q)
       const matchesStatus = wantedStatus === 'all' || this.getSuiteStatusKey(suite) === wantedStatus
-      return matchesSearch && matchesStatus
+      const matchesProject = !this.projectFilterId || suiteProjectId === this.projectFilterId
+      return matchesSearch && matchesStatus && matchesProject
     })
   }
 
@@ -157,6 +160,7 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
 
   async ngOnInit() {
     await this.loadSuites()
+    await this.applyRouteSelection()
   }
 
   async loadSuites() {
@@ -279,6 +283,34 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
       return
     }
     void this.onOpenSuite(suite)
+  }
+
+  private async applyRouteSelection(): Promise<void> {
+    const query = this.route.snapshot.queryParamMap
+    this.projectFilterId = String(query.get('projectId') || '').trim()
+    const suiteId = String(query.get('suiteId') || '').trim()
+
+    if (suiteId) {
+      const target = this.suites.find((suite) => String(suite?._id || '').trim() === suiteId)
+      if (target) {
+        await this.onOpenSuite(target)
+        return
+      }
+    }
+
+    if (this.projectFilterId) {
+      const projectSuites = this.suites.filter((suite) => this.getSuiteProjectId(suite) === this.projectFilterId)
+      if (projectSuites.length === 1) {
+        await this.onOpenSuite(projectSuites[0])
+      }
+    }
+  }
+
+  private getSuiteProjectId(suite: TestSuiteDto): string {
+    const raw = suite?.projectId
+    if (!raw) return ''
+    if (typeof raw === 'string') return raw.trim()
+    return String((raw as TestLabProjectDto)?._id || '').trim()
   }
 
   async onRunSuiteFromList(suite: TestSuiteDto): Promise<void> {

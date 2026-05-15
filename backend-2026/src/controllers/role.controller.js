@@ -80,16 +80,47 @@ exports.updateRole = async (req, res) => {
 //         500 -> { message: "Server error" }
 exports.deleteRole = async (req, res) => {
   try {
-    const deleted = await roleService.deleteRole(req.params.id);
-    if (!deleted) return res.status(404).json({ message: MESSAGES.ROLE.NOT_FOUND });
-    res.json({ message: MESSAGES.ROLE.DELETED });
-  } catch (err) {
-    console.error(MESSAGES.ROLE.ERROR, err);
-    const status = err?.statusCode || 500
-    res.status(status).json({ message: err?.message || MESSAGES.ERROR.SERVER });
-  }
-};
+    const deleted = await roleService.deleteRole(req.params.id)
 
+    if (!deleted) {
+      return res.status(404).json({
+        message: 'Role not found',
+        code: 'ROLE_NOT_FOUND',
+      })
+    }
+
+    return res.json({
+      message: 'Role deleted',
+      code: 'ROLE_DELETED',
+    })
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({
+      message: err.message,
+      code: err.code,
+      usersCount: err.usersCount || 0,
+      users: err.users || [],
+    })
+  }
+}
+
+// REASSIGN
+exports.reassignAndDelete = async (req, res) => {
+  try {
+    const { oldRoleId, newRoleId } = req.body
+
+    await roleService.reassignUsersAndDeleteRole({
+      oldRoleId,
+      newRoleId,
+    })
+
+    res.json({
+      code: 'ROLE_REASSIGNED_AND_DELETED',
+      message: 'Success',
+    })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
 
 //const Role = require('../models/role.model');
 
@@ -109,5 +140,7 @@ exports.deleteRole = async (req, res) => {
 
   return savedRole;
 };*/
+
+
 
 

@@ -31,6 +31,8 @@ export class AllUsersComponent implements OnInit {
   private router = inject(Router)
   private api = inject(ApiService)
   private uiNotify = inject(UINotificationService)
+   private uiNotification = inject(UINotificationService)
+  
 
   users: AppUser[] = []
   readonly defaultAvatar = 'assets/images/users/default-user.svg'
@@ -61,7 +63,7 @@ export class AllUsersComponent implements OnInit {
   canEditUser = false
   canDeleteUser = false
   canViewUsers = false
-  readonly usersPerPage = 7
+  readonly usersPerPage = 6
   currentUserPage = 1
 
 async ngOnInit(): Promise<void> {
@@ -220,11 +222,32 @@ loadRoles(): void {
         this.loadUsers()
       },
       error: (err) => {
-        this.submitting = false
-        this.error = err?.error?.message || 'Unable to create user'
-      },
+  this.submitting = false
+  this.handleCreateUserError(err)
+},
     })
   }
+
+private handleCreateUserError(err: any): void {
+  const message = (err?.error?.message || '').toLowerCase()
+
+  if (message.includes('email')) {
+    this.uiNotification.accessDenied('Email already exists.')
+    return
+  }
+
+  if (message.includes('name')) {
+    this.uiNotification.accessDenied('Name already exists.')
+    return
+  }
+
+  if (message.includes('role')) {
+    this.uiNotification.accessDenied('Selected role not found.')
+    return
+  }
+
+  this.uiNotification.accessDenied('Unable to create user.')
+}
 
   onEditUser(user: AppUser) {
     if (!this.canEditUser) {
@@ -274,10 +297,64 @@ loadRoles(): void {
           this.loadUsers()
         },
         error: (err) => {
-          this.error = err?.error?.message || 'Unable to delete user'
+          this.handleDeleteUserError(user, err)
         },
       })
     })
+  }
+
+  private handleDeleteUserError(user: AppUser, err: any): void {
+    const body = this.getErrorBody(err)
+    const code = body?.code || err?.code
+    const message = String(body?.message || err?.message || '').toLowerCase()
+
+    if (
+      code === 'USER_IN_ACTIVE_PROJECT' ||
+      err?.status === 409 ||
+      message.includes('unfinished project')
+    ) {
+      this.openUserInActiveProjectModal(user, Array.isArray(body?.projects) ? body.projects : [])
+      return
+    }
+
+    this.error = body?.message || err?.error?.message || 'Unable to delete user'
+  }
+
+  private getErrorBody(err: any): any {
+    const raw = err?.error ?? err
+    if (typeof raw === 'string') {
+      try {
+        return JSON.parse(raw)
+      } catch {
+        return { message: raw }
+      }
+    }
+    return raw && typeof raw === 'object' ? raw : {}
+  }
+
+  private openUserInActiveProjectModal(user: AppUser, projects: { title?: string }[]): void {
+    const projectNames = projects
+      .map((project) => String(project?.title || '').trim())
+      .filter(Boolean)
+      .slice(0, 3)
+      .join(', ')
+    const extraCount = Math.max(0, projects.length - 3)
+    const projectDetails = projectNames
+      ? `Projects: ${projectNames}${extraCount ? ` and ${extraCount} more` : ''}.`
+      : 'Complete the project and set an end date before deleting this user.'
+
+    const ref = this.modalService.open(ConfirmModalComponent, {
+      centered: true,
+      windowClass: 'confirm-modal-window',
+      backdropClass: 'confirm-modal-backdrop',
+    })
+
+    ref.componentInstance.title = 'Cannot delete user'
+    ref.componentInstance.message = `${user.name} cannot be deleted while assigned to an unfinished project.`
+    ref.componentInstance.details = projectDetails
+    ref.componentInstance.confirmText = 'OK'
+    ref.componentInstance.showCancel = false
+    ref.componentInstance.icon = 'iconamoon:attention-circle-duotone'
   }
 
   private showActionSuccess(action: 'created' | 'edited' | 'deleted') {
