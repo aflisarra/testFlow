@@ -79,7 +79,7 @@
   padding: 0.45rem 0.8rem;
   line-height: 1.2;
   font-size: 0.85rem;
-  margin-top: 0.6rem;
+  /*margin-top: 0.6rem;*/
   
   
 }
@@ -114,11 +114,11 @@
   color: #ef4444;
   font-weight: 500;
   font-size: 0.72rem;
-  margin-top: 2px;
+  /*margin-top: 2px;*/
 }
 
 .table-pagination {
-  margin-top: 0.75rem;
+  /*margin-top: 0.75rem;*/
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -184,13 +184,95 @@
   background: #fef5f5;
 }
 
-/* Button spacing */
-.btn-brand {
-  margin-top: 1rem;
+.exec-role-dropdown {
+   position: relative;
 }
 
+.exec-role-trigger {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #cfe0f1;
+  border-radius: 10px;
+  background: #f5f7fa;
+  color: #1f3349;
+  padding: 0.58rem 0.72rem;
+  cursor: pointer;
+  font-size: 0.92rem;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.exec-role-trigger:hover,
+.exec-role-trigger:focus {
+  border-color: #7aa9d9;
+  box-shadow: 0 0 0 3px rgb(122 169 217 / 18%);
+  outline: none;
+}
+
+.exec-role-trigger.is-invalid {
+  border-color: #dc3545;
+  background: #fef5f5;
+}
+
+.exec-trigger-placeholder {
+  color: #9ab0c8;
+}
+
+.exec-trigger-arrow {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  color: #60758f;
+  margin-left: 0.5rem;
+}
+
+.exec-role-menu {
+  position: absolute;
+  bottom: calc(100% + 8px); /* affiche en haut */
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+
+  background: #fff;
+  border: 1px solid #dbe3ef;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.exec-role-option {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #1f3349;
+  padding: 0.45rem 0.5rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.exec-role-option:hover,
+.exec-role-option.active {
+  background: #eef5fd;
+}
+
+.exec-role-empty {
+  padding: 0.45rem 0.5rem;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+/* Button spacing 
+.btn-brand {
+  margin-top: 1rem;
+}*/
+
 .exec-button-container {
-  margin-top: 0.6rem;
+  /*margin-top: 0.6rem;*/
   display: flex;
   justify-content: flex-end;
   gap: 0.55rem;

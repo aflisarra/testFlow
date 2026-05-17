@@ -16,7 +16,7 @@ import type { CanDeactivateComponent } from '@/app/interfaces/route-guards.inter
 import type { PlanStatus } from '@/app/views/test/models/status.types'
 import { getErrorMessage, getErrorStatus } from '@/app/views/test/utils/error.utils'
 import { CommonModule } from '@angular/common'
-import { Component, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, ElementRef, HostListener, inject, NgZone, ViewChild } from '@angular/core'
+import { Component, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, ElementRef, inject, NgZone, ViewChild } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms'
 import { ActivatedRoute, Router } from '@angular/router'
@@ -169,6 +169,12 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
     return String(match?.title || '').trim()
   }
 
+  get isSelectedProjectAccepted(): boolean {
+    const selectedId = String(this.testPlanForm.getRawValue().projectId || '').trim()
+    if (!selectedId) return false
+    return this.projects.some((p) => String(p?._id || '').trim() === selectedId)
+  }
+
   // â”€â”€â”€ Project Change Handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async onProjectChange(): Promise<void> {
@@ -245,12 +251,20 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
 
   private async handleExistingProjectTests(projectId: string, suites: TestSuiteDto[]): Promise<void> {
     if (!suites.length) return
+    const projectTitle = this.selectedProjectTitle || 'this project'
+    const action = await this.openProjectTestModeModal(projectTitle, suites.length)
+    if (!action) return
+
+    if (action === 'new') {
+      this.prepareFreshTestForSelectedProject()
+      return
+    }
+
     if (suites.length === 1) {
       await this.loadExistingSuiteForEditing(suites[0])
       return
     }
 
-    const projectTitle = this.selectedProjectTitle || 'this project'
     const ref = this.modalService.open(ConfirmModalComponent, {
       centered: true,
       windowClass: 'confirm-modal-window',
@@ -280,6 +294,71 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
 
       const suite = suites.find((item) => String(item?._id || '').trim() === selectedSuiteId)
       if (suite) void this.loadExistingSuiteForEditing(suite)
+    })
+  }
+
+  private openProjectTestModeModal(
+    projectTitle: string,
+    existingCount: number
+  ): Promise<'new' | 'existing' | null> {
+    const ref = this.modalService.open(ConfirmModalComponent, {
+      centered: true,
+      windowClass: 'confirm-modal-window',
+      backdropClass: 'confirm-modal-backdrop',
+    })
+
+    ref.componentInstance.title = 'Existing tests detected'
+    ref.componentInstance.message = `This project already has ${existingCount} test(s).`
+    ref.componentInstance.details =
+      `Choose what you want to do for ${projectTitle}.`
+    ref.componentInstance.confirmText = 'Continue'
+    ref.componentInstance.cancelText = 'Cancel'
+    ref.componentInstance.confirmButtonClass = 'btn-brand'
+    ref.componentInstance.icon = 'iconamoon:document-check-duotone'
+
+    ref.componentInstance.selectLabel = 'Action'
+    ref.componentInstance.selectPlaceholder = '-- Choose an action --'
+    ref.componentInstance.selectOptions = [
+      { value: 'new', label: 'Create a new test' },
+      { value: 'existing', label: 'Choose an existing test to edit' },
+    ]
+    ref.componentInstance.selectedValue = 'new'
+    ref.componentInstance.requireSelection = true
+
+    return new Promise<'new' | 'existing' | null>((resolve) => {
+      ref.closed.subscribe((result) => {
+        const value = String(result || '').trim()
+        if (value === 'new' || value === 'existing') {
+          resolve(value)
+          return
+        }
+        resolve(null)
+      })
+      ref.dismissed.subscribe(() => resolve(null))
+    })
+  }
+
+  private prepareFreshTestForSelectedProject(): void {
+    const projectId = String(this.testPlanForm.value.projectId || '').trim()
+    this.currentTestSuiteId = ''
+    this.errorMessage = ''
+    this.generatingPlans = false
+    this.regeneratingPlanId = null
+    this.generatingCases = false
+    this.finishing = false
+    this.testPlans = []
+    this.testCasesByPlan = {}
+    this.currentPlanIndex = -1
+    this.planStatuses = {}
+    this.plansValidated = false
+    this.sessionSaved = false
+    this.editingPlanIds = {}
+    this.selectedFile = null
+    this.uploadedFileName = ''
+    this.testPlanForm.patchValue({
+      name: '',
+      specDocument: '',
+      projectId,
     })
   }
 
@@ -317,6 +396,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       this.plansValidated = this.allPlansConfirmed
       this.sessionSaved = true
       this.showExistingBanner = false
+      await this.loadExistingSpecDocumentIfAvailable(suite)
       this.scrollToPlansResult()
     } catch (err: unknown) {
       this.errorMessage = getErrorMessage(err, 'Unable to load existing test plans')
@@ -413,6 +493,10 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
 
   // ðŸ”¹ Bouton "Generate Plan"
   onGeneratePlan() {
+    if (!this.isSelectedProjectAccepted) {
+      this.toastr.warning('You must accept this project before generating test plans.', 'Project Access')
+      return
+    }
     this.testPlanForm.markAllAsTouched()
     if (this.testPlanForm.invalid) {
       this.toastr.warning('Please fill all required fields.', 'Validation')
@@ -424,26 +508,12 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
     if (hasProject && hasFile) this.scrollToPlansResult()
   }
 
-  @HostListener('window:beforeunload', ['$event'])
-  onBeforeUnload(event: BeforeUnloadEvent): void {
-    if (!this.isGenerationInProgress()) return
-    event.preventDefault()
-    event.returnValue = 'Generation in progress.'
-  }
-
-  @HostListener('window:keydown', ['$event'])
-  onWindowKeydown(event: KeyboardEvent): void {
-    if (!this.isGenerationInProgress()) return
-    const key = String(event.key || '').toLowerCase()
-    const wantsReload =
-      key === 'f5' || ((event.ctrlKey || event.metaKey) && key === 'r')
-    if (!wantsReload) return
-
-    event.preventDefault()
-    if (this.generationGuardModalOpen) return
-    this.pendingBrowserReload = true
+  onRequestStopGeneration(): void {
+    if (!this.isGenerationInProgress() || this.generationGuardModalOpen) return
+    this.pendingBrowserReload = false
     void this.openGenerationGuardModal()
   }
+
 
   canDeactivate(): boolean | Promise<boolean> {
     if (this.allowGenerationNavigation) {
@@ -537,7 +607,10 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   // Remplacer onSaveSession() â€” retourne false si erreur et affiche toastr
   async onSaveSession(): Promise<boolean> {
     if (!this.testPlans.length || !this.currentTestSuiteId) return false
-    const suiteStatus = this.allPlansConfirmed ? 'completed' : 'incomplete'
+    const hasCasesForAllPlans = this.testPlans.every(
+      (p) => (this.testCasesByPlan[p.id] || []).length > 0
+    )
+    const suiteStatus = this.allPlansConfirmed && hasCasesForAllPlans ? 'completed' : 'incomplete'
     try {
       await firstValueFrom(
         this.testLabService.saveSuiteSession(this.currentTestSuiteId, {
@@ -652,6 +725,10 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   // ðŸ”¹ RÃ©gÃ©nÃ©rer tous les plans depuis le dÃ©but
   // Remplacer onRegeneratePlans()
   onRegeneratePlans() {
+    if (!this.isSelectedProjectAccepted) {
+      this.toastr.warning('You must accept this project before regenerating test plans.', 'Project Access')
+      return
+    }
     // RÃ©gÃ©nÃ¨re sans sauvegarder l'Ã©tat actuel
     this.sessionSaved = false
     this.plansValidated = false
@@ -660,6 +737,10 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
 
   async onRegeneratePlan(plan: TestPlanDto, index: number) {
     if (!plan?.id || !this.currentTestSuiteId) return
+    if (!this.isSelectedProjectAccepted) {
+      this.toastr.warning('You must accept this project before editing/regenerating test plans.', 'Project Access')
+      return
+    }
     this.errorMessage = ''
     this.regeneratingPlanId = plan.id
 
@@ -674,6 +755,8 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       }
 
       const formData = new FormData()
+      const requestId = this.newGenerationRequestId('plans')
+      this.activePlanGenerationRequestId = requestId
       if (this.selectedFile) formData.append('file', this.selectedFile)
       formData.append('styleConfig', this.styleConfig.trim())
       formData.append('description', this.styleConfig.trim())
@@ -686,6 +769,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       if (this.nameTest.trim()) formData.append('nametest', this.nameTest.trim())
       formData.append('planId', plan.id)
       formData.append('regenerate', 'true')
+      formData.append('generationRequestId', requestId)
 
       const result = await firstValueFrom(this.testLabService.generatePlanFromDocx(formData))
       const nextPlans = Array.isArray(result?.testPlans) ? result.testPlans : []
@@ -716,6 +800,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       }
     } finally {
       this.regeneratingPlanId = null
+      this.activePlanGenerationRequestId = ''
     }
   }
 
@@ -990,7 +1075,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   }
 
   private isGenerationInProgress(): boolean {
-    return this.generatingPlans || this.generatingCases
+    return this.generatingPlans || this.generatingCases || !!this.regeneratingPlanId
   }
 
   private openGenerationGuardModal(): Promise<boolean> {
@@ -1010,12 +1095,16 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
     const wasGeneratingPlans = this.generatingPlans
     const wasGeneratingCases = this.generatingCases
     const activePlanId = this.currentPlan?.id || ''
+    const planRequestId = this.activePlanGenerationRequestId || undefined
+    const caseRequestId = this.activeCaseGenerationRequestId || undefined
 
     // Invalidate running async requests on UI side.
     this.plansGenerationToken++
     this.casesGenerationToken++
     this.generatingPlans = false
     this.generatingCases = false
+    this.activePlanGenerationRequestId = ''
+    this.activeCaseGenerationRequestId = ''
     if (activePlanId && this.planStatuses[activePlanId] === 'generating') {
       this.planStatuses[activePlanId] = 'pending'
     }
@@ -1033,8 +1122,8 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
               ? 'plans'
               : 'cases',
           requestId: wasGeneratingPlans
-            ? this.activePlanGenerationRequestId || undefined
-            : this.activeCaseGenerationRequestId || undefined,
+            ? planRequestId
+            : caseRequestId,
         })
       )
       this.toastr.info('Generation stopped.', 'Generation')
@@ -1046,6 +1135,27 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   private newGenerationRequestId(scope: 'plans' | 'cases'): string {
     const rand = Math.random().toString(36).slice(2, 10)
     return `${scope}-${Date.now()}-${rand}`
+  }
+
+  private async loadExistingSpecDocumentIfAvailable(suite: TestSuiteDto): Promise<void> {
+    const suiteId = String(suite?._id || '').trim()
+    if (!suiteId) return
+
+    try {
+      const blob = await firstValueFrom(this.testLabService.getSpecDocument(suiteId))
+      const fileName = String(suite?.specFileName || 'existing-spec.docx').trim() || 'existing-spec.docx'
+      const mime = blob.type || 'application/octet-stream'
+      this.selectedFile = new File([blob], fileName, { type: mime })
+      this.uploadedFileName = fileName
+      this.testPlanForm.patchValue({ specDocument: fileName })
+    } catch {
+      // Keep existing behavior when backend has only metadata but no physical file.
+      this.selectedFile = null
+      this.uploadedFileName = String(suite?.specFileName || '').trim()
+      if (this.uploadedFileName) {
+        this.testPlanForm.patchValue({ specDocument: this.uploadedFileName })
+      }
+    }
   }
 
   private syncProjectIdControlDisabled(): void {

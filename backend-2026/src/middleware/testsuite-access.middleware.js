@@ -1,5 +1,6 @@
 const TestSuite = require('../models/testsuite')
 const Project = require('../models/project.model')
+const ProjectInvitation = require('../models/projectInvitation.model')
 const mongoose = require('mongoose')
 
 /**
@@ -51,6 +52,18 @@ async function requireTestSuiteAccess(req, res, next) {
 
     if (!isOwner && !isAssigned) {
       return res.status(403).json({ message: 'Forbidden' })
+    }
+
+    if (!isOwner) {
+      const invitation = await ProjectInvitation.findOne({
+        projectId: project._id,
+        userId,
+      }).select('status').lean()
+
+      const hasAcceptedInvite = String(invitation?.status || '').trim().toLowerCase() === 'accepted'
+      if (!hasAcceptedInvite) {
+        return res.status(403).json({ message: 'Forbidden: invitation not accepted for this project' })
+      }
     }
 
     req.testSuite = suite

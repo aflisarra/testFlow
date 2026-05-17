@@ -3,7 +3,7 @@ import {
 } from '@/app/core/services/admin-management.service'
 import type { AppRole, AppUser } from '@/app/interfaces/admin-management.interface'
 import { CommonModule } from '@angular/common'
-import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, Input, OnInit } from '@angular/core'
+import { Component, CUSTOM_ELEMENTS_SCHEMA, HostListener, inject, Input, OnInit } from '@angular/core'
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms'
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap'
 
@@ -25,6 +25,7 @@ export class UserUpsertModalComponent implements OnInit {
 
   submitting = false
   error = ''
+  roleOpen = false
 
   userForm = this.fb.group({
     name: ['', [Validators.required, Validators.pattern(/\S+/)]],
@@ -42,6 +43,24 @@ export class UserUpsertModalComponent implements OnInit {
         description: this.user.description || '',
       })
     }
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement
+    if (!target.closest('.exec-role-dropdown')) {
+      this.roleOpen = false
+    }
+  }
+
+  getSelectedRoleLabel(): string {
+    return String(this.userForm.value.role || '').trim()
+  }
+
+  selectRole(roleName: string): void {
+    this.userForm.patchValue({ role: roleName })
+    this.userForm.controls.role.markAsTouched()
+    this.roleOpen = false
   }
 
   save(): void {
@@ -74,4 +93,19 @@ export class UserUpsertModalComponent implements OnInit {
       },
     })
   }
+
+  //editRoleOpen = false
+
+/*selectEditRole(roleName: string): void {
+  this.editUserForm.patchValue({
+    role: roleName
+  })
+
+  this.editUserForm.controls.role.markAsTouched()
+  this.editRoleOpen = false
+}
+
+getSelectedEditRoleLabel(): string {
+  return this.editUserForm.value.role || ''
+}*/
 }

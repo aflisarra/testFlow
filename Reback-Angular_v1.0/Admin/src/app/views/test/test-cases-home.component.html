@@ -41,8 +41,8 @@
       <button class="btn btn-sm btn-outline-secondary" (click)="onApplySelectedProject()" [disabled]="!selectedProjectId || loadingProjects || loading">
         <iconify-icon icon="mdi:check-circle-outline" class="me-1"></iconify-icon>{{ selectedProjectTitle || 'Met Selected' }}
       </button>
-      <button class="btn btn-sm btn-brand" (click)="onSaveAll()">
-        <iconify-icon icon="iconamoon:disk-duotone" class="me-1"></iconify-icon>Save All
+      <button class="btn btn-sm btn-brand" (click)="onSaveAll()" [disabled]="!canEditGenerateForSelectedProject">
+        <iconify-icon icon="iconamoon:disk-duotone" class="me-1"></iconify-icon>Save All Changes
       </button>
     </div>
     }

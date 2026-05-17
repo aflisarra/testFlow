@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common'
-import { CUSTOM_ELEMENTS_SCHEMA, Component, OnInit, inject } from '@angular/core'
+import { CUSTOM_ELEMENTS_SCHEMA, Component, HostListener, OnInit, inject } from '@angular/core'
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms'
 import { AdminManagementService } from '@/app/core/services/admin-management.service'
 import type { AppRole, AppUser } from '@/app/interfaces/admin-management.interface'
@@ -40,6 +40,7 @@ export class AllUsersComponent implements OnInit {
   loading = false
   submitting = false
   createSubmitted = false
+  createRoleOpen = false
   error = ''
   permissionAlert = ''
   private currentUserId = ''
@@ -152,6 +153,24 @@ loadRoles(): void {
         this.loading = false
       },
     })
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement
+    if (!target.closest('.exec-role-dropdown')) {
+      this.createRoleOpen = false
+    }
+  }
+
+  getSelectedCreateRoleLabel(): string {
+    return String(this.createUserForm.value.role || '').trim()
+  }
+
+  selectCreateRole(roleName: string): void {
+    this.createUserForm.patchValue({ role: roleName })
+    this.createUserForm.controls.role.markAsTouched()
+    this.createRoleOpen = false
   }
 
   onPictureSelected(event: Event) {
@@ -297,64 +316,10 @@ private handleCreateUserError(err: any): void {
           this.loadUsers()
         },
         error: (err) => {
-          this.handleDeleteUserError(user, err)
+          this.error = err?.error?.message || 'Unable to delete user'
         },
       })
     })
-  }
-
-  private handleDeleteUserError(user: AppUser, err: any): void {
-    const body = this.getErrorBody(err)
-    const code = body?.code || err?.code
-    const message = String(body?.message || err?.message || '').toLowerCase()
-
-    if (
-      code === 'USER_IN_ACTIVE_PROJECT' ||
-      err?.status === 409 ||
-      message.includes('unfinished project')
-    ) {
-      this.openUserInActiveProjectModal(user, Array.isArray(body?.projects) ? body.projects : [])
-      return
-    }
-
-    this.error = body?.message || err?.error?.message || 'Unable to delete user'
-  }
-
-  private getErrorBody(err: any): any {
-    const raw = err?.error ?? err
-    if (typeof raw === 'string') {
-      try {
-        return JSON.parse(raw)
-      } catch {
-        return { message: raw }
-      }
-    }
-    return raw && typeof raw === 'object' ? raw : {}
-  }
-
-  private openUserInActiveProjectModal(user: AppUser, projects: { title?: string }[]): void {
-    const projectNames = projects
-      .map((project) => String(project?.title || '').trim())
-      .filter(Boolean)
-      .slice(0, 3)
-      .join(', ')
-    const extraCount = Math.max(0, projects.length - 3)
-    const projectDetails = projectNames
-      ? `Projects: ${projectNames}${extraCount ? ` and ${extraCount} more` : ''}.`
-      : 'Complete the project and set an end date before deleting this user.'
-
-    const ref = this.modalService.open(ConfirmModalComponent, {
-      centered: true,
-      windowClass: 'confirm-modal-window',
-      backdropClass: 'confirm-modal-backdrop',
-    })
-
-    ref.componentInstance.title = 'Cannot delete user'
-    ref.componentInstance.message = `${user.name} cannot be deleted while assigned to an unfinished project.`
-    ref.componentInstance.details = projectDetails
-    ref.componentInstance.confirmText = 'OK'
-    ref.componentInstance.showCancel = false
-    ref.componentInstance.icon = 'iconamoon:attention-circle-duotone'
   }
 
   private showActionSuccess(action: 'created' | 'edited' | 'deleted') {

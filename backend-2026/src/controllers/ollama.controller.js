@@ -61,6 +61,17 @@ async function getTestPlans(req, res) {
   }
 }
 
+async function getSpecDocument(req, res) {
+  try {
+    const testSuiteId = String(req.params.id || '').trim()
+    const data = await ollamaService.getSpecDocument(testSuiteId)
+    return res.download(data.absolutePath, data.fileName)
+  } catch (error) {
+    const status = statusFromError(error, 500)
+    return res.status(status).json({ message: messageFromError(error, 'Get specification document failed') })
+  }
+}
+
 async function generatePlan(req, res) {
   try {
     const data = await ollamaService.generatePlan({ req, body: req.body, file: req.file })
@@ -125,6 +136,7 @@ module.exports = {
   chat,
   getPlan,
   getTestPlans,
+  getSpecDocument,
   generatePlan,
   generateTestCases,
   cancelGeneration,

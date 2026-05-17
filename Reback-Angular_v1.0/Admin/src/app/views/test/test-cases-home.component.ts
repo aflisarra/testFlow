@@ -118,6 +118,12 @@ export class TestCasesHomeComponent implements OnInit {
     return String(this.projects.find(p => p._id === id)?.title || '').trim()
   }
 
+  get canEditGenerateForSelectedProject(): boolean {
+    const projectId = String(this.selectedProjectId || '').trim()
+    if (!projectId) return false
+    return this.projects.some((p) => String(p?._id || '').trim() === projectId)
+  }
+
   get allPlans(): TestPlanDto[] {
     if (this.plans.length) return this.plans
     const all: TestPlanDto[] = []
@@ -437,7 +443,7 @@ export class TestCasesHomeComponent implements OnInit {
     this.testSuiteId = nextSuiteId
 
     // Always refresh the header/breadcrumb suite name on selection
-    const suiteName = String((suite as any)?.nametest ?? (suite as any)?.nom ?? (suite as any)?.name ?? '').trim()
+    const suiteName = this.getSuiteDisplayName(suite)
     if (suiteName) this.currentSuiteName = suiteName
 
     // Keep project selector in sync with the suite's projectId (string or populated object)
@@ -514,6 +520,10 @@ export class TestCasesHomeComponent implements OnInit {
   // ── Modal ─────────────────────────────────────────────────────────────
 
   openModal(plan: TestPlanDto, event: Event) {
+    if (!this.canEditGenerateForSelectedProject) {
+      this.toastr.warning('You must accept this project before editing or generating test cases.', 'Project Access')
+      return
+    }
     event.stopPropagation()
     if (!this.testSuiteId) {
       const inferred = this.resolveSuiteIdForPlan(plan.id)
@@ -545,6 +555,10 @@ export class TestCasesHomeComponent implements OnInit {
   }
 
   onRegeneratePlan(plan: TestPlanDto, event: Event, suiteId?: string) {
+    if (!this.canEditGenerateForSelectedProject) {
+      this.toastr.warning('You must accept this project before regenerating test cases.', 'Project Access')
+      return
+    }
     event.stopPropagation()
     if (suiteId) this.testSuiteId = suiteId
     this.openModal(plan, event)
@@ -579,6 +593,10 @@ export class TestCasesHomeComponent implements OnInit {
   }
 
   onModalGenerate(regenerate = false) {
+    if (!this.canEditGenerateForSelectedProject) {
+      this.toastr.warning('You must accept this project before generating test cases.', 'Project Access')
+      return
+    }
     const plan = this.modalPlan
     if (!plan || !this.testSuiteId || this.modalGenerating) return
 
@@ -666,6 +684,10 @@ export class TestCasesHomeComponent implements OnInit {
   }
 
   onModalValidate() {
+    if (!this.canEditGenerateForSelectedProject) {
+      this.toastr.warning('You must accept this project before editing or generating test cases.', 'Project Access')
+      return
+    }
     const plan = this.modalPlan
     if (!plan) return
     if (!this.testSuiteId) {
@@ -688,9 +710,7 @@ export class TestCasesHomeComponent implements OnInit {
     const normalizedStatuses: Record<string, PlanValidationStatus> = { ...this.planStatuses }
     normalizedStatuses[plan.id] = 'confirmed'
 
-    const suiteStatus: SuiteSessionStatus = this.allPlans.length > 0 && this.allPlans.every(
-      p => (normalizedStatuses[p.id] || this.getPlanStatus(p.id)) === 'confirmed'
-    ) ? 'completed' : 'incomplete'
+    const suiteStatus: SuiteSessionStatus = this.computeSuiteSessionStatus(normalizedStatuses)
 
     this.testLabService.saveSuiteSession(this.testSuiteId, {
       sessionKind: 'validation',
@@ -786,15 +806,17 @@ export class TestCasesHomeComponent implements OnInit {
 
   onSaveAll() {
     if (!this.testSuiteId) return
+    if (!this.canEditGenerateForSelectedProject) {
+      this.toastr.warning('You must accept this project before saving.', 'Project Access')
+      return
+    }
 
     const normalizedStatuses: Record<string, PlanValidationStatus> = {}
     for (const plan of this.allPlans) {
       normalizedStatuses[plan.id] = this.getPlanStatus(plan.id)
     }
 
-    const suiteStatus: SuiteSessionStatus = this.allPlans.length > 0 && this.allPlans.every(
-      p => normalizedStatuses[p.id] === 'confirmed'
-    ) ? 'completed' : 'incomplete'
+    const suiteStatus: SuiteSessionStatus = this.computeSuiteSessionStatus(normalizedStatuses)
 
     const testCasesByPlan = this.allPlans.map(p => ({
       planId: p.id,
@@ -1009,9 +1031,7 @@ export class TestCasesHomeComponent implements OnInit {
       normalizedStatuses[plan.id] = this.getPlanStatus(plan.id)
     }
 
-    const suiteStatus: SuiteSessionStatus = this.allPlans.length > 0 && this.allPlans.every(
-      p => normalizedStatuses[p.id] === 'confirmed'
-    ) ? 'completed' : 'incomplete'
+    const suiteStatus: SuiteSessionStatus = this.computeSuiteSessionStatus(normalizedStatuses)
 
     const testCasesByPlan = this.allPlans.map(p => ({
       planId: p.id,
@@ -1052,6 +1072,17 @@ export class TestCasesHomeComponent implements OnInit {
         this.planStatuses[plan.id] = 'pending'
       }
     }
+  }
+
+  private computeSuiteSessionStatus(statuses: Record<string, PlanValidationStatus>): SuiteSessionStatus {
+    if (!this.allPlans.length) return 'incomplete'
+    const allConfirmed = this.allPlans.every(
+      (p) => (statuses[p.id] || this.getPlanStatus(p.id)) === 'confirmed'
+    )
+    const allHaveCases = this.allPlans.every(
+      (p) => (this.testCasesByPlan[p.id] || []).length > 0
+    )
+    return allConfirmed && allHaveCases ? 'completed' : 'incomplete'
   }
 
   /**
@@ -1184,6 +1215,19 @@ export class TestCasesHomeComponent implements OnInit {
     }
   }
 
+  private getSuiteDisplayName(suite?: unknown): string {
+    const source = (suite || {}) as Record<string, unknown>
+    return String(
+      source['nametest'] ??
+        source['nom'] ??
+        source['name'] ??
+        source['suiteName'] ??
+        source['testSuiteName'] ??
+        source['projectTitle'] ??
+        ''
+    ).trim()
+  }
+
   private async loadPlansForSuite(testSuiteId: string) {
     this.loading = true
     this.errorMessage = ''
@@ -1198,14 +1242,15 @@ export class TestCasesHomeComponent implements OnInit {
         const id = String((s as any)?._id ?? (s as any)?.id ?? '').trim()
         return !!suiteId && !!id && id === suiteId
       })
-      const suiteName = String(
-        (matched as any)?.nametest ??
-          (matched as any)?.nom ??
-          (matched as any)?.name ??
-          (resp as any)?.suiteName ??
-          (resp as any)?.testSuiteName ??
-          ''
-      ).trim()
+      let suiteName = this.getSuiteDisplayName(matched) || this.getSuiteDisplayName(resp)
+      if (!suiteName) {
+        try {
+          const suiteDetail = await firstValueFrom(this.testLabService.getTestSuiteById(testSuiteId))
+          suiteName = this.getSuiteDisplayName(suiteDetail)
+        } catch {
+          suiteName = ''
+        }
+      }
       if (suiteName) this.currentSuiteName = suiteName
       else if (!this.currentSuiteName) this.currentSuiteName = 'Suite sans nom'
 

@@ -86,6 +86,7 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
   testCasesByPlan: Record<string, TestCaseDto[]> = {}
   testCaseFilter: 'all' | 'valid' | 'invalid' = 'all'
   caseOpen: Record<string, boolean> = {}
+  focusedTestCaseId: string | null = null
 
   // Test Status System
   testGenerationStatus: TestGenerationStatus = 'Draft'
@@ -152,6 +153,12 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
       const isValid = hasSteps && hasExpected
       return wanted === 'valid' ? isValid : !isValid
     })
+  }
+
+  get visibleSelectedTestCases(): TestCaseDto[] {
+    const cases = this.filteredSelectedTestCases
+    if (!this.focusedTestCaseId) return cases
+    return cases.filter((tc) => tc.id === this.focusedTestCaseId)
   }
 
   get totalTestCases(): number {
@@ -244,6 +251,7 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     this.selectedPlanId = null
     this.testCasesByPlan = {}
     this.caseOpen = {}
+    this.focusedTestCaseId = null
     this.loading = true
     this.errorMessage = ''
 
@@ -365,6 +373,7 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     this.selectedPlanId = null
     this.testCasesByPlan = {}
     this.caseOpen = {}
+    this.focusedTestCaseId = null
     this.errorMessage = ''
   }
 
@@ -381,6 +390,14 @@ toggleCase(planId: string | null | undefined, caseId: string): void {
   this.caseOpen = { ...this.caseOpen, [key]: !this.caseOpen[key] }
   this.cdr.detectChanges()
 }
+
+  focusTestCase(testCaseId: string): void {
+    this.focusedTestCaseId = testCaseId
+  }
+
+  clearFocusedTestCase(): void {
+    this.focusedTestCaseId = null
+  }
 
   toggleMembers(): void {
     this.membersOpen = !this.membersOpen
@@ -418,6 +435,7 @@ toggleCase(planId: string | null | undefined, caseId: string): void {
 
   async onSelectPlan(plan: TestPlanDto) {
     this.selectedPlanId = plan.id
+    this.focusedTestCaseId = null
     if (this.testCasesByPlan[plan.id]?.length) return
     await this.generateTestCases(plan, false)
   }

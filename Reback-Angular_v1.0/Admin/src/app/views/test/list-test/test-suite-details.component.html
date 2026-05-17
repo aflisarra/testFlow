@@ -200,19 +200,26 @@
             @if (vm.generatingCasesPlanId === vm.selectedPlanId) {
               <div class="tv-loading">Generating test cases...</div>
             } @else {
-              @for (tc of vm.filteredSelectedTestCases; track tc.id) {
-                <div class="tv-case">
-                  <div class="tv-case-header">
+              @if (vm.focusedTestCaseId) {
+                <button type="button" class="tv-show-all-tests" (click)="vm.clearFocusedTestCase()">
+                  <iconify-icon icon="mdi:format-list-bulleted"></iconify-icon>
+                  Show all tests
+                </button>
+              }
+
+              @for (tc of vm.visibleSelectedTestCases; track tc.id) {
+                <div class="tv-case" [class.tv-case--focused]="vm.focusedTestCaseId === tc.id" [class.tv-case--open]="vm.focusedTestCaseId === tc.id">
+                  <div class="tv-case-header" role="button" tabindex="0" (click)="vm.focusTestCase(tc.id)" (keydown.enter)="vm.focusTestCase(tc.id)">
                     <span class="badge brand-badge rounded-pill" style="font-size: 0.65rem; flex-shrink: 0">
                       {{ tc.id }}
                     </span>
                     <div class="tv-case-title">{{ tc.title }}</div>
                     <div class="tv-case-actions">
-                      <button type="button" class="btn-run" (click)="vm.onRunTestCase(vm.selectedPlanId!, tc.id)">
+                      <button type="button" class="btn-run" (click)="vm.onRunTestCase(vm.selectedPlanId!, tc.id); $event.stopPropagation()">
                         Run
                         <iconify-icon icon="mdi:play-circle-outline"></iconify-icon>
                       </button>
-                      <button type="button" class="btn-delete-icon" (click)="vm.onConfirmDeleteTestCase(vm.selectedPlanId!, tc.id)">
+                      <button type="button" class="btn-delete-icon" (click)="vm.onConfirmDeleteTestCase(vm.selectedPlanId!, tc.id); $event.stopPropagation()">
                         <iconify-icon icon="mdi:trash-can-outline"></iconify-icon>
                       </button>
                     </div>
@@ -230,7 +237,7 @@
                 </div>
               }
 
-              @if (!vm.filteredSelectedTestCases.length) {
+              @if (!vm.visibleSelectedTestCases.length) {
                 <div class="tv-empty">No test cases generated yet.</div>
               }
             }

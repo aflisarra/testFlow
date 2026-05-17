@@ -108,18 +108,18 @@ export class ProjectManagementComponent implements OnInit {
   projectForm = this.fb.group({
     title: ['', [Validators.required, Validators.pattern(/\S+/)]],
     description: [''],
-    startDate: ['', [Validators.required]],
-    endDate: ['', [Validators.required]],
-    milestoneDate: ['', [Validators.required]],
+    startDate: ['', [Validators.required, this.validDateValidator.bind(this)]],
+endDate: ['', [Validators.required, this.validDateValidator.bind(this)]],
+milestoneDate: ['', [Validators.required, this.validDateValidator.bind(this)]],
     status: this.fb.nonNullable.control<'draft' | 'active' | 'paused' | 'completed'>('draft'),
   })
 
   editProjectForm = this.fb.group({
     title: ['', [Validators.required, Validators.pattern(/\S+/)]],
     description: [''],
-    startDate: ['', [Validators.required]],
-    endDate: ['', [Validators.required]],
-    milestoneDate: ['', [Validators.required]],
+    startDate: ['', [Validators.required, this.validDateValidator.bind(this)]],
+endDate: ['', [Validators.required, this.validDateValidator.bind(this)]],
+milestoneDate: ['', [Validators.required, this.validDateValidator.bind(this)]],
     status: this.fb.nonNullable.control<'draft' | 'active' | 'paused' | 'completed'>('draft'),
   })
 
@@ -856,4 +856,20 @@ hasInvalidEditMilestoneDate(): boolean {
     const emailMatch = userEmail.length > 0 && userEmail === this.currentUserEmail
     return idMatch || emailMatch
   }
+
+  private validDateValidator(control: AbstractControl): ValidationErrors | null {
+  const value = String(control.value || '').trim()
+
+  if (!value) {
+    return null
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return { invalidDate: true }
+  }
+
+  return null
+}
 }

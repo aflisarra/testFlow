@@ -17,7 +17,7 @@
     <div class="alert alert-danger mb-4">{{ errorMessage }}</div>
     }
 
-    <!-- Existing Test Plan Banner -->
+    <!-- Existing Test Plan Banner
     @if (showExistingBanner && existingTestPlan) {
     <div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
       <div class="d-flex align-items-center">
@@ -47,7 +47,7 @@
       </div>
       <button type="button" class="btn-close" (click)="showExistingBanner = false" aria-label="Close"></button>
     </div>
-    }
+    } -->
 
     <!-- New layout (keep legacy block hidden below) -->
     <div class="row g-3 align-items-stretch testlab-form-grid" [formGroup]="testPlanForm">
@@ -209,7 +209,7 @@
             <div class="testlab-summary-meta">Estimated time: 1-2 minutes</div>
 
             <button class="btn btn-generate w-100 mt-3 py-3 testlab-generate-btn testlab-generate-btn--wide" type="button"
-              [disabled]="generatingPlans" (click)="onGeneratePlan()">
+              [disabled]="generatingPlans || !isSelectedProjectAccepted" (click)="onGeneratePlan()">
               <span>{{ generatingPlans ? 'Generating Test Plans...' : 'Generate Test Plan' }}</span>
               <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
             </button>
@@ -398,7 +398,7 @@
         </div>
 
         <div class="testlab-actions mt-4 w-100">
-          <button type="button" class="btn btn-cancel px-4" disabled>Cancel</button>
+          <button type="button" class="btn btn-cancel px-4" (click)="onRequestStopGeneration()">Stop</button>
           <button type="button" class="btn btn-regenerate px-4" disabled>Regenerate</button>
           <button type="button" class="btn btn-validate px-4" disabled>Validate &amp; Next</button>
         </div>

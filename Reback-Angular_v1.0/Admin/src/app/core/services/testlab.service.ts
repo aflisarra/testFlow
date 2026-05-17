@@ -40,6 +40,10 @@ export class TestLabService {
     return this.api.post<GeneratePlanResponse>(`/api/ollama/generate-plan`, formData)
   }
 
+  getSpecDocument(testSuiteId: string): Observable<Blob> {
+    return this.api.getBlob(`/api/ollama/testsuite/${testSuiteId}/spec-document`)
+  }
+
   generateTestCases(payload: {
     testSuiteId: string
     planId: string

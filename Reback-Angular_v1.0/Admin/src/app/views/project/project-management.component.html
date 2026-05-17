@@ -48,20 +48,48 @@
                     [class.is-invalid]="projectForm.controls.startDate.touched && projectForm.controls.startDate.invalid"
                     class="form-control"
                     [min]="todayDate"
-                    formControlName="startDate" />
+                    formControlName="startDate"
+                    (keydown)="$event.preventDefault()" />
                   @if (projectForm.controls.startDate.touched && projectForm.controls.startDate.errors?.['required']) {
                   <div class="invalid-feedback d-block">Start date is required.</div>
                   }
+                  @if (projectForm.controls.startDate.touched &&
+projectForm.controls.startDate.errors?.['invalidDate']) {
+<div class="invalid-feedback d-block">
+  Invalid date format.
+</div>
+}
+@if (projectForm.controls.startDate.touched &&
+projectForm.controls.startDate.errors?.['beforeToday']) {
+<div class="invalid-feedback d-block">
+  Start date must be today or later.
+</div>
+}
                 </div>
                 <div class="date-triple-item">
                   <label class="date-range-label" for="endDate">End Date <span class="text-danger">*</span></label>
                   <input type="date" class="form-control"
                     [class.is-invalid]="projectForm.controls.endDate.touched && projectForm.controls.endDate.invalid"
                     [min]="createMinAfterStartDate"
-                    formControlName="endDate" />
+                    formControlName="endDate" 
+                    (keydown)="$event.preventDefault()"/>
+                   
                   @if (projectForm.controls.endDate.touched && projectForm.controls.endDate.errors?.['required']) {
                   <div class="invalid-feedback d-block">End date is required.</div>
                   }
+                  @if (projectForm.controls.endDate.touched &&
+projectForm.controls.endDate.errors?.['invalidDate']) {
+<div class="invalid-feedback d-block">
+  Invalid date format.
+</div>
+}
+@if (projectForm.controls.endDate.touched &&
+projectForm.controls.endDate.errors?.['beforeStartDate']) {
+<div class="invalid-feedback d-block">
+  End date cannot be before start date.
+</div>
+}
+
                 </div>
                 <div class="date-triple-item">
                   <label class="date-range-label" for="milestoneDate">Milestone Date <span class="text-danger">*</span></label>
@@ -70,10 +98,23 @@
                       class="form-control"
   [min]="createMinAfterStartDate"
   [max]="projectForm.value.endDate"
-                    formControlName="milestoneDate" />
+                    formControlName="milestoneDate" 
+                    (keydown)="$event.preventDefault()"/>
                   @if (projectForm.controls.milestoneDate.touched && projectForm.controls.milestoneDate.errors?.['required']) {
                   <div class="invalid-feedback d-block">Milestone date is required.</div>
                   }
+                  @if (projectForm.controls.milestoneDate.touched &&
+projectForm.controls.milestoneDate.errors?.['invalidDate']) {
+<div class="invalid-feedback d-block">
+  Invalid date format.
+</div>
+}
+@if (projectForm.controls.milestoneDate.touched &&
+projectForm.controls.milestoneDate.errors?.['invalidMilestoneRange']) {
+<div class="invalid-feedback d-block">
+  Milestone date must be between start date and end date.
+</div>
+}
                 </div>
               </div>
               @if (hasInvalidDateOrder()) {
@@ -405,7 +446,8 @@
             [class.is-invalid]="editProjectForm.controls.startDate.touched && editProjectForm.controls.startDate.invalid"
             class="form-control"
             [min]="todayDate"
-            formControlName="startDate" />
+            formControlName="startDate" 
+            (keydown)="$event.preventDefault()"/>
           @if (editProjectForm.controls.startDate.touched && editProjectForm.controls.startDate.errors?.['required']) {
           <div class="invalid-feedback d-block">Start date is required.</div>
           }
@@ -415,7 +457,8 @@
           <input type="date" class="form-control"
             [class.is-invalid]="editProjectForm.controls.endDate.touched && editProjectForm.controls.endDate.invalid"
             [min]="editMinAfterStartDate"
-            formControlName="endDate" />
+            formControlName="endDate" 
+            (keydown)="$event.preventDefault()"/>
           @if (editProjectForm.controls.endDate.touched && editProjectForm.controls.endDate.errors?.['required']) {
           <div class="invalid-feedback d-block">End date is required.</div>
           }
@@ -427,7 +470,8 @@
               class="form-control"
              [min]="createMinAfterStartDate"
              [max]="projectForm.value.endDate"
-            formControlName="milestoneDate" />
+            formControlName="milestoneDate" 
+            (keydown)="$event.preventDefault()"/>
           @if (editProjectForm.controls.milestoneDate.touched && editProjectForm.controls.milestoneDate.errors?.['required']) {
           <div class="invalid-feedback d-block">Milestone date is required.</div>
           }

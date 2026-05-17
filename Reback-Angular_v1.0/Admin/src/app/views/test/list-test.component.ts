@@ -1,4 +1,4 @@
-import { AuthenticationService } from '../../core/services/auth.service'
+/*import { AuthenticationService } from '../../core/services/auth.service'
 import {
   TestLabService,
   type TestCaseDto,
@@ -487,8 +487,8 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
   getCleanDescription(suite: TestSuiteDto): string {
     const raw = suite.description || ''
     const cleaned = raw
-      .replace(/style\s*=\s*fontsize[^-]*/gi, '')
-      .replace(/----?\s*SPEC EXTRACT\s*----?/gi, '')
+      /*.replace(/style\s*=\s*fontsize[^-]*/
+      /*.replace(/----?\s*SPEC EXTRACT\s*----?/gi, '')
       .trim()
     return cleaned.length > 80 ? cleaned.slice(0, 80) + '…' : cleaned || '—'
   }
@@ -532,4 +532,4 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
       this.filterOpen = false
     }
   }
-}
+}*/

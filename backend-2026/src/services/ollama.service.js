@@ -1,5 +1,6 @@
 const path = require('path')
 const fs = require('fs/promises')
+const fsSync = require('fs')
 const os = require('os')
 const { spawn } = require('child_process')
 const axios = require('axios')
@@ -419,13 +420,7 @@ async function generatePlan({ req, body, file }) {
   const generationRequestId = String(body?.generationRequestId || body?.generation_request_id || '').trim()
 
   const userId = userIdBody || getUserIdFromAuthHeader(req)
-  const specText = await readSpecTextFromUpload(file)
-  const specTextStored = specText.slice(0, 50_000)
-
-  const combinedDescription = [styleConfig, '', '---- SPEC EXTRACT ----', specText]
-    .join('\n')
-    .trim()
-    .slice(0, 20_000)
+  let specText = ''
 
   let suite = null
   let projectTitle = ''
@@ -437,14 +432,26 @@ async function generatePlan({ req, body, file }) {
     if (!suite) throw httpError(404, 'TestSuite not found')
     previousTestStatus = String(suite.testStatus || 'Draft')
 
+    if (file) {
+      specText = await readSpecTextFromUpload(file)
+    } else {
+      specText = String(suite.specText || '').trim()
+      if (!specText) throw httpError(400, 'file (.docx/.md/.txt) is required')
+    }
+    const specTextStored = specText.slice(0, 50_000)
+    const combinedDescription = [styleConfig, '', '---- SPEC EXTRACT ----', specText]
+      .join('\n')
+      .trim()
+      .slice(0, 20_000)
+
     const updates = {
       description: combinedDescription,
       urlCible,
       specText: specTextStored,
       styleConfig,
-      specFileName: file?.originalname || null,
-      specFilePath: file?.filename ? `uploads/specs/${file.filename}` : null,
     }
+    if (file?.originalname) updates.specFileName = file.originalname
+    if (file?.filename) updates.specFilePath = `uploads/specs/${file.filename}`
     if (suiteName) updates.nom = suiteName
     if (testName) updates.nametest = testName
 
@@ -462,6 +469,14 @@ async function generatePlan({ req, body, file }) {
   } else {
     if (!userId) throw httpError(400, 'userId is required to create a TestSuite')
     if (!projectId) throw httpError(400, 'projectId is required to create a TestSuite')
+    if (!file) throw httpError(400, 'file (.docx/.md/.txt) is required')
+
+    specText = await readSpecTextFromUpload(file)
+    const specTextStored = specText.slice(0, 50_000)
+    const combinedDescription = [styleConfig, '', '---- SPEC EXTRACT ----', specText]
+      .join('\n')
+      .trim()
+      .slice(0, 20_000)
 
     const project = await Project.findById(projectId).select('_id title ownerId').lean()
     if (!project) throw httpError(404, 'Project not found')
@@ -561,7 +576,6 @@ async function generatePlan({ req, body, file }) {
 
   if (regenerate) {
     suite.planSteps = []
-    suite.testCasesByPlan = []
   }
 
   const maybeSteps =
@@ -710,6 +724,33 @@ async function generateTestCases({ req, body }) {
   return { testSuiteId, planId, planTitle: resolvedTitle, testCases: normalized, reused: false }
 }
 
+async function getSpecDocument(testSuiteId) {
+  const id = String(testSuiteId || '').trim()
+  if (!id) throw httpError(400, 'testSuiteId is required')
+
+  const suite = await TestSuite.findById(id).select('_id specFileName specFilePath').lean()
+  if (!suite) throw httpError(404, 'TestSuite not found')
+
+  const relPath = String(suite?.specFilePath || '').trim()
+  if (!relPath) throw httpError(404, 'Specification document not found')
+
+  const normalized = relPath.replace(/\\/g, '/').replace(/^\/+/, '')
+  const absolute = path.resolve(process.cwd(), normalized)
+  const uploadsRoot = path.resolve(process.cwd(), 'uploads')
+  if (!absolute.startsWith(uploadsRoot + path.sep) && absolute !== uploadsRoot) {
+    throw httpError(400, 'Invalid specification document path')
+  }
+
+  if (!fsSync.existsSync(absolute)) {
+    throw httpError(404, 'Specification document file is missing on server')
+  }
+
+  return {
+    absolutePath: absolute,
+    fileName: String(suite?.specFileName || path.basename(absolute)).trim() || 'spec.docx',
+  }
+}
+
 module.exports = {
   httpError,
   parseBoolean,
@@ -718,6 +759,7 @@ module.exports = {
   fastApiChat,
   getTestsuitePlan,
   getTestsuiteTestPlans,
+  getSpecDocument,
   generatePlan,
   generateTestCases,
   cancelGeneration,

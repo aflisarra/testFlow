@@ -115,6 +115,88 @@
   box-shadow: 0 0 0 3px rgb(239 68 68 / 18%);
 }
 
+.exec-role-dropdown {
+  position: relative;
+}
+
+.exec-role-trigger {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #cfe0f1;
+  border-radius: 10px;
+  background: #f5f7fa;
+  color: #1f3349;
+  padding: 0.58rem 0.72rem;
+  cursor: pointer;
+  font-size: 0.92rem;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.exec-role-trigger:hover,
+.exec-role-trigger:focus {
+  border-color: #7aa9d9;
+  box-shadow: 0 0 0 3px rgb(122 169 217 / 18%);
+  outline: none;
+}
+
+.exec-role-trigger.is-invalid {
+  border-color: #ef4444;
+  background: #fef5f5;
+  box-shadow: 0 0 0 2px rgb(239 68 68 / 12%);
+}
+
+.exec-trigger-placeholder {
+  color: #9ab0c8;
+}
+
+.exec-trigger-arrow {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  color: #60758f;
+  margin-left: 0.5rem;
+}
+
+.exec-role-menu {
+  position: absolute;
+  bottom: calc(100% + 0.4rem);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid #dce8f5;
+  border-radius: 12px;
+  background: #f9fcff;
+  padding: 0.35rem;
+  box-shadow: 0 12px 26px rgb(12 40 70 / 15%);
+}
+
+.exec-role-option {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #1f3349;
+  padding: 0.45rem 0.5rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.exec-role-option:hover,
+.exec-role-option.active {
+  background: #eef5fd;
+}
+
+.exec-role-empty {
+  padding: 0.45rem 0.5rem;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
 .exec-buttons {
   margin-block-start: 0.6rem;
   display: flex;
@@ -159,3 +241,5 @@
   block-size: 4px;
   background: linear-gradient(90deg, #0c4f93 0%, #36a8ff 100%);
 }
+
+
