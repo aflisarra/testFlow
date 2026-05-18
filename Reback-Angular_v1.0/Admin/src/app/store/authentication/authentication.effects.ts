@@ -49,7 +49,7 @@ export class AuthenticationEffects {
       this.actions$.pipe(
         ofType(loginFailure),
         tap(() => {
-          this.toastr.error('Connection failed', '', { timeOut: 2500 })
+          this.toastr.error('login/password incorrect', '', { timeOut: 2500 })
         })
       ),
     { dispatch: false }

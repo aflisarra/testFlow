@@ -5,7 +5,7 @@ const Action = require('../../models/action.model')
 
 const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URL
 
-// Fixed numeric ids (1..16) to keep compatibility with requireAction(6/7/8/...) and the frontend menu mapping.
+// Fixed numeric ids to keep compatibility with requireAction(...) and the frontend menu mapping.
 const actions = [
   { _id: 1, name: 'dashboard', path: '/dashboard' },
   { _id: 2, name: 'add-user', path: '/dashboard/users/add' },
@@ -23,6 +23,7 @@ const actions = [
   { _id: 14, name: 'edit-project', path: '/projects/edit/:id' },
   { _id: 15, name: 'delete-project', path: '/projects/delete/:id' },
   { _id: 16, name: 'invite-project', path: '/projects/invite/:id' },
+  { _id: 17, name: 'list-role', path: '/admin/roles' },
 ]
 
 async function seedActions() {
@@ -47,4 +48,3 @@ async function seedActions() {
 }
 
 seedActions()
-

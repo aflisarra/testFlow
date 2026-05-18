@@ -223,7 +223,7 @@ export class SidebarComponent implements OnInit, AfterViewInit {
       actionIds.map((x) => Number(x)).filter((x) => Number.isFinite(x))
     )
 
-    const canManageRoles = ids.has(8)
+    const canManageRoles = ids.has(17) || ids.has(8)
     const canManageUsers = ids.has(10) || ids.has(4)
     const canListProjects = ids.has(11)
 

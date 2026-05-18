@@ -12,6 +12,7 @@ import { interval, Subscription, firstValueFrom } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TestLabService } from '@/app/core/services/testlab.service'
 import { SeleniumRunnerService, type SeleniumRunResponseDto, type SeleniumStepResultDto } from '@/app/core/services/selenium-runner.service'
+import type { TestCaseDto, TestCasesByPlanDto, TestSuiteDto } from '@/app/core/services/testlab.service'
 
 import type {
   ExecutionStep,
@@ -410,11 +411,11 @@ element.click()`;
     }
 
     try {
-      const suite = await firstValueFrom(this.testLabService.getTestSuiteById(this.suiteId))
-      const urlCible = String((suite as any)?.urlCible || (suite as any)?.url || '').trim()
-      const plans = ((suite as any)?.testCasesByPlan || []) as Array<{ planId: string; planTitle?: string; testCases?: any[] }>
+      const suite: TestSuiteDto = await firstValueFrom(this.testLabService.getTestSuiteById(this.suiteId))
+      const urlCible = String(suite.urlCible || '').trim()
+      const plans: TestCasesByPlanDto[] = suite.testCasesByPlan || []
       const plan = plans.find((p) => String(p.planId || '').trim() === this.planId) || null
-      const cases = (plan?.testCases || []) as Array<{ id: string; title: string; steps?: string[] }>
+      const cases: TestCaseDto[] = plan?.testCases || []
       const tc = cases.find((c) => String(c.id || '').trim() === this.testCaseId) || null
 
       if (!tc) {

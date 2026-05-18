@@ -1,4 +1,5 @@
 <div class="row g-4 management-page">
+  @if (canAddUser) {
   <div class="col-xl-5">
     <div class="card h-100 panel-card">
       <div class="card-header">
@@ -55,43 +56,98 @@
           </div>
 
           <div class="exec-field">
-            <label for="role" class="exec-label">Role <span class="text-danger">*</span></label>
-            <div class="exec-role-dropdown">
-              <button type="button" class="exec-role-trigger"
-                [class.is-invalid]="(createSubmitted || createUserForm.controls.role.touched) && createUserForm.controls.role.invalid"
-                (click)="createRoleOpen = !createRoleOpen; $event.stopPropagation()">
-                @if (getSelectedCreateRoleLabel()) {
-                <span>{{ getSelectedCreateRoleLabel() }}</span>
-                } @else {
-                <span class="exec-trigger-placeholder">Select role</span>
-                }
-                <span class="exec-trigger-arrow">{{ createRoleOpen ? '▲' : '▼' }}</span>
-              </button>
+  <label for="role" class="exec-label">
+    Role <span class="text-danger">*</span>
+  </label>
 
-              @if (createRoleOpen) {
-              <button class="exec-role-menu" (click)="$event.stopPropagation()">
-                @for (role of roles; track role._id || role.name || $index) {
-                <button type="button" class="exec-role-option"
-                  [class.active]="createUserForm.value.role === role.name"
-                  (click)="selectCreateRole(role.name)">
-                  {{ role.name }}
-                </button>
-                }
-                @if (!roles.length) {
-                <div class="exec-role-empty">No roles available</div>
-                }
-              </button>
-              }
-            </div>
-            @if ((createSubmitted || createUserForm.controls.role.touched) &&
-            createUserForm.controls.role.errors?.['required']) {
-            <small class="text-danger">Role is required.</small>
-            }
-            @if ((createSubmitted || createUserForm.controls.role.touched) &&
-            createUserForm.controls.role.errors?.['pattern']) {
-            <small class="text-danger">Role cannot be empty spaces.</small>
-            }
+  <div class="exec-role-dropdown">
+
+    <button
+      type="button"
+      class="exec-role-trigger"
+      [class.is-invalid]="
+        (createSubmitted || createUserForm.controls.role.touched) &&
+        createUserForm.controls.role.invalid
+      "
+      (click)="createRoleOpen = !createRoleOpen; $event.stopPropagation()"
+    >
+      @if (getSelectedCreateRoleLabel()) {
+
+        <span>{{ getSelectedCreateRoleLabel() }}</span>
+
+      } @else {
+
+        <span class="exec-trigger-placeholder">
+          Select role
+        </span>
+
+      }
+
+      <span class="exec-trigger-arrow">
+        {{ createRoleOpen ? '▲' : '▼' }}
+      </span>
+    </button>
+
+    @if (createRoleOpen) {
+
+      <!-- IMPORTANT : div et non button -->
+      <div
+        class="exec-role-menu"
+        tabindex="0"
+        (click)="$event.stopPropagation()"
+        (keydown.enter)="$event.stopPropagation()"
+        (keydown.space)="$event.stopPropagation()"
+      >
+
+        @for (role of roles; track role._id || role.name || $index) {
+
+          <button
+            type="button"
+            class="exec-role-option"
+            [class.active]="createUserForm.value.role === role.name"
+            (click)="selectCreateRole(role.name); $event.preventDefault()"
+          >
+            {{ role.name }}
+          </button>
+
+        }
+
+        @if (!roles.length) {
+
+          <div class="exec-role-empty">
+            No roles available
           </div>
+
+        }
+
+      </div>
+
+    }
+
+  </div>
+
+  @if (
+    (createSubmitted || createUserForm.controls.role.touched) &&
+    createUserForm.controls.role.errors?.['required']
+  ) {
+
+    <small class="text-danger">
+      Role is required.
+    </small>
+
+  }
+
+  @if (
+    (createSubmitted || createUserForm.controls.role.touched) &&
+    createUserForm.controls.role.errors?.['pattern']
+  ) {
+
+    <small class="text-danger">
+      Role cannot be empty spaces.
+    </small>
+
+  }
+</div>
           <div class="exec-field">
             <label for="picture" class="exec-label">Picture (optional)</label>
             <input class="exec-input" type="file" id="picture" accept="image/*" (change)="onPictureSelected($event)"
@@ -107,8 +163,10 @@
       </div>
     </div>
   </div>
+  }
 
-  <div class="col-xl-7">
+  @if (canViewUsers) {
+  <div class="col-xl-{{ canAddUser ? '7' : '12' }}">
     <div class="card h-100 panel-card users-list-card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h4 class="card-title mb-0 brand-title panel-title app-title">
@@ -135,7 +193,9 @@
                 <th>Email</th>
                 <th>Role</th>
 
+                @if (canEditUser || canDeleteUser) {
                 <th class="text-end">Actions</th>
+                }
               </tr>
             </thead>
             <tbody>
@@ -144,13 +204,14 @@
                 <td>
                   <div class="d-flex align-items-center">
                     <img [src]="resolveAvatarUrl(user.picture)" (error)="onAvatarError($event)" alt="avatar"
-                      class="rounded-circle me-2 border" style="width:32px;height:32px;object-fit:cover;" />
+                      class="rounded-circle me-2 border" style="inline-size:32px;block-size:32px;object-fit:cover;" />
                     <span class="fw-medium">{{ user.name }}</span>
                   </div>
                 </td>
                 <td>{{ user.email }}</td>
                 <td><span class="badge brand-badge">{{ user.role }}</span></td>
 
+                @if (canEditUser || canDeleteUser) {
                 <td class="text-end">
                   <div class="d-inline-flex align-items-center flex-nowrap gap-2">
                     <button *hasPermission="ACTION_EDIT_USER" class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified" type="button"
@@ -163,12 +224,13 @@
                     </button>
                   </div>
                 </td>
+                }
               </tr>
               }
 
               @if (users.length === 0) {
               <tr>
-                <td colspan="4" class="text-center text-muted py-4">No users found</td>
+                <td [attr.colspan]="(canEditUser || canDeleteUser) ? 4 : 3" class="text-center text-muted py-4">No users found</td>
               </tr>
               }
             </tbody>
@@ -198,4 +260,5 @@
       </div>
     </div>
   </div>
+  }
 </div>

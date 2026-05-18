@@ -1,4 +1,5 @@
 <div class="row g-4 management-page">
+  @if (canAddRole) {
   <div class="col-xl-4">
       <div class="card h-100 panel-card">
       <div class="card-header">
@@ -16,8 +17,10 @@
       </div>
     </div>
   </div>
+  }
 
-  <div class="col-xl-8">
+  @if (canViewRoles) {
+  <div class="col-xl-{{ canAddRole ? '8' : '12' }}">
     <div class="card h-100 panel-card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h4 class="card-title mb-0 brand-title panel-title app-title">
@@ -43,7 +46,9 @@
                 <th>Name</th>
                 <th>Description</th>
                 <th>Permissions</th>
+                @if (canEditRole || canDeleteRole) {
                 <th class="text-end col-actions">Actions</th>
+                }
               </tr>
             </thead>
             <tbody>
@@ -52,6 +57,7 @@
                 <td>{{ role.name }}</td>
                 <td>{{ role.description }}</td>
                 <td>{{ getActionNames(role.actions) }}</td>
+                @if (canEditRole || canDeleteRole) {
                 <td class="text-end col-actions">
                   <button *hasPermission="ACTION_EDIT_ROLE" class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified me-2" type="button"
                     title="Edit" (click)="onEditRole(role)">
@@ -64,14 +70,13 @@
         (click)="onDeleteRole(role)">
   <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
 </button>
-
-
                 </td>
+                }
               </tr>
               }
               @if (roles.length === 0) {
               <tr>
-                <td colspan="4" class="text-center text-muted py-4">No roles found</td>
+                <td [attr.colspan]="(canEditRole || canDeleteRole) ? 4 : 3" class="text-center text-muted py-4">No roles found</td>
               </tr>
               }
             </tbody>
@@ -101,4 +106,5 @@
       </div>
     </div>
   </div>
+  }
 </div>

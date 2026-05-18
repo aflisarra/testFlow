@@ -7,6 +7,33 @@
   --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
 }
 
+html,
+body {
+  min-block-size: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background:
+    radial-gradient(1200px 500px at 88% -12%, rgb(236 138 0 / 10%), transparent 55%),
+    radial-gradient(900px 380px at -12% 8%, rgb(59 130 246 / 8%), transparent 65%),
+    linear-gradient(180deg, #f6f8fc 0%, #eef2fb 100%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+app-root,
+#root {
+  display: block;
+  min-block-size: 100vh;
+}
+
+.wrapper,
+.page-content {
+  background: transparent !important;
+}
+
 html[data-bs-theme='dark'],
 [data-bs-theme='dark'] {
   --bs-body-bg: #191f2f;
@@ -15,7 +42,12 @@ html[data-bs-theme='dark'],
 }
 
 html[data-bs-theme='dark'] body {
-  background-color: #191f2f;
+  background:
+    radial-gradient(1200px 500px at 88% -12%, rgb(59 130 246 / 15%), transparent 55%),
+    radial-gradient(900px 380px at -12% 8%, rgb(236 138 0 / 10%), transparent 65%),
+    linear-gradient(180deg, #0b1220 0%, #0f1622 100%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 html[data-bs-theme='dark'] .page-content {
@@ -46,10 +78,6 @@ html[data-bs-theme='dark'] textarea.form-control:focus {
 
 .brand-title {
   color: var(--brand-blue);
-}
-
-body {
-  font-family: var(--font-body);
 }
 
 .app-title {
@@ -110,8 +138,8 @@ body {
 }
 
 .btn-action {
-  width: 36px;
-  height: 36px;
+  inline-size: 36px;
+  block-size: 36px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -146,10 +174,10 @@ body {
 }
 
 .col-actions {
-  width: 1%;
+  inline-size: 1%;
   white-space: nowrap;
-  padding-left: 0.35rem !important;
-  padding-right: 0.35rem !important;
+  padding-inline-start: 0.35rem !important;
+  padding-inline-end: 0.35rem !important;
 }
 
 .confirm-modal-window .modal-content {
@@ -160,7 +188,7 @@ body {
 }
 
 .confirm-modal-window .modal-dialog {
-  max-width: 360px;
+  max-inline-size: 360px;
 }
 
 .confirm-modal-backdrop {
@@ -187,8 +215,8 @@ body {
 }
 
 .confirm-icon {
-  width: 64px;
-  height: 64px;
+  inline-size: 64px;
+  block-size: 64px;
   margin: 0 auto 1.25rem;
   border-radius: 999px;
   display: flex;
@@ -217,19 +245,19 @@ body {
 .confirm-entity {
   font-weight: 400;
   color: rgb(26 28 31 / 100%);
-  margin-left: 0.25rem;
+  margin-inline-start: 0.25rem;
 }
 
 .confirm-details {
   display: block;
-  margin-top: 0.5rem;
+  margin-block-start: 0.5rem;
 }
 
 .confirm-field {
   display: grid;
   gap: 0.5rem;
-  margin-top: 1rem;
-  text-align: left;
+  margin-block-start: 1rem;
+  text-align: start;
 }
 
 .confirm-label {
@@ -242,7 +270,7 @@ body {
   border: 1px solid rgb(115 119 129 / 35%);
   border-radius: 10px;
   color: rgb(26 28 31 / 100%);
-  min-height: 44px;
+  min-block-size: 44px;
 }
 
 .confirm-select:focus {
@@ -251,10 +279,10 @@ body {
 }
 
 .confirm-actions {
-  margin-top: 1.25rem;
+  margin-block-start: 1.25rem;
   display: grid;
   gap: 0.75rem;
-  padding-top: 15px;
+  padding-block-start: 15px;
 
 }
 
@@ -276,7 +304,7 @@ body {
 }
 
 .confirm-tonal {
-  height: 8px;
+  block-size: 8px;
   background: rgb(243 243 248 / 100%);
   opacity: 0.5;
 }
@@ -289,7 +317,7 @@ body {
 }
 
 .exec-upsert-modal-window .modal-dialog {
-  max-width: 520px;
+  max-inline-size: 520px;
 }
 
 .exec-upsert-modal-backdrop {
@@ -297,7 +325,7 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
+  inline-size: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -319,7 +347,7 @@ body {
 
 .exec-upsert-header {
   text-align: center;
-  margin-bottom: 1.25rem;
+  margin-block-end: 1.25rem;
 }
 
 .exec-upsert-headline {
@@ -341,11 +369,11 @@ body {
 
 .exec-close-btn {
   position: absolute;
-  right: 0;
-  top: 50%;
+  inset-inline-end: 0;
+  inset-block-start: 50%;
   transform: translateY(-50%);
-  width: 2rem;
-  height: 2rem;
+  inline-size: 2rem;
+  block-size: 2rem;
   border: 1px solid #d5e2f1;
   border-radius: 999px;
   background: #fff;
@@ -386,13 +414,13 @@ body {
   letter-spacing: 0.14em;
   font-weight: 700;
   color: rgb(67 71 80 / 100%);
-  margin-left: 0.25rem;
+  margin-inline-start: 0.25rem;
 }
 
 .exec-input,
 .exec-select,
 .exec-textarea {
-  width: 100%;
+  inline-size: 100%;
   background: rgb(243 243 248 / 100%);
   border: 1px solid rgb(195 198 209 / 15%);
   border-radius: 1.25rem;
@@ -421,14 +449,14 @@ body {
 
 .exec-selected-badge {
   display: inline-block;
-  margin-top: 0.35rem;
+  margin-block-start: 0.35rem;
   font-size: 0.65rem;
   font-weight: 800;
   color: rgb(106 59 0 / 100%);
   background: rgb(255 220 191 / 100%);
   padding: 0.2rem 0.5rem;
   border-radius: 0.5rem;
-  width: fit-content;
+  inline-size: fit-content;
   text-transform: uppercase;
 }
 
@@ -456,7 +484,7 @@ body {
 }
 
 .exec-actions-scroll {
-  max-height: 220px;
+  max-block-size: 220px;
   overflow: auto;
   padding: 0.25rem;
   display: grid;
@@ -484,22 +512,22 @@ body {
 }
 
 .exec-checkbox {
-  width: 20px;
-  height: 20px;
+  inline-size: 20px;
+  block-size: 20px;
   accent-color: rgb(254 152 27 / 100%);
   border-radius: 0.5rem;
 }
 
 .exec-checkbox-lg {
-  width: 24px;
-  height: 24px;
+  inline-size: 24px;
+  block-size: 24px;
   border-radius: 0.75rem;
 }
 
 .exec-buttons {
   display: flex;
   gap: 1rem;
-  padding-top: 0.25rem;
+  padding-block-start: 0.25rem;
 }
 
 .exec-btn {
@@ -627,8 +655,8 @@ body {
 }
 
 .exec-upsert-accent {
-  height: 6px;
-  width: 100%;
+  block-size: 6px;
+  inline-size: 100%;
   background: linear-gradient(90deg,
       rgb(0 58 112 / 100%),
       rgb(236 138 0 / 100%),

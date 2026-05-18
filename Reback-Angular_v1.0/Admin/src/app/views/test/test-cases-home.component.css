@@ -140,6 +140,7 @@
   font-size: 0.74rem; transition: background 0.12s;
   background: none; border: none; outline: none; inline-size: 100%; text-align: start;
 }
+
 .tc-tree-case:hover,
 .tc-tree-case--live { background: rgb(219 234 254 / 80%); }
 .tc-tree-case:focus { outline: none; box-shadow: none; }
@@ -227,6 +228,7 @@
   border-radius: 10px;
   border: 1px solid var(--pm-border, #e2e8f0);
   background: rgb(248 250 252 / 80%);
+
   /* pas de margin-block-end — le gap du parent s'en charge */
 }
 
@@ -240,6 +242,7 @@
   font-size: 0.8rem;
   color: #475569;
   font-weight: 500;
+
   /* flex: 1 n'est PAS ici — on laisse ms-auto sur le team-preview faire le travail */
 }
 
@@ -265,6 +268,7 @@
 }
 
 .team-preview-item--empty { color: #94a3b8; font-size: 14px; background: #f1f5f9; }
+
 .team-preview-item--count {
   display:flex; align-items:center; justify-content:center;
   background:#ec8a00; color:#fff; font-size:11px;
@@ -279,6 +283,7 @@
   border-radius: 12px; padding: 0.9rem 1rem;
   transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
+
 .tc-case-card:hover {
   transform: translateX(3px);
   border-color: rgb(236 138 0 / 30%);
@@ -390,7 +395,9 @@
   content: ""; display: inline-block; inline-size: 1.25em; text-align: start;
   animation: testlab-dots 1.2s steps(4, end) infinite;
 }
+
 @keyframes testlab-dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } 100% { content: ""; } }
+
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .btn-brand { background: linear-gradient(135deg, #ec8a00, #f7a535); border: none; color: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgb(236 138 0 / 25%); }
@@ -425,6 +432,7 @@
 :host-context([data-bs-theme='dark']) .tc-tree-plan--active    { background: rgb(13 110 253 / 6%); border-color: rgb(13 110 253 / 20%); }
 :host-context([data-bs-theme='dark']) .tc-tree-plan-title { color: #cbd5e1; }
 :host-context([data-bs-theme='dark']) .tc-tree-case-title { color: #94a3b8; }
+
 :host-context([data-bs-theme='dark']) .tc-tree-case:hover,
 :host-context([data-bs-theme='dark']) .tc-tree-case--live { background: rgb(99 102 241 / 10%); }
 :host-context([data-bs-theme='dark']) .tc-right           { background: rgb(15 23 42 / 70%); }

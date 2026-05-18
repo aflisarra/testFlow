@@ -19,6 +19,7 @@
 
   <div class="row g-3">
     <!-- inset-inline-start: FORM -->
+    @if (canCreateProject || canEditProject) {
     <div class="col-lg-7">
       <div class="card shadow-sm pm-panel">
         <div class="card-body">
@@ -224,9 +225,11 @@ projectForm.controls.milestoneDate.errors?.['invalidMilestoneRange']) {
         </div>
       </div>
     </div>
+    }
 
     <!-- inset-inline-end: PROJECT LIST -->
-    <div class="col-lg-5">
+    @if (canViewProjects) {
+    <div class="col-lg-{{ (canCreateProject || canEditProject) ? '5' : '12' }}">
       <div class="card h-100 shadow-sm pm-panel">
         <div class="card-body">
 
@@ -264,19 +267,23 @@ projectForm.controls.milestoneDate.errors?.['invalidMilestoneRange']) {
                     <div class="project-item-title">{{ project.title }}</div>
                   </div>
                   <div class="project-item-actions">
-                    <span class="project-users-chip">{{ project.assignedUsers?.length || 0 }} users</span>
+                    <span class="project-users-chip">{{ project.assignedUsers?.length || 1 }} users</span>
                     <button class="btn btn-sm btn-action btn-action-view btn-unified btn-icon-unified" type="button"
                       title="View" (click)="openProjectViewModal(project)">
                       <iconify-icon icon="iconamoon:eye-duotone" class="action-icon"></iconify-icon>
                     </button>
+                    @if (canEditProject) {
                     <button class="btn btn-sm btn-action btn-action-edit btn-unified btn-icon-unified" type="button"
                       title="Edit" (click)="openEditProjectModal(project, editProjectModal)">
                       <iconify-icon icon="iconamoon:edit-duotone" class="action-icon"></iconify-icon>
                     </button>
+                    }
+                    @if (canDeleteProject) {
                     <button class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified" type="button"
                       title="Delete" (click)="deleteProject(project)">
                       <iconify-icon icon="iconamoon:trash-duotone" class="action-icon"></iconify-icon>
                     </button>
+                    }
                   </div>
                 </div>
               }
@@ -297,6 +304,7 @@ projectForm.controls.milestoneDate.errors?.['invalidMilestoneRange']) {
         </div>
       </div>
     </div>
+    }
   </div>
 </div>
 

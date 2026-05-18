@@ -13,11 +13,11 @@ router.post('/', requireAction(6), roleController.createRole);
 
 // ✅ Get all roles
 // GET /api/roles
-router.get('/', requireAction(8), roleController.getRoles);
+router.get('/', requireAction([17, 8]), roleController.getRoles);
 
 // ✅ Get a role by ID
 // GET /api/roles/:id
-router.get('/:id', requireAction(8), roleController.getRole);
+router.get('/:id', requireAction([17, 8]), roleController.getRole);
 
 // ✅ Update a role
 // PUT /api/roles/:id

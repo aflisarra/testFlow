@@ -79,7 +79,8 @@
   padding: 0.45rem 0.8rem;
   line-height: 1.2;
   font-size: 0.85rem;
-  /*margin-top: 0.6rem;*/
+
+  /* margin-top: 0.6rem; */
   
   
 }
@@ -114,11 +115,12 @@
   color: #ef4444;
   font-weight: 500;
   font-size: 0.72rem;
-  /*margin-top: 2px;*/
+
+  /* margin-top: 2px; */
 }
 
 .table-pagination {
-  /*margin-top: 0.75rem;*/
+  /* margin-top: 0.75rem; */
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -234,12 +236,10 @@
   left: 0;
   width: 100%;
   z-index: 1000;
-
   background: #fff;
   border: 1px solid #dbe3ef;
   border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-
+  box-shadow: 0 8px 24px rgb(0 0 0 / 8%);
   max-height: 220px;
   overflow-y: auto;
 }
@@ -269,10 +269,10 @@
 /* Button spacing 
 .btn-brand {
   margin-top: 1rem;
-}*/
+} */
 
 .exec-button-container {
-  /*margin-top: 0.6rem;*/
+  /* margin-top: 0.6rem; */
   display: flex;
   justify-content: flex-end;
   gap: 0.55rem;

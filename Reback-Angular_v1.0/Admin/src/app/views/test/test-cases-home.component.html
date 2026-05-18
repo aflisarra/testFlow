@@ -92,7 +92,7 @@
             } @else {
             @for (tc of testCasesByPlan[plan.id]; track tc.id) {
             <button class="tc-tree-case" [class.tc-tree-case--live]="livePlanId === plan.id"
-              (click)="selectPlanForLive(plan.id); $event.stopPropagation()">
+              (click)="selectPlanForLive(plan.id); focusLiveCase(tc.id, $event)">
               <span class="tc-tree-case-id">{{ tc.id }}</span>
               <span class="tc-tree-case-title">{{ tc.title }}</span>
             </button>
@@ -154,7 +154,7 @@
             } @else {
             @for (tc of testCasesByPlan[plan.id]; track tc.id) {
             <button class="tc-tree-case" [class.tc-tree-case--live]="livePlanId === plan.id"
-              (click)="selectPlanForLive(plan.id); $event.stopPropagation()">
+              (click)="selectPlanForLive(plan.id); focusLiveCase(tc.id, $event)">
               <span class="tc-tree-case-id">{{ tc.id }}</span>
               <span class="tc-tree-case-title">{{ tc.title }}</span>
             </button>
@@ -243,12 +243,19 @@
       }
 
       <div class="tc-right-cases">
+        @if (focusedLiveCaseId) {
+        <div class="mb-2">
+          <button class="btn btn-sm btn-outline-secondary" (click)="clearFocusedLiveCase()">
+            <iconify-icon icon="mdi:arrow-left" class="me-1"></iconify-icon>Back to all tests
+          </button>
+        </div>
+        }
         @if ((liveCases || []).length === 0 && getPlanStatus(livePlanId) !== 'generating') {
         <div class="tc-right-empty-cases">
           <p class="text-muted small mb-0">No test cases yet. Click Generate to start.</p>
         </div>
         }
-        @for (tc of liveCases; track tc.id; let i = $index) {
+        @for (tc of visibleLiveCases; track tc.id; let i = $index) {
         <div class="tc-case-card">
           <div class="tc-case-card-head">
             <span class="tc-case-num">{{ i + 1 }}</span>

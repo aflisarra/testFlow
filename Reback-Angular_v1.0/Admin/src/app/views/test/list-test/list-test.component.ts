@@ -1,6 +1,7 @@
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import { ApiService } from '@/app/core/services/api.service'
 import { UINotificationService } from '@/app/core/services/ui-notification.service'
+import { ProjectsStateService } from '@/app/core/services/projects-state.service'
 import {  ChangeDetectorRef } from '@angular/core'
 import {
   TestLabService,
@@ -12,7 +13,7 @@ import {
 } from '@/app/core/services/testlab.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
 import { getUser } from '@/app/store/authentication/authentication.selector'
-import type { TestGenerationStatus, TestSuiteStatusKey } from '@/app/views/test/models/status.types'
+import type { SuiteSessionStatus, TestGenerationStatus, TestSuiteStatusKey } from '@/app/views/test/models/status.types'
 import { getErrorMessage } from '@/app/views/test/utils/error.utils'
 import { CommonModule } from '@angular/common'
 import { Component, CUSTOM_ELEMENTS_SCHEMA, HostListener, inject, OnInit } from '@angular/core'
@@ -38,6 +39,7 @@ export class TestCasesValidationComponent implements OnInit {
   private authService = inject(AuthenticationService)
   private apiService = inject(ApiService)
   private uiNotification = inject(UINotificationService)
+  private projectsState = inject(ProjectsStateService)
   private testLabService = inject(TestLabService)
   private router = inject(Router)
   private route = inject(ActivatedRoute)
@@ -54,6 +56,7 @@ private cdr = inject(ChangeDetectorRef)
   statusFilter: TestSuiteStatusKey = 'all'
   filterOpen = false
   projectFilterId = ''
+  private acceptedProjectIds = new Set<string>()
 
   onSearchQueryInput(event: Event): void {
     const target = event.target as HTMLInputElement | null
@@ -166,8 +169,23 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
   }
 
   async ngOnInit() {
+    await this.loadAcceptedProjects()
     await this.loadSuites()
     await this.applyRouteSelection()
+  }
+
+  private async loadAcceptedProjects(): Promise<void> {
+    try {
+      await this.projectsState.refresh(false)
+      const projects = await firstValueFrom(this.projectsState.projects$.pipe(take(1)))
+      this.acceptedProjectIds = new Set(
+        (Array.isArray(projects) ? projects : [])
+          .map((p) => String(p?._id || '').trim())
+          .filter(Boolean)
+      )
+    } catch {
+      this.acceptedProjectIds = new Set<string>()
+    }
   }
 
   async loadSuites() {
@@ -286,7 +304,7 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
   }
 
   onSuiteRowClick(suite: TestSuiteDto): void {
-    if (suite?.canOpen === false) {
+    if (!this.canOpenSuite(suite)) {
       this.uiNotification.accessDenied("Access denied: you are not authorized to open this test.")
       return
     }
@@ -301,6 +319,10 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     if (suiteId) {
       const target = this.suites.find((suite) => String(suite?._id || '').trim() === suiteId)
       if (target) {
+        if (!this.canOpenSuite(target)) {
+          this.uiNotification.accessDenied("Access denied: you are not authorized to open this test.")
+          return
+        }
         await this.onOpenSuite(target)
         return
       }
@@ -309,6 +331,7 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     if (this.projectFilterId) {
       const projectSuites = this.suites.filter((suite) => this.getSuiteProjectId(suite) === this.projectFilterId)
       if (projectSuites.length === 1) {
+        if (!this.canOpenSuite(projectSuites[0])) return
         await this.onOpenSuite(projectSuites[0])
       }
     }
@@ -322,7 +345,7 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
   }
 
   async onRunSuiteFromList(suite: TestSuiteDto): Promise<void> {
-    if (suite?.canOpen === false) {
+    if (!this.canOpenSuite(suite)) {
       this.uiNotification.accessDenied("Access denied: you are not authorized to run this test.")
       return
     }
@@ -340,7 +363,7 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
         (detail?.projectId && typeof detail.projectId === 'object'
           ? (detail.projectId as TestLabProjectDto)?.title
           : undefined) ||
-        (detail as any)?.projectTitle ||
+        detail?.projectTitle ||
         '—'
 
       const suiteName = this.getSuiteDisplayName(detail) || this.getSuiteDisplayName(suite) || '—'
@@ -470,6 +493,7 @@ toggleCase(planId: string | null | undefined, caseId: string): void {
     this.testCasesByPlan[planId] = (this.testCasesByPlan[planId] ?? []).filter(
       (tc) => tc.id !== testCaseId
     )
+    void this.saveAllValidationChanges()
   }
 
   onConfirmDeleteTestCase(planId: string, testCaseId: string): void {
@@ -692,10 +716,51 @@ getTotalCases(suite: TestSuiteDto | null | undefined): number {
         })
       )
       this.testCasesByPlan[plan.id] = resp?.testCases ?? []
+      await this.saveAllValidationChanges()
     } catch (err: unknown) {
       this.errorMessage = getErrorMessage(err, 'Unable to generate test cases')
     } finally {
       this.generatingCasesPlanId = null
+    }
+  }
+
+  private getPlanSessionStatus(planId: string): string {
+    const list = this.testCasesByPlan[planId] || []
+    return list.length > 0 ? 'ready' : 'incomplete'
+  }
+
+  private computeSuiteSessionStatus(): SuiteSessionStatus {
+    if (!this.testPlans.length) return 'incomplete'
+    const allReady = this.testPlans.every((p) => (this.testCasesByPlan[p.id] || []).length > 0)
+    return allReady ? 'completed' : 'incomplete'
+  }
+
+  private async saveAllValidationChanges(): Promise<void> {
+    const suiteId = String(this.testSuiteId || '').trim()
+    if (!suiteId || !this.testPlans.length) return
+
+    const planStatuses: Record<string, string> = {}
+    for (const plan of this.testPlans) {
+      planStatuses[plan.id] = this.getPlanSessionStatus(plan.id)
+    }
+
+    const testCasesByPlan = this.testPlans.map((plan) => ({
+      planId: plan.id,
+      planTitle: plan.title,
+      testCases: this.testCasesByPlan[plan.id] || [],
+    }))
+
+    try {
+      await firstValueFrom(
+        this.testLabService.saveSuiteSession(suiteId, {
+          sessionKind: 'validation',
+          suiteStatus: this.computeSuiteSessionStatus(),
+          planStatuses,
+          testCasesByPlan,
+        })
+      )
+    } catch {
+      // Do not block UI actions when autosave fails.
     }
   }
 
@@ -728,6 +793,12 @@ getTotalCases(suite: TestSuiteDto | null | undefined): number {
       .replace(/----?\s*SPEC EXTRACT\s*----?/gi, '')
       .trim()
     return cleaned.length > 80 ? cleaned.slice(0, 80) + '…' : cleaned || '—'
+  }
+
+  canOpenSuite(suite: TestSuiteDto | null | undefined): boolean {
+    if (!suite) return false
+    if (suite.canOpen === false) return false
+    return true
   }
 //do to selenium web driver 
   async onRunSuite(): Promise<void> {
@@ -787,6 +858,7 @@ closeDropdown(event: MouseEvent): void {
     if (this.selectedPlanId === planId) {
       this.selectedPlanId = this.testPlans[0]?.id ?? null
     }
+    void this.saveAllValidationChanges()
   }
 
   private async refreshPlans(): Promise<void> {

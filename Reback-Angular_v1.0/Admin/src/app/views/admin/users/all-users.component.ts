@@ -15,6 +15,7 @@ import { User } from '@store/authentication/auth.model'
 import { ApiService } from '@/app/core/services/api.service'
 import { UINotificationService } from '@/app/core/services/ui-notification.service'
 import { HasPermissionDirective } from '@/app/shared/directives/has-permission.directive'
+import type { HttpErrorResponse } from '@angular/common/http'
 @Component({
   selector: 'app-all-users',
   standalone: true,
@@ -64,6 +65,7 @@ export class AllUsersComponent implements OnInit {
   canEditUser = false
   canDeleteUser = false
   canViewUsers = false
+  hasUserActionWithoutView = false
   readonly usersPerPage = 6
   currentUserPage = 1
 
@@ -72,6 +74,10 @@ async ngOnInit(): Promise<void> {
   await this.initPermissions()
   this.syncCreateUserFormAccess()
 
+  if (this.hasUserActionWithoutView) {
+    this.uiNotify.accessDenied("Tu n'es pas autorise a faire ca.")
+  }
+
   if (this.canAddUser || this.canEditUser) {
     this.loadRoles()
   }
@@ -79,7 +85,7 @@ async ngOnInit(): Promise<void> {
   if (this.canViewUsers) {
     this.loadUsers()
   } else {
-    await this.router.navigate(['/unauthorized'], { replaceUrl: true })
+    this.users = []
   }
 }
 
@@ -104,6 +110,8 @@ private async initPermissions() {
   this.canEditUser = actions.includes(this.ACTION_EDIT_USER)
   this.canDeleteUser = actions.includes(this.ACTION_DELETE_USER)
   this.canViewUsers = actions.includes(this.ACTION_VIEW_USER)
+  this.hasUserActionWithoutView =
+    !this.canViewUsers && (this.canEditUser || this.canDeleteUser)
 }
 
   private syncCreateUserFormAccess(): void {
@@ -247,7 +255,7 @@ loadRoles(): void {
     })
   }
 
-private handleCreateUserError(err: any): void {
+private handleCreateUserError(err: HttpErrorResponse): void {
   const message = (err?.error?.message || '').toLowerCase()
 
   if (message.includes('email')) {

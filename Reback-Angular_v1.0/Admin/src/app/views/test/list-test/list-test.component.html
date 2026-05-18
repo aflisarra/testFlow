@@ -102,12 +102,12 @@
               <table class="table table-hover align-middle mb-0 tv-table">
                 <thead>
                   <tr>
-                    <th style="width: 22%;">Creator</th>
-                    <th style="width: 30%;">Suite name</th>
-                    <th style="width: 16%;">Created</th>
-                    <th style="width: 14%;">Status</th>
-                    <th class="text-end" style="width: 9%;">Run</th>
-                    <th class="text-end" style="width: 9%;">Export</th>
+                    <th style="inline-size: 22%;">Creator</th>
+                    <th style="inline-size: 30%;">Suite name</th>
+                    <th style="inline-size: 16%;">Created</th>
+                    <th style="inline-size: 14%;">Status</th>
+                    
+                    <th class="text-end" style="inline-size: 9%;">Export</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -123,6 +123,7 @@
                   @for (suite of vm.paginatedSuites; track suite._id) {
                     <tr
                       class="tv-row"
+                      [class.tv-row--locked]="!vm.canOpenSuite(suite)"
                       tabindex="0"
                       (keydown.enter)="vm.onSuiteRowClick(suite)"
                       (click)="vm.onSuiteRowClick(suite)"
@@ -145,24 +146,14 @@
                           {{ vm.getSuiteStatusLabel(suite) }}
                         </span>
                       </td>
-                      <td class="text-end" (click)="$event.stopPropagation()">
-                        <button
-                          type="button"
-                          class="tv-btn-run"
-                          title="Run suite"
-                          (click)="vm.onRunSuiteFromList(suite)"
-                        >
-                          <iconify-icon icon="mdi:play-circle-outline"></iconify-icon>
-                          Run
-                        </button>
-                      </td>
+                      
                       <td class="text-end" (click)="$event.stopPropagation()">
                         <button
                           type="button"
                           class="tv-btn-export"
                           title="Export Word"
                           (click)="vm.onExportSuite(suite)"
-                          [disabled]="suite.canOpen === false || vm.exportingSuiteId === suite._id"
+                          [disabled]="!vm.canOpenSuite(suite) || vm.exportingSuiteId === suite._id"
                         >
                           <iconify-icon icon="mdi:file-word-outline"></iconify-icon>
                         </button>
@@ -289,7 +280,7 @@
 
               <div class="tv-info-field tv-info-field--align-start">
                 <div class="tv-field-ico"><iconify-icon icon="mdi:account-multiple-outline"></iconify-icon></div>
-                <div style="flex: 1; min-width: 0;">
+                <div style="flex: 1; min-inline-size: 0;">
                   <div class="tv-members-header">
                     <span class="tv-field-label mb-0">Members</span>
                     <button type="button" class="tv-members-toggle" (click)="vm.toggleMembers(); $event.stopPropagation()">

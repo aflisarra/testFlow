@@ -16,7 +16,7 @@ import type { CanDeactivateComponent } from '@/app/interfaces/route-guards.inter
 import type { PlanStatus } from '@/app/views/test/models/status.types'
 import { getErrorMessage, getErrorStatus } from '@/app/views/test/utils/error.utils'
 import { CommonModule } from '@angular/common'
-import { Component, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, ElementRef, inject, NgZone, ViewChild } from '@angular/core'
+import { Component, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, ElementRef, HostListener, inject, NgZone, ViewChild } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms'
 import { ActivatedRoute, Router } from '@angular/router'
@@ -175,6 +175,12 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
     return this.projects.some((p) => String(p?._id || '').trim() === selectedId)
   }
 
+  private isProjectAccepted(projectId: string): boolean {
+    const id = String(projectId || '').trim()
+    if (!id) return false
+    return this.projects.some((p) => String(p?._id || '').trim() === id)
+  }
+
   // â”€â”€â”€ Project Change Handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async onProjectChange(): Promise<void> {
@@ -189,6 +195,13 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
 
     try {
       const normalizedProjectId = String(projectId || '').trim()
+      if (!this.isProjectAccepted(normalizedProjectId)) {
+        this.showExistingBanner = false
+        this.existingTestPlan = null
+        this.currentTestSuiteId = ''
+        this.toastr.warning('You must accept this project before accessing its tests.', 'Project Access')
+        return
+      }
 
       // If project changed, reset file + suite context to avoid mixing projects
       if (this.lastProjectId && normalizedProjectId !== this.lastProjectId) {
@@ -218,6 +231,12 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
     if (!projectId) {
       this.showExistingBanner = false
       this.existingTestPlan = null
+      return
+    }
+    if (!this.isProjectAccepted(projectId)) {
+      this.showExistingBanner = false
+      this.existingTestPlan = null
+      this.currentTestSuiteId = ''
       return
     }
 
@@ -509,8 +528,31 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   }
 
   onRequestStopGeneration(): void {
-    if (!this.isGenerationInProgress() || this.generationGuardModalOpen) return
+    if (this.generationGuardModalOpen) return
+    if (!this.isGenerationInProgress()) {
+      this.toastr.info('No active generation to stop.', 'Generation')
+      return
+    }
     this.pendingBrowserReload = false
+    void this.openGenerationGuardModal()
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  onBeforeUnload(event: BeforeUnloadEvent): void {
+    if (!this.isGenerationInProgress()) return
+    event.preventDefault()
+    event.returnValue = 'Generation in progress.'
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  onWindowKeydown(event: KeyboardEvent): void {
+    if (!this.isGenerationInProgress()) return
+    const key = String(event.key || '').toLowerCase()
+    const wantsReload = key === 'f5' || ((event.ctrlKey || event.metaKey) && key === 'r')
+    if (!wantsReload) return
+    event.preventDefault()
+    if (this.generationGuardModalOpen) return
+    this.pendingBrowserReload = true
     void this.openGenerationGuardModal()
   }
 
@@ -527,10 +569,12 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   onGenerationGuardYes(): void {
     const shouldReload = this.pendingBrowserReload
     this.pendingBrowserReload = false
-    this.allowGenerationNavigation = true
-    this.closeGenerationGuardModal(true)
+    // "Yes" = continue generation, so stay on the current page.
+    this.allowGenerationNavigation = false
+    this.closeGenerationGuardModal(false)
     if (shouldReload) {
-      setTimeout(() => window.location.reload(), 0)
+      // Cancel browser reload when user chooses to continue generation.
+      return
     }
   }
 
@@ -989,6 +1033,11 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
 
     try {
       const rawForm = this.testPlanForm.getRawValue()
+      if (!this.isProjectAccepted(String(rawForm.projectId || '').trim())) {
+        this.errorMessage = 'You must accept this project before generating test plans.'
+        this.toastr.warning(this.errorMessage, 'Project Access')
+        return
+      }
       this.testPlanForm.markAllAsTouched()
       if (this.testPlanForm.invalid) {
         this.errorMessage = 'Veuillez remplir tous les champs obligatoires.'
@@ -1075,7 +1124,13 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   }
 
   private isGenerationInProgress(): boolean {
-    return this.generatingPlans || this.generatingCases || !!this.regeneratingPlanId
+    return (
+      this.generatingPlans ||
+      this.generatingCases ||
+      !!this.regeneratingPlanId ||
+      !!this.activePlanGenerationRequestId ||
+      !!this.activeCaseGenerationRequestId
+    )
   }
 
   private openGenerationGuardModal(): Promise<boolean> {

@@ -88,6 +88,7 @@ export class ProjectManagementComponent implements OnInit {
   canEditProject = false
   canDeleteProject = false
   canListUsers = false
+  hasProjectActionWithoutView = false
 
   selectedProjectId: string | null = null
   @ViewChild('viewProjectModal') viewProjectModal!: TemplateRef<void>
@@ -259,6 +260,11 @@ get viewProjectTeamMembers(): TeamMemberView[] {
   private async initializePage(): Promise<void> {
     await this.loadCurrentUserContext()
     await this.initPermissions()
+
+    if (this.hasProjectActionWithoutView) {
+      this.toastr.warning("Tu n'es pas autorise a faire ca.", 'Permission')
+    }
+
     this.loadUsers()
     this.loadProjects()
   }
@@ -283,6 +289,8 @@ private async initPermissions(): Promise<void> {
   this.canCreateProject = ids.has(this.ACTION_CREATE_PROJECT)
   this.canEditProject = ids.has(this.ACTION_EDIT_PROJECT)
   this.canDeleteProject = ids.has(this.ACTION_DELETE_PROJECT)
+  this.hasProjectActionWithoutView =
+    !this.canViewProjects && (this.canEditProject || this.canDeleteProject)
   this.canListUsers =
     ids.has(this.ACTION_LIST_USERS) ||
     ids.has(this.ACTION_VIEW_USER)
@@ -313,7 +321,7 @@ private async initPermissions(): Promise<void> {
     if (!this.canViewProjects) {
       this.projects = []
       this.loading = false
-      this.error = "Acces refuse: vous n'avez pas l'action Projet."
+      this.error = ''
       return
     }
     this.loading = true
@@ -661,7 +669,8 @@ applyEliteTeamSelection(modal: NgbModalRef): void {
       return
     }
     if (!existing[key]) return
-    const { [key]: _removed, ...rest } = existing
+    const rest = { ...existing }
+    delete rest[key]
     control.setErrors(Object.keys(rest).length ? rest : null)
   }
 

@@ -64,6 +64,7 @@ export class TestCasesHomeComponent implements OnInit {
   loadingSuitePlans: Record<string, boolean> = {}
 
   projects: AppProject[] = []
+  private acceptedProjectIds = new Set<string>()
   selectedProjectId = ''
   loadingProjects = false
 
@@ -102,6 +103,7 @@ export class TestCasesHomeComponent implements OnInit {
 
   livePlanId = ''
   liveCases: TestCaseDto[] = []
+  focusedLiveCaseId = ''
 
   private generationSubscription: Subscription | null = null
 
@@ -119,9 +121,7 @@ export class TestCasesHomeComponent implements OnInit {
   }
 
   get canEditGenerateForSelectedProject(): boolean {
-    const projectId = String(this.selectedProjectId || '').trim()
-    if (!projectId) return false
-    return this.projects.some((p) => String(p?._id || '').trim() === projectId)
+    return Boolean(this.selectedProjectId || this.testSuiteId)
   }
 
   get allPlans(): TestPlanDto[] {
@@ -154,6 +154,13 @@ export class TestCasesHomeComponent implements OnInit {
 
   get livePlan(): TestPlanDto | null {
     return this.allPlans.find(p => p.id === this.livePlanId) || null
+  }
+
+  get visibleLiveCases(): TestCaseDto[] {
+    const cases = this.liveCases || []
+    const focusedId = String(this.focusedLiveCaseId || '').trim()
+    if (!focusedId) return cases
+    return cases.filter((tc) => String(tc?.id || '').trim() === focusedId)
   }
 
   /**
@@ -282,16 +289,16 @@ export class TestCasesHomeComponent implements OnInit {
     this.currentSuiteName = String(this.route.snapshot.queryParamMap.get('suiteName') || '').trim()
     this.hydrateCurrentUserPreview()
 
-    void this.loadProjects()
+    await this.loadProjects()
 
     const state = history.state as { plans?: TestPlanDto[] }
     this.plans = state?.plans || []
     this.initializePlanStatuses(this.plans)
 
+    await this.loadSuites()
     if (this.testSuiteId) {
       await this.loadPlansForSuite(this.testSuiteId)
-    } else {
-      await this.loadSuites()
+      this.expandedSuites[this.testSuiteId] = true
     }
   }
 
@@ -302,33 +309,18 @@ export class TestCasesHomeComponent implements OnInit {
       await this.projectsState.refresh(false)
       const all = await firstValueFrom(this.projectsState.projects$.pipe(take(1)))
 
-      const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
-      let userId = String(user?.id ?? user?._id ?? '').trim()
-      const token = String(user?.token || this.authService.session || '').trim()
-      if (!userId && token) userId = this.resolveUserIdFromToken(token)
-
-      this.projects = (Array.isArray(all) ? all : []).filter((p) => {
-        if (!userId) return true
-
-        const owner = (p as any)?.ownerId
-        const ownerId = String(typeof owner === 'object' ? owner?._id : owner || '').trim()
-        if (ownerId && ownerId === userId) return true
-
-        const assigned = Array.isArray((p as any)?.assignedUsers) ? (p as any).assignedUsers : []
-        for (const u of assigned) {
-          const id = String(typeof u === 'object' ? u?._id : u || '').trim()
-          if (id && id === userId) return true
-        }
-        return false
-      })
+      this.projects = Array.isArray(all) ? all : []
+      this.acceptedProjectIds = new Set(this.projects.map((p) => String(p?._id || '').trim()).filter(Boolean))
 
       // Pré-sélection: si on a déjà un projet dans la suite courante
-      const fromSuite = (this.suites || []).find(s => String((s as any)?._id || '').trim() === String(this.testSuiteId || '').trim())
-      const projectId = String((fromSuite as any)?.projectId?._id ?? (fromSuite as any)?.projectId ?? '').trim()
+      const fromSuite = (this.suites || []).find(s => String(s?._id || '').trim() === String(this.testSuiteId || '').trim())
+      const suiteProject = fromSuite?.projectId
+      const projectId = String(typeof suiteProject === 'object' ? suiteProject?._id : suiteProject ?? '').trim()
       if (projectId) this.selectedProjectId = projectId
     } catch {
       // Best-effort: keep projects empty if API fails
       this.projects = []
+      this.acceptedProjectIds = new Set<string>()
     } finally {
       this.loadingProjects = false
     }
@@ -366,7 +358,7 @@ export class TestCasesHomeComponent implements OnInit {
       this.liveCases = []
       this.selectedPlanId = ''
       this.dirtyPlans = {}
-      this.setSuiteDirty(true)
+      //this.setSuiteDirty(true)
 
       await this.loadPlansForSuite(this.testSuiteId)
       void this.router.navigate(['/test-cases'], {
@@ -417,7 +409,8 @@ export class TestCasesHomeComponent implements OnInit {
       const token = String(user?.token || this.authService.session || '').trim()
       if (!userId && token) userId = this.resolveUserIdFromToken(token)
       if (!userId) { this.errorMessage = 'Session expired.'; return }
-      this.suites = await firstValueFrom(this.testLabService.getTestSuitesByUser(userId))
+      const suites = await firstValueFrom(this.testLabService.getTestSuitesByUser(userId))
+      this.suites = Array.isArray(suites) ? suites : []
     } catch (err: unknown) {
       this.errorMessage = getErrorMessage(err, 'Unable to load test suites')
     } finally {
@@ -441,13 +434,17 @@ export class TestCasesHomeComponent implements OnInit {
 
     // Keep a selected suite context so "Validate & Save" knows which suite to persist to.
     this.testSuiteId = nextSuiteId
+    this.focusedLiveCaseId = ''
 
     // Always refresh the header/breadcrumb suite name on selection
     const suiteName = this.getSuiteDisplayName(suite)
     if (suiteName) this.currentSuiteName = suiteName
 
     // Keep project selector in sync with the suite's projectId (string or populated object)
-    const suiteProjectId = String((suite as any)?.projectId?._id ?? (suite as any)?.projectId ?? '').trim()
+    const suiteProjectRef = suite?.projectId
+    const suiteProjectId = String(
+      typeof suiteProjectRef === 'object' ? suiteProjectRef?._id : suiteProjectRef ?? ''
+    ).trim()
     if (suiteProjectId) this.selectedProjectId = suiteProjectId
     this.expandedSuites[suiteId] = !this.expandedSuites[suiteId]
 
@@ -490,6 +487,16 @@ export class TestCasesHomeComponent implements OnInit {
     }
     this.livePlanId = planId
     this.liveCases = this.testCasesByPlan[planId] || []
+    this.focusedLiveCaseId = ''
+  }
+
+  focusLiveCase(caseId: string, event?: Event): void {
+    event?.stopPropagation()
+    this.focusedLiveCaseId = String(caseId || '').trim()
+  }
+
+  clearFocusedLiveCase(): void {
+    this.focusedLiveCaseId = ''
   }
 
   openEditCase(caseId: string, event: Event) {
@@ -1075,14 +1082,12 @@ export class TestCasesHomeComponent implements OnInit {
   }
 
   private computeSuiteSessionStatus(statuses: Record<string, PlanValidationStatus>): SuiteSessionStatus {
+    void statuses
     if (!this.allPlans.length) return 'incomplete'
-    const allConfirmed = this.allPlans.every(
-      (p) => (statuses[p.id] || this.getPlanStatus(p.id)) === 'confirmed'
-    )
     const allHaveCases = this.allPlans.every(
       (p) => (this.testCasesByPlan[p.id] || []).length > 0
     )
-    return allConfirmed && allHaveCases ? 'completed' : 'incomplete'
+    return allHaveCases ? 'completed' : 'incomplete'
   }
 
   /**
@@ -1234,12 +1239,20 @@ export class TestCasesHomeComponent implements OnInit {
     try {
       const resp = await firstValueFrom(this.testLabService.getTestPlans(testSuiteId))
       this.plans = resp?.testPlans || []
+      try {
+        const suiteDetail = await firstValueFrom(this.testLabService.getTestSuiteById(testSuiteId))
+        const suiteProject = suiteDetail?.projectId
+        const projectId = String(typeof suiteProject === 'object' ? suiteProject?._id : suiteProject ?? '').trim()
+        if (projectId) this.selectedProjectId = projectId
+      } catch {
+        // best effort for project preselection
+      }
 
       // Always refresh the suite name when switching suites.
       // Also tolerate _id/id type mismatches (string vs ObjectId-like).
       const suiteId = String(testSuiteId || '').trim()
       const matched = this.suites.find(s => {
-        const id = String((s as any)?._id ?? (s as any)?.id ?? '').trim()
+        const id = String(s?._id ?? '').trim()
         return !!suiteId && !!id && id === suiteId
       })
       let suiteName = this.getSuiteDisplayName(matched) || this.getSuiteDisplayName(resp)
@@ -1290,6 +1303,7 @@ export class TestCasesHomeComponent implements OnInit {
         this.selectedPlanId = this.plans[0].id
         this.livePlanId = this.plans[0].id
         this.liveCases = this.testCasesByPlan[this.plans[0].id] || []
+        this.focusedLiveCaseId = ''
       }
     } catch (err: unknown) {
       this.errorMessage = getErrorMessage(err, 'Unable to load test plans')
@@ -1306,5 +1320,18 @@ export class TestCasesHomeComponent implements OnInit {
         userLike['userId'] || userLike['id'] || userLike['_id'] || userLike['sub'] || ''
       ).trim()
     } catch { return '' }
+  }
+
+  private getSuiteProjectId(suite: TestSuiteDto | null | undefined): string {
+    if (!suite) return ''
+    const raw = suite.projectId
+    if (!raw) return ''
+    if (typeof raw === 'string') return String(raw).trim()
+    return String(raw?._id || '').trim()
+  }
+
+  private isSuiteFromAcceptedProject(suite: TestSuiteDto | null | undefined): boolean {
+    void suite
+    return true
   }
 }
