@@ -20,7 +20,7 @@
   <div class="row g-3">
     <!-- inset-inline-start: FORM -->
     @if (canCreateProject || canEditProject) {
-    <div class="col-lg-7">
+    <div class="col-lg-{{ canViewProjects ? '7' : '12' }}">
       <div class="card shadow-sm pm-panel">
         <div class="card-body">
           <form [formGroup]="projectForm" (ngSubmit)="saveProject()" class="row g-2">

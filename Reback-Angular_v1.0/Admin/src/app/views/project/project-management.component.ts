@@ -562,28 +562,33 @@ applyEliteTeamSelection(modal: NgbModalRef): void {
   }
 
   saveEditedProject(modal: NgbModalRef): void {
+    
     if (!this.canEditProject) {
       this.toastr.warning("Acces refuse: vous n'avez pas l'action Edit Project.", 'Permission')
       return
     }
+     
     if (!this.editingProjectId) return
     if (
   this.editProjectForm.invalid ||
   this.hasInvalidEditEndDate() ||
   this.hasInvalidEditMilestoneDate()
+   
 ) {
       this.editProjectForm.markAllAsTouched()
+       
       if (this.hasInvalidEditDateOrder()) {
         this.error = 'Please verify dates: end and milestone dates must be on or after start date.'
       }
       return
     }
+    
     const trimmedTitle = String(this.editProjectForm.value.title || '').trim()
     if (!trimmedTitle) {
       this.editProjectForm.controls.title.markAsTouched()
       return
     }
-
+ 
     this.editSubmitting = true
     const payload = {
       title: trimmedTitle,
@@ -593,6 +598,7 @@ applyEliteTeamSelection(modal: NgbModalRef): void {
       milestoneDate: this.normalizeDateForApi(this.editProjectForm.value.milestoneDate),
       status: this.editProjectForm.value.status || 'draft',
       assignedUsers: Array.from(this.editAssignedUserIds),
+
     }
 
     this.adminService.updateProject(this.editingProjectId, payload).subscribe({
@@ -685,7 +691,7 @@ private readonly dateOrderValidatorForCreate = (
 
   const today = new Date().toISOString().split('T')[0]
 
-  const invalidStart = !!(start && start < today)
+  const invalidStart = !this.selectedProjectId && !!(start && start < today)
 
   const invalidEnd = !!(start && end && end < start)
 
@@ -728,7 +734,7 @@ private readonly dateOrderValidatorForCreate = (
 
   const today = new Date().toISOString().split('T')[0]
 
-  const invalidStart = !!(start && start < today)
+  const invalidStart = !this.editingProjectId && !!(start && start < today)
 
   const invalidEnd = !!(start && end && end < start)
 

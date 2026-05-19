@@ -442,6 +442,24 @@
                 <iconify-icon [icon]="planStatuses[plan.id] === 'confirmed' ? 'iconamoon:check-duotone' : 'iconamoon:check-circle-1-duotone'"></iconify-icon>
                 <span>{{ getValidateButtonLabel(plan.id) }}</span>
               </button>
+
+               <!-- Manual Edit -->
+  <button
+    type="button"
+    class="btn-edit-plan"
+    [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
+    (click)="onToggleManualPlanEdit(plan.id)"
+  >
+    <iconify-icon
+      [icon]="isPlanEditing(plan.id)
+        ? 'iconamoon:check-circle-1-duotone'
+        : 'iconamoon:edit-duotone'"
+    ></iconify-icon>
+
+    <span>
+      {{ isPlanEditing(plan.id) ? 'Save' : 'Edit' }}
+    </span>
+  </button>
               <button type="button" class="btn btn-sm btn-regenerate testlab-regenerate-btn"
                 [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
                 (click)="onRegeneratePlan(plan, i)">
@@ -453,6 +471,8 @@
                 <span>Regenerate</span>
                 }
               </button>
+            
+
             </div>
           </div>
           @if (isPlanEditing(plan.id)) {

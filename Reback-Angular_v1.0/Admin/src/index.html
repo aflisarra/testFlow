@@ -13,12 +13,12 @@
   <style>
     #splash-screen {
       position: fixed;
-      top: 50%;
-      left: 50%;
+      inset-block-start: 50%;
+      inset-inline-start: 50%;
       background: white;
       display: flex;
-      height: 100%;
-      width: 100%;
+      block-size: 100%;
+      inline-size: 100%;
       transform: translate(-50%, -50%);
       align-items: center;
       justify-content: center;
@@ -41,12 +41,10 @@
     }
   </style>
 </head>
-<script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
-
 <body>
   <app-root id="root"> </app-root>
   <div id="splash-screen">
-    <img alt="Logo" class="light" src="./assets/images/logo-dark-full.png" style="height: 5%" />
+    <img alt="Logo" class="light" src="./assets/images/logo-dark-full.png" style="block-size: 5%" />
   </div>
   <script>
     const rootEl = document.querySelector('#root')

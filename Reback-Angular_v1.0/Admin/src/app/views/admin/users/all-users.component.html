@@ -1,6 +1,6 @@
-<div class="row g-4 management-page">
+  <div class="row g-4 management-page">
   @if (canAddUser) {
-  <div class="col-xl-5">
+  <div class="col-xl-{{ canViewUsers ? '5' : '12' }}">
     <div class="card h-100 panel-card">
       <div class="card-header">
         <h4 class="card-title mb-0 brand-title panel-title app-title">

@@ -223,9 +223,10 @@ export class SidebarComponent implements OnInit, AfterViewInit {
       actionIds.map((x) => Number(x)).filter((x) => Number.isFinite(x))
     )
 
-    const canManageRoles = ids.has(17) || ids.has(8)
-    const canManageUsers = ids.has(10) || ids.has(4)
-    const canListProjects = ids.has(11)
+    const canManageRoles = ids.has(6) || ids.has(7) || ids.has(9) || ids.has(17) || ids.has(8)
+    const canManageUsers = ids.has(2) || ids.has(3) || ids.has(5) || ids.has(10) || ids.has(4)
+    const canManageProjects =
+      ids.has(11) || ids.has(12) || ids.has(13) || ids.has(14) || ids.has(15)
 
     const usersMenu = clonedMenu.find((m) => m.key === 'users')
 
@@ -243,13 +244,13 @@ export class SidebarComponent implements OnInit, AfterViewInit {
 
     if (projectMenu?.subMenu) {
       projectMenu.subMenu = projectMenu.subMenu.filter((child) => {
-        if (child.link === '/project') return canListProjects
+        if (child.link === '/project') return canManageProjects
         return true
       })
     }
 
     const testMenu = clonedMenu.find((m) => m.key === 'test')
-    if (testMenu?.subMenu && !canListProjects) {
+    if (testMenu?.subMenu && !canManageProjects) {
       testMenu.subMenu = []
     }
 

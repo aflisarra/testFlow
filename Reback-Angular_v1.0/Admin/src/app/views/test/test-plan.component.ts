@@ -654,7 +654,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
     const hasCasesForAllPlans = this.testPlans.every(
       (p) => (this.testCasesByPlan[p.id] || []).length > 0
     )
-    const suiteStatus = this.allPlansConfirmed && hasCasesForAllPlans ? 'completed' : 'incomplete'
+    const suiteStatus = hasCasesForAllPlans ? 'completed' : 'incomplete'
     try {
       await firstValueFrom(
         this.testLabService.saveSuiteSession(this.currentTestSuiteId, {

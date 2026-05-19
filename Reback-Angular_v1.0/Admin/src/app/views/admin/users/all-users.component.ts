@@ -46,11 +46,13 @@ export class AllUsersComponent implements OnInit {
   permissionAlert = ''
   private currentUserId = ''
   private currentUserEmail = ''
-
+canAccessUsersManagement = false
   readonly ACTION_ADD_USER = 2
   readonly ACTION_EDIT_USER = 3
   readonly ACTION_VIEW_USER = 4
   readonly ACTION_DELETE_USER = 5
+  readonly ACTION_VIEW_ROLE = 8
+  readonly ACTION_LIST_ROLE = 17
 
   createUserForm = this.fb.group({
     name: ['', [Validators.required, Validators.pattern(/\S+/)]],
@@ -65,7 +67,7 @@ export class AllUsersComponent implements OnInit {
   canEditUser = false
   canDeleteUser = false
   canViewUsers = false
-  hasUserActionWithoutView = false
+  canViewRolesCatalog = false
   readonly usersPerPage = 6
   currentUserPage = 1
 
@@ -74,11 +76,12 @@ async ngOnInit(): Promise<void> {
   await this.initPermissions()
   this.syncCreateUserFormAccess()
 
-  if (this.hasUserActionWithoutView) {
-    this.uiNotify.accessDenied("Tu n'es pas autorise a faire ca.")
+  if (!this.canAccessUsersManagement) {
+    await this.router.navigate(['/unauthorized'], { replaceUrl: true })
+    return
   }
 
-  if (this.canAddUser || this.canEditUser) {
+  if (this.canViewRolesCatalog) {
     this.loadRoles()
   }
 
@@ -110,9 +113,13 @@ private async initPermissions() {
   this.canEditUser = actions.includes(this.ACTION_EDIT_USER)
   this.canDeleteUser = actions.includes(this.ACTION_DELETE_USER)
   this.canViewUsers = actions.includes(this.ACTION_VIEW_USER)
-  this.hasUserActionWithoutView =
-    !this.canViewUsers && (this.canEditUser || this.canDeleteUser)
+  this.canViewRolesCatalog =
+    actions.includes(this.ACTION_LIST_ROLE) || actions.includes(this.ACTION_VIEW_ROLE)
+  this.canAccessUsersManagement =
+    this.canAddUser || this.canEditUser || this.canDeleteUser || this.canViewUsers
 }
+
+
 
   private syncCreateUserFormAccess(): void {
     // Avoid using [disabled] on reactive form controls in templates (Angular warns about it).
@@ -125,8 +132,7 @@ private async initPermissions() {
   }
 
 loadRoles(): void {
-  // prevent forbidden /api/roles call
-  if (!(this.canAddUser || this.canEditUser)) {
+  if (!this.canViewRolesCatalog) {
     this.roles = []
     return
   }
@@ -324,7 +330,24 @@ private handleCreateUserError(err: HttpErrorResponse): void {
           this.loadUsers()
         },
         error: (err) => {
-          this.error = err?.error?.message || 'Unable to delete user'
+          if (String(err?.error?.code || '').trim() === 'USER_IN_ACTIVE_PROJECT') {
+            this.uiNotify.accessDenied(
+              'Cannot delete this user because they are assigned to an unfinished project team.'
+            )
+            return
+          }
+          const rawMessage = String(err?.error?.message || '').trim()
+          const normalizedMessage = rawMessage.toLowerCase()
+          if (
+            normalizedMessage.includes('cannot delete this user') &&
+            normalizedMessage.includes('unfinished project team')
+          ) {
+            this.uiNotify.accessDenied(
+              'Cannot delete this user because they are assigned to an unfinished project team.'
+            )
+            return
+          }
+          this.error = rawMessage || 'Unable to delete user'
         },
       })
     })

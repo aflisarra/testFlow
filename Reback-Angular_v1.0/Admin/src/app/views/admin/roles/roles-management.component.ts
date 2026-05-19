@@ -52,27 +52,24 @@ export class RolesManagementComponent implements OnInit {
   canEditRole = false
   canDeleteRole = false
   canViewRoles = false
-  hasRoleActionWithoutView = false
+  canAccessRolesManagement = false
   readonly rolesPerPage = 4
   currentRolePage = 1
 
   async ngOnInit(): Promise<void> {
     await this.initPermissions()
 
-    if (this.hasRoleActionWithoutView) {
-      this.uiNotify.accessDenied("Tu n'es pas autorise a faire ca.")
+    if (!this.canAccessRolesManagement) {
+      await this.router.navigate(['/unauthorized'], { replaceUrl: true })
+      return
     }
 
     if (this.canViewRoles) {
       this.loadRoles()
     }
 
-    if (this.canAddRole || this.canViewRoles) {
+    if (this.canViewRoles) {
       this.loadActions()
-    }
-
-    if (!this.canAddRole && !this.canViewRoles) {
-      await this.router.navigate(['/unauthorized'], { replaceUrl: true })
     }
   }
 
@@ -83,8 +80,8 @@ export class RolesManagementComponent implements OnInit {
     this.canEditRole = actions.includes(this.ACTION_EDIT_ROLE)
     this.canDeleteRole = actions.includes(this.ACTION_DELETE_ROLE)
     this.canViewRoles = actions.includes(this.ACTION_LIST_ROLE) || actions.includes(this.ACTION_VIEW_ROLE)
-    this.hasRoleActionWithoutView =
-      !this.canViewRoles && (this.canEditRole || this.canDeleteRole)
+    this.canAccessRolesManagement =
+      this.canAddRole || this.canEditRole || this.canDeleteRole || this.canViewRoles
   }
 
   loadRoles(): void {
@@ -105,7 +102,10 @@ export class RolesManagementComponent implements OnInit {
   }
 
   loadActions(): void {
-    if (!(this.canAddRole || this.canViewRoles)) return
+    if (!this.canViewRoles) {
+      this.actions = []
+      return
+    }
     this.loading = true
     this.error = ''
     this.adminService.getActions().subscribe({
