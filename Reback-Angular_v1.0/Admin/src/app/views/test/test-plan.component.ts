@@ -61,6 +61,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
     name: ['', Validators.required],
     specDocument: ['', Validators.required],
     projectId: ['', Validators.required],
+    applicationUrl: [''],
   })
 
   // Banner for existing test plan
@@ -803,6 +804,9 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       this.activePlanGenerationRequestId = requestId
       if (this.selectedFile) formData.append('file', this.selectedFile)
       formData.append('styleConfig', this.styleConfig.trim())
+      const applicationUrl = String(this.testPlanForm.getRawValue().applicationUrl || '').trim()
+      formData.append('applicationUrl', applicationUrl)
+      formData.append('urlCible', applicationUrl)
       formData.append('description', this.styleConfig.trim())
       formData.append('userId', userId)
       formData.append('testSuiteId', this.currentTestSuiteId)
@@ -1069,6 +1073,9 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       const formData = new FormData()
       formData.append('file', this.selectedFile)
       formData.append('styleConfig', this.styleConfig.trim())
+      const applicationUrl = String(rawForm.applicationUrl || '').trim()
+      formData.append('applicationUrl', applicationUrl)
+      formData.append('urlCible', applicationUrl)
       formData.append('description', this.styleConfig.trim())
       formData.append('userId', userId)
       formData.append(

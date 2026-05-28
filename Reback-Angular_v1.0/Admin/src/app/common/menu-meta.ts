@@ -105,7 +105,7 @@ export const MENU: MenuItem[] = [
 
     {
     key: 'execution',
-    icon: 'fast_forward',
+    icon: 'iconamoon:play-circle-duotone',
     label: 'Execution Management',
     collapsed: false,
     subMenu: [

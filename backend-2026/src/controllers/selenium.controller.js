@@ -1,21 +1,37 @@
-const { runTestCase } = require('../services/selenium.service')
+const { runTestCase } = require('../services/selenium/selenium.service')
 
 async function runTestCaseHandler(req, res) {
   try {
-    const testCase = req.body?.testCase ?? req.body
-    if (!testCase) {
-      return res.status(400).json({ status: 'error', message: 'Missing test case payload.' })
+    const testCase = req.body?.testCase || req.body
+
+    // validation simple
+    if (!testCase || !testCase.steps) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid payload: testCase or steps missing.'
+      })
     }
 
+    console.log('[INFO] Running test case:', testCase?.id || testCase?.title)
+
     const result = await runTestCase(testCase)
-    return res.json(result)
+
+    return res.status(200).json({
+      status: result.status,
+      message: result.message,
+      data: result
+    })
+
   } catch (err) {
-    const msg = err && typeof err === 'object' && 'message' in err ? String(err.message) : String(err)
-    return res.status(500).json({ status: 'error', message: msg || 'Unexpected server error.' })
+    console.error('[ERROR] runTestCaseHandler:', err)
+
+    return res.status(500).json({
+      status: 'error',
+      message: err?.message || 'Unexpected server error.'
+    })
   }
 }
 
 module.exports = {
   runTestCaseHandler,
 }
-

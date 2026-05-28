@@ -1,8 +1,15 @@
 const express = require('express')
 const ollamaController = require('../controllers/ollama.controller')
-const { createSpecsUpload } = require('../utils/spec-upload')
+const specsUploadModule = require('../utils/spec-upload')
+const createSpecsUpload =
+  specsUploadModule?.createSpecsUpload ||
+  specsUploadModule?.default ||
+  specsUploadModule
 
 const router = express.Router()
+if (typeof createSpecsUpload !== 'function') {
+  throw new TypeError('Invalid spec-upload module: createSpecsUpload must be a function')
+}
 const upload = createSpecsUpload()
 
 router.get('/health', ollamaController.health)

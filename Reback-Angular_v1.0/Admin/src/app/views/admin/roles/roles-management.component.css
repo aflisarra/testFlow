@@ -50,8 +50,8 @@
 }
 
 .btn-icon-unified {
-  width: 38px;
-  height: 38px;
+  inline-size: 38px;
+  block-size: 38px;
   padding: 0 !important;
   display: inline-flex;
   align-items: center;
@@ -59,7 +59,7 @@
 }
 
 .table-pagination {
-  margin-top: 0.75rem;
+  margin-block-start: 0.75rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -78,7 +78,7 @@
 }
 
 .table-pagination__page {
-  min-width: 96px;
+  min-inline-size: 96px;
   text-align: center;
   font-size: 0.82rem;
   color: #334155;

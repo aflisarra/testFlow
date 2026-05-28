@@ -16,20 +16,20 @@
     radial-gradient(750px 320px at -8% 8%, rgb(59 130 246 / 12%), transparent 60%),
     linear-gradient(180deg, var(--pm-bg-a) 0%, var(--pm-bg-b) 100%);
   border-radius: 16px;
-  padding-top: 0.35rem !important;
-  padding-bottom: 0.75rem;
+  padding-block-start: 0.35rem !important;
+  padding-block-end: 0.75rem;
 }
 
 @media (width >= 992px) {
   .project-page {
-    min-height: calc(100vh - 115px);
+    min-block-size: calc(100vh - 115px);
   }
 }
 
 /* ===================== HERO ===================== */
 .project-hero {
   padding: 0.2rem;
-  margin-bottom: 0.65rem !important;
+  margin-block-end: 0.65rem !important;
 }
 
 .project-hero-title {
@@ -91,7 +91,7 @@
   text-transform: none;
   letter-spacing: 0;
   color: #475569;
-  margin-bottom: 3px;
+  margin-block-end: 3px;
 }
 
 /* ===================== SEARCH BAR ===================== */
@@ -101,21 +101,21 @@
 
 .project-search-icon {
   position: absolute;
-  left: 0.7rem;
-  top: 50%;
+  inset-inline-start: 0.7rem;
+  inset-block-start: 50%;
   transform: translateY(-50%);
-  width: 14px;
-  height: 14px;
+  inline-size: 14px;
+  block-size: 14px;
   color: #94a3b8;
   pointer-events: none;
   stroke: #94a3b8;
 }
 
 .project-search-input {
-  padding-left: 2.1rem !important;
+  padding-inline-start: 2.1rem !important;
   border-radius: 10px !important;
   font-size: 0.82rem;
-  height: 36px;
+  block-size: 36px;
   background: #f0f4fb;
   border: 1.5px solid transparent !important;
   transition: border-color 0.15s, background 0.15s;
@@ -129,12 +129,12 @@
 
 /* ===================== PROJECT LIST ===================== */
 .project-list {
-  max-height: 560px;
+  max-block-size: 560px;
   overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  padding-right: 0.1rem;
+  padding-inline-end: 0.1rem;
 }
 
 .project-item {
@@ -163,7 +163,7 @@
 
 .project-item-info {
   flex: 1;
-  min-width: 0;
+  min-inline-size: 0;
 }
 
 .project-item-title {
@@ -181,7 +181,7 @@
   align-items: center;
   gap: 0.35rem;
   flex-shrink: 0;
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 
 .project-users-chip {
@@ -210,8 +210,8 @@
 }
 
 .btn-icon-unified {
-  width: 34px;
-  height: 34px;
+  inline-size: 34px;
+  block-size: 34px;
   padding: 0 !important;
   display: inline-flex;
   align-items: center;
@@ -262,7 +262,7 @@
   text-transform: none;
   letter-spacing: 0;
   color: #475569;
-  margin-bottom: 3px;
+  margin-block-end: 3px;
 }
 
 .date-triple-field {
@@ -289,7 +289,7 @@
 }
 
 .pm-description {
-  min-height: 118px;
+  min-block-size: 118px;
 }
 
 .form-control,
@@ -341,7 +341,7 @@ textarea.form-control {
   font-size: 0.85rem;
   font-weight: 500;
   color: #475569;
-  margin-bottom: 3px;
+  margin-block-end: 3px;
 }
 
 .elite-team-tools {
@@ -353,12 +353,12 @@ textarea.form-control {
 .team-preview {
   display: inline-flex;
   align-items: center;
-  margin-right: 0.15rem;
+  margin-inline-end: 0.15rem;
 }
 
 .team-preview-item {
-  width: 30px;
-  height: 30px;
+  inline-size: 30px;
+  block-size: 30px;
   border-radius: 999px;
   border: 1px solid #dbe4f1;
   background: #eef3f9;
@@ -366,16 +366,16 @@ textarea.form-control {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  margin-left: -8px;
+  margin-inline-start: -8px;
 }
 
 .team-preview-item:first-child {
-  margin-left: 0;
+  margin-inline-start: 0;
 }
 
 .team-preview-avatar {
-  width: 100%;
-  height: 100%;
+  inline-size: 100%;
+  block-size: 100%;
   object-fit: cover;
 }
 
@@ -384,8 +384,8 @@ textarea.form-control {
   font-weight: 800;
   color: #fff;
   background: #198754;
-  width: 100%;
-  height: 100%;
+  inline-size: 100%;
+  block-size: 100%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -403,8 +403,8 @@ textarea.form-control {
 }
 
 .elite-team-toggle-icon {
-  width: 34px;
-  height: 34px;
+  inline-size: 34px;
+  block-size: 34px;
   border-radius: 999px;
   padding: 0;
   display: inline-flex;
@@ -457,7 +457,9 @@ textarea.form-control {
 }
 
 .exec-upsert-header {
-  margin-bottom: 1rem;
+  margin-block-end: 1rem;
+
+  
 }
 
 .exec-upsert-headline {
@@ -465,6 +467,13 @@ textarea.form-control {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.exec-upsert-headline .confirm-close {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
 }
 
 .exec-upsert-title {
@@ -476,41 +485,42 @@ textarea.form-control {
 
 .exec-close-btn {
   position: absolute;
-  right: 0;
-  width: 2rem;
-  height: 2rem;
+  inset-inline-end: 0;
+  inline-size: 2rem;
+  block-size: 2rem;
+  padding: 0;
   border: 1px solid #d5e2f1;
   border-radius: 999px;
   background: #fff;
   color: #35597e;
-  font-size: 1.2rem;
-  line-height: 1;
+  font-size: 1.35rem;
+  line-height: 2rem; /* 👈 important */
   cursor: pointer;
-  display: flex;
+  display: flex; /* 👈 remplace grid */
   align-items: center;
   justify-content: center;
 }
 
 .exec-upsert-accent {
-  height: 4px;
+  block-size: 4px;
   background: linear-gradient(90deg, #ec8a00 0%, #f7b75b 100%);
 }
 
 .exec-field {
   display: grid;
   gap: 0.38rem;
-  margin-bottom: 0.6rem;
+  margin-block-end: 0.6rem;
 }
 
 .exec-label {
   font-size: 0.85rem;
   font-weight: 500;
   color: #475569;
-  margin-bottom: 3px;
+  margin-block-end: 3px;
 }
 
 .exec-input {
-  width: 100%;
+  inline-size: 100%;
   border: 1px solid #cfe0f1;
   border-radius: 10px;
   background: #fff;
@@ -527,7 +537,7 @@ textarea.form-control {
 }
 
 .exec-actions-scroll {
-  max-height: 220px;
+  max-block-size: 220px;
   overflow-y: auto;
 }
 
@@ -551,19 +561,19 @@ textarea.form-control {
 }
 
 .exec-checkbox {
-  width: 15px;
-  height: 15px;
+  inline-size: 15px;
+  block-size: 15px;
   accent-color: #ec8a00;
   cursor: pointer;
 }
 
 .exec-checkbox-lg {
-  width: 1rem;
-  height: 1rem;
+  inline-size: 1rem;
+  block-size: 1rem;
 }
 
 .exec-buttons {
-  margin-top: 0.6rem;
+  margin-block-start: 0.6rem;
   display: flex;
   justify-content: flex-end;
   gap: 0.55rem;
@@ -599,7 +609,7 @@ textarea.form-control {
 }
 
 .exec-actions-trigger {
-  width: 100%;
+  inline-size: 100%;
   border: 1px solid #cfe0f1;
   border-radius: 10px;
   background: #fff;
@@ -609,7 +619,7 @@ textarea.form-control {
   align-items: center;
   justify-content: space-between;
   gap: 0.65rem;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -627,7 +637,7 @@ textarea.form-control {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  min-width: 0;
+  min-inline-size: 0;
 }
 
 .exec-trigger-placeholder {
@@ -653,8 +663,8 @@ textarea.form-control {
 
 .edit-trigger-avatar,
 .edit-user-avatar {
-  width: 22px;
-  height: 22px;
+  inline-size: 22px;
+  block-size: 22px;
   border-radius: 999px;
   object-fit: cover;
   border: 1px solid #dbe4f1;
@@ -665,14 +675,14 @@ textarea.form-control {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  min-width: 0;
+  min-inline-size: 0;
 }
 
 .edit-elite-dropdown .exec-actions-box {
   position: absolute;
-  bottom: calc(100% + 0.4rem);
-  left: 0;
-  right: 0;
+  inset-block-end: calc(100% + 0.4rem);
+  inset-inline-start: 0;
+  inset-inline-end: 0;
   z-index: 9999;
   box-shadow: 0 -6px 24px rgb(12 40 70 / 15%);
 }
@@ -692,19 +702,19 @@ textarea.form-control {
   gap: 1rem;
   padding: 1rem 1.1rem;
   background: linear-gradient(135deg, #f8fbff 0%, #f0f6ff 100%);
-  border-bottom: 1px solid #e8edf5;
+  border-block-end: 1px solid #e8edf5;
 }
 
 .vpc-title-row {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  min-width: 0;
+  min-inline-size: 0;
 }
 
 .vpc-folder-icon {
-  width: 28px;
-  height: 28px;
+  inline-size: 28px;
+  block-size: 28px;
   flex-shrink: 0;
   color: #e8b84b;
   background: #fff7e6;
@@ -717,8 +727,8 @@ textarea.form-control {
 }
 
 .vpc-folder-icon svg {
-  width: 100%;
-  height: 100%;
+  inline-size: 100%;
+  block-size: 100%;
   fill: #e8b84b;
 }
 
@@ -753,7 +763,7 @@ textarea.form-control {
   font-size: 0.84rem;
   color: #475569;
   line-height: 1.55;
-  border-bottom: 1px solid #e8edf5;
+  border-block-end: 1px solid #e8edf5;
 }
 
 /* Dates row */
@@ -761,7 +771,7 @@ textarea.form-control {
   display: flex;
   align-items: stretch;
   padding: 0;
-  border-bottom: 1px solid #e8edf5;
+  border-block-end: 1px solid #e8edf5;
 }
 
 .vpc-date-item {
@@ -773,14 +783,14 @@ textarea.form-control {
 }
 
 .vpc-date-sep {
-  width: 1px;
+  inline-size: 1px;
   background: #e8edf5;
   flex-shrink: 0;
 }
 
 .vpc-date-icon {
-  width: 30px;
-  height: 30px;
+  inline-size: 30px;
+  block-size: 30px;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -793,8 +803,8 @@ textarea.form-control {
 }
 
 .vpc-date-icon svg {
-  width: 100%;
-  height: 100%;
+  inline-size: 100%;
+  block-size: 100%;
 }
 
 .vpc-date-icon--end {
@@ -810,12 +820,13 @@ textarea.form-control {
 }
 
 .vpc-date-label {
-  font-size: 0.67rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #94a3b8;
-  margin-bottom: 2px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #475569;
+  margin-block-end: 3px;
+
 }
 
 .vpc-date-value {
@@ -833,17 +844,17 @@ textarea.form-control {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+   font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
   color: #64748b;
-  margin-bottom: 0.75rem;
+  margin-block-end: 3px;
 }
 
 .vpc-team-label svg {
-  width: 14px;
-  height: 14px;
+  inline-size: 14px;
+  block-size: 14px;
   stroke: #94a3b8;
 }
 
@@ -851,8 +862,8 @@ textarea.form-control {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  inline-size: 18px;
+  block-size: 18px;
   border-radius: 999px;
   background: #e2e8f0;
   color: #475569;
@@ -888,8 +899,8 @@ textarea.form-control {
 }
 
 .vpc-avatar {
-  width: 34px;
-  height: 34px;
+  inline-size: 34px;
+  block-size: 34px;
   border-radius: 999px;
   display: flex;
   align-items: center;
@@ -911,8 +922,8 @@ textarea.form-control {
 }
 
 .vpc-avatar--photo img {
-  width: 100%;
-  height: 100%;
+  inline-size: 100%;
+  block-size: 100%;
   object-fit: cover;
 }
 
@@ -920,7 +931,7 @@ textarea.form-control {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  min-width: 0;
+  min-inline-size: 0;
   flex-wrap: wrap;
 }
 
@@ -953,7 +964,7 @@ textarea.form-control {
 
 .app-title-icon {
   font-size: 20px;
-  margin-right: 6px;
+  margin-inline-end: 6px;
 }
 
 @media (width <= 992px) {
@@ -964,7 +975,7 @@ textarea.form-control {
   }
 
   .hero-right-group {
-    width: 100%;
+    inline-size: 100%;
     justify-content: flex-end;
     flex-wrap: wrap;
   }
@@ -978,8 +989,8 @@ textarea.form-control {
   }
 
   .vpc-date-sep {
-    width: 100%;
-    height: 1px;
+    inline-size: 100%;
+    block-size: 1px;
   }
 
   .vpc-member-grid {

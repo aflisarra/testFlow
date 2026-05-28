@@ -8,9 +8,7 @@
           <span>{{ role ? 'Edit Role' : 'Create Role' }}</span>
         </h1>
         @if (!inlineMode) {
-        <button class="exec-close-btn" type="button" aria-label="Close" (click)="onCancel()">
-          ×
-        </button>
+        <button class="btn-close confirm-close" type="button" aria-label="Close" (click)="onCancel()"></button>
         }
       </div>
       <p class="exec-upsert-subtitle">Modify permissions and identity for this user group.</p>

@@ -8,4 +8,3 @@ function isMongoObjectId(value) {
 }
 
 module.exports = { isMongoObjectId }
-

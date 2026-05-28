@@ -60,7 +60,10 @@
                 <iconify-icon icon="iconamoon:folder-duotone" class="testlab-title-icon"></iconify-icon>
                 <span>Project Selection</span>
               </span>
-              <span class="testlab-step-chip">STEP 1</span>
+          <span class="testlab-step-group">
+            <span class="testlab-step-dot-ui">1</span>
+            <span class="testlab-step-chip">Step 1</span>
+          </span>
             </label>
             <div class="testlab-project-row">
               <div class="testlab-project-select-wrap">
@@ -112,7 +115,10 @@
                 <iconify-icon icon="iconamoon:text-duotone" class="testlab-title-icon"></iconify-icon>
                 <span>Test Name</span>
               </span>
-              <span class="testlab-step-chip">STEP 2</span>
+          <span class="testlab-step-group">
+            <span class="testlab-step-dot-ui">2</span>
+            <span class="testlab-step-chip">Step 2</span>
+          </span>
             </div>
             <div class="testlab-input-wrapper">
               <iconify-icon icon="iconamoon:text-duotone" class="testlab-input-icon-left"></iconify-icon>
@@ -128,6 +134,35 @@
             }
           </div>
 
+          <!-- STEP 3 · Application URL -->
+
+<div class="testlab-card testlab-field-card p-3">
+  <div class="testlab-card-title testlab-card-title--with-chip">
+    <span class="testlab-card-title-left">
+      <iconify-icon
+        icon="iconamoon:globe-duotone"
+        class="testlab-title-icon testlab-title-icon--green">
+      </iconify-icon>
+
+      <span>Application URL</span>
+    </span>
+
+    <span class="testlab-step-group">
+      <span class="testlab-step-dot-ui">3</span>
+      <span class="testlab-step-chip">Step 3</span>
+    </span>
+  </div>
+
+  <div class="testlab-input-wrapper testlab-input-wrapper-url">
+    <span class="testlab-url-prefix-inline">https://</span>
+    <input
+      type="text"
+      class="testlab-input testlab-input--url"
+      formControlName="applicationUrl"
+      placeholder="your-app.com/path" />
+  </div>
+</div>
+
           <!-- Style Configuration -->
           <div class="testlab-card testlab-field-card p-3">
             <div class="testlab-card-title testlab-card-title--with-chip">
@@ -135,7 +170,10 @@
                 <iconify-icon icon="iconamoon:settings-duotone" class="testlab-title-icon"></iconify-icon>
                 <span>Style Configuration</span>
               </span>
-              <span class="testlab-step-chip">STEP 3</span>
+          <span class="testlab-step-group">
+            <span class="testlab-step-dot-ui">4</span>
+            <span class="testlab-step-chip">Step 4</span>
+          </span>
             </div>
             <div class="testlab-textarea-wrapper">
               <iconify-icon icon="iconamoon:edit-duotone" class="testlab-textarea-icon"></iconify-icon>
@@ -156,7 +194,10 @@
     <iconify-icon icon="iconamoon:document-duotone" class="testlab-title-icon"></iconify-icon>
     <span>Specifications</span>
   </span>
-  <span class="testlab-step-chip">STEP 4</span>
+          <span class="testlab-step-group">
+            <span class="testlab-step-dot-ui">5</span>
+            <span class="testlab-step-chip">Step 5</span>
+          </span>
 </div>
             <p class="testlab-card-subtitle mb-3">Upload your test specifications</p>
 

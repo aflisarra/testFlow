@@ -23,6 +23,19 @@ import type {
   TestStatus,
 } from '@/app/interfaces/execution.interface'
 
+type LoadedExecutionTestCase = {
+  id: string
+  title: string
+  steps: string[]
+  urlCible: string
+  credentials?: {
+    email?: string
+    password?: string
+    apiToken?: string
+    token?: string
+  }
+}
+
 @Component({
   selector: 'app-execution',
   standalone: true,
@@ -54,7 +67,7 @@ export class ExecutionComponent implements OnInit {
   private suiteId = ''
   private planId = ''
   private testCaseId = ''
-  private loadedTestCase: { id: string; title: string; steps: string[]; urlCible: string } | null = null
+  private loadedTestCase: LoadedExecutionTestCase | null = null
   screenshotUrl: string | null = null
 
   private readonly PASS_LOGS: LogLine[] = [
@@ -426,7 +439,14 @@ element.click()`;
       }
 
       const steps = Array.isArray(tc.steps) ? tc.steps.map((s) => String(s)) : []
-      this.loadedTestCase = { id: String(tc.id), title: String(tc.title || tc.id), steps, urlCible }
+      const credentials = this.resolveExecutionCredentials(tc, suite)
+      this.loadedTestCase = {
+        id: String(tc.id),
+        title: String(tc.title || tc.id),
+        steps,
+        urlCible,
+        ...(credentials ? { credentials } : {}),
+      }
 
       // Fill breadcrumb labels if not provided
       const qp = this.route.snapshot.queryParamMap
@@ -462,6 +482,51 @@ element.click()`;
       status: 'waiting',
       timestamp: ts,
     }))
+  }
+
+  private readStringField(source: unknown, keys: string[]): string {
+    const record = (source || {}) as Record<string, unknown>
+
+    for (const key of keys) {
+      const value = record[key]
+      if (typeof value === 'string' && value.trim()) return value.trim()
+      if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+    }
+
+    return ''
+  }
+
+  private resolveExecutionCredentials(tc: TestCaseDto, suite: TestSuiteDto): LoadedExecutionTestCase['credentials'] | undefined {
+    const qp = this.route.snapshot.queryParamMap
+    const tcRecord = tc as unknown as Record<string, unknown>
+    const suiteRecord = suite as unknown as Record<string, unknown>
+    const nestedCredentials = (tcRecord['credentials'] || suiteRecord['credentials'] || {}) as Record<string, unknown>
+
+    const email =
+      String(qp.get('loginEmail') || qp.get('appEmail') || qp.get('basicAuthEmail') || qp.get('basicAuthUsername') || qp.get('username') || qp.get('jiraEmail') || qp.get('email') || '').trim() ||
+      this.readStringField(nestedCredentials, ['email', 'username', 'login', 'userEmail', 'basicAuthEmail', 'basicAuthUsername', 'jiraEmail']) ||
+      this.readStringField(tc, ['email', 'username', 'login', 'userEmail', 'basicAuthEmail', 'basicAuthUsername', 'jiraEmail']) ||
+      this.readStringField(suite, ['email', 'username', 'login', 'userEmail', 'basicAuthEmail', 'basicAuthUsername', 'jiraEmail'])
+
+    const password =
+      String(qp.get('loginPassword') || qp.get('appPassword') || qp.get('password') || '').trim() ||
+      this.readStringField(nestedCredentials, ['password', 'loginPassword', 'appPassword']) ||
+      this.readStringField(tc, ['password', 'loginPassword', 'appPassword']) ||
+      this.readStringField(suite, ['password', 'loginPassword', 'appPassword'])
+
+    const apiToken =
+      String(qp.get('basicAuthToken') || qp.get('basicAuthPassword') || qp.get('apiToken') || qp.get('token') || qp.get('jiraApiToken') || '').trim() ||
+      this.readStringField(nestedCredentials, ['apiToken', 'token', 'basicAuthToken', 'basicAuthPassword', 'jiraApiToken']) ||
+      this.readStringField(tc, ['apiToken', 'token', 'basicAuthToken', 'basicAuthPassword', 'jiraApiToken']) ||
+      this.readStringField(suite, ['apiToken', 'token', 'basicAuthToken', 'basicAuthPassword', 'jiraApiToken'])
+
+    if (!email && !password && !apiToken) return undefined
+
+    return {
+      ...(email ? { email } : {}),
+      ...(password ? { password } : {}),
+      ...(apiToken ? { apiToken } : {}),
+    }
   }
 
   private startFakeTimeline(totalSteps: number): void {
@@ -508,7 +573,19 @@ element.click()`;
   }
 
   private mapRunResponseToLogs(resp: SeleniumRunResponseDto): LogLine[] {
-    const stepResults = Array.isArray(resp?.stepResults) ? resp.stepResults : []
+    const payload: any = (resp as any)?.data ?? resp
+    const stepResults = Array.isArray(payload?.stepResults) ? payload.stepResults : []
+    const backendLogs = Array.isArray(payload?.logs) ? payload.logs : []
+    if (backendLogs.length) {
+      return backendLogs.map((line: string, idx: number) => {
+        const text = String(line || '')
+        const level: LogLine['level'] =
+          text.includes('[FAIL]') ? 'FAIL' :
+          text.includes('[ERROR]') ? 'ERROR' :
+          text.includes('[PASS]') ? 'SUCCESS' : 'INFO'
+        return { index: idx + 1, level, message: text.replace(/^\[[A-Z]+\]\s*/, '') }
+      })
+    }
     const logs: LogLine[] = []
     let i = 1
     logs.push({ index: i++, level: 'INFO', message: 'Selenium execution started' })
@@ -518,12 +595,12 @@ element.click()`;
       } else {
         logs.push({ index: i++, level: 'FAIL', message: `Step ${s.index}: ${s.name} → failed` })
         if (s.message) logs.push({ index: i++, level: 'ERROR', message: String(s.message) })
-        if (s.screenshotPath) logs.push({ index: i++, level: 'INFO', message: `Screenshot: /api/uploads/${s.screenshotPath}` })
+        if (s.screenshotPath) logs.push({ index: i++, level: 'INFO', message: `Screenshot: ${s.screenshotPath}` })
       }
     }
-    if (resp?.status === 'passed') logs.push({ index: i++, level: 'SUCCESS', message: 'Test PASSED' })
-    if (resp?.status === 'failed') logs.push({ index: i++, level: 'FAIL', message: 'Test FAILED' })
-    if (resp?.status === 'error') logs.push({ index: i++, level: 'ERROR', message: resp.errorMessage || resp.message || 'Test ERROR' })
+    if (payload?.status === 'passed') logs.push({ index: i++, level: 'SUCCESS', message: 'Test PASSED' })
+    if (payload?.status === 'failed') logs.push({ index: i++, level: 'FAIL', message: 'Test FAILED' })
+    if (payload?.status === 'error') logs.push({ index: i++, level: 'ERROR', message: payload.errorMessage || payload.message || 'Test ERROR' })
     return logs
   }
 
@@ -557,6 +634,7 @@ element.click()`;
       title: this.loadedTestCase.title,
       urlCible: this.loadedTestCase.urlCible,
       steps: this.loadedTestCase.steps,
+      ...(this.loadedTestCase.credentials ? { credentials: this.loadedTestCase.credentials } : {}),
     }
 
     this.runSubscription = this.seleniumRunner.runSingleTestCase(payload)
@@ -565,12 +643,19 @@ element.click()`;
         next: (resp) => {
           const elapsed = Math.max(0, Date.now() - startedAt)
           const secs = `${Math.max(1, Math.round(elapsed / 1000))}s`
-          const stepResults = Array.isArray(resp?.stepResults) ? resp.stepResults : []
+          const payload: any = (resp as any)?.data ?? resp
+          const stepResults = Array.isArray(payload?.stepResults) ? payload.stepResults : []
           const mappedSteps = stepResults.length ? this.mapStepResultsToScenarioSteps(stepResults) : this.scenario.steps
 
-          const failedStep = stepResults.find((s) => s.status === 'failed') || null
-          const screenshotPath = String(failedStep?.screenshotPath || resp?.screenshotPath || '').trim()
-          this.screenshotUrl = screenshotPath ? `/api/uploads/${screenshotPath}` : null
+          const failedStep = stepResults.find((s: SeleniumStepResultDto) => s.status === 'failed') || null
+          const screenshotList = Array.isArray(payload?.screenshots) ? payload.screenshots : []
+          const screenshotPath = String(
+            failedStep?.screenshotPath ||
+            payload?.screenshotPath ||
+            screenshotList[screenshotList.length - 1] ||
+            ''
+          ).trim()
+          this.screenshotUrl = screenshotPath || null
 
           this.isStreaming = false
           this.fakeTimelineSubscription?.unsubscribe()
@@ -578,12 +663,12 @@ element.click()`;
 
           this.scenario = {
             ...this.scenario,
-            status: resp?.status === 'passed' ? 'passed' : 'failed',
+            status: payload?.status === 'passed' ? 'passed' : 'failed',
             executionTime: secs,
             steps: mappedSteps,
             progressPercent: 100,
-            progressLabel: resp?.status === 'passed' ? 'Completed' : 'Completed with errors',
-            activeStepLabel: resp?.status === 'passed' ? '✓ Completed' : '✖ Failed',
+            progressLabel: payload?.status === 'passed' ? 'Completed' : 'Completed with errors',
+            activeStepLabel: payload?.status === 'passed' ? '✓ Completed' : '✖ Failed',
             errorMeta: screenshotPath ? {
               errorType: 'SeleniumStepFailed',
               stepName: String(failedStep?.name || ''),

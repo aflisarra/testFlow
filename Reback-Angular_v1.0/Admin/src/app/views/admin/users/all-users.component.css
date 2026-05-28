@@ -36,7 +36,7 @@
   text-transform: none;
   letter-spacing: 0;
   color: #475569;
-  margin-bottom: 3px;
+  margin-block-end: 3px;
 }
 
 .form-control,
@@ -69,8 +69,8 @@
 }
 
 .users-list-card .table thead th {
-  padding-top: 0.45rem;
-  padding-bottom: 0.45rem;
+  padding-block-start: 0.45rem;
+  padding-block-end: 0.45rem;
 }
 
 .btn-unified {
@@ -80,7 +80,7 @@
   line-height: 1.2;
   font-size: 0.85rem;
 
-  /* margin-top: 0.6rem; */
+  
   
   
 }
@@ -90,8 +90,8 @@
 }
 
 .btn-icon-unified {
-  width: 38px;
-  height: 38px;
+  inline-size: 38px;
+  block-size: 38px;
   padding: 0 !important;
   display: inline-flex;
   align-items: center;
@@ -116,11 +116,11 @@
   font-weight: 500;
   font-size: 0.72rem;
 
-  /* margin-top: 2px; */
+  
 }
 
 .table-pagination {
-  /* margin-top: 0.75rem; */
+  
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -139,7 +139,7 @@
 }
 
 .table-pagination__page {
-  min-width: 96px;
+  min-inline-size: 96px;
   text-align: center;
   font-size: 0.82rem;
   color: #334155;
@@ -149,7 +149,7 @@
 .exec-field {
   display: grid;
   gap: 0.38rem;
-  margin-bottom: 1rem;
+  margin-block-end: 1rem;
 }
 
 .exec-label {
@@ -158,13 +158,13 @@
   text-transform: none;
   letter-spacing: 0;
   color: #475569;
-  margin-bottom: 3px;
+  margin-block-end: 3px;
 
 }
 
 .exec-input,
 .exec-select {
-  width: 100%;
+  inline-size: 100%;
   border: 1px solid #cfe0f1;
   border-radius: 10px;
   background: #f5f7fa;
@@ -191,8 +191,8 @@
 }
 
 .exec-role-trigger {
-  width: 100%;
-  min-height: 42px;
+  inline-size: 100%;
+  min-block-size: 42px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -203,7 +203,7 @@
   padding: 0.58rem 0.72rem;
   cursor: pointer;
   font-size: 0.92rem;
-  text-align: left;
+  text-align: start;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -227,31 +227,31 @@
   flex: 0 0 auto;
   font-size: 0.7rem;
   color: #60758f;
-  margin-left: 0.5rem;
+  margin-inline-start: 0.5rem;
 }
 
 .exec-role-menu {
   position: absolute;
-  bottom: calc(100% + 8px); /* affiche en haut */
-  left: 0;
-  width: 100%;
+  inset-block-end: calc(100% + 8px); /* affiche en haut */
+  inset-inline-start: 0;
+  inline-size: 100%;
   z-index: 1000;
   background: #fff;
   border: 1px solid #dbe3ef;
   border-radius: 16px;
   box-shadow: 0 8px 24px rgb(0 0 0 / 8%);
-  max-height: 220px;
+  max-block-size: 220px;
   overflow-y: auto;
 }
 
 .exec-role-option {
-  width: 100%;
+  inline-size: 100%;
   border: 0;
   border-radius: 8px;
   background: transparent;
   color: #1f3349;
   padding: 0.45rem 0.5rem;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -268,11 +268,11 @@
 
 /* Button spacing 
 .btn-brand {
-  margin-top: 1rem;
+  
 } */
 
 .exec-button-container {
-  /* margin-top: 0.6rem; */
+  
   display: flex;
   justify-content: flex-end;
   gap: 0.55rem;
