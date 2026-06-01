@@ -27,6 +27,7 @@ class Settings:
     ollama_chat_timeout: int
     ollama_test_plans_timeout: int
     ollama_test_cases_timeout: int
+    ollama_test_translator_timeout: int
 
 
 def get_settings() -> Settings:
@@ -45,4 +46,5 @@ def get_settings() -> Settings:
         ollama_chat_timeout=_get_int("OLLAMA_CHAT_TIMEOUT", ollama_timeout),
         ollama_test_plans_timeout=_get_int("OLLAMA_TEST_PLANS_TIMEOUT", ollama_timeout),
         ollama_test_cases_timeout=_get_int("OLLAMA_TEST_CASES_TIMEOUT", ollama_timeout),
+        ollama_test_translator_timeout=_get_int("OLLAMA_TEST_TRANSLATOR_TIMEOUT", ollama_timeout),
     )

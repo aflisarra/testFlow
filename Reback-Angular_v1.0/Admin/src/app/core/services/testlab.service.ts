@@ -23,6 +23,8 @@ export type {
   GetTestPlansResponse,
   PlanTestDto,
   TestCaseDto,
+  ExecutionModelDto,
+  ExecutionModelStepDto,
   TestCasesByPlanDto,
   TestLabProjectDto,
   TestLabProjectUserDto,
@@ -86,7 +88,7 @@ export class TestLabService {
     return this.api.patch<{ suite: TestSuiteDto }>(`/api/testsuites/${testSuiteId}/project`, { projectId })
   }
 
-  // ✅ GET /api/test-plans/project/:projectId
+  // ✅ GET /api/testsuites/project/:projectId
   getTestPlanByProject(projectId: string): Observable<TestSuiteDto | null> {
     // Backend returns an array (most-recent first): GET /api/testsuites/project/:projectId
     return this.api.get<TestSuiteDto[] | TestSuiteDto | null>(`/api/testsuites/project/${projectId}`)

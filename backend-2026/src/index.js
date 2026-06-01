@@ -100,7 +100,7 @@ app.use(express.json()); ///parser les données au format JSON
 
 
 //app.use('/api', userRoutes);
-app.use('/api/uploads', express.static('uploads'));
+app.use('/api/uploads', express.static(path.resolve(__dirname, '..', 'uploads')));
 
 // Middleware global pour rafraîchir le token si valide
 app.use((req, res, next) => {

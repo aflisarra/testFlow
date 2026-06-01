@@ -9,6 +9,16 @@ function resetApiState() {
 }
 
 function isApiStep(step) {
+  if (step && typeof step === 'object') {
+    const channel = String(step.channel || '').toLowerCase()
+    const action = String(step.action || '').toLowerCase()
+    return (
+      channel === 'api' ||
+      (channel === 'assertion' && action === 'assert_status') ||
+      ['set_auth', 'http_request', 'assert_status'].includes(action)
+    )
+  }
+
   const t = String(step || '').toLowerCase()
   return (
     t.includes('post request') ||
@@ -82,14 +92,109 @@ function buildRequestConfig() {
 }
 
 function buildUrl(ctxOrBaseUrl, path) {
+  const explicit = String(path || '').trim()
+  if (/^https?:\/\//i.test(explicit)) return explicit
+
   const raw = String(getBaseUrl(ctxOrBaseUrl) || '').trim()
   if (!raw) throw new Error('Missing base URL for API step')
   const normalized = /^https?:\/\//i.test(raw) ? raw : `http://${raw}`
   const root = normalized.replace(/\/+$/, '')
-  return `${root}/${String(path || '').replace(/^\/+/, '')}`
+  return `${root}/${explicit.replace(/^\/+/, '')}`
+}
+
+function getExpectedStatus(step) {
+  const expected = step?.assertion?.expected ?? step?.expectedStatus ?? step?.status
+  const numeric = Number(expected)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+function legacyPathForMethod(method) {
+  const normalized = String(method || '').toUpperCase()
+  if (normalized === 'POST') return 'rest/api/3/issue'
+  if (normalized === 'GET') return 'rest/api/3/search'
+  if (normalized === 'PUT') return 'rest/api/3/issue/1'
+  if (normalized === 'DELETE') return 'rest/api/3/issue/1'
+  return ''
+}
+
+function legacyPayloadForMethod(method) {
+  if (String(method || '').toUpperCase() !== 'POST') return undefined
+  return {
+    fields: {
+      project: { key: 'AS' },
+      summary: 'Auto Test Ticket',
+      issuetype: { name: 'Task' }
+    }
+  }
+}
+
+async function configureBasicAuth(ctxOrBaseUrl) {
+  const { email, password } = getCredentials(ctxOrBaseUrl)
+
+  if (!email || !password) {
+    throw new Error('Missing Basic Auth credentials. Provide username/email + token/password in the test case, query params, or backend .env (HTTP_BASIC_AUTH_USERNAME and HTTP_BASIC_AUTH_PASSWORD).')
+  }
+
+  const token = Buffer.from(`${email}:${password}`).toString('base64')
+  authHeaders = {
+    ...authHeaders,
+    Authorization: `Basic ${token}`,
+    Accept: 'application/json'
+  }
+
+  return { message: 'Basic Auth header configured' }
+}
+
+async function runStructuredApiStep(step, ctxOrBaseUrl) {
+  const action = String(step?.action || '').toLowerCase()
+  const target = step?.target || {}
+
+  if (action === 'set_auth') {
+    return configureBasicAuth(ctxOrBaseUrl)
+  }
+
+  if (action === 'assert_status') {
+    if (!lastResponse) throw new Error('No API response found')
+
+    const expectedStatus = getExpectedStatus(step)
+    if (expectedStatus && lastResponse.status !== expectedStatus) {
+      throw new Error(`Expected ${expectedStatus} but got ${lastResponse.status}`)
+    }
+
+    return { message: expectedStatus ? `Status code is ${expectedStatus}` : `Status code is ${lastResponse.status}` }
+  }
+
+  if (action === 'http_request') {
+    const method = String(target.method || step.method || 'GET').trim().toLowerCase()
+    const path = target.url || target.path || step.path || legacyPathForMethod(method)
+    if (!path) {
+      throw new Error(`Missing API path for step: ${step.raw || step.id || action}`)
+    }
+
+    const requestConfig = buildRequestConfig() || {}
+    lastResponse = await axios.request({
+      ...requestConfig,
+      method,
+      url: buildUrl(ctxOrBaseUrl, path),
+      data: step.body || step.payload || step.value?.body || legacyPayloadForMethod(method)
+    })
+
+    const expectedStatus = getExpectedStatus(step)
+    if (expectedStatus && lastResponse.status !== expectedStatus) {
+      throw new Error(`Expected ${expectedStatus} but got ${lastResponse.status}`)
+    }
+
+    return lastResponse
+  }
+
+  throw new Error(`Unsupported API execution action: ${action || 'unknown'}`)
 }
 
 async function runApiStep(step, ctxOrBaseUrl) {
+  if (step && typeof step === 'object') {
+    return runStructuredApiStep(step, ctxOrBaseUrl)
+  }
+
   const t = String(step).toLowerCase()
 
   if (
@@ -98,20 +203,7 @@ async function runApiStep(step, ctxOrBaseUrl) {
     t.includes('auth credential') ||
     t.includes('http authorization')
   ) {
-    const { email, password } = getCredentials(ctxOrBaseUrl)
-
-    if (!email || !password) {
-      throw new Error('Missing Basic Auth credentials. Provide username/email + token/password in the test case, query params, or backend .env (HTTP_BASIC_AUTH_USERNAME and HTTP_BASIC_AUTH_PASSWORD).')
-    }
-
-    const token = Buffer.from(`${email}:${password}`).toString('base64')
-    authHeaders = {
-      ...authHeaders,
-      Authorization: `Basic ${token}`,
-      Accept: 'application/json'
-    }
-
-    return { message: 'Basic Auth header configured' }
+    return configureBasicAuth(ctxOrBaseUrl)
   }
 
   if (t.includes('post request')) {

@@ -1,277 +1,146 @@
-const testSuiteService = require("../services/testsuite.service");
-const MESSAGES = require('../constants/messages.js');
+const testSuiteService = require('../services/testsuite.service')
+
+function getUserId(req) {
+  return String(req.user?.userId || req.user?.id || req.user?._id || '').trim()
+}
+
+function handleError(res, error) {
+  return res.status(error.statusCode || 500).json({
+    message: error.message || 'Unexpected server error',
+  })
+}
 
 exports.create = async (req, res) => {
   try {
-    const suite = await testSuiteService.createTestSuite(req.body);
+    const suite = await testSuiteService.createTestSuite({
+      ...req.body,
+      userId: req.body?.userId || getUserId(req),
+    })
 
-    // 201 : Création réussie
-    res.status(201).json(suite);
-
+    return res.status(201).json(suite)
   } catch (error) {
-
-    // 400 : Données invalides
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({
-        message: MESSAGES.ERROR.BAD_REQUEST
-      });
-    }
-
-    // 500 : Erreur serveur
-    res.status(500).json({
-      message: MESSAGES.ERROR.SERVER
-    });
+    return handleError(res, error)
   }
-};
+}
 
 exports.getAll = async (req, res) => {
   try {
-    const viewerUserId = String(
-      req.user?.userId || req.user?.id || req.user?._id || ''
-    ).trim();
-
-    const suites = await testSuiteService.getAllTestSuites(viewerUserId);
-
-    // 200 : Succès
-    res.status(200).json(suites);
-
+    const suites = await testSuiteService.getAllTestSuites(getUserId(req))
+    return res.status(200).json(suites)
   } catch (error) {
-    // 500 : Erreur serveur
-    res.status(500).json({ message: error.message });
+    return handleError(res, error)
   }
-};
-
-exports.getById = async (req, res) => {
-  try {
-    const viewerUserId = String(
-      req.user?.userId || req.user?.id || req.user?._id || ''
-    ).trim();
-
-    const suite = await testSuiteService.getTestSuiteById(
-      req.params.id,
-      viewerUserId
-    );
-
-    // 200 : Succès
-    res.status(200).json(suite);
-
-  } catch (error) {
-    // 404 / 400 / 500 selon service
-    res.status(error.statusCode || 500).json({
-      message: error.message
-    });
-  }
-};
+}
 
 exports.getByUser = async (req, res) => {
   try {
-    const userId = String(
-      req.user?.userId || req.user?.id || req.user?._id || ''
-    ).trim();
-
-    const suites = await testSuiteService.getTestSuitesByUser(userId);
-
-    // 200 : Succès
-    res.status(200).json(suites);
-
+    const suites = await testSuiteService.getTestSuitesByUser(getUserId(req) || req.params.userId)
+    return res.status(200).json(suites)
   } catch (error) {
-    // 500 : Erreur serveur
-    res.status(500).json({ message: error.message });
+    return handleError(res, error)
   }
-};
+}
 
 exports.getByProject = async (req, res) => {
   try {
-    const projectId = String(req.params.projectId || '').trim();
-
-    // 400 : ID requis
-    if (!projectId) {
-      return res.status(400).json({
-        message: MESSAGES.PROJECT.ID_REQUIRED
-      });
-    }
-
-    const suites =
-      await testSuiteService.getTestSuitesByProject(projectId);
-
-    // 200 : Succès
-    res.status(200).json(suites);
-
+    const suites = await testSuiteService.getTestSuitesByProject(req.params.projectId)
+    return res.status(200).json(suites)
   } catch (error) {
-    // 500 : Erreur serveur
-    res.status(500).json({ message: error.message });
+    return handleError(res, error)
   }
-};
+}
+
+exports.getById = async (req, res) => {
+  try {
+    const suite = await testSuiteService.getTestSuiteById(req.params.id)
+    return res.status(200).json(suite)
+  } catch (error) {
+    return handleError(res, error)
+  }
+}
 
 exports.update = async (req, res) => {
   try {
-    const suite = await testSuiteService.updateTestSuite(
-      req.params.id,
-      req.body
-    );
-
-    // 200 : Mise à jour réussie
-    res.status(200).json(suite);
-
+    const suite = await testSuiteService.updateTestSuite(req.params.id, req.body)
+    return res.status(200).json(suite)
   } catch (error) {
-    // 400 / 404 / 500
-    res.status(error.statusCode || 500).json({
-      message: error.message
-    });
+    return handleError(res, error)
   }
-};
+}
 
 exports.delete = async (req, res) => {
   try {
-    await testSuiteService.deleteTestSuite(req.params.id);
-
-    // 200 : Suppression réussie
-    res.status(200).json({
-      message:
-        MESSAGES?.TESTSUITE?.DELETED ||
-        'Test suite deleted successfully'
-    });
-
+    await testSuiteService.deleteTestSuite(req.params.id)
+    return res.status(200).json({ message: 'Test suite deleted successfully' })
   } catch (error) {
-    // 404 / 500
-    res.status(error.statusCode || 500).json({
-      message: error.message
-    });
+    return handleError(res, error)
   }
-};
+}
 
 exports.getPlans = async (req, res) => {
   try {
-    const result =
-      await testSuiteService.getTestPlansByTestSuiteId(
-        req.params.id
-      );
-
-    // 200 : Succès
-    res.status(200).json(result);
-
+    const result = await testSuiteService.getTestPlansByTestSuiteId(req.params.id)
+    return res.status(200).json(result)
   } catch (error) {
-    // 404 / 500
-    res.status(error.statusCode || 500).json({
-      message: error.message
-    });
+    return handleError(res, error)
   }
-};
+}
 
 exports.saveSession = async (req, res) => {
   try {
     const suite = await testSuiteService.saveSuiteSession(req.params.id, req.body || {})
-    res.json({
-      message: MESSAGES?.TESTSUITE?.SESSION_SAVED || 'Session saved successfully',
-      suite: {
-        _id: suite._id,
-        testStatus: suite.testStatus || 'Draft',
-        lastGeneratedAt: suite.lastGeneratedAt || null,
-        savedAt: suite.savedAt || null,
-        executedAt: suite.executedAt || null,
-        sessionStatus: suite.sessionStatus,
-        planStatuses: suite.planStatuses || [],
-        sessionSavedAt: suite.sessionSavedAt || null,
-        validationStatus: suite.validationStatus || 'incomplete',
-        validationPlanStatuses: suite.validationPlanStatuses || [],
-        validationSavedAt: suite.validationSavedAt || null,
-        executionStatus: suite.executionStatus || null,
-        executionPlanStatuses: suite.executionPlanStatuses || [],
-        executionSavedAt: suite.executionSavedAt || null,
-      },
+    return res.status(200).json({
+      message: 'Session saved successfully',
+      suite,
     })
   } catch (error) {
-    res.status(error.statusCode || 500).json({ message: error.message })
+    return handleError(res, error)
   }
 }
 
 exports.updateStatus = async (req, res) => {
   try {
-    const status = req.body?.status;
-
-    const suite =
-      await testSuiteService.updateTestSuiteStatus(
-        req.params.id,
-        status
-      );
-
-    // 200 : Succès
-    res.status(200).json({ suite });
-
+    const suite = await testSuiteService.updateTestSuiteStatus(req.params.id, req.body?.status)
+    return res.status(200).json({ suite })
   } catch (error) {
-    // 400 / 404 / 500
-    res.status(error.statusCode || 500).json({
-      message: error.message
-    });
-  }
-};
-
-exports.updateProject = async (req, res) => {
-  try {
-    const viewerUserId = String(
-      req.user?.userId || req.user?.id || req.user?._id || ''
-    ).trim();
-    const role = String(req.user?.role || '').toLowerCase().trim();
-    const projectId = req.body?.projectId ?? null;
-
-    const suite = await testSuiteService.setTestSuiteProject(
-      req.params.id,
-      projectId,
-      { viewerUserId, role }
-    );
-
-    res.status(200).json({ suite });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ message: error.message });
+    return handleError(res, error)
   }
 }
 
+exports.updateProject = async (req, res) => {
+  try {
+    const suite = await testSuiteService.setTestSuiteProject(req.params.id, req.body?.projectId ?? null, {
+      viewerUserId: getUserId(req),
+      role: req.user?.role,
+    })
+
+    return res.status(200).json({ suite })
+  } catch (error) {
+    return handleError(res, error)
+  }
+}
 
 exports.save = async (req, res) => {
   try {
-    const suite =
-      await testSuiteService.markTestSuiteSaved(
-        req.params.id
-      );
-
-    // 200 : Succès
-    res.status(200).json({ suite });
-
+    const suite = await testSuiteService.markTestSuiteSaved(req.params.id)
+    return res.status(200).json({ suite })
   } catch (error) {
-    // 404 / 500
-    res.status(error.statusCode || 500).json({
-      message: error.message
-    });
+    return handleError(res, error)
   }
-};
+}
 
 exports.execute = async (req, res) => {
   try {
-    const result = String(
-      req.body?.result || req.body?.status || ''
-    ).trim();
-
-    if (result) {
-      const suite =
-        await testSuiteService.updateTestSuiteStatus(
-          req.params.id,
-          result
-        );
-
-      // 200 : Exécution reçue
-      return res.status(200).json({ suite });
+    const result = String(req.body?.result || req.body?.status || '').trim()
+    if (!result) {
+      return res.status(501).json({
+        message: 'Execution not implemented. Provide {result:"Passed"|"Failed"} or integrate a Selenium runner.',
+      })
     }
 
-    // 501 : Non implémenté
-    return res.status(501).json({
-      message:
-        'Execution not implemented. Provide {result:"Passed"|"Failed"} or integrate a Selenium runner.'
-    });
-
+    const suite = await testSuiteService.updateTestSuiteStatus(req.params.id, result)
+    return res.status(200).json({ suite })
   } catch (error) {
-    // 400 / 404 / 500
-    res.status(error.statusCode || 500).json({
-      message: error.message
-    });
+    return handleError(res, error)
   }
-};
+}

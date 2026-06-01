@@ -30,6 +30,52 @@ function getSelector(ctx, key, fallback) {
   return ctx?.selectors?.[key] || fallback
 }
 
+async function getCurrentUrlSafe(driver) {
+  try {
+    return await driver.getCurrentUrl()
+  } catch {
+    return 'unknown'
+  }
+}
+
+function normalizeAction(step) {
+  return String(step?.action || '').trim().toLowerCase()
+}
+
+function normalizeTargetName(step) {
+  const target = step?.target || {}
+  return String(target.name || target.kind || step?.raw || step?.id || '').trim().toLowerCase()
+}
+
+function targetHas(step, patterns) {
+  const value = `${normalizeTargetName(step)} ${String(step?.raw || '').toLowerCase()} ${String(step?.value?.key || '').toLowerCase()}`
+  return hasAny(value, patterns)
+}
+
+function semanticWords(step) {
+  const raw = `${step?.target?.name || ''} ${step?.raw || ''}`.toLowerCase()
+  return Array.from(new Set(raw.split(/[^a-z0-9]+/).filter((word) => word.length > 2))).slice(0, 8)
+}
+
+function structuredValue(step, ctx) {
+  const value = step?.value || {}
+  const source = String(value.source || '').toLowerCase()
+  const key = String(value.key || '').toLowerCase()
+
+  if (source === 'credential') {
+    if (key.includes('password')) return String(ctx?.credentials?.password || '')
+    if (key.includes('apitoken') || key.includes('token')) return String(ctx?.credentials?.apiToken || '')
+    if (key.includes('username')) return String(ctx?.credentials?.username || ctx?.credentials?.email || '')
+    if (key.includes('email')) return String(ctx?.credentials?.email || ctx?.credentials?.username || '')
+  }
+
+  if (source === 'context' && key.includes('baseurl')) {
+    return toUrl(ctx?.baseUrl)
+  }
+
+  return String(value.text || '')
+}
+
 function buildTextXpath(tags, words) {
   const lower = 'abcdefghijklmnopqrstuvwxyz'
   const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -143,12 +189,44 @@ async function fillUserIdentifier(driver, ctx) {
     throw new Error('Missing login email/username. Provide credentials.email/username or APP_LOGIN_EMAIL.')
   }
 
-  const element = await findFirstVisible(driver, [By.css(selector)], 15000)
+  let element = null
+  try {
+    element = await findFirstVisible(driver, [By.css(selector)], 15000)
+  } catch (err) {
+    const currentUrl = await getCurrentUrlSafe(driver)
+    throw new Error(`Email/username field not found on ${currentUrl}. Tried selector: ${selector}`)
+  }
   await driver.wait(until.elementIsEnabled(element), 15000)
   await element.clear()
   await element.sendKeys(value)
 
   return { selector, value }
+}
+
+async function clearUserIdentifier(driver, ctx) {
+  const selector = getSelector(
+    ctx,
+    'email',
+    [
+      'input[type="email"]',
+      'input[name*="email"]',
+      'input[id*="email"]',
+      'input[placeholder*="email"]',
+      'input[placeholder*="Email"]',
+      'input[name*="username"]',
+      'input[id*="username"]',
+      'input[name*="user"]',
+      'input[id*="user"]',
+      'input[autocomplete="username"]',
+      'input[type="text"]',
+      'input:not([type])'
+    ].join(', ')
+  )
+  const element = await findFirstVisible(driver, [By.css(selector)], 15000)
+  await driver.wait(until.elementIsEnabled(element), 15000)
+  await element.clear()
+
+  return { selector }
 }
 
 async function clickNextIfPresent(driver, ctx) {
@@ -193,6 +271,15 @@ async function fillPassword(driver, ctx) {
   return { selector }
 }
 
+async function clearPassword(driver, ctx) {
+  const selector = getSelector(ctx, 'password', 'input[type="password"], input[name*="password"], input[id*="password"]')
+  const element = await findFirstVisible(driver, [By.css(selector)], 15000)
+  await driver.wait(until.elementIsEnabled(element), 15000)
+  await element.clear()
+
+  return { selector }
+}
+
 async function clickSubmitLogin(driver, ctx) {
   const selector = getSelector(
     ctx,
@@ -216,12 +303,203 @@ async function clickSubmitLogin(driver, ctx) {
   return { selector }
 }
 
+async function clickSemanticTarget(driver, step, ctx) {
+  const words = semanticWords(step)
+  const locators = []
+
+  if (words.length) {
+    locators.push(By.xpath(buildTextXpath(['button', 'a', 'input'], words)))
+  }
+  locators.push(By.css(getSelector(ctx, 'genericClickable', 'button, a, [role="button"], input[type="button"], input[type="submit"]')))
+
+  const element = await findFirstVisible(driver, locators, 15000)
+  await driver.wait(until.elementIsEnabled(element), 15000)
+  await element.click()
+
+  return { selector: words.length ? `semantic:${words.join('|')}` : 'genericClickable' }
+}
+
+async function verifyAuthenticatedArea(driver, ctx) {
+  const expectedUrlParts = String(ctx?.expectedUrlContains || '')
+    .split(',')
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean)
+  const defaultUrlParts = ['dashboard', 'home', 'app', 'account', 'projects', 'success']
+  const acceptedUrlParts = expectedUrlParts.length ? expectedUrlParts : defaultUrlParts
+
+  await driver.wait(async () => {
+    const url = await driver.getCurrentUrl()
+    const lowerUrl = String(url || '').toLowerCase()
+
+    return (
+      acceptedUrlParts.some((part) => lowerUrl.includes(part)) ||
+      !/login|signin|sign-in|signup|auth/.test(lowerUrl)
+    )
+  }, 20000)
+}
+
+async function runStructuredUiStep(driver, step, ctx) {
+  const action = normalizeAction(step)
+  const description = step?.raw || step?.id || action
+
+  console.log('\n============================')
+  console.log('STEP:', description)
+  console.log('MODEL ACTION:', action)
+  console.log('============================')
+
+  if (action === 'open_app' || action === 'navigate') {
+    const url = step?.target?.url ? toUrl(step.target.url) : toUrl(ctx.baseUrl)
+    if (!url) throw new Error('baseUrl is missing')
+
+    await driver.get(url)
+    await driver.wait(until.elementLocated(By.css('body')), 15000)
+
+    return {
+      action: 'open',
+      target: step?.target?.name || 'application',
+      description,
+      selector: null
+    }
+  }
+
+  if (action === 'open_login') {
+    const url = step?.target?.url ? toUrl(step.target.url) : await openLoginPage(driver, ctx)
+    await driver.get(url)
+    await driver.wait(until.elementLocated(By.css('body')), 15000)
+
+    return {
+      action: 'navigate',
+      target: 'login',
+      description,
+      selector: null
+    }
+  }
+
+  if (action === 'type_credentials') {
+    const emailResult = await fillUserIdentifier(driver, ctx)
+    await clickNextIfPresent(driver, ctx)
+    const passwordResult = await fillPassword(driver, ctx)
+
+    return {
+      action: 'type',
+      target: 'credentials',
+      description,
+      selector: `${emailResult.selector} + ${passwordResult.selector}`
+    }
+  }
+
+  if (action === 'type') {
+    if (targetHas(step, ['password'])) {
+      const result = await fillPassword(driver, ctx)
+      return { action: 'type', target: 'password', description, selector: result.selector }
+    }
+
+    if (targetHas(step, ['email', 'username', 'user'])) {
+      const result = await fillUserIdentifier(driver, ctx)
+      return { action: 'type', target: 'email', description, selector: result.selector }
+    }
+
+    const selector = getSelector(ctx, 'genericInput', 'input:not([type="hidden"]), textarea, [contenteditable="true"]')
+    const value = structuredValue(step, ctx)
+    if (!value) throw new Error(`Missing value for structured step: ${description}`)
+
+    const element = await findFirstVisible(driver, [By.css(selector)], 15000)
+    await driver.wait(until.elementIsEnabled(element), 15000)
+    await element.clear()
+    await element.sendKeys(value)
+
+    return { action: 'type', target: step?.target?.name || 'field', description, selector }
+  }
+
+  if (action === 'clear_field' || action === 'leave_empty') {
+    if (targetHas(step, ['password'])) {
+      const result = await clearPassword(driver, ctx)
+      return { action: 'clear', target: 'password', description, selector: result.selector }
+    }
+
+    if (targetHas(step, ['email', 'username', 'user', 'field'])) {
+      const result = await clearUserIdentifier(driver, ctx)
+      return { action: 'clear', target: 'email', description, selector: result.selector }
+    }
+
+    const selector = getSelector(ctx, 'genericInput', 'input:not([type="hidden"]), textarea, [contenteditable="true"]')
+    const element = await findFirstVisible(driver, [By.css(selector)], 15000)
+    await driver.wait(until.elementIsEnabled(element), 15000)
+    await element.clear()
+
+    return { action: 'clear', target: step?.target?.name || 'field', description, selector }
+  }
+
+  if (action === 'submit' || action === 'click') {
+    if (action === 'submit' || targetHas(step, ['login', 'sign in', 'submit', 'connexion'])) {
+      const result = await clickSubmitLogin(driver, ctx)
+      return { action: 'click', target: 'login button', description, selector: result.selector }
+    }
+
+    const result = await clickSemanticTarget(driver, step, ctx)
+    return { action: 'click', target: step?.target?.name || 'button', description, selector: result.selector }
+  }
+
+  if (action === 'assert_authenticated') {
+    await verifyAuthenticatedArea(driver, ctx)
+    return { action: 'assert', target: 'authenticated area', description, selector: null }
+  }
+
+  if (action === 'assert_url') {
+    const expected = String(step?.assertion?.expected || step?.target?.path || '').toLowerCase()
+    if (!expected) throw new Error(`Missing expected URL fragment for structured step: ${description}`)
+
+    await driver.wait(async () => {
+      const url = String(await driver.getCurrentUrl()).toLowerCase()
+      return url.includes(expected)
+    }, 15000)
+
+    return { action: 'assert', target: 'url', description, selector: null }
+  }
+
+  if (action === 'assert_visible' || action === 'assert_text') {
+    const words = semanticWords(step)
+    if (!words.length) throw new Error(`Missing visible target for structured step: ${description}`)
+
+    const element = await findFirstVisible(driver, [By.xpath(buildTextXpath(['body', 'main', 'section', 'div', 'span', 'p', 'h1', 'h2'], words))], 15000)
+    return { action: 'assert', target: step?.target?.name || 'text', description, selector: `semantic:${words.join('|')}`, element }
+  }
+
+  if (action === 'wait') {
+    await driver.sleep(1000)
+    return { action: 'wait', target: step?.target?.name || 'page', description, selector: null }
+  }
+
+  if (action === 'unknown' && step?.raw) {
+    return runHumanStep(driver, step.raw, ctx)
+  }
+
+  throw new Error(`Unsupported UI execution action: ${action || 'unknown'}`)
+}
+
 async function runHumanStep(driver, stepText, ctx) {
+  if (stepText && typeof stepText === 'object' && stepText.action) {
+    return runStructuredUiStep(driver, stepText, ctx)
+  }
+
   const t = normalizeStep(stepText).trim().toLowerCase()
 
   console.log('\n============================')
   console.log('🚀 STEP:', stepText)
   console.log('============================')
+
+  if (
+    hasAny(t, ['leave', 'keep', 'clear', 'empty', 'blank', 'without entering', 'do not enter', "don't enter"]) &&
+    hasAny(t, ['email', 'username', 'password', 'field'])
+  ) {
+    if (hasAny(t, ['password'])) {
+      const result = await clearPassword(driver, ctx)
+      return { action: 'clear', target: 'password', description: stepText, selector: result.selector }
+    }
+
+    const result = await clearUserIdentifier(driver, ctx)
+    return { action: 'clear', target: 'email', description: stepText, selector: result.selector }
+  }
 
   // =========================
   // OPEN APPLICATION

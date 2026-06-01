@@ -4,11 +4,15 @@ async function runTestCaseHandler(req, res) {
   try {
     const testCase = req.body?.testCase || req.body
 
+    const modelSteps = testCase?.executionModel?.steps || testCase?.execution_model?.steps
+    const hasNaturalSteps = Array.isArray(testCase?.steps) && testCase.steps.length > 0
+    const hasExecutionModel = Array.isArray(modelSteps) && modelSteps.length > 0
+
     // validation simple
-    if (!testCase || !testCase.steps) {
+    if (!testCase || (!hasNaturalSteps && !hasExecutionModel)) {
       return res.status(400).json({
         status: 'error',
-        message: 'Invalid payload: testCase or steps missing.'
+        message: 'Invalid payload: testCase steps or executionModel missing.'
       })
     }
 

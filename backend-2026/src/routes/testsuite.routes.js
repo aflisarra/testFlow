@@ -1,27 +1,45 @@
 const express = require('express');
 const router = express.Router();
-const controller = require('../controllers/testsuite.controller');
+const controllerTestSuite = require('../controllers/testsuite.controller');
+const controllerTestPlan = require('../controllers/testplan.controller');
+const controllerTestCase = require('../controllers/testcase.controller');
 const exportController = require('../controllers/export.controller');
 const authenticateUser = require('../middleware/authenticateUser');
 const { requireTestSuiteAccess } = require('../middleware/testsuite-access.middleware');
 
 router.use(authenticateUser);
 
-router.post('/', controller.create);
+router.post('/', controllerTestSuite.create);
 
-router.get('/', controller.getAll);
+router.get('/', controllerTestSuite.getAll);
 
-router.get('/user/:userId', controller.getByUser);
+router.get('/user/:userId', controllerTestSuite.getByUser);
 
-router.get('/project/:projectId', controller.getByProject);
+router.get('/project/:projectId', controllerTestSuite.getByProject);
 
-router.get('/:id/plans', requireTestSuiteAccess, controller.getPlans)
+router.get('/plans/:id', controllerTestPlan.getById);
+router.put('/plans/:id', controllerTestPlan.update);
+router.delete('/plans/:id', controllerTestPlan.delete);
 
-router.patch('/:id/session', requireTestSuiteAccess, controller.saveSession);
-router.patch('/:id/status', requireTestSuiteAccess, controller.updateStatus);
-router.patch('/:id/save', requireTestSuiteAccess, controller.save);
-router.patch('/:id/project', requireTestSuiteAccess, controller.updateProject);
-router.post('/:id/execute', requireTestSuiteAccess, controller.execute);
+router.post('/plans/:testPlanId/cases', (req, res) => {
+  req.body = { ...req.body, planId: req.params.testPlanId };
+  return controllerTestCase.create(req, res);
+});
+router.get('/plans/:testPlanId/cases', controllerTestCase.getByPlan);
+router.put('/cases/:id', controllerTestCase.update);
+router.delete('/cases/:id', controllerTestCase.delete);
+
+router.get('/:id/plans', requireTestSuiteAccess, controllerTestSuite.getPlans);
+router.post('/:id/plans', requireTestSuiteAccess, (req, res) => {
+  req.body = { ...req.body, testSuiteId: req.params.id };
+  return controllerTestPlan.create(req, res);
+});
+
+router.patch('/:id/session', requireTestSuiteAccess, controllerTestSuite.saveSession);
+router.patch('/:id/status', requireTestSuiteAccess, controllerTestSuite.updateStatus);
+router.patch('/:id/save', requireTestSuiteAccess, controllerTestSuite.save);
+router.patch('/:id/project', requireTestSuiteAccess, controllerTestSuite.updateProject);
+router.post('/:id/execute', requireTestSuiteAccess, controllerTestSuite.execute);
 
 // Export Word (.docx)
 // POST /api/testsuites/:id/export-word
@@ -29,10 +47,10 @@ router.post('/:id/export-word', requireTestSuiteAccess, exportController.exportW
 // Backward-friendly alias
 router.get('/:id/export-word', requireTestSuiteAccess, exportController.exportWord);
 
-router.get('/:id', requireTestSuiteAccess, controller.getById);
+router.get('/:id', requireTestSuiteAccess, controllerTestSuite.getById);
 
-router.put('/:id', requireTestSuiteAccess, controller.update);
+router.put('/:id', requireTestSuiteAccess, controllerTestSuite.update);
 
-router.delete('/:id', requireTestSuiteAccess, controller.delete);
+router.delete('/:id', requireTestSuiteAccess, controllerTestSuite.delete);
 
 module.exports = router;

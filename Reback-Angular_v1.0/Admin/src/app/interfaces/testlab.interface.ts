@@ -29,11 +29,53 @@ export interface CreatedBy {
   picture?: string
 }
 
+export interface ExecutionModelTargetDto {
+  kind?: string
+  name?: string
+  role?: string | null
+  url?: string | null
+  path?: string | null
+  method?: string | null
+}
+
+export interface ExecutionModelValueDto {
+  source?: string
+  key?: string | null
+  text?: string | null
+}
+
+export interface ExecutionModelAssertionDto {
+  kind?: string
+  expected?: unknown
+}
+
+export interface ExecutionModelStepDto {
+  id?: string
+  raw?: string
+  channel?: 'ui' | 'api' | 'assertion' | 'data' | 'unknown' | string
+  action?: string
+  target?: ExecutionModelTargetDto
+  value?: ExecutionModelValueDto | null
+  assertion?: ExecutionModelAssertionDto | null
+  requires?: string[]
+}
+
+export interface ExecutionModelDto {
+  version?: string
+  source?: Record<string, unknown>
+  preconditions?: string[]
+  steps?: ExecutionModelStepDto[]
+  expected_result?: string
+  confidence?: string
+}
+
 export interface TestCaseDto {
   id: string
   title: string
   steps: string[]
   expected_result: string
+  executionModel?: ExecutionModelDto | null
+  execution_model?: ExecutionModelDto | null
   createdBy?: CreatedBy
 }
 

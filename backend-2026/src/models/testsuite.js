@@ -19,20 +19,21 @@ const planStepSchema = new mongoose.Schema(
     },
     { _id: true }
 );
-const testPlanSchema = new mongoose.Schema(
+/*const testPlanSchema = new mongoose.Schema(
     {
         id: { type: String, required: true, trim: true },
         title: { type: String, required: true, trim: true },
         description: { type: String, default: "", trim: true }
     },
     { _id: false }
-);
+);*/
 const testCaseSchema = new mongoose.Schema(
     {
         id: { type: String, required: true, trim: true },
         title: { type: String, required: true, trim: true },
         steps: { type: [String], default: [] },
         expected_result: { type: String, default: "", trim: true },
+        executionModel: { type: mongoose.Schema.Types.Mixed, default: null },
         createdBy: {
             userId: {
                 type: mongoose.Schema.Types.ObjectId,
@@ -45,14 +46,14 @@ const testCaseSchema = new mongoose.Schema(
     },
     { _id: false }
 );
-const testCasesByPlanSchema = new mongoose.Schema(
+/*const testCasesByPlanSchema = new mongoose.Schema(
     {
         planId: { type: String, required: true, trim: true },
         planTitle: { type: String, required: true, trim: true },
         testCases: { type: [testCaseSchema], default: [] }
     },
     { _id: false }
-);
+);*/
 const planStatusSchema = new mongoose.Schema(
     {
         planId: { type: String, required: true, trim: true },
@@ -160,15 +161,15 @@ const testSuiteSchema = new mongoose.Schema({
         default: []
     },
     // New format: high-level test plans (TP-1, TP-2...)
-    testPlans: {
+    /*testPlans: {
         type: [testPlanSchema],
         default: []
-    },
+    },*/
     // New format: generated test cases grouped by plan
-    testCasesByPlan: {
+    /*testCasesByPlan: {
         type: [testCasesByPlanSchema],
         default: []
-    },
+    },*/
 
     // Session-level completion status persisted by frontend workflow
     sessionStatus: {
@@ -189,7 +190,12 @@ const testSuiteSchema = new mongoose.Schema({
     // breaking existing UI flows.
     testStatus: {
         type: String,
-        enum: ["Draft", "Generating", "Incomplete", "Ready", "Passed", "Failed"],
+        enum: ["Draft", 
+            "Generating",
+             "Incomplete", 
+             "Ready", 
+             "Passed", 
+             "Failed"],
         default: "Draft",
     },
     lastGeneratedAt: {
@@ -210,16 +216,10 @@ const testSuiteSchema = new mongoose.Schema({
     },
     // Manual validation of AI-generated plans/cases
     validationStatus: {
-        type: String,
-        enum: ['completed', 'incomplete', 'validated', 'invalid'],
-        set: (value) => {
-            const raw = String(value || '').toLowerCase().trim()
-            if (raw === 'validated' || raw === 'completed' || raw === 'complete') return 'completed'
-            if (raw === 'invalid' || raw === 'incomplete') return 'incomplete'
-            return 'incomplete'
-        },
-        default: 'incomplete'
-    },
+    type: String,
+    enum: ['completed', 'incomplete'],
+    default: 'incomplete'
+},
     validationPlanStatuses: {
         type: [validationPlanStatusSchema],
         default: []
@@ -230,21 +230,11 @@ const testSuiteSchema = new mongoose.Schema({
     },
     // Selenium execution results (null means "not executed yet")
     executionStatus: {
-        type: String,
-        default: null,
-        set: (value) => {
-            if (value === null || value === undefined) return null
-            const v = String(value || '').toLowerCase().trim()
-            return v || null
-        },
-        validate: {
-            validator: (value) => {
-                if (value === null || value === undefined) return true
-                return ['completed', 'incomplete'].includes(String(value).toLowerCase().trim())
-            },
-            message: 'executionStatus must be "completed", "incomplete", or null',
-        },
-    },
+    type: String,
+    enum: ['completed', 'incomplete'],
+    default: 'incomplete',
+    set: (value) => (value === null || value === undefined || value === '' ? 'incomplete' : value)
+},
     executionPlanStatuses: {
         type: [executionPlanStatusSchema],
         default: []
@@ -280,5 +270,18 @@ const testSuiteSchema = new mongoose.Schema({
         index: true
     }
 }, { timestamps: true });
+
+testSuiteSchema.pre('validate', function normalizeNullableStatuses(next) {
+    if (this.executionStatus === null || this.executionStatus === undefined || this.executionStatus === '') {
+        this.executionStatus = 'incomplete'
+    }
+    if (this.validationStatus === null || this.validationStatus === undefined || this.validationStatus === '') {
+        this.validationStatus = 'incomplete'
+    }
+    if (this.sessionStatus === null || this.sessionStatus === undefined || this.sessionStatus === '') {
+        this.sessionStatus = 'incomplete'
+    }
+    next()
+})
 
 module.exports = mongoose.model('TestSuite', testSuiteSchema);

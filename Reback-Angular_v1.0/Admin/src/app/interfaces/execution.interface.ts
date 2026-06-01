@@ -13,6 +13,7 @@ export interface ExecutionStep {
   subtitle: string
   status: StepStatus
   timestamp: string
+  screenshotUrl?: string | null
 }
 
 export interface NodeMetrics {

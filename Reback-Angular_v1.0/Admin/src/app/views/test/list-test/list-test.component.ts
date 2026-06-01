@@ -726,7 +726,7 @@ getTotalCases(suite: TestSuiteDto | null | undefined): number {
 
   private getPlanSessionStatus(planId: string): string {
     const list = this.testCasesByPlan[planId] || []
-    return list.length > 0 ? 'ready' : 'incomplete'
+    return list.length > 0 ? 'completed' : 'incomplete'
   }
 
   private computeSuiteSessionStatus(): SuiteSessionStatus {

@@ -177,14 +177,22 @@ async function dualWriteTestPlans({ testSuiteId, testPlans }) {
   if (ops.length) await TestPlan.bulkWrite(ops, { ordered: false })
 }
 
-async function dualWriteTestCases({ testSuiteId, planKey, testCases }) {
+async function dualWriteTestCases({ testSuiteId, planKey, planTitle, testCases }) {
   const stablePlanId = String(planKey || '').trim()
   const list = Array.isArray(testCases) ? testCases : []
   if (!testSuiteId || !stablePlanId || list.length === 0) return
 
-  const plan = await TestPlan.findOne({ testSuiteId, id: stablePlanId }).select('_id').lean()
-  const testPlanId = plan?._id || null
-  if (!testPlanId) return
+  let plan = await TestPlan.findOne({ testSuiteId, id: stablePlanId }).select('_id').lean()
+  if (!plan) {
+    plan = await TestPlan.create({
+      testSuiteId,
+      id: stablePlanId,
+      title: String(planTitle || stablePlanId).trim(),
+      description: '',
+    })
+  }
+  const mongoPlanId = plan?._id || null
+  if (!mongoPlanId) return
 
   const ops = list
     .map((tc) => {
@@ -192,17 +200,18 @@ async function dualWriteTestCases({ testSuiteId, planKey, testCases }) {
       if (!id) return null
       return {
         updateOne: {
-          filter: { testSuiteId, testPlanId, id },
+          filter: { testSuiteId, planId: mongoPlanId, id },
           update: {
             $set: {
               testSuiteId,
-              testPlanId,
+              planId: mongoPlanId,
               id,
               title: String(tc?.title || '').trim() || id,
               steps: Array.isArray(tc?.steps)
                 ? tc.steps.map((s) => String(s || '').trim()).filter(Boolean)
                 : [],
               expected_result: String(tc?.expected_result || tc?.expectedResult || '').trim(),
+              executionModel: tc?.executionModel || tc?.execution_model || null,
               createdBy: tc?.createdBy
                 ? {
                     userId: tc.createdBy.userId || null,
@@ -375,23 +384,36 @@ async function getTestsuiteTestPlans(testSuiteId) {
   const id = String(testSuiteId || '').trim()
   if (!id) throw httpError(400, 'testSuiteId is required')
 
-  const suite = await TestSuite.findById(id)
+  const suite = await TestSuite.findById(id).lean()
   if (!suite) throw httpError(404, 'TestSuite not found')
 
-  const normalizedPlans = normalizeUniqueTestPlans(suite.testPlans)
-  const changed =
-    normalizedPlans.length !== (suite?.testPlans?.length || 0) ||
-    normalizedPlans.some((p, i) => String(suite.testPlans?.[i]?.id || '').trim() !== p.id)
+  const plans = await TestPlan.find({ testSuiteId: id }).sort({ createdAt: 1 }).lean()
+  const cases = await TestCase.find({ testSuiteId: id }).sort({ createdAt: 1 }).lean()
+  const casesByPlanId = new Map()
 
-  if (changed) {
-    suite.testPlans = normalizedPlans
-    await suite.save()
+  for (const testCase of cases) {
+    const key = String(testCase.planId || '')
+    if (!casesByPlanId.has(key)) casesByPlanId.set(key, [])
+    casesByPlanId.get(key).push(testCase)
   }
+
+  const testPlans = plans.map((plan) => ({
+    id: plan.id,
+    title: plan.title,
+    description: plan.description || '',
+    casesCount: (casesByPlanId.get(String(plan._id)) || []).length,
+  }))
+
+  const testCasesByPlan = plans.map((plan) => ({
+    planId: plan.id,
+    planTitle: plan.title,
+    testCases: casesByPlanId.get(String(plan._id)) || [],
+  }))
 
   return {
     testSuiteId: String(suite._id),
-    testPlans: suite.testPlans || [],
-    testCasesByPlan: suite.testCasesByPlan || [],
+    testPlans,
+    testCasesByPlan,
     testStatus: suite.testStatus || 'Draft',
     lastGeneratedAt: suite.lastGeneratedAt || null,
     savedAt: suite.savedAt || null,
@@ -501,18 +523,17 @@ async function generatePlan({ req, body, file }) {
   const testSuiteId = suite?._id ? String(suite._id) : ''
 
   if (!regenerate && suite) {
-    if (Array.isArray(suite.testPlans) && suite.testPlans.length) {
-      const normalized = normalizeUniqueTestPlans(suite.testPlans)
-      const changed =
-        normalized.length !== suite.testPlans.length ||
-        normalized.some((p, i) => String(suite.testPlans?.[i]?.id || '').trim() !== p.id)
-
-      if (changed) {
-        suite.testPlans = normalized
-        await suite.save()
+    const existingPlans = await TestPlan.find({ testSuiteId }).sort({ createdAt: 1 }).lean()
+    if (existingPlans.length) {
+      return {
+        testSuiteId,
+        testPlans: existingPlans.map((plan) => ({
+          id: plan.id,
+          title: plan.title,
+          description: plan.description || '',
+        })),
+        reused: true,
       }
-
-      return { testSuiteId, testPlans: changed ? normalized : suite.testPlans, reused: true }
     }
   }
 
@@ -568,10 +589,7 @@ async function generatePlan({ req, body, file }) {
   if (!suite) {
     suite = await TestSuite.create({
       ...(newSuitePayload || {}),
-      testPlans: normalizedPlansList,
     })
-  } else {
-    suite.testPlans = normalizedPlansList
   }
 
   if (regenerate) {
@@ -596,11 +614,11 @@ async function generatePlan({ req, body, file }) {
   suite.savedAt = null
   await suite.save()
 
-  await dualWriteTestPlans({ testSuiteId: suite._id, testPlans: suite.testPlans }).catch(() => {})
+  await dualWriteTestPlans({ testSuiteId: suite._id, testPlans: normalizedPlansList }).catch(() => {})
 
   return {
     testSuiteId: String(suite._id),
-    testPlans: suite.testPlans,
+    testPlans: normalizedPlansList,
     projectId: String(suite.projectId || projectId || ''),
     reused: false,
   }
@@ -621,16 +639,17 @@ async function generateTestCases({ req, body }) {
   if (!suite) throw httpError(404, 'TestSuite not found')
   const previousTestStatus = String(suite.testStatus || 'Draft')
 
-  const existing = Array.isArray(suite.testCasesByPlan)
-    ? suite.testCasesByPlan.find((x) => String(x.planId) === planId)
-    : null
+  const existingPlan = await TestPlan.findOne({ testSuiteId, id: planId }).lean()
+  const existingCases = existingPlan
+    ? await TestCase.find({ testSuiteId, planId: existingPlan._id }).sort({ createdAt: 1 }).lean()
+    : []
 
-  if (existing && existing.testCases?.length && !regenerate) {
+  if (existingCases.length && !regenerate) {
     return {
       testSuiteId,
       planId,
-      planTitle: existing.planTitle,
-      testCases: existing.testCases,
+      planTitle: existingPlan.title,
+      testCases: existingCases,
       reused: true,
     }
   }
@@ -690,12 +709,10 @@ async function generateTestCases({ req, body }) {
         ? tc.steps.map((s) => String(s || '').trim()).filter(Boolean)
         : [],
       expected_result: String(tc?.expected_result || tc?.expectedResult || '').trim(),
+      executionModel: tc?.executionModel || tc?.execution_model || null,
       createdBy: null,
     }))
     .slice(0, 50)
-
-  suite.testCasesByPlan = (suite.testCasesByPlan || []).filter((x) => String(x.planId) !== planId)
-  suite.testCasesByPlan.push({ planId, planTitle: resolvedTitle, testCases: normalized })
 
   const action = regenerate ? 'regenerate-test-case' : 'generate-test-case'
   const actor = await resolveActorName(getActorFromReq(req))
@@ -717,7 +734,7 @@ async function generateTestCases({ req, body }) {
   suite.savedAt = null
   await suite.save()
 
-  await dualWriteTestCases({ testSuiteId: suite._id, planKey: planId, testCases: normalized }).catch(
+  await dualWriteTestCases({ testSuiteId: suite._id, planKey: planId, planTitle: resolvedTitle, testCases: normalized }).catch(
     () => {}
   )
 

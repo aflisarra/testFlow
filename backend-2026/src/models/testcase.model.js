@@ -31,6 +31,7 @@ const testCaseSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     steps: { type: [String], default: [] },
     expected_result: { type: String, default: '', trim: true },
+    executionModel: { type: mongoose.Schema.Types.Mixed, default: null },
 
     // ✅ FIXED
     createdBy: {

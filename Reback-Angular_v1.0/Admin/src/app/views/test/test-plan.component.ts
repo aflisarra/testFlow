@@ -522,10 +522,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       this.toastr.warning('Please fill all required fields.', 'Validation')
       return
     }
-    const hasProject = Boolean(String(this.testPlanForm.getRawValue().projectId || '').trim())
-    const hasFile = Boolean(this.selectedFile)
     void this.generatePlans()
-    if (hasProject && hasFile) this.scrollToPlansResult()
   }
 
   onRequestStopGeneration(): void {
@@ -644,7 +641,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
 
   getValidateButtonLabel(planId: string): string {
     const current = this.planStatuses[planId]
-    if (current === 'confirmed') return 'Validated'
+    if (current === 'confirmed') return 'Invalidate'
     if (current === 'pending') return 'Invalidated'
     return 'Validate'
   }
@@ -1024,16 +1021,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   private async generatePlans(regenerate = false) {
     const currentPlanToken = ++this.plansGenerationToken
     const requestId = this.newGenerationRequestId('plans')
-    this.activePlanGenerationRequestId = requestId
     this.errorMessage = ''
-    this.generatingPlans = true
-    this.syncProjectIdControlDisabled()
-    this.testPlans = []
-    this.testCasesByPlan = {}
-    this.currentPlanIndex = -1
-    this.planStatuses = {}
-    this.plansValidated = false
-    this.sessionSaved = false
 
     try {
       const rawForm = this.testPlanForm.getRawValue()
@@ -1069,6 +1057,16 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
         this.toastr.error(this.errorMessage, 'Session')
         return
       }
+
+      this.activePlanGenerationRequestId = requestId
+      this.generatingPlans = true
+      this.syncProjectIdControlDisabled()
+      this.testPlans = []
+      this.testCasesByPlan = {}
+      this.currentPlanIndex = -1
+      this.planStatuses = {}
+      this.plansValidated = false
+      this.sessionSaved = false
 
       const formData = new FormData()
       formData.append('file', this.selectedFile)

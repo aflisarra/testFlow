@@ -25,7 +25,7 @@ from dotenv import load_dotenv
 load_dotenv()  # Must run before importing modules that read env vars.
 
 from core.config import get_settings  # noqa: E402
-from routers import test_plans, test_cases  # noqa: E402
+from routers import test_plans, test_cases, test_case_translator  # noqa: E402
 from routers.cancellation import router as cancellation_router  # noqa: E402
 from routers.health import router as health_router  # noqa: E402
 from utils.ollama import run_ollama  # noqa: E402
@@ -69,6 +69,7 @@ app.add_middleware(
 # ── Routers ────────────────────────────────────────────────
 app.include_router(test_plans.router)
 app.include_router(test_cases.router)
+app.include_router(test_case_translator.router)
 app.include_router(cancellation_router)
 app.include_router(health_router)
 
@@ -86,6 +87,7 @@ def root():
             "upload_spec":         "POST /upload-spec",
             "generate_test_plans": "POST /generate-plan",
             "generate_test_cases": "POST /generate-test-cases",
+            "translate_test_case": "POST /translate-test-case",
             "cancel_generation": "POST /cancel-generation",
             "chat":                "POST /chat",
             "health":              "GET /health",

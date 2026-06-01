@@ -9,6 +9,8 @@ const {
 const fs = require('fs')
 const path = require('path')
 const TestSuite = require('../../models/testsuite')
+const TestPlan = require('../../models/testplan.model')
+const TestCase = require('../../models/testcase.model')
 
 const { formatDateForFilename, sanitizeFilename } = require('./format.utils')
 const { makeFooter } = require('./footer.builder')
@@ -38,8 +40,27 @@ async function exportWordService(req, res) {
     const urlCible = String(suite.urlCible || '').trim()
     const today = new Date()
 
-    const testPlans = Array.isArray(suite.testPlans) ? suite.testPlans : []
-    const testCasesByPlan = Array.isArray(suite.testCasesByPlan) ? suite.testCasesByPlan : []
+    const plans = await TestPlan.find({ testSuiteId: suiteId }).sort({ createdAt: 1 }).lean()
+    const cases = await TestCase.find({ testSuiteId: suiteId }).sort({ createdAt: 1 }).lean()
+    const casesByPlanId = new Map()
+
+    for (const testCase of cases) {
+      const key = String(testCase.planId || '')
+      if (!casesByPlanId.has(key)) casesByPlanId.set(key, [])
+      casesByPlanId.get(key).push(testCase)
+    }
+
+    const testPlans = plans.map((plan) => ({
+      id: plan.id,
+      title: plan.title,
+      description: plan.description || '',
+    }))
+
+    const testCasesByPlan = plans.map((plan) => ({
+      planId: plan.id,
+      planTitle: plan.title,
+      testCases: casesByPlanId.get(String(plan._id)) || [],
+    }))
 
     const totalTestPlans = testPlans.length
     const totalTestCases = testCasesByPlan.reduce((acc, p) => {
@@ -103,4 +124,3 @@ async function exportWordService(req, res) {
 }
 
 module.exports = { exportWordService }
-

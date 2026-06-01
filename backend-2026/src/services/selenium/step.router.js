@@ -1,4 +1,14 @@
-function isApiStep(step) {
+/*function isApiStep(step) {
+  if (step && typeof step === 'object') {
+    const channel = String(step.channel || '').toLowerCase()
+    const action = String(step.action || '').toLowerCase()
+    return (
+      channel === 'api' ||
+      (channel === 'assertion' && action === 'assert_status') ||
+      ['set_auth', 'http_request', 'assert_status'].includes(action)
+    )
+  }
+
   const t = String(step || '').toLowerCase()
 
   return (
@@ -15,4 +25,4 @@ function isApiStep(step) {
   )
 }
 
-module.exports = { isApiStep }
+module.exports = { isApiStep }*/

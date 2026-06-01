@@ -1,6 +1,9 @@
+const fs = require('fs')
+const path = require('path')
 const { createDriver } = require('./driver.factory')
 const { runHumanStep } = require('./ui.executor')
 const { runApiStep, isApiStep, resetApiState } = require('./api.executor')
+const { describeExecutionStep, resolveExecutionModel } = require('./execution.model')
 
 function getFirstValue(...values) {
   for (const value of values) {
@@ -10,10 +13,30 @@ function getFirstValue(...values) {
   return ''
 }
 
+async function captureStepScreenshot(driver, testCase, stepIndex) {
+  if (!driver) return null
+
+  const screenshotBase64 = await driver.takeScreenshot()
+  const screenshotsDir = path.resolve(__dirname, '..', '..', '..', 'uploads', 'screenshots')
+  fs.mkdirSync(screenshotsDir, { recursive: true })
+
+  const testCaseId = String(testCase?.id || testCase?.title || 'test-case')
+    .replace(/[^a-z0-9_-]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'test-case'
+  const filename = `${testCaseId}-step-${stepIndex}-${Date.now()}.png`
+  const absolutePath = path.join(screenshotsDir, filename)
+
+  fs.writeFileSync(absolutePath, screenshotBase64, 'base64')
+  return `/api/uploads/screenshots/${filename}`
+}
+
 async function runTestCase(testCase) {
-  const driver = await createDriver(false)
+  let driver = null
   const logs = []
   const stepResults = []
+  const screenshots = []
+  let executionModel = null
 
   resetApiState()
 
@@ -22,7 +45,7 @@ async function runTestCase(testCase) {
   }
 
   try {
-    const steps = testCase.steps || []
+    const rawSteps = testCase.steps || []
     const credentials = testCase.credentials || {}
     const ctx = {
       baseUrl: testCase.url || testCase.urlCible || testCase.targetUrl,
@@ -82,60 +105,117 @@ async function runTestCase(testCase) {
       selectors: testCase.selectors || testCase.loginSelectors || {}
     }
 
-    addLog('INFO', 'Initializing visible Chrome WebDriver session')
     addLog('INFO', `Target URL: ${ctx.baseUrl || 'missing'}`)
+
+    executionModel = await resolveExecutionModel(
+      {
+        ...testCase,
+        steps: rawSteps
+      },
+      ctx,
+      addLog
+    )
+    const steps = Array.isArray(executionModel.steps) ? executionModel.steps : []
+    const needsBrowser = steps.some((step) => !isApiStep(step))
+
+    addLog('INFO', `Execution model version: ${executionModel.version}`)
+    addLog('INFO', `Executable steps: ${steps.length}`)
+
+    if (needsBrowser) {
+      addLog('INFO', 'Initializing visible Chrome WebDriver session')
+      driver = await createDriver(false)
+    } else {
+      addLog('INFO', 'No browser session required for API-only execution')
+    }
 
     for (let i = 0; i < steps.length; i += 1) {
       const step = steps[i]
+      const stepName = describeExecutionStep(step)
 
-      if (typeof step === 'string') {
-        const index = i + 1
+      const index = i + 1
 
-        addLog('INFO', `Step ${index} started: ${step}`)
+      addLog('INFO', `Step ${index} started: ${stepName}`)
 
-        try {
-          if (isApiStep(step)) {
-            const response = await runApiStep(step, ctx)
-            const message = response?.status
-              ? `API response status ${response.status}`
-              : response?.message
-                ? response.message
-              : 'API step completed'
-
-            stepResults.push({
-              index,
-              name: step,
-              status: 'passed',
-              message
-            })
-            addLog('PASS', `Step ${index} passed: ${step}`)
-          } else {
-            const result = await runHumanStep(driver, step, ctx, { stepTimeoutMs: 10000 })
-            const action = result?.action || 'ui'
-            const target = result?.target || 'element'
-            const selector = result?.selector ? ` selector=${result.selector}` : ''
-
-            stepResults.push({
-              index,
-              name: step,
-              status: 'passed',
-              message: `${action} ${target}${selector}`
-            })
-            addLog('PASS', `Step ${index} passed: ${step}`)
-          }
-        } catch (err) {
-          const message = err?.message || String(err)
+      try {
+        if (isApiStep(step)) {
+          const response = await runApiStep(step, ctx)
+          const message = response?.status
+            ? `API response status ${response.status}`
+            : response?.message
+              ? response.message
+            : 'API step completed'
 
           stepResults.push({
             index,
-            name: step,
-            status: 'failed',
+            id: step.id || `S${index}`,
+            name: stepName,
+            channel: step.channel || 'api',
+            action: step.action || 'api',
+            status: 'passed',
             message
           })
-          addLog('FAIL', `Step ${index} failed: ${step}`)
-          addLog('ERROR', message)
-          throw err
+          addLog('PASS', `Step ${index} passed: ${stepName}`)
+        } else {
+          if (!driver) {
+            addLog('INFO', 'Initializing visible Chrome WebDriver session')
+            driver = await createDriver(false)
+          }
+
+          const result = await runHumanStep(driver, step, ctx, { stepTimeoutMs: 10000 })
+          const action = result?.action || step.action || 'ui'
+          const target = result?.target || step?.target?.name || 'element'
+          const selector = result?.selector ? ` selector=${result.selector}` : ''
+          let screenshotPath = null
+
+          try {
+            screenshotPath = await captureStepScreenshot(driver, testCase, index)
+            if (screenshotPath) {
+              screenshots.push(screenshotPath)
+              addLog('INFO', `Screenshot: ${screenshotPath}`)
+            }
+          } catch (screenshotErr) {
+            addLog('WARN', `Screenshot capture failed: ${screenshotErr?.message || String(screenshotErr)}`)
+          }
+
+          stepResults.push({
+            index,
+            id: step.id || `S${index}`,
+            name: stepName,
+            channel: step.channel || 'ui',
+            action: step.action || action,
+            status: 'passed',
+            message: `${action} ${target}${selector}`,
+            screenshotPath
+          })
+          addLog('PASS', `Step ${index} passed: ${stepName}`)
         }
+      } catch (err) {
+        const message = err?.message || String(err)
+        let screenshotPath = null
+
+        try {
+          screenshotPath = await captureStepScreenshot(driver, testCase, index)
+          if (screenshotPath) {
+            screenshots.push(screenshotPath)
+            addLog('INFO', `Screenshot: ${screenshotPath}`)
+          }
+        } catch (screenshotErr) {
+          addLog('WARN', `Screenshot capture failed: ${screenshotErr?.message || String(screenshotErr)}`)
+        }
+
+        stepResults.push({
+          index,
+          id: step.id || `S${index}`,
+          name: stepName,
+          channel: step.channel || 'unknown',
+          action: step.action || 'unknown',
+          status: 'failed',
+          message,
+          screenshotPath
+        })
+        addLog('FAIL', `Step ${index} failed: ${stepName}`)
+        addLog('ERROR', message)
+        throw err
       }
     }
 
@@ -145,7 +225,9 @@ async function runTestCase(testCase) {
       status: 'passed',
       message: 'Test executed successfully',
       logs,
-      stepResults
+      stepResults,
+      screenshots,
+      executionModel
     }
   } catch (err) {
     return {
@@ -153,15 +235,20 @@ async function runTestCase(testCase) {
       message: err.message,
       errorMessage: err.message,
       logs,
-      stepResults
+      stepResults,
+      screenshotPath: screenshots[screenshots.length - 1] || null,
+      screenshots,
+      executionModel
     }
   } finally {
-    addLog('INFO', 'Closing Chrome WebDriver session')
-    try {
-      await driver.quit()
-      addLog('INFO', 'Chrome WebDriver session closed')
-    } catch (quitErr) {
-      addLog('WARN', `Chrome WebDriver close failed: ${quitErr?.message || String(quitErr)}`)
+    if (driver) {
+      addLog('INFO', 'Closing Chrome WebDriver session')
+      try {
+        await driver.quit()
+        addLog('INFO', 'Chrome WebDriver session closed')
+      } catch (quitErr) {
+        addLog('WARN', `Chrome WebDriver close failed: ${quitErr?.message || String(quitErr)}`)
+      }
     }
   }
 }

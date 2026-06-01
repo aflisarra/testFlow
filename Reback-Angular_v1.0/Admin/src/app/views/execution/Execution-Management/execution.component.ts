@@ -12,7 +12,8 @@ import { interval, Subscription, firstValueFrom } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TestLabService } from '@/app/core/services/testlab.service'
 import { SeleniumRunnerService, type SeleniumRunResponseDto, type SeleniumStepResultDto } from '@/app/core/services/selenium-runner.service'
-import type { TestCaseDto, TestCasesByPlanDto, TestSuiteDto } from '@/app/core/services/testlab.service'
+import { ApiService } from '@/app/core/services/api.service'
+import type { ExecutionModelDto, ExecutionModelStepDto, TestCaseDto, TestCasesByPlanDto, TestSuiteDto } from '@/app/core/services/testlab.service'
 
 import type {
   ExecutionStep,
@@ -28,6 +29,7 @@ type LoadedExecutionTestCase = {
   title: string
   steps: string[]
   urlCible: string
+  executionModel?: ExecutionModelDto | null
   credentials?: {
     email?: string
     password?: string
@@ -54,6 +56,7 @@ export class ExecutionComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private testLabService = inject(TestLabService)
   private seleniumRunner = inject(SeleniumRunnerService)
+  private api = inject(ApiService)
 
   activeTab: 'timeline' | 'logs' | 'screenshot' = 'timeline';
 
@@ -69,6 +72,8 @@ export class ExecutionComponent implements OnInit {
   private testCaseId = ''
   private loadedTestCase: LoadedExecutionTestCase | null = null
   screenshotUrl: string | null = null
+  selectedScreenshotUrl: string | null = null
+  executionModelSummary = 'execution-model/v1 pending'
 
   private readonly PASS_LOGS: LogLine[] = [
     { index: 1, level: 'INFO', message: 'Initializing remote driver session' },
@@ -148,6 +153,15 @@ export class ExecutionComponent implements OnInit {
 
   setTab(tab: 'timeline' | 'logs' | 'screenshot'): void {
     this.activeTab = tab;
+  }
+
+  openScreenshot(url: string | null | undefined): void {
+    if (!url) return
+    this.selectedScreenshotUrl = url
+  }
+
+  closeScreenshot(): void {
+    this.selectedScreenshotUrl = null
   }
 
   copySnippet(): void {
@@ -439,14 +453,17 @@ element.click()`;
       }
 
       const steps = Array.isArray(tc.steps) ? tc.steps.map((s) => String(s)) : []
+      const executionModel = this.coerceExecutionModel((tc as any).executionModel || (tc as any).execution_model)
       const credentials = this.resolveExecutionCredentials(tc, suite)
       this.loadedTestCase = {
         id: String(tc.id),
         title: String(tc.title || tc.id),
         steps,
         urlCible,
+        executionModel,
         ...(credentials ? { credentials } : {}),
       }
+      this.executionModelSummary = this.describeExecutionModel(executionModel, steps.length)
 
       // Fill breadcrumb labels if not provided
       const qp = this.route.snapshot.queryParamMap
@@ -482,6 +499,44 @@ element.click()`;
       status: 'waiting',
       timestamp: ts,
     }))
+  }
+
+  private coerceExecutionModel(value: unknown): ExecutionModelDto | null {
+    if (!value) return null
+
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value) as ExecutionModelDto
+      } catch {
+        return null
+      }
+    }
+
+    if (typeof value === 'object') return value as ExecutionModelDto
+    return null
+  }
+
+  private modelStepLabel(step: ExecutionModelStepDto, index: number): string {
+    const raw = String(step.raw || '').trim()
+    if (raw) return raw
+
+    const action = String(step.action || 'step').replace(/_/g, ' ')
+    const target = String(step.target?.name || step.target?.kind || '').trim()
+    return target ? `${action}: ${target}` : `Step ${index + 1}`
+  }
+
+  private getTimelineSource(testCase: LoadedExecutionTestCase): string[] {
+    const modelSteps = testCase.executionModel?.steps || []
+    if (modelSteps.length) return modelSteps.map((step, index) => this.modelStepLabel(step, index))
+    return testCase.steps
+  }
+
+  private describeExecutionModel(model: ExecutionModelDto | null | undefined, fallbackSteps: number): string {
+    if (!model?.steps?.length) return `local fallback pending · ${fallbackSteps} steps`
+
+    const channels = new Set(model.steps.map((step) => String(step.channel || 'unknown').trim()).filter(Boolean))
+    const channelText = Array.from(channels).join(', ') || 'unknown'
+    return `${model.version || 'execution-model/v1'} · ${model.steps.length} steps · ${channelText}`
   }
 
   private readStringField(source: unknown, keys: string[]): string {
@@ -569,7 +624,12 @@ element.click()`;
       subtitle: r.status === 'passed' ? 'Passed' : (r.message || 'Failed'),
       status: r.status === 'passed' ? 'pass' : 'fail',
       timestamp: now,
+      screenshotUrl: this.resolveScreenshotUrl(String(r.screenshotPath || '')),
     }))
+  }
+
+  get stepsWithScreenshots(): ExecutionStep[] {
+    return this.scenario.steps.filter((step) => Boolean(step.screenshotUrl))
   }
 
   private mapRunResponseToLogs(resp: SeleniumRunResponseDto): LogLine[] {
@@ -588,7 +648,7 @@ element.click()`;
     }
     const logs: LogLine[] = []
     let i = 1
-    logs.push({ index: i++, level: 'INFO', message: 'Selenium execution started' })
+    logs.push({ index: i++, level: 'INFO', message: 'Standard execution started' })
     for (const s of stepResults) {
       if (s.status === 'passed') {
         logs.push({ index: i++, level: 'SUCCESS', message: `Step ${s.index}: ${s.name} → passed` })
@@ -604,6 +664,26 @@ element.click()`;
     return logs
   }
 
+  private resolveScreenshotUrl(rawPath: string): string | null {
+    const value = String(rawPath || '').trim()
+    if (!value) return null
+
+    if (/^data:image\//i.test(value) || /^https?:\/\//i.test(value)) return value
+
+    const normalized = value.replace(/\\/g, '/')
+    const uploadsIndex = normalized.lastIndexOf('/uploads/')
+    if (uploadsIndex >= 0) {
+      return this.api.toAbsoluteUrl(`/api${normalized.slice(uploadsIndex)}`)
+    }
+
+    if (normalized.startsWith('/api/')) return this.api.toAbsoluteUrl(normalized)
+    if (normalized.startsWith('api/')) return this.api.toAbsoluteUrl(`/${normalized}`)
+    if (normalized.startsWith('/uploads/')) return this.api.toAbsoluteUrl(`/api${normalized}`)
+    if (normalized.startsWith('uploads/')) return this.api.toAbsoluteUrl(`/api/${normalized}`)
+
+    return this.api.toAbsoluteUrl(normalized)
+  }
+
   private async executeLoadedTestCase(): Promise<void> {
     if (!this.loadedTestCase) return
 
@@ -613,17 +693,18 @@ element.click()`;
     this.metrics = { cpu: 24, memory: 1.2, latency: 42, threads: 8 }
     this.startMetricsAnimation()
 
-    const steps = this.buildTimelineSteps(this.loadedTestCase.steps)
+    const timelineSource = this.getTimelineSource(this.loadedTestCase)
+    const steps = this.buildTimelineSteps(timelineSource)
     this.scenario = {
       ...this.scenario,
       status: 'in-progress',
       executionTime: '—',
       steps,
       progressPercent: 5,
-      progressLabel: 'Starting Selenium execution...',
+      progressLabel: 'Starting standardized execution...',
       activeStepLabel: '▶ Starting',
     }
-    this.streamedLogs = [{ index: 1, level: 'INFO', message: 'Preparing Selenium request...' }]
+    this.streamedLogs = [{ index: 1, level: 'INFO', message: 'Preparing execution model request...' }]
     this.cdr.markForCheck()
 
     this.startFakeTimeline(steps.length)
@@ -634,6 +715,7 @@ element.click()`;
       title: this.loadedTestCase.title,
       urlCible: this.loadedTestCase.urlCible,
       steps: this.loadedTestCase.steps,
+      ...(this.loadedTestCase.executionModel ? { executionModel: this.loadedTestCase.executionModel } : {}),
       ...(this.loadedTestCase.credentials ? { credentials: this.loadedTestCase.credentials } : {}),
     }
 
@@ -644,6 +726,8 @@ element.click()`;
           const elapsed = Math.max(0, Date.now() - startedAt)
           const secs = `${Math.max(1, Math.round(elapsed / 1000))}s`
           const payload: any = (resp as any)?.data ?? resp
+          const responseModel = this.coerceExecutionModel(payload?.executionModel || payload?.execution_model)
+          if (responseModel) this.executionModelSummary = this.describeExecutionModel(responseModel, this.loadedTestCase?.steps.length || 0)
           const stepResults = Array.isArray(payload?.stepResults) ? payload.stepResults : []
           const mappedSteps = stepResults.length ? this.mapStepResultsToScenarioSteps(stepResults) : this.scenario.steps
 
@@ -655,7 +739,7 @@ element.click()`;
             screenshotList[screenshotList.length - 1] ||
             ''
           ).trim()
-          this.screenshotUrl = screenshotPath || null
+          this.screenshotUrl = this.resolveScreenshotUrl(screenshotPath)
 
           this.isStreaming = false
           this.fakeTimelineSubscription?.unsubscribe()
@@ -672,7 +756,7 @@ element.click()`;
             errorMeta: screenshotPath ? {
               errorType: 'SeleniumStepFailed',
               stepName: String(failedStep?.name || ''),
-              screenshot: screenshotPath,
+              screenshot: this.screenshotUrl || screenshotPath,
               duration: secs,
             } : undefined,
           }

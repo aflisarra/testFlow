@@ -1,926 +1,666 @@
-// ============================================================
-// services/testsuite.service.js
-// VERSION FINALE — fusionne ai.service.js + testsuite.service.js
-// Supprime ai.service.js après avoir utilisé ce fichier
-// ============================================================
-
-const path = require("path");
-const fs = require("fs/promises");
-const os = require("os");
-const { spawn } = require("child_process");
-//const axios = require("axios");
-
-const TestSuite = require("../models/testsuite");
-const Project = require("../models/project.model");
-//const MESSAGES = require('../constants/messages.js');
 const mongoose = require('mongoose')
 
+const Project = require('../models/project.model')
+const TestSuite = require('../models/testsuite')
+const TestPlan = require('../models/testplan.model')
+const TestCase = require('../models/testcase.model')
 
-/**
- * Input: one test suite
- * Output: final status of the suite
- */
-function computeSuiteStatusKey(suite) {
-    const hasPlans = (suite?.testPlans?.length || 0) > 0
-    const hasCases = (suite?.testCasesByPlan?.length || 0) > 0
-    const isSaved = !!suite?.savedAt
+const TEST_STATUS_VALUES = new Set(['Draft', 'Generating', 'Incomplete', 'Ready', 'Passed', 'Failed'])
+const PLAN_STATUS_VALUES = new Set(['pending', 'generating', 'reviewing', 'confirmed', 'completed', 'incomplete'])
+const VALIDATION_PLAN_STATUS_VALUES = new Set(['pending', 'generating', 'reviewing', 'confirmed', 'rejected'])
+const EXECUTION_PLAN_STATUS_VALUES = new Set(['completed', 'incomplete'])
 
-    if (hasPlans && hasCases && isSaved) {
-        return 'completed'
-    }
-    return 'incomplete'
+function makeError(message, statusCode) {
+  const error = new Error(message)
+  error.statusCode = statusCode
+  return error
+}
+
+function normalizeTestStatus(value) {
+  const raw = String(value || '').trim()
+  return [...TEST_STATUS_VALUES].find((status) => status.toLowerCase() === raw.toLowerCase()) || ''
+}
+
+function normalizeSessionStatus(value) {
+  return String(value || '').toLowerCase().trim() === 'complete'
+    ? 'complete'
+    : 'incomplete'
 }
 
 function normalizeCompletionStatus(value) {
-    const raw = String(value || '').toLowerCase().trim()
-    if (!raw) return 'incomplete'
-    if (raw === 'completed' || raw === 'complete' || raw === 'validated') return 'completed'
-    if (raw === 'incomplete' || raw === 'invalid') return 'incomplete'
-    return 'incomplete'
-}
-// ============================================================
-// HELPERS UTILITAIRES
-// ============================================================
-
-// Lit l'URL de FastAPI depuis .env
-/*function getFastApiBaseUrl() {
-    return String(process.env.FASTAPI_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
-}*/
-
-const TEST_STATUS_VALUES = new Set(["Draft", "Generating", "Incomplete", "Ready", "Passed", "Failed"])
-
-/**Input:
-- value → status string
-
-Output:
-- normalized status
-- "" if invalid */
-function normalizeTestStatus(value) {
-    const raw = String(value || '').trim()
-    if (!raw) return ''
-    
-    const match = [...TEST_STATUS_VALUES].find((v) => v.toLowerCase() === raw.toLowerCase())
-    return match || ''
-}
-/**
-Input:
-- testSuiteId → suite id
-- nextStatus → new status
-
-Output:
-- updated TestSuite object */
-async function updateTestSuiteStatus(testSuiteId, nextStatus) {
-    const id = String(testSuiteId || '').trim()
-    const status = normalizeTestStatus(nextStatus)
-    if (!id) {
-        const error = new Error('TestSuite id is required')
-        error.statusCode = 400
-        throw error
-    }
-    if (!status) {
-        const error = new Error('Invalid status')
-        error.statusCode = 400
-        throw error
-    }
-
-    const suite = await TestSuite.findById(id).select('_id testStatus savedAt executedAt lastGeneratedAt')
-    if (!suite) {
-        const error = new Error('TestSuite not found')
-        error.statusCode = 404
-        throw error
-    }
-
-    const current = String(suite.testStatus || 'Draft')
-    if ((status === 'Passed' || status === 'Failed') && current !== 'Ready') {
-        const error = new Error('Only Ready tests can be marked Passed/Failed')
-        error.statusCode = 409
-        throw error
-    }
-
-    const update = { testStatus: status }
-    const now = new Date()
-
-    if (status === 'Draft') {
-        update.savedAt = null
-        update.executedAt = null
-    }
-    if (status === 'Generating') {
-        // keep timestamps as-is; generation may resume
-    }
-    if (status === 'Incomplete') {
-        update.lastGeneratedAt = now
-    }
-    if (status === 'Ready') {
-        update.savedAt = now
-    }
-    if (status === 'Passed' || status === 'Failed') {
-        update.executedAt = now
-    }
-
-    const updated = await TestSuite.findByIdAndUpdate(id, update, { new: true })
-        .select('_id testStatus lastGeneratedAt savedAt executedAt')
-        .lean()
-
-    return updated
+  return normalizeSessionStatus(value) === 'complete' ? 'completed' : 'incomplete'
 }
 
-/**Input:
-- testSuiteId
+function normalizePlanStatusValue(value, fallback = 'incomplete') {
+  const raw = String(value || '').toLowerCase().trim()
 
-Output:
-- updated suite with Ready status */
-async function markTestSuiteSaved(testSuiteId) {
-    const id = String(testSuiteId || '').trim()
-    if (!id) {
-        const error = new Error('TestSuite id is required')
-        error.statusCode = 400
-        throw error
-    }
-    const now = new Date()
-    const updated = await TestSuite.findByIdAndUpdate(
-        id,
-        { testStatus: 'Ready', savedAt: now },
-        { new: true }
-    )
-        .select('_id testStatus lastGeneratedAt savedAt executedAt')
-        .lean()
+  if (PLAN_STATUS_VALUES.has(raw))
+    return raw
 
-    if (!updated) {
-        const error = new Error('TestSuite not found')
-        error.statusCode = 404
-        throw error
-    }
-    return updated
+  return fallback
 }
 
-/**
- * Assign/unassign a suite to a project (persisted in DB).
- * - Admin can assign to any existing project.
- * - Non-admin: can assign only to a project where the user is owner or assigned.
- */
-async function setTestSuiteProject(testSuiteId, nextProjectId, viewer) {
-    const suiteId = String(testSuiteId || '').trim()
-    if (!suiteId) {
-        const error = new Error('TestSuite id is required')
-        error.statusCode = 400
-        throw error
-    }
-    if (!mongoose.Types.ObjectId.isValid(suiteId)) {
-        const error = new Error('Invalid testSuite ID')
-        error.statusCode = 400
-        throw error
-    }
-
-    const viewerUserId = String(viewer?.viewerUserId || '').trim()
-    const role = String(viewer?.role || '').toLowerCase().trim()
-
-    const suite = await TestSuite.findById(suiteId).select('_id projectId userId').lean()
-    if (!suite) {
-        const error = new Error('TestSuite not found')
-        error.statusCode = 404
-        throw error
-    }
-
-    const raw = nextProjectId === null || nextProjectId === undefined ? '' : String(nextProjectId || '').trim()
-
-    // Unassign
-    if (!raw) {
-        const updated = await TestSuite.findByIdAndUpdate(
-            suiteId,
-            { projectId: null },
-            { new: true }
-        ).lean()
-        return updated
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(raw)) {
-        const error = new Error('Invalid project ID')
-        error.statusCode = 400
-        throw error
-    }
-
-    const project = await Project.findById(raw).select('_id ownerId assignedUsers').lean()
-    if (!project) {
-        const error = new Error('Project not found')
-        error.statusCode = 404
-        throw error
-    }
-
-    if (role !== 'admin') {
-        if (!viewerUserId) {
-            const error = new Error('Unauthorized')
-            error.statusCode = 401
-            throw error
-        }
-        const isOwner = String(project.ownerId) === String(viewerUserId)
-        const isAssigned = Array.isArray(project.assignedUsers)
-            ? project.assignedUsers.some((u) => String(u?._id || u) === String(viewerUserId))
-            : false
-
-        // If the suite has no project, creator can still assign only to accessible projects.
-        if (!isOwner && !isAssigned) {
-            const error = new Error('Forbidden')
-            error.statusCode = 403
-            throw error
-        }
-    }
-
-    const updated = await TestSuite.findByIdAndUpdate(
-        suiteId,
-        { projectId: new mongoose.Types.ObjectId(raw) },
-        { new: true }
-    )
-        .populate('projectId', 'title')
-        .lean()
-
-    return updated
+function normalizeValidationPlanStatusValue(value, fallback = 'pending') {
+  const raw = String(value || '').toLowerCase().trim()
+  if (VALIDATION_PLAN_STATUS_VALUES.has(raw)) return raw
+  if (raw === 'ready' || raw === 'completed' || raw === 'complete' || raw === 'validated') return 'confirmed'
+  if (raw === 'incomplete' || raw === 'invalid' || raw === 'draft') return 'pending'
+  return fallback
 }
 
-// Convertit "true" / "1" / "yes" en vrai boolean
-function parseBoolean(value) {
-    if (typeof value === "boolean") return value;
-    if (typeof value !== "string") return false;
-    return ["1", "true", "yes", "y", "on"].includes(value.trim().toLowerCase());
+function normalizeExecutionPlanStatusValue(value, fallback = 'incomplete') {
+  const raw = String(value || '').toLowerCase().trim()
+  if (EXECUTION_PLAN_STATUS_VALUES.has(raw)) return raw
+  if (raw === 'ready' || raw === 'complete' || raw === 'validated' || raw === 'confirmed') return 'completed'
+  return fallback
 }
 
-// Supprime les ``` de code que l'IA ajoute parfois dans sa réponse
-/**Input:
-- markdown text
-
-Output:
-- cleaned text without ``` */
-function stripCodeFences(text) {
-    const trimmed = String(text || "").trim();
-    if (!trimmed.startsWith("```")) return trimmed;
-    return trimmed.replace(/^```[a-zA-Z]*\s*/m, "").replace(/```$/m, "").trim();
-}
-
-// Parse la réponse de l'IA en tableau de steps
-// L'IA peut répondre en JSON array ou en liste de lignes
-
-
-// Formate une erreur FastAPI proprement
-/*function normalizeFastApiError(error) {
-    const status = error?.response?.status;
-    const message =
-        error?.response?.data?.reply ||
-        error?.response?.data?.error ||
-        error?.message ||
-        MESSAGES.TESTSUITE.FAILED;
-    const normalized = new Error(message);
-    normalized.statusCode = status || 500;
-    normalized.code = error?.code || MESSAGES.TESTSUITE.ERROR;
-    return normalized;
-}*/
-
-// ============================================================
-// HELPERS LECTURE .DOCX
-// ============================================================
-
-// Décode les caractères spéciaux XML (&amp; → & etc.)
-/** Input:
-- encoded XML text
-
-Output:
-- decoded readable text*/
-function decodeXmlEntities(value) {
-    return String(value || "")
-        .replaceAll("&amp;", "&")
-        .replaceAll("&lt;", "<")
-        .replaceAll("&gt;", ">")
-        .replaceAll("&quot;", '"')
-        .replaceAll("&#39;", "'");
-}
-
-// Extrait le texte lisible depuis le contenu XML de document.xml
-/** Input:
-- XML content
-
-Output:
-- extracted readable text*/
-function extractTextFromDocumentXml(xml) {
-    const source = String(xml || "")
-        .replaceAll(/<w:tab[^>]*\/>/g, "\t")
-        .replaceAll(/<w:br[^>]*\/>/g, "\n");
-
-    const paragraphs = source.match(/<w:p[\s\S]*?<\/w:p>/g) || [];
-    const lines = paragraphs.map((p) => {
-        const parts = [...p.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map((m) =>
-            decodeXmlEntities(m[1])
-        );
-        return parts.join("").trimEnd();
-    });
-
-    return lines
-        .map((l) => l.trim())
-        .filter((l) => l.length > 0)
-        .join("\n")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim();
-}
-
-// Lance une commande PowerShell (Windows uniquement) pour dézipper le .docx
-/** Input:
-- PowerShell command
-
-Output:
-- { stdout, stderr }*/
-function runPowerShell(command) {
-    return new Promise((resolve, reject) => {
-        const child = spawn(
-            "powershell",
-            ["-NoProfile", "-NonInteractive", "-Command", command],
-            { windowsHide: true }
-        );
-        let stdout = "";
-        let stderr = "";
-        child.stdout.on("data", (d) => (stdout += String(d)));
-        child.stderr.on("data", (d) => (stderr += String(d)));
-        child.on("error", reject);
-        child.on("close", (code) => {
-            if (code === 0) return resolve({ stdout, stderr });
-            const error = new Error(stderr || stdout || `PowerShell exited with code ${code}`);
-            error.code = code;
-            reject(error);
-        });
-    });
-}
-
-// ============================================================
-// FONCTION PRINCIPALE 1 : Extraire le texte d'un .docx
-// ============================================================
-/** Input:
-- .docx file buffer
-
-Output:
-- extracted document text*/
-async function extractDocxText(buffer) {
-    // ✅ Dossier séparé pour les specs — pas mélangé avec uploads/users/
-    const specsDir = path.join(__dirname, "..", "uploads", "specs");
-    await fs.mkdir(specsDir, { recursive: true });
-
-    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "docx-"));
-    const docxPath = path.join(tempRoot, "spec.docx");
-    const unzipDir = path.join(tempRoot, "unzipped");
-
-    try {
-        await fs.writeFile(docxPath, buffer);
-
-        if (process.platform !== "win32") {
-            throw new Error("DOCX extraction requires Windows PowerShell. On Linux/Mac, run: npm install mammoth");
-        }
-
-        await fs.mkdir(unzipDir, { recursive: true });
-        const cmd = `Expand-Archive -Path '${docxPath.replaceAll("'", "''")}' -DestinationPath '${unzipDir.replaceAll("'", "''")}' -Force`;
-        await runPowerShell(cmd);
-
-        const documentXmlPath = path.join(unzipDir, "word", "document.xml");
-        const xml = await fs.readFile(documentXmlPath, "utf8");
-        return extractTextFromDocumentXml(xml);
-    } finally {
-        await fs.rm(tempRoot, { recursive: true, force: true }).catch(() => { });
+function normalizeStatusRows(statuses = {}, normalizeStatus = normalizePlanStatusValue) {
+  const normalizeRow = (planId, status) => {
+    const normalizedPlanId = String(planId || '').trim()
+    if (!normalizedPlanId) return null
+    return {
+      planId: normalizedPlanId,
+      status: normalizeStatus(status),
     }
+  }
+
+  if (Array.isArray(statuses)) {
+    return statuses
+      .map((row) => normalizeRow(row?.planId, row?.status))
+      .filter(Boolean)
+  }
+
+  return Object.entries(statuses || {})
+    .map(([planId, status]) => normalizeRow(planId, status))
+    .filter(Boolean)
 }
 
-// ============================================================
-// FONCTION PRINCIPALE 3 : Créer ou mettre à jour une TestSuite
-// ============================================================
-/** 
- * Input:
-- suite data object
-
-Output:
-- created or updated TestSuite
-*/
-async function createOrUpdateTestSuite({
-    providedTestSuiteId,
-    userId,
-    projectId,
-    suiteName,
-    combinedDescription,
-    urlCible,
-    specText,
-    specFileName,
-    specFilePath,
-}) {
-    if (providedTestSuiteId) {
-        const suite = await TestSuite.findById(providedTestSuiteId);
-        if (!suite) {
-            const error = new Error("TestSuite not found");
-            error.statusCode = 404;
-            throw error;
-        }
-        const updates = { description: combinedDescription, urlCible };
-        if (suiteName) updates.nom = suiteName;
-        if (specText) updates.specText = String(specText).slice(0, 50_000);
-        if (specFileName) updates.specFileName = String(specFileName);
-        if (specFilePath) updates.specFilePath = String(specFilePath);
-        return await TestSuite.findByIdAndUpdate(providedTestSuiteId, updates, { new: true });
-    }
-
-    const now = new Date();
-    const defaultName = `Test Suite - ${now.toISOString().slice(0, 19).replace("T", " ")}`;
-    return await TestSuite.create({
-        nom: suiteName || defaultName,
-        description: combinedDescription,
-        urlCible,
-        userId,
-        projectId,
-        specText: specText ? String(specText).slice(0, 50_000) : null,
-        specFileName: specFileName ? String(specFileName) : null,
-        specFilePath: specFilePath ? String(specFilePath) : null,
-    });
+function normalizePlanStatuses(planStatuses = {}) {
+  return normalizeStatusRows(planStatuses, normalizePlanStatusValue)
 }
 
-// ============================================================
-// FONCTION PRINCIPALE 4 : Sauvegarder les steps (embedded dans TestSuite)
-// ============================================================
-/*async function saveEmbeddedPlanSteps(steps, testSuiteId) {
-    const docs = steps
-        .map((s) => String(s || "").trim())
-        .filter(Boolean)
-        .slice(0, 50)
-        .map((step, idx) => ({
-            contenu: step,
-            ordre: idx + 1,
-        }));
-
-    const suite = await TestSuite.findByIdAndUpdate(
-        testSuiteId,
-        { planSteps: docs },
-        { new: true }
-    );
-
-    return (suite?.planSteps || [])
-        .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
-        .map((p) => ({
-            _id: p._id,
-            contenu: p.contenu,
-            ordre: p.ordre,
-            testSuiteId,
-        }));
-}*/
-
-// ============================================================
-// FONCTION PRINCIPALE 5 : Flux complet — génération du plan
-// Appelée par le controller
-// ============================================================
-/** Input:
-- file
-- urlCible
-- userId
-- suiteName
-- description
-- regenerate
-
-Output:
-- generated/reused plan object*/
-async function generatePlan({
-    file,
-    urlCible,
-    userId,
-    providedTestSuiteId,
-    suiteName,
-    description,
-    regenerate,
-}) {
-    // Étape 1 : Extraire le texte du .docx
-    const specText = await extractDocxText(file.buffer);
-    if (!specText) {
-        const error = new Error("Unable to extract text from .docx");
-        error.statusCode = 400;
-        throw error;
-    }
-
-    // Étape 2 : Combiner description utilisateur + texte du .docx
-    const combinedDescription = [
-        description,
-        "",
-        "---- SPEC DOCX EXTRACT ----",
-        specText,
-    ]
-        .join("\n")
-        .trim()
-        .slice(0, 20_000);
-
-    // Étape 3 : Créer ou mettre à jour la TestSuite dans MongoDB
-    const suite = await createOrUpdateTestSuite({
-        providedTestSuiteId,
-        userId,
-        suiteName,
-        combinedDescription,
-        urlCible,
-        specText,
-        specFileName: file?.originalname || null,
-        specFilePath: file?.path || null,
-    });
-
-    const testSuiteId = String(suite._id);
-
-    // Étape 4 : Retourner le plan existant si regenerate = false
-    if (!regenerate) {
-        const suiteReloaded = await TestSuite.findById(testSuiteId);
-        if (suiteReloaded?.planSteps?.length) {
-            const plans = [...suiteReloaded.planSteps]
-                .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
-                .map((p) => ({
-                    _id: p._id,
-                    contenu: p.contenu,
-                    ordre: p.ordre,
-                    testSuiteId,
-                }));
-            return {
-                testSuiteId,
-                steps: plans.map((p) => p.contenu),
-                plans,
-                reused: true,
-            };
-        }
-
-    } else {
-        await TestSuite.findByIdAndUpdate(testSuiteId, { planSteps: [] });
-    }
-
-    // Étape 5 : La génération de plan a été déplacée vers le service Python FastAPI
-    const error = new Error("Plan generation has been moved to Python FastAPI service. Use /generate-plan endpoint instead.");
-    error.statusCode = 410; // Gone
-    throw error;
+function normalizeValidationPlanStatuses(planStatuses = {}) {
+  return normalizeStatusRows(planStatuses, normalizeValidationPlanStatusValue)
 }
 
-// ============================================================
-// FONCTION PRINCIPALE 6 : Récupérer un plan existant
-// ============================================================
-/** Input:
-- testSuiteId
-
-Output:
-- plans and steps*/
-async function getPlanByTestSuiteId(testSuiteId) {
-    const suite = await TestSuite.findById(testSuiteId);
-    if (suite?.planSteps?.length) {
-        const plans = [...suite.planSteps]
-            .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
-            .map((p) => ({
-                _id: p._id,
-                contenu: p.contenu,
-                ordre: p.ordre,
-                testSuiteId,
-            }));
-        return { plans, steps: plans.map((p) => p.contenu) };
-    }
-
-    return { plans: [], steps: [] };
+function normalizeExecutionPlanStatuses(planStatuses = {}) {
+  return normalizeStatusRows(planStatuses, normalizeExecutionPlanStatusValue)
 }
 
-/** Input:
-- userId
+function mergePlanStatuses({ existingStatuses = [], incomingStatuses = [], testPlans = [] } = {}) {
+  const byPlanId = new Map()
 
-Output:
-- array of accessible test suites*/
+  for (const row of normalizePlanStatuses(existingStatuses)) {
+    byPlanId.set(row.planId, row.status)
+  }
+
+  for (const row of normalizePlanStatuses(incomingStatuses)) {
+    byPlanId.set(row.planId, row.status)
+  }
+
+  return (Array.isArray(testPlans) ? testPlans : [])
+    .map((plan) => {
+      const planId = String(plan?.id || plan?.planId || '').trim()
+      if (!planId) return null
+
+      const casesCount = Number(plan?.casesCount || 0)
+      const currentStatus = byPlanId.get(planId) || (casesCount > 0 ? 'completed' : 'incomplete')
+      const normalizedStatus = normalizePlanStatusValue(currentStatus, casesCount > 0 ? 'completed' : 'incomplete')
+      return {
+        planId,
+        status:
+          casesCount > 0 && ['pending', 'generating', 'incomplete'].includes(normalizedStatus)
+            ? 'completed'
+            : normalizedStatus,
+      }
+    })
+    .filter(Boolean)
+}
+
+function mergeValidationPlanStatuses({ existingStatuses = [], incomingStatuses = [], testPlans = [] } = {}) {
+  const byPlanId = new Map()
+
+  for (const row of normalizeValidationPlanStatuses(existingStatuses)) {
+    byPlanId.set(row.planId, row.status)
+  }
+
+  for (const row of normalizeValidationPlanStatuses(incomingStatuses)) {
+    byPlanId.set(row.planId, row.status)
+  }
+
+  return (Array.isArray(testPlans) ? testPlans : [])
+    .map((plan) => {
+      const planId = String(plan?.id || plan?.planId || '').trim()
+      if (!planId) return null
+      return {
+        planId,
+        status: byPlanId.get(planId) || 'pending',
+      }
+    })
+    .filter(Boolean)
+}
+
+function mergeExecutionPlanStatuses({ existingStatuses = [], incomingStatuses = [], testPlans = [] } = {}) {
+  const byPlanId = new Map()
+
+  for (const row of normalizeExecutionPlanStatuses(existingStatuses)) {
+    byPlanId.set(row.planId, row.status)
+  }
+
+  for (const row of normalizeExecutionPlanStatuses(incomingStatuses)) {
+    byPlanId.set(row.planId, row.status)
+  }
+
+  return (Array.isArray(testPlans) ? testPlans : [])
+    .map((plan) => {
+      const planId = String(plan?.id || plan?.planId || '').trim()
+      if (!planId) return null
+      return {
+        planId,
+        status: byPlanId.get(planId) || 'incomplete',
+      }
+    })
+    .filter(Boolean)
+}
+
+function getSuiteCompletionFromPlanCases({ plansCount = 0, plansHavingTestCases = 0 } = {}) {
+  const isComplete = plansCount > 0 && plansHavingTestCases === plansCount
+  return {
+    isComplete,
+    testStatus: isComplete ? 'Ready' : 'Incomplete',
+    sessionStatus: isComplete ? 'complete' : 'incomplete',
+    completionStatus: isComplete ? 'completed' : 'incomplete',
+  }
+}
+
+function logSuiteStatusRecalculation({ plansCount, plansHavingTestCases, calculatedSuiteStatus, planStatuses }) {
+  console.log('[TestSuite status] total plans count:', plansCount)
+  console.log('[TestSuite status] plans having test cases:', plansHavingTestCases)
+  console.log('[TestSuite status] calculated suite status:', calculatedSuiteStatus)
+  console.log('[TestSuite status] planStatuses payload before MongoDB update:', planStatuses)
+}
+
+function normalizeCreatedBy(value) {
+  if (!value) return null
+  return {
+    userId: value.userId && mongoose.Types.ObjectId.isValid(String(value.userId)) ? value.userId : null,
+    name: String(value.name || '').trim(),
+    picture: String(value.picture || '').trim(),
+  }
+}
+
+function getPopulatedProject(suite) {
+  return suite?.projectId && typeof suite.projectId === 'object' ? suite.projectId : null
+}
+
+function formatSuiteSummary(
+  suite,
+  { plansCount = 0, testCasesCount = 0, plansHavingTestCases = 0, canOpen = true } = {}
+) {
+  const project = getPopulatedProject(suite)
+  const user = suite?.userId && typeof suite.userId === 'object' ? suite.userId : null
+  const completion = getSuiteCompletionFromPlanCases({ plansCount, plansHavingTestCases })
+
+  return {
+    ...suite,
+    projectId: project ? project._id : suite?.projectId || null,
+    projectTitle: project ? String(project.title || '').trim() : '',
+    creatorName: user?.name || user?.email || 'Unknown User',
+    picture: user?.picture || null,
+    canOpen,
+    totalTestCases: testCasesCount,
+    totalCases: testCasesCount,
+    casesCount: testCasesCount,
+    plansCount,
+    plansHavingTestCases,
+    status: completion.completionStatus,
+  }
+}
+
+async function getSuitePlansAndCases(testSuiteId) {
+  const plans = await TestPlan.find({ testSuiteId }).sort({ createdAt: 1 }).lean()
+  const cases = await TestCase.find({ testSuiteId }).sort({ createdAt: 1 }).lean()
+  const casesByMongoPlanId = new Map()
+
+  for (const testCase of cases) {
+    const key = String(testCase.planId || '')
+    if (!casesByMongoPlanId.has(key)) casesByMongoPlanId.set(key, [])
+    casesByMongoPlanId.get(key).push(testCase)
+  }
+
+  const testPlans = plans.map((plan) => {
+    const testCases = casesByMongoPlanId.get(String(plan._id)) || []
+    return {
+      _id: plan._id,
+      id: plan.id,
+      title: plan.title,
+      description: plan.description || '',
+      casesCount: testCases.length,
+      testCases,
+    }
+  })
+
+  const testCasesByPlan = plans.map((plan) => ({
+    planId: plan.id,
+    planTitle: plan.title,
+    testCases: casesByMongoPlanId.get(String(plan._id)) || [],
+  }))
+  const plansHavingTestCases = plans.filter((plan) => (casesByMongoPlanId.get(String(plan._id)) || []).length > 0).length
+
+  return { testPlans, testCasesByPlan, plansCount: plans.length, testCasesCount: cases.length, plansHavingTestCases }
+}
+
+async function getSuiteOrThrow(testSuiteId) {
+  if (!mongoose.Types.ObjectId.isValid(String(testSuiteId || ''))) {
+    throw makeError('Invalid TestSuite ID', 400)
+  }
+
+  const suite = await TestSuite.findById(testSuiteId)
+    .populate('projectId', 'title startDate endDate milestoneDate assignedUsers ownerId')
+    .populate('userId', 'name email picture')
+    .lean()
+
+  if (!suite) throw makeError('TestSuite not found', 404)
+  return suite
+}
+
+async function getAllTestSuites(viewerUserId = '') {
+  const suites = await TestSuite.find()
+    .populate('projectId', 'title')
+    .populate('userId', 'name email picture')
+    .sort({ createdAt: -1 })
+    .lean()
+
+  return Promise.all(
+    suites.map(async (suite) => {
+      const planData = await getSuitePlansAndCases(suite._id)
+      const canOpen = !viewerUserId || String(suite?.userId?._id || suite?.userId) === String(viewerUserId)
+      return formatSuiteSummary(suite, { ...planData, canOpen })
+    })
+  )
+}
+
 async function getTestSuitesByUser(userId) {
-    const safeUserId = String(userId || '').trim();
-    // Public listing mode: return all suites regardless of connected user.
-    // Keep the same function signature/endpoint for frontend compatibility.
+  const safeUserId = String(userId || '').trim()
+  if (!safeUserId) throw makeError('User ID is required', 400)
 
-    // 1️⃣ Trouver les projets accessibles
-    const projects = await Project.find({
-        $or: [
-            { ownerId: safeUserId },
-            { assignedUsers: safeUserId }
-        ]
-    }).select('_id title').lean();
+  const projects = await Project.find({
+    $or: [{ ownerId: safeUserId }, { assignedUsers: safeUserId }],
+  }).select('_id').lean()
+  const projectIds = projects.map((project) => project._id)
 
-    const projectIds = (projects || []).map(p => p._id).filter(Boolean);
+  const suites = await TestSuite.find({
+    $or: [{ projectId: { $in: projectIds } }, { projectId: null, userId: safeUserId }],
+  })
+    .populate('projectId', 'title')
+    .populate('userId', 'name email picture')
+    .sort({ createdAt: -1 })
+    .lean()
 
-    const suites = await TestSuite.find({
-        $or: [
-            { projectId: { $in: projectIds } },
-            { projectId: null, userId: safeUserId },
-        ],
+  return Promise.all(
+    suites.map(async (suite) => {
+      const planData = await getSuitePlansAndCases(suite._id)
+      return formatSuiteSummary(suite, { ...planData, canOpen: true })
     })
-        .select('_id nom nametest description specFileName urlCible testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt lastActionBy createdAt userId projectId')
-        .populate('userId', 'name email picture')
-        .populate('projectId', 'title')
-        .sort({ createdAt: -1 })
-        .lean()
-
-    return suites.map((suite) => {
-        const totalTestCases = (suite.testCasesByPlan || []).reduce((acc, plan) => {
-            return acc + ((plan?.testCases || []).length || 0)
-        }, 0)
-
-        const populatedProject = suite?.projectId && typeof suite.projectId === 'object' ? suite.projectId : null
-        const normalizedProjectId = populatedProject ? populatedProject._id : suite?.projectId || null
-        const projectTitle = populatedProject ? String(populatedProject.title || '').trim() : ''
-
-        return {
-            ...suite,
-            projectId: normalizedProjectId,
-            projectTitle,
-            creatorName: suite?.userId?.name || suite?.userId?.email || suite?.userId?.picture || 'Unknown User',
-            totalTestCases,
-            status: computeSuiteStatusKey(suite),
-        }
-    })
+  )
 }
-/** Input:
-- viewerUserId
 
-Output:
-- array of all test suites*/
-async function getAllTestSuites(viewerUserId) {
-    const safeUserId = String(viewerUserId || '').trim();
-
-    const projects = safeUserId
-        ? await Project.find({
-            $or: [
-                { ownerId: safeUserId },
-                { assignedUsers: safeUserId }
-            ]
-        }).select('_id').lean()
-        : [];
-
-    const accessibleProjectIds = new Set((projects || []).map((p) => String(p?._id || '').trim()).filter(Boolean));
-
-    const suites = await TestSuite.find({})
-        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt lastActionBy createdAt userId projectId')
-        .populate('userId', 'name email picture')
-        .populate('projectId', 'title')
-        .sort({ createdAt: -1 })
-        .lean()
-
-    return suites.map((suite) => {
-        const totalTestCases = (suite.testCasesByPlan || []).reduce((acc, plan) => {
-            return acc + ((plan?.testCases || []).length || 0)
-        }, 0)
-
-        const populatedProject = suite?.projectId && typeof suite.projectId === 'object' ? suite.projectId : null
-        const normalizedProjectId = populatedProject ? populatedProject._id : suite?.projectId || null
-        const projectTitle = populatedProject ? String(populatedProject.title || '').trim() : ''
-
-        const rawUser = suite?.userId && typeof suite.userId === 'object' ? suite.userId : null
-        const creatorName = rawUser?.name || rawUser?.email || 'Unknown User'
-        const picture = rawUser?.picture || null
-
-        const projectIdStr = normalizedProjectId ? String(normalizedProjectId) : ''
-        const canOpen = projectIdStr
-            ? accessibleProjectIds.has(projectIdStr)
-            : (safeUserId && String(rawUser?._id || suite?.userId || '').trim() === safeUserId)
-
-        return {
-            ...suite,
-            projectId: normalizedProjectId,
-            projectTitle,
-            creatorName,
-            picture,
-            canOpen: Boolean(canOpen),
-            totalTestCases,
-            status: computeSuiteStatusKey(suite),
-        }
-    })
-}
-/** 
-Input:
-- testSuiteId
-- viewerUserId
-
-Output:
-- full TestSuite details*/
-
-async function getTestSuiteById(testSuiteId, viewerUserId) {
-    const safeTestSuiteId = String(testSuiteId || '').trim()
-    if (!safeTestSuiteId) {
-        const error = new Error('TestSuite id is required')
-        error.statusCode = 400
-        throw error
-    }
-
-    const suite = await TestSuite.findById(safeTestSuiteId)
-        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt lastActionBy createdAt userId projectId')
-        .populate('userId', 'name email picture')
-        .populate({
-            path: 'projectId',
-            select: 'title startDate endDate milestoneDate assignedUsers ownerId',
-            populate: [
-                { path: 'assignedUsers', select: 'name email picture' },
-                { path: 'ownerId', select: 'name email picture' },
-            ],
-        })
-        .lean()
-
-    if (!suite) {
-        const error = new Error('TestSuite not found')
-        error.statusCode = 404
-        throw error
-    }
-
-    const totalTestCases = (suite.testCasesByPlan || []).reduce((acc, plan) => {
-        return acc + ((plan?.testCases || []).length || 0)
-    }, 0)
-
-    const populatedProject = suite?.projectId && typeof suite.projectId === 'object' ? suite.projectId : null
-    const normalizedProjectId = populatedProject ? populatedProject._id : suite?.projectId || null
-    const projectTitle = populatedProject ? String(populatedProject.title || '').trim() : ''
-
-    const rawUser = suite?.userId && typeof suite.userId === 'object' ? suite.userId : null
-    const creatorName = rawUser?.name || rawUser?.email || 'Unknown User'
-    const picture = rawUser?.picture || null
-
-    // Middleware already validated access, but keep a safe canOpen flag for UI.
-    const safeViewerUserId = String(viewerUserId || '').trim()
-    const canOpen = Boolean(safeViewerUserId)
-
-    return {
-        ...suite,
-        projectId: normalizedProjectId ? populatedProject || normalizedProjectId : null,
-        projectTitle,
-        creatorName,
-        picture,
-        canOpen,
-        totalTestCases,
-        status: computeSuiteStatusKey(suite),
-    }
-}
-/** Input:
-- testSuiteId
-
-Output:
-- plans + test cases + statuses*/
-async function getTestPlansByTestSuiteId(testSuiteId) {
-    const suite = await TestSuite.findById(testSuiteId)
-        .select('_id testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt lastActionBy')
-
-    if (!suite) {
-        const error = new Error('TestSuite not found')
-        error.statusCode = 404
-        throw error
-    }
-
-    // Normalize plan IDs to prevent collisions (old suites may contain empty/duplicate ids).
-    const used = new Set()
-    let changed = false
-    const normalizedPlans = (Array.isArray(suite.testPlans) ? suite.testPlans : []).map((p, idx) => {
-        const fallbackId = `TP-${idx + 1}`
-        const baseId = String(p?.id || p?.planId || '').trim() || fallbackId
-        let nextId = baseId
-        let suffix = 2
-        while (!nextId || used.has(nextId)) {
-            nextId = `${baseId}-${suffix++}`
-        }
-        if (String(p?.id || '').trim() !== nextId) changed = true
-        used.add(nextId)
-        return {
-            id: nextId,
-            title: String(p?.title || `Test Plan ${idx + 1}`).trim(),
-            description: String(p?.description || '').trim(),
-        }
-    })
-
-    if (changed) {
-        suite.testPlans = normalizedPlans
-        await suite.save()
-    }
-
-    return {
-        testSuiteId: String(suite._id),
-        testPlans: normalizedPlans,
-        testCasesByPlan: suite.testCasesByPlan || [],
-        testStatus: suite.testStatus || 'Draft',
-        lastGeneratedAt: suite.lastGeneratedAt || null,
-        savedAt: suite.savedAt || null,
-        executedAt: suite.executedAt || null,
-        sessionStatus: suite.sessionStatus || 'incomplete',
-        planStatuses: suite.planStatuses || [],
-        sessionSavedAt: suite.sessionSavedAt || null,
-        validationStatus: normalizeCompletionStatus(suite.validationStatus),
-        validationPlanStatuses: suite.validationPlanStatuses || [],
-        validationSavedAt: suite.validationSavedAt || null,
-        executionStatus: suite.executionStatus || null,
-        executionPlanStatuses: suite.executionPlanStatuses || [],
-        executionSavedAt: suite.executionSavedAt || null,
-    }
-}
-/** Input:
-- testSuiteId
-- payload
-
-Output:
-- updated TestSuite session*/
-async function saveSuiteSession(testSuiteId, payload = {}) {
-    const now = new Date()
-    const update = {
-        sessionSavedAt: now,
-        // Enterprise lifecycle status: clicking save marks generated content as Ready
-        testStatus: 'Ready',
-        savedAt: now,
-    }
-
-    // Fetch current suite to merge test cases (don't lose existing ones)
-    const currentSuite = await TestSuite.findById(testSuiteId).select('testPlans testCasesByPlan')
-    const existingCases = Array.isArray(currentSuite?.testCasesByPlan) ? currentSuite.testCasesByPlan : []
-    const existingPlans = Array.isArray(currentSuite?.testPlans) ? currentSuite.testPlans : []
-
-    if (payload?.testPlans && Array.isArray(payload.testPlans)) {
-        update.testPlans = payload.testPlans
-            .map((plan, index) => ({
-                id: String(plan?.id || `TP-${index + 1}`).trim(),
-                title: String(plan?.title || '').trim(),
-                description: String(plan?.description || '').trim(),
-            }))
-            .filter((plan) => plan.id && plan.title)
-    }
-
-    // Merge test cases instead of replacing (fix for losing test cases)
-    if (payload?.testCasesByPlan && Array.isArray(payload.testCasesByPlan)) {
-        const incomingCases = payload.testCasesByPlan
-        
-        // Create a map of existing cases by planId
-        const casesByPlanId = {}
-        existingCases.forEach(block => {
-            if (block?.planId) {
-                casesByPlanId[block.planId] = block
-            }
-        })
-        
-        // Merge incoming cases (update or add)
-        incomingCases.forEach(block => {
-            if (block?.planId) {
-                casesByPlanId[block.planId] = block
-            }
-        })
-        
-        // Convert back to array
-        update.testCasesByPlan = Object.values(casesByPlanId)
-    }
-
-    // Validation status: only "completed" if plans + cases exist and savedAt exists.
-    update.validationStatus = computeSuiteStatusKey({
-        testPlans: update.testPlans || existingPlans,
-        testCasesByPlan: update.testCasesByPlan || existingCases,
-        savedAt: now,
-    })
-
-    const suite = await TestSuite.findByIdAndUpdate(
-        testSuiteId,
-        update,
-        { new: true }
-    )
-
-    if (!suite) {
-        const error = new Error('TestSuite not found')
-        error.statusCode = 404
-        throw error
-    }
-
-    return suite
-}
-/** Input:
-- projectId
-
-Output:
-- array of project test suites*/
 async function getTestSuitesByProject(projectId) {
-    const safeProjectId = String(projectId || '').trim();
+  if (!mongoose.Types.ObjectId.isValid(String(projectId || ''))) {
+    throw makeError('Invalid project ID', 400)
+  }
 
-    const suites = await TestSuite.find({
-        projectId: safeProjectId,
+  const suites = await TestSuite.find({ projectId })
+    .populate('projectId', 'title')
+    .populate('userId', 'name email picture')
+    .sort({ createdAt: -1 })
+    .lean()
+
+  return Promise.all(
+    suites.map(async (suite) => {
+      const planData = await getSuitePlansAndCases(suite._id)
+      return formatSuiteSummary(suite, { ...planData, canOpen: true })
     })
-        .select('_id nom nametest description specFileName specFilePath urlCible testPlans testCasesByPlan testStatus lastGeneratedAt savedAt executedAt sessionStatus planStatuses sessionSavedAt validationStatus validationPlanStatuses validationSavedAt executionStatus executionPlanStatuses executionSavedAt lastActionBy createdAt userId projectId')
-        .populate('userId', 'name email picture')
-        .populate('projectId', 'title')
-        .sort({ createdAt: -1 })
-        .lean()
+  )
+}
 
-    return suites.map((suite) => {
-        const totalTestCases = (suite.testCasesByPlan || []).reduce((acc, plan) => {
-            return acc + ((plan?.testCases || []).length || 0)
-        }, 0)
+async function getTestSuiteById(testSuiteId) {
+  const suite = await getSuiteOrThrow(testSuiteId)
+  const planData = await getSuitePlansAndCases(testSuiteId)
 
-        const populatedProject = suite?.projectId && typeof suite.projectId === 'object' ? suite.projectId : null
-        const normalizedProjectId = populatedProject ? populatedProject._id : suite?.projectId || null
-        const projectTitle = populatedProject ? String(populatedProject.title || '').trim() : ''
+  return {
+    ...formatSuiteSummary(suite, planData),
+    testPlans: planData.testPlans,
+    testCasesByPlan: planData.testCasesByPlan,
+  }
+}
+
+async function createTestSuite(data = {}) {
+  const userId = String(data.userId || '').trim()
+  const nom = String(data.nom || data.name || data.suiteName || data.nametest || 'New Test Suite').trim()
+
+  if (!userId) throw makeError('userId is required', 400)
+
+  return TestSuite.create({
+  nom,
+  nametest: String(data.nametest || '').trim(),
+  description: String(data.description || '').trim(),
+  specFilePath: data.specFilePath || null,
+  specFileName: data.specFileName || null,
+  specText: data.specText || null,
+  styleConfig: String(data.styleConfig || ''),
+  urlCible: String(data.urlCible || data.url || '').trim(),
+  userId,
+  projectId: data.projectId || null,
+
+  testStatus: 'Draft',
+  sessionStatus: 'incomplete',
+  validationStatus: 'incomplete',
+  executionStatus: 'incomplete'
+})
+}
+
+async function updateTestSuite(testSuiteId, data = {}) {
+  const allowed = {}
+  for (const key of ['nom', 'nametest', 'description', 'specFilePath', 'specFileName', 'specText', 'styleConfig', 'urlCible']) {
+    if (Object.prototype.hasOwnProperty.call(data, key)) allowed[key] = data[key]
+  }
+
+  const suite = await TestSuite.findByIdAndUpdate(testSuiteId, allowed, { new: true }).lean()
+  if (!suite) throw makeError('TestSuite not found', 404)
+  return suite
+}
+
+async function deleteTestSuite(testSuiteId) {
+  const suite = await TestSuite.findByIdAndDelete(testSuiteId)
+  if (!suite) throw makeError('TestSuite not found', 404)
+
+  await TestPlan.deleteMany({ testSuiteId })
+  await TestCase.deleteMany({ testSuiteId })
+  return true
+}
+
+async function getTestPlansByTestSuiteId(testSuiteId) {
+  const suite = await getSuiteOrThrow(testSuiteId)
+  const { testPlans, testCasesByPlan } = await getSuitePlansAndCases(testSuiteId)
+
+  return {
+    testSuiteId: String(suite._id),
+    testPlans,
+    testCasesByPlan,
+    testStatus: suite.testStatus || 'Draft',
+    lastGeneratedAt: suite.lastGeneratedAt || null,
+    savedAt: suite.savedAt || null,
+    executedAt: suite.executedAt || null,
+    sessionStatus: suite.sessionStatus || 'incomplete',
+    planStatuses: mergePlanStatuses({
+      existingStatuses: suite.planStatuses || [],
+      testPlans,
+    }),
+    sessionSavedAt: suite.sessionSavedAt || null,
+    validationStatus: normalizeCompletionStatus(suite.validationStatus),
+    validationPlanStatuses: mergeValidationPlanStatuses({
+      existingStatuses: suite.validationPlanStatuses || [],
+      testPlans,
+    }),
+    validationSavedAt: suite.validationSavedAt || null,
+    executionStatus: suite.executionStatus || 'incomplete',
+    executionPlanStatuses: mergeExecutionPlanStatuses({
+      existingStatuses: suite.executionPlanStatuses || [],
+      testPlans,
+    }),
+    executionSavedAt: suite.executionSavedAt || null,
+  }
+}
+
+async function upsertPlans(testSuiteId, testPlans = []) {
+  const ops = testPlans
+    .map((plan, index) => {
+      const id = String(plan?.id || plan?.planId || `TP-${index + 1}`).trim()
+      const title = String(plan?.title || `Test Plan ${index + 1}`).trim()
+      if (!id || !title) return null
+
+      return {
+        updateOne: {
+          filter: { testSuiteId, id },
+          update: {
+            $set: {
+              testSuiteId,
+              id,
+              title,
+              description: String(plan?.description || '').trim(),
+            },
+          },
+          upsert: true,
+        },
+      }
+    })
+    .filter(Boolean)
+
+  if (ops.length) await TestPlan.bulkWrite(ops, { ordered: false })
+}
+
+async function upsertCasesByPlan(testSuiteId, testCasesByPlan = []) {
+  for (const block of testCasesByPlan) {
+    const stablePlanId = String(block?.planId || '').trim()
+    if (!stablePlanId) continue
+
+    let plan = await TestPlan.findOne({ testSuiteId, id: stablePlanId }).select('_id id title')
+    if (!plan) {
+      plan = await TestPlan.create({
+        testSuiteId,
+        id: stablePlanId,
+        title: String(block?.planTitle || stablePlanId).trim(),
+        description: '',
+      })
+    }
+
+    const ops = (Array.isArray(block?.testCases) ? block.testCases : [])
+      .map((testCase, index) => {
+        const id = String(testCase?.id || `TC-${index + 1}`).trim()
+        const title = String(testCase?.title || `Test Case ${index + 1}`).trim()
+        if (!id || !title) return null
 
         return {
-            ...suite,
-            totalTestCases,
-            projectTitle,
-            projectId: normalizedProjectId,
-            status: computeSuiteStatusKey(suite),
+          updateOne: {
+            filter: { testSuiteId, planId: plan._id, id },
+            update: {
+              $set: {
+                testSuiteId,
+                planId: plan._id,
+                id,
+                title,
+                steps: Array.isArray(testCase?.steps)
+                  ? testCase.steps.map((step) => String(step || '').trim()).filter(Boolean)
+                  : [],
+                expected_result: String(testCase?.expected_result || testCase?.expectedResult || '').trim(),
+                executionModel: testCase?.executionModel || testCase?.execution_model || null,
+                createdBy: normalizeCreatedBy(testCase?.createdBy),
+              },
+            },
+            upsert: true,
+          },
         }
+      })
+      .filter(Boolean)
+
+    if (ops.length) await TestCase.bulkWrite(ops, { ordered: false })
+  }
+}
+
+async function saveSuiteSession(testSuiteId, payload = {}) {
+  const suite = await TestSuite.findById(testSuiteId)
+  if (!suite) throw makeError('TestSuite not found', 404)
+
+  if (Array.isArray(payload.testPlans)) await upsertPlans(testSuiteId, payload.testPlans)
+  if (Array.isArray(payload.testCasesByPlan)) await upsertCasesByPlan(testSuiteId, payload.testCasesByPlan)
+
+  const now = new Date()
+  const suitePlanData = await getSuitePlansAndCases(testSuiteId)
+  const completion = getSuiteCompletionFromPlanCases(suitePlanData)
+  const planStatuses = mergePlanStatuses({
+    existingStatuses: suite.planStatuses || [],
+    incomingStatuses: payload.planStatuses || {},
+    testPlans: suitePlanData.testPlans,
+  })
+  const validationPlanStatuses = mergeValidationPlanStatuses({
+    existingStatuses: suite.validationPlanStatuses || [],
+    incomingStatuses: payload.sessionKind === 'validation' ? payload.planStatuses || {} : [],
+    testPlans: suitePlanData.testPlans,
+  })
+
+  logSuiteStatusRecalculation({
+    plansCount: suitePlanData.plansCount,
+    plansHavingTestCases: suitePlanData.plansHavingTestCases,
+    calculatedSuiteStatus: completion.testStatus,
+    planStatuses,
+  })
+
+  const update = {
+    testStatus: completion.testStatus,
+    savedAt: completion.isComplete ? now : null,
+    lastGeneratedAt: now,
+    sessionStatus: completion.sessionStatus,
+    planStatuses,
+    sessionSavedAt: now,
+    validationPlanStatuses,
+  }
+
+  if (payload.sessionKind === 'validation') {
+    update.validationStatus = completion.completionStatus
+    update.validationSavedAt = now
+  }
+
+  if (payload.sessionKind === 'execution') {
+    update.executionStatus = completion.completionStatus
+    update.executionPlanStatuses = mergeExecutionPlanStatuses({
+      existingStatuses: suite.executionPlanStatuses || [],
+      incomingStatuses: payload.planStatuses || {},
+      testPlans: suitePlanData.testPlans,
     })
+    update.executionSavedAt = now
+  }
+  if (suitePlanData.testPlans.length > 0) {
+  update.testStatus = 'Ready'
+}
+
+  return TestSuite.findByIdAndUpdate(testSuiteId, update, { new: true, runValidators: true }).lean()
+}
+
+async function updateTestSuiteStatus(testSuiteId, nextStatus) {
+  const status = normalizeTestStatus(nextStatus)
+  if (!status) throw makeError('Invalid status', 400)
+
+  let nextTestStatus = status
+  if (status === 'Ready') {
+    const suitePlanData = await getSuitePlansAndCases(testSuiteId)
+    const completion = getSuiteCompletionFromPlanCases(suitePlanData)
+    nextTestStatus = completion.testStatus
+
+    logSuiteStatusRecalculation({
+      plansCount: suitePlanData.plansCount,
+      plansHavingTestCases: suitePlanData.plansHavingTestCases,
+      calculatedSuiteStatus: completion.testStatus,
+      planStatuses: mergePlanStatuses({
+        incomingStatuses: {},
+        testPlans: suitePlanData.testPlans,
+      }),
+    })
+  }
+
+  const update = { testStatus: nextTestStatus }
+  const now = new Date()
+  if (nextTestStatus === 'Ready') update.savedAt = now
+  if (nextTestStatus === 'Incomplete') update.savedAt = null
+  if (nextTestStatus === 'Passed' || nextTestStatus === 'Failed') update.executedAt = now
+  if (nextTestStatus === 'Generating')
+  update.lastGeneratedAt = now
+
+  const suite = await TestSuite.findByIdAndUpdate(testSuiteId, update, { new: true, runValidators: true }).lean()
+  if (!suite) throw makeError('TestSuite not found', 404)
+  return suite
+}
+
+async function markTestSuiteSaved(testSuiteId) {
+  const existingSuite = await TestSuite.findById(testSuiteId).select('planStatuses').lean()
+  if (!existingSuite) throw makeError('TestSuite not found', 404)
+
+  const suitePlanData = await getSuitePlansAndCases(testSuiteId)
+  const completion = getSuiteCompletionFromPlanCases(suitePlanData)
+  const now = new Date()
+  const planStatuses = mergePlanStatuses({
+    existingStatuses: existingSuite.planStatuses || [],
+    incomingStatuses: {},
+    testPlans: suitePlanData.testPlans,
+  })
+
+  logSuiteStatusRecalculation({
+    plansCount: suitePlanData.plansCount,
+    plansHavingTestCases: suitePlanData.plansHavingTestCases,
+    calculatedSuiteStatus: completion.testStatus,
+    planStatuses,
+  })
+
+  const suite = await TestSuite.findByIdAndUpdate(
+    testSuiteId,
+    {
+      testStatus: completion.testStatus,
+      savedAt: completion.isComplete ? now : null,
+      lastGeneratedAt: now,
+      sessionStatus: completion.sessionStatus,
+      planStatuses,
+    },
+    { new: true, runValidators: true }
+  ).lean()
+  return suite
+}
+
+async function setTestSuiteProject(testSuiteId, nextProjectId, viewer = {}) {
+  const suite = await TestSuite.findById(testSuiteId).select('_id userId projectId').lean()
+  if (!suite) throw makeError('TestSuite not found', 404)
+
+  const rawProjectId = nextProjectId === null || nextProjectId === undefined ? '' : String(nextProjectId).trim()
+  if (!rawProjectId) {
+    return TestSuite.findByIdAndUpdate(testSuiteId, { projectId: null }, { new: true }).lean()
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(rawProjectId)) throw makeError('Invalid project ID', 400)
+
+  const project = await Project.findById(rawProjectId).select('_id ownerId assignedUsers').lean()
+  if (!project) throw makeError('Project not found', 404)
+
+  const role = String(viewer.role || '').toLowerCase().trim()
+  const viewerUserId = String(viewer.viewerUserId || '').trim()
+
+  if (role !== 'admin') {
+    const isOwner = String(project.ownerId) === viewerUserId
+    const isAssigned = Array.isArray(project.assignedUsers)
+      ? project.assignedUsers.some((user) => String(user?._id || user) === viewerUserId)
+      : false
+    if (!isOwner && !isAssigned) throw makeError('Forbidden', 403)
+  }
+
+  return TestSuite.findByIdAndUpdate(
+    testSuiteId,
+    { projectId: new mongoose.Types.ObjectId(rawProjectId) },
+    { new: true }
+  )
+    .populate('projectId', 'title')
+    .lean()
 }
 
 module.exports = {
-    generatePlan,
-    getPlanByTestSuiteId,
-    getAllTestSuites,
-    getTestSuiteById,
-    getTestSuitesByUser,
-    getTestSuitesByProject,
-    getTestPlansByTestSuiteId,
-    saveSuiteSession,
-    updateTestSuiteStatus,
-    markTestSuiteSaved,
-    setTestSuiteProject,
-    parseBoolean,
-};
+  createTestSuite,
+  getAllTestSuites,
+  getTestSuiteById,
+  getTestSuitesByUser,
+  getTestSuitesByProject,
+  updateTestSuite,
+  deleteTestSuite,
+  getTestPlansByTestSuiteId,
+  saveSuiteSession,
+  updateTestSuiteStatus,
+  markTestSuiteSaved,
+  setTestSuiteProject,
+}
