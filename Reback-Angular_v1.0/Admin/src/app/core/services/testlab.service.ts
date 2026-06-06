@@ -32,6 +32,23 @@ export type {
   TestSuiteDto,
 } from '@/app/interfaces/testlab.interface'
 
+export interface TestExecutionDto {
+  executionId: string
+  testSuiteId: string
+  planId: string
+  planKey?: string
+  planTitle?: string
+  testCaseId: string
+  testCaseKey?: string
+  testCaseTitle?: string
+  status: 'running' | 'passed' | 'failed' | 'aborted'
+  duration: number
+  startedAt?: string
+  finishedAt?: string | null
+  createdAt?: string
+  updatedAt?: string
+}
+
 @Injectable({ providedIn: 'root' })
 export class TestLabService {
   private api = inject(ApiService)
@@ -114,6 +131,14 @@ export class TestLabService {
   // ✅ GET /api/testsuites/:id/plans
   getTestPlans(testSuiteId: string): Observable<GetTestPlansResponse> {
     return this.api.get<GetTestPlansResponse>(`/api/testsuites/${testSuiteId}/plans`)
+  }
+
+  getTestExecutions(testSuiteId: string): Observable<TestExecutionDto[]> {
+    return this.api.get<TestExecutionDto[]>(`/api/testsuites/${testSuiteId}/executions`)
+  }
+
+  getRecentExecutions(limit = 20): Observable<TestExecutionDto[]> {
+    return this.api.get<TestExecutionDto[]>(`/api/testsuites/executions/recent?limit=${limit}`)
   }
 
   saveSuiteSession(

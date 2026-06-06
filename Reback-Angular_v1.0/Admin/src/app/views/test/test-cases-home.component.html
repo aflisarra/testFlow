@@ -29,7 +29,8 @@
       <select
         class="form-select form-select-sm"
         style="inline-size: 240px"
-        [(ngModel)]="selectedProjectId"
+        [(ngModel)]="projectFilterId"
+        (ngModelChange)="onProjectFilterChange()"
         [disabled]="loadingProjects"
       >
         <option value="">Select project…</option>
@@ -37,10 +38,6 @@
           <option [value]="p._id">{{ p.title }}</option>
         }
       </select>
-
-      <button class="btn btn-sm btn-outline-secondary" (click)="onApplySelectedProject()" [disabled]="!selectedProjectId || loadingProjects || loading">
-        <iconify-icon icon="mdi:check-circle-outline" class="me-1"></iconify-icon>{{ selectedProjectTitle || 'Met Selected' }}
-      </button>
       <button class="btn btn-sm btn-brand" (click)="onSaveAll()" [disabled]="!canEditGenerateForSelectedProject">
         <iconify-icon icon="iconamoon:disk-duotone" class="me-1"></iconify-icon>Save All Changes
       </button>
@@ -110,8 +107,8 @@
         }
       </div>
 
-      } @else if (suites.length) {
-      @for (suite of suites; track suite._id) {
+      } @else if (filteredSuites.length) {
+      @for (suite of filteredSuites; track suite._id) {
       <div class="tc-tree-section">
         <button class="tc-tree-suite-row" (click)="toggleSuite(suite)">
           <iconify-icon [icon]="expandedSuites[suite._id!] ? 'mdi:chevron-down' : 'mdi:chevron-right'"
@@ -178,7 +175,7 @@
       } @else {
       <div class="tc-empty-state">
         <iconify-icon icon="lucide:folder-x" class="fs-2 text-muted"></iconify-icon>
-        <p class="mt-2 mb-0 text-muted small">No test suites found.</p>
+        <p class="mt-2 mb-0 text-muted small">No test suites found for this project.</p>
       </div>
       }
     </aside>
@@ -311,7 +308,12 @@
         <h5 class="tc-modal-title mb-0">{{ modalPlan.title }}</h5>
         <p class="tc-modal-desc mb-0">{{ modalPlan.description }}</p>
       </div>
-      <button class="tc-modal-close" (click)="closeModal()">×</button>
+      <button
+          class="btn-close confirm-close"
+          type="button"
+          aria-label="Close"
+          (click)="closeModal()"
+        ></button>
     </div>
     <div class="tc-modal-body custom-scrollbar">
       @if (modalGenerating) {
@@ -454,7 +456,12 @@
           You have generated tests that are not saved yet.<br />Do you want to save before leaving?
         </p>
       </div>
-      <button class="tc-modal-close" (click)="onUnsavedCancel()">×</button>
+      <button
+          class="btn-close confirm-close"
+          type="button"
+          aria-label="Close"
+          (click)="onUnsavedCancel()"
+        ></button>
     </div>
     <div class="tc-modal-actions-bottom">
       <button class="btn btn-brand px-4" [disabled]="unsavedSaving"

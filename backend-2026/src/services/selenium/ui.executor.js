@@ -57,6 +57,20 @@ function semanticWords(step) {
   return Array.from(new Set(raw.split(/[^a-z0-9]+/).filter((word) => word.length > 2))).slice(0, 8)
 }
 
+function looksLikeGenericValidFieldFill(description) {
+  const t = String(description || '').toLowerCase()
+  return (
+    t.includes('valid values') ||
+    t.includes('mandatory fields') ||
+    t.includes('required fields') ||
+    t.includes('all mandatory fields') ||
+    t.includes('fill all fields') ||
+    t.includes('enter all details') ||
+    t.includes('enter details') ||
+    t.includes('complete the form')
+  )
+}
+
 function structuredValue(step, ctx) {
   const value = step?.value || {}
   const source = String(value.source || '').toLowerCase()
@@ -103,6 +117,27 @@ async function findFirstVisible(driver, locators, timeoutMs = 15000) {
 
     return false
   }, timeoutMs)
+}
+
+async function safeClick(driver, element) {
+  await driver.executeScript(
+    'arguments[0].scrollIntoView({block: "center", inline: "center", behavior: "instant"});',
+    element
+  )
+  await driver.sleep(250)
+
+  try {
+    await element.click()
+    return 'webdriver'
+  } catch (err) {
+    const message = String(err?.message || err || '')
+    if (!/intercepted|not clickable|other element would receive the click/i.test(message)) {
+      throw err
+    }
+
+    await driver.executeScript('arguments[0].click();', element)
+    return 'javascript'
+  }
 }
 
 async function openLoginPage(driver, ctx) {
@@ -297,7 +332,7 @@ async function clickSubmitLogin(driver, ctx) {
   )
 
   await driver.wait(until.elementIsEnabled(element), 15000)
-  await element.click()
+  await safeClick(driver, element)
   await driver.sleep(3000)
 
   return { selector }
@@ -314,9 +349,99 @@ async function clickSemanticTarget(driver, step, ctx) {
 
   const element = await findFirstVisible(driver, locators, 15000)
   await driver.wait(until.elementIsEnabled(element), 15000)
-  await element.click()
+  await safeClick(driver, element)
 
   return { selector: words.length ? `semantic:${words.join('|')}` : 'genericClickable' }
+}
+
+function genericFieldValueForElement(meta = {}) {
+  const haystack = `${meta.name || ''} ${meta.id || ''} ${meta.placeholder || ''} ${meta.ariaLabel || ''} ${meta.type || ''}`.toLowerCase()
+  const today = new Date().toISOString().slice(0, 10)
+
+  if (haystack.includes('password')) return 'P@ssw0rd123!'
+  if (haystack.includes('email')) return 'john.doe@example.com'
+  if (haystack.includes('username') || haystack.includes('user')) return 'john.doe'
+  if (haystack.includes('first name') || haystack.includes('firstname') || haystack.includes('given name')) return 'John'
+  if (haystack.includes('last name') || haystack.includes('lastname') || haystack.includes('surname') || haystack.includes('family name')) return 'Doe'
+  if (haystack.includes('full name') || haystack.includes('name')) return 'John Doe'
+  if (haystack.includes('phone') || haystack.includes('mobile') || haystack.includes('tel')) return '5551234567'
+  if (haystack.includes('address')) return '123 Main Street'
+  if (haystack.includes('city')) return 'Tunis'
+  if (haystack.includes('country')) return 'Tunisia'
+  if (haystack.includes('postal') || haystack.includes('zip')) return '1000'
+  if (haystack.includes('date')) return today
+  if (haystack.includes('age')) return '25'
+  if (haystack.includes('search')) return 'sample'
+  return 'Sample Value'
+}
+
+async function fillGenericMandatoryFields(driver, ctx, description) {
+  const selectors = getSelector(
+    ctx,
+    'genericInput',
+    'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"], select'
+  )
+  const elements = await driver.findElements(By.css(selectors))
+  const filled = []
+
+  for (const element of elements) {
+    try {
+      if (!(await element.isDisplayed())) continue
+      if (!(await element.isEnabled())) continue
+
+      const tagName = String(await element.getTagName()).toLowerCase()
+      const type = tagName === 'input' ? String(await element.getAttribute('type') || '').toLowerCase() : ''
+      const name = String(await element.getAttribute('name') || '')
+      const id = String(await element.getAttribute('id') || '')
+      const placeholder = String(await element.getAttribute('placeholder') || '')
+      const ariaLabel = String(await element.getAttribute('aria-label') || '')
+
+      if (type === 'checkbox' || type === 'radio') {
+        const selected = await element.isSelected().catch(() => false)
+        if (!selected) {
+          await element.click()
+          filled.push(`${tagName}:${name || id || placeholder || 'option'}`)
+        }
+        continue
+      }
+
+      if (tagName === 'select') {
+        const options = await element.findElements(By.css('option'))
+        let selectedOption = null
+        for (const opt of options) {
+          try {
+            const value = String(await opt.getAttribute('value') || '').trim()
+            const text = String(await opt.getText() || '').trim()
+            if (Boolean(value) && value !== '0' && text && !/select|choose|--/i.test(text)) {
+              selectedOption = opt
+              break
+            }
+          } catch {
+            // continue scanning options
+          }
+        }
+        selectedOption = selectedOption || options[1] || options[0] || null
+        if (selectedOption) {
+          await selectedOption.click()
+          filled.push(`${tagName}:${name || id || placeholder || 'select'}`)
+        }
+        continue
+      }
+
+      const value = genericFieldValueForElement({ name, id, placeholder, ariaLabel, type })
+      await element.clear()
+      await element.sendKeys(value)
+      filled.push(`${tagName}:${name || id || placeholder || value}`)
+    } catch {
+      // Skip fields that are not interactable.
+    }
+  }
+
+  if (!filled.length) {
+    throw new Error(`Missing value for structured step: ${description}`)
+  }
+
+  return filled
 }
 
 async function verifyAuthenticatedArea(driver, ctx) {
@@ -401,7 +526,13 @@ async function runStructuredUiStep(driver, step, ctx) {
 
     const selector = getSelector(ctx, 'genericInput', 'input:not([type="hidden"]), textarea, [contenteditable="true"]')
     const value = structuredValue(step, ctx)
-    if (!value) throw new Error(`Missing value for structured step: ${description}`)
+    if (!value) {
+      if (looksLikeGenericValidFieldFill(description)) {
+        const filled = await fillGenericMandatoryFields(driver, ctx, description)
+        return { action: 'type', target: step?.target?.name || 'fields', description, selector: filled.join(' | ') }
+      }
+      throw new Error(`Missing value for structured step: ${description}`)
+    }
 
     const element = await findFirstVisible(driver, [By.css(selector)], 15000)
     await driver.wait(until.elementIsEnabled(element), 15000)
@@ -499,6 +630,16 @@ async function runHumanStep(driver, stepText, ctx) {
 
     const result = await clearUserIdentifier(driver, ctx)
     return { action: 'clear', target: 'email', description: stepText, selector: result.selector }
+  }
+
+  if (hasAny(t, ['valid values', 'mandatory fields', 'required fields', 'fill all fields', 'complete the form'])) {
+    const filled = await fillGenericMandatoryFields(driver, ctx, stepText)
+    return {
+      action: 'type',
+      target: 'fields',
+      description: stepText,
+      selector: filled.join(' | ')
+    }
   }
 
   // =========================

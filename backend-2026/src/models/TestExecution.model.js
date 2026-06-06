@@ -40,13 +40,33 @@ const testExecutionSchema = new mongoose.Schema(
     planId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'TestPlan',
-      required: true,
+      default: null,
     },
 
     testCaseId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'TestCase',
-      required: true,
+      default: null,
+    },
+
+    planKey: {
+      type: String,
+      default: '',
+    },
+
+    testCaseKey: {
+      type: String,
+      default: '',
+    },
+
+    planTitle: {
+      type: String,
+      default: '',
+    },
+
+    testCaseTitle: {
+      type: String,
+      default: '',
     },
 
     status: {

@@ -1,3 +1,5 @@
+const mongoose = require('mongoose')
+const TestExecution = require('../models/TestExecution.model')
 const testSuiteService = require('../services/testsuite.service')
 
 function getUserId(req) {
@@ -140,6 +142,67 @@ exports.execute = async (req, res) => {
 
     const suite = await testSuiteService.updateTestSuiteStatus(req.params.id, result)
     return res.status(200).json({ suite })
+  } catch (error) {
+    return handleError(res, error)
+  }
+}
+
+exports.getExecutions = async (req, res) => {
+  try {
+    const suiteId = String(req.params.id || '').trim()
+    if (!mongoose.Types.ObjectId.isValid(suiteId)) {
+      return res.status(400).json({ message: 'Invalid test suite id' })
+    }
+
+    const rows = await TestExecution.find({ testSuiteId: new mongoose.Types.ObjectId(suiteId) })
+      .sort({ startedAt: -1, createdAt: -1 })
+      .lean()
+
+    return res.status(200).json(rows.map((row) => ({
+      executionId: row.executionId,
+      testSuiteId: String(row.testSuiteId || ''),
+      planId: String(row.planId || ''),
+      planKey: row.planKey || '',
+      planTitle: row.planTitle || '',
+      testCaseId: String(row.testCaseId || ''),
+      testCaseKey: row.testCaseKey || '',
+      testCaseTitle: row.testCaseTitle || '',
+      status: row.status,
+      duration: row.duration,
+      startedAt: row.startedAt,
+      finishedAt: row.finishedAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    })))
+  } catch (error) {
+    return handleError(res, error)
+  }
+}
+
+exports.getRecentExecutions = async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(Number(req.query?.limit || 20), 1), 100)
+    const rows = await TestExecution.find({})
+      .sort({ startedAt: -1, createdAt: -1 })
+      .limit(limit)
+      .lean()
+
+    return res.status(200).json(rows.map((row) => ({
+      executionId: row.executionId,
+      testSuiteId: String(row.testSuiteId || ''),
+      planId: String(row.planId || ''),
+      planKey: row.planKey || '',
+      planTitle: row.planTitle || '',
+      testCaseId: String(row.testCaseId || ''),
+      testCaseKey: row.testCaseKey || '',
+      testCaseTitle: row.testCaseTitle || '',
+      status: row.status,
+      duration: row.duration,
+      startedAt: row.startedAt,
+      finishedAt: row.finishedAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    })))
   } catch (error) {
     return handleError(res, error)
   }

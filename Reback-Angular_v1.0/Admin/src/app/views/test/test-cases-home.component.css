@@ -216,6 +216,38 @@
   background: #3b82f6; animation: tc-dot-pulse 1s infinite; flex-shrink: 0;
 }
 
+.exec-close-btn:hover {
+  background: #eef5fd;
+  border-color: #b6cbdf;
+}
+
+.exec-upsert-headline .confirm-close {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+}
+
+.exec-close-btn {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  inline-size: 2rem;
+  block-size: 2rem;
+  border: 1px solid #d5e2f1;
+  border-radius: 999px;
+  background: #fff;
+  color: #35597e;
+  font-size: 1.35rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
 /* ══════════════════════════════════════════════════════════════
    BARRE "N test cases générés" — EXACTEMENT la ligne du cercle rouge
    Texte à gauche · Avatars alignés à droite sur la même ligne

@@ -14,6 +14,7 @@ import { TestLabService } from '@/app/core/services/testlab.service'
 import { SeleniumRunnerService, type SeleniumRunResponseDto, type SeleniumStepResultDto } from '@/app/core/services/selenium-runner.service'
 import { ApiService } from '@/app/core/services/api.service'
 import type { ExecutionModelDto, ExecutionModelStepDto, TestCaseDto, TestCasesByPlanDto, TestSuiteDto } from '@/app/core/services/testlab.service'
+import type { TestExecutionDto } from '@/app/core/services/testlab.service'
 
 import type {
   ExecutionStep,
@@ -24,6 +25,7 @@ import type {
   TestStatus,
 } from '@/app/interfaces/execution.interface'
 
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type LoadedExecutionTestCase = {
   id: string
   title: string
@@ -51,6 +53,7 @@ export class ExecutionComponent implements OnInit {
   private logStreamSubscription?: Subscription;
   private runSubscription?: Subscription;
   private fakeTimelineSubscription?: Subscription;
+  private liveRunTimer?: ReturnType<typeof setInterval>;
   private cdr = inject(ChangeDetectorRef);
   private destroyRef = inject(DestroyRef);
   private route = inject(ActivatedRoute);
@@ -71,6 +74,10 @@ export class ExecutionComponent implements OnInit {
   private planId = ''
   private testCaseId = ''
   private loadedTestCase: LoadedExecutionTestCase | null = null
+  recentRuns: TestExecutionDto[] = []
+  liveRun: TestExecutionDto | null = null
+  recentRunsPage = 1
+  readonly recentRunsPageSize = 5
   screenshotUrl: string | null = null
   selectedScreenshotUrl: string | null = null
   executionModelSummary = 'execution-model/v1 pending'
@@ -128,6 +135,7 @@ export class ExecutionComponent implements OnInit {
     }
 
     void this.loadAndRun()
+    void this.loadRecentRuns()
   }
 
   // ─── Public actions ───────────────────────────────────────────
@@ -340,6 +348,42 @@ element.click()`;
     this.logStreamSubscription?.unsubscribe();
     this.runSubscription?.unsubscribe();
     this.fakeTimelineSubscription?.unsubscribe();
+    this.stopLiveRunTimer()
+  }
+
+  get recentRunsMerged(): TestExecutionDto[] {
+    const merged = [...this.recentRuns]
+    if (this.liveRun) {
+      const idx = merged.findIndex((run) => run.executionId === this.liveRun?.executionId)
+      if (idx >= 0) merged[idx] = this.liveRun
+      else merged.unshift(this.liveRun)
+    }
+    return merged
+  }
+
+  get recentRunsTotalPages(): number {
+    return Math.max(1, Math.ceil(this.recentRunsMerged.length / this.recentRunsPageSize))
+  }
+
+  get paginatedRecentRuns(): TestExecutionDto[] {
+    const start = (this.recentRunsPage - 1) * this.recentRunsPageSize
+    return this.recentRunsMerged.slice(start, start + this.recentRunsPageSize)
+  }
+
+  get recentRunsVisibleStart(): number {
+    return this.recentRunsMerged.length === 0 ? 0 : (this.recentRunsPage - 1) * this.recentRunsPageSize + 1
+  }
+
+  get recentRunsVisibleEnd(): number {
+    return Math.min(this.recentRunsPage * this.recentRunsPageSize, this.recentRunsMerged.length)
+  }
+
+  goToRecentRunsPreviousPage(): void {
+    if (this.recentRunsPage > 1) this.recentRunsPage--
+  }
+
+  goToRecentRunsNextPage(): void {
+    if (this.recentRunsPage < this.recentRunsTotalPages) this.recentRunsPage++
   }
 
   // ─── Template helpers ──────────────────────────────────────────
@@ -488,6 +532,29 @@ element.click()`;
       this.streamedLogs = [{ index: 1, level: 'ERROR', message: msg || 'Unable to load test case.' }]
       this.cdr.markForCheck()
     }
+  }
+
+  private async loadRecentRuns(): Promise<void> {
+    try {
+      const rows = this.suiteId
+        ? await firstValueFrom(this.testLabService.getTestExecutions(this.suiteId))
+        : await firstValueFrom(this.testLabService.getRecentExecutions(20))
+      this.recentRuns = Array.isArray(rows) ? rows : []
+      if (this.recentRunsPage > this.recentRunsTotalPages) this.recentRunsPage = this.recentRunsTotalPages
+      this.cdr.markForCheck()
+    } catch {
+      try {
+        const fallbackRows = await firstValueFrom(this.testLabService.getRecentExecutions(20))
+        this.recentRuns = Array.isArray(fallbackRows) ? fallbackRows : []
+        this.cdr.markForCheck()
+      } catch {
+        this.recentRuns = []
+      }
+    }
+  }
+
+  getRunStatusLabel(status: TestExecutionDto['status']): string {
+    return status === 'passed' ? 'Passed' : status === 'failed' ? 'Failed' : status === 'aborted' ? 'Aborted' : 'Running'
   }
 
   private buildTimelineSteps(stepTexts: string[]): ExecutionStep[] {
@@ -707,10 +774,17 @@ element.click()`;
     this.streamedLogs = [{ index: 1, level: 'INFO', message: 'Preparing execution model request...' }]
     this.cdr.markForCheck()
 
+    this.startLiveRun()
+
     this.startFakeTimeline(steps.length)
 
     const startedAt = Date.now()
     const payload = {
+      testSuiteId: this.suiteId,
+      planId: this.planId,
+      testCaseId: this.loadedTestCase.id,
+      planTitle: this.scenario.planName,
+      testCaseTitle: this.loadedTestCase.title,
       id: this.loadedTestCase.id,
       title: this.loadedTestCase.title,
       urlCible: this.loadedTestCase.urlCible,
@@ -719,10 +793,11 @@ element.click()`;
       ...(this.loadedTestCase.credentials ? { credentials: this.loadedTestCase.credentials } : {}),
     }
 
-    this.runSubscription = this.seleniumRunner.runSingleTestCase(payload)
+      this.runSubscription = this.seleniumRunner.runSingleTestCase(payload)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (resp) => {
+          console.log('[execution] run response', resp)
           const elapsed = Math.max(0, Date.now() - startedAt)
           const secs = `${Math.max(1, Math.round(elapsed / 1000))}s`
           const payload: any = (resp as any)?.data ?? resp
@@ -763,9 +838,12 @@ element.click()`;
 
           const logs = this.mapRunResponseToLogs(resp || { status: 'error' })
           this.startLogStream(logs)
+          void this.loadRecentRuns()
+          this.stopLiveRunTimer()
           this.cdr.markForCheck()
         },
         error: (err: unknown) => {
+          console.error('[execution] run error', err)
           const msg = err instanceof Error ? err.message : String(err)
           this.isStreaming = false
           this.fakeTimelineSubscription?.unsubscribe()
@@ -778,8 +856,45 @@ element.click()`;
             activeStepLabel: '✖ Failed',
           }
           this.streamedLogs = [{ index: 1, level: 'ERROR', message: msg || 'Selenium request failed.' }]
+          this.stopLiveRunTimer()
+          void this.loadRecentRuns()
           this.cdr.markForCheck()
         },
       })
+  }
+
+  private startLiveRun(): void {
+    const startedAt = Date.now()
+    const executionId = `LIVE-${this.suiteId}-${this.planId}-${this.loadedTestCase?.id || 'tc'}`
+    this.liveRun = {
+      executionId,
+      testSuiteId: this.suiteId,
+      planId: this.planId,
+      planKey: this.planId,
+      planTitle: this.scenario.planName,
+      testCaseId: this.loadedTestCase?.id || '',
+      testCaseKey: this.loadedTestCase?.id || '',
+      testCaseTitle: this.loadedTestCase?.title || '',
+      status: 'running',
+      duration: 0,
+      startedAt: new Date(startedAt).toISOString(),
+      createdAt: new Date(startedAt).toISOString(),
+    }
+    this.stopLiveRunTimer()
+    this.liveRunTimer = setInterval(() => {
+      if (!this.liveRun) return
+      this.liveRun = {
+        ...this.liveRun,
+        duration: Math.max(0, Math.round((Date.now() - startedAt) / 1000)),
+      }
+      this.cdr.markForCheck()
+    }, 1000)
+  }
+
+  private stopLiveRunTimer(): void {
+    if (this.liveRunTimer) {
+      clearInterval(this.liveRunTimer)
+      this.liveRunTimer = undefined
+    }
   }
 }

@@ -3,6 +3,7 @@ import { ApiService } from '@/app/core/services/api.service'
 import { UINotificationService } from '@/app/core/services/ui-notification.service'
 import { ProjectsStateService } from '@/app/core/services/projects-state.service'
 import {  ChangeDetectorRef } from '@angular/core'
+import {MatTabsModule} from '@angular/material/tabs';
 import {
   TestLabService,
   type TestCaseDto,
@@ -25,10 +26,16 @@ import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { ConfirmModalComponent } from '../../admin/shared/confirm-modal.component'
 
+interface ExecutionEntryDto {
+  executedAt: string
+  duration: string
+  status: 'passed' | 'failed'
+}
+
 @Component({
   selector: 'app-test-cases-validation',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule,MatTabsModule],
   templateUrl: './list-test.component.html',
   styleUrls: ['./list-test.component.css'],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
@@ -55,6 +62,7 @@ private cdr = inject(ChangeDetectorRef)
   searchQuery = ''
   statusFilter: TestSuiteStatusKey = 'all'
   filterOpen = false
+  actionMenuSuiteId: string | null = null
   projectFilterId = ''
   private acceptedProjectIds = new Set<string>()
 
@@ -67,7 +75,6 @@ private cdr = inject(ChangeDetectorRef)
 readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = [
   { key: 'completed', label: 'Completed' },
   { key: 'incomplete', label: 'Incomplete' },
-  { key: 'all', label: 'All' },
 ]
 
   // Pagination
@@ -99,6 +106,17 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
   savedAt: Date | null = null
   showUnsavedWarning = false
   unsavedWarningAction: 'leave' | 'close' | 'refresh' | null = null
+
+  detailsModalOpen = false 
+  detailsModalLoading = false
+  detailsModalTab: 'details' | 'execution' = 'details'
+  detailsModalSuite: TestSuiteDto | null = null
+  detailsModalProject: TestLabProjectDto | null = null
+  detailsModalPlans: TestPlanDto[] = []
+  detailsModalCasesByPlan: Record<string, TestCaseDto[]> = {}
+  detailsModalSelectedPlanId: string | null = null
+  detailsModalOpenCaseSteps: Record<string, boolean> = {}
+  detailsModalExecutionHistory: Record<string, ExecutionEntryDto[]> = {}
 
   // Computed
   get filteredSuites(): TestSuiteDto[] {
@@ -166,6 +184,32 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
 
   get totalTestCases(): number {
     return this.getTotalCases(this.suiteDetail)
+  }
+
+  get detailsModalSuiteName(): string {
+    return this.detailsModalSuite ? this.getSuiteDisplayName(this.detailsModalSuite) : '—'
+  }
+
+  get detailsModalSelectedPlan(): TestPlanDto | null {
+    return this.detailsModalPlans.find((plan) => plan.id === this.detailsModalSelectedPlanId) ?? null
+  }
+
+  get detailsModalSelectedCases(): TestCaseDto[] {
+    return this.detailsModalCasesByPlan[this.detailsModalSelectedPlanId ?? ''] ?? []
+  }
+
+  get detailsModalSelectedPlanExecutionKey(): string {
+    return this.getExecutionHistoryStorageKey(this.detailsModalSuite?._id || '')
+  }
+
+  get detailsModalTotalCases(): number {
+    return this.detailsModalPlans.reduce((total, plan) => {
+      return total + (this.detailsModalCasesByPlan[plan.id]?.length ?? plan.testCases?.length ?? plan.casesCount ?? 0)
+    }, 0)
+  }
+
+  get detailsModalProjectName(): string {
+    return this.detailsModalProject?.title || this.detailsModalSuite?.projectTitle || '—'
   }
 
   async ngOnInit() {
@@ -254,6 +298,110 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
   } finally {
      this.exportingSuiteId = null
   }
+  }
+
+  toggleActionMenu(suite: TestSuiteDto, event: Event): void {
+    event.stopPropagation()
+    const id = String(suite?._id || '').trim()
+    this.actionMenuSuiteId = this.actionMenuSuiteId === id ? null : id
+  }
+
+  closeActionMenu(): void {
+    this.actionMenuSuiteId = null
+  }
+
+  async onActionExportSuite(suite: TestSuiteDto, event: Event): Promise<void> {
+    event.stopPropagation()
+    this.closeActionMenu()
+    await this.onExportSuite(suite)
+  }
+
+  onActionOpenSuite(suite: TestSuiteDto, event: Event): void {
+    event.stopPropagation()
+    this.closeActionMenu()
+    void this.openDetailsModal(suite)
+  }
+
+  async openDetailsModal(suite: TestSuiteDto): Promise<void> {
+    if (!this.canOpenSuite(suite)) {
+      
+      this.uiNotification.accessDenied("Access denied: you are not authorized to open this test.")
+      return
+    }
+    const suiteId = String(suite?._id || '').trim()
+    if (!suiteId) return
+    this.detailsModalOpen = true
+    this.detailsModalLoading = true
+    this.detailsModalTab = 'details'
+    this.detailsModalSuite = suite
+    this.detailsModalProject = null
+    this.detailsModalPlans = []
+    this.detailsModalCasesByPlan = {}
+    this.detailsModalSelectedPlanId = null
+    this.detailsModalOpenCaseSteps = {}
+    this.detailsModalExecutionHistory = {}
+    this.errorMessage = ''
+
+    try {
+      const detail = await firstValueFrom(this.testLabService.getTestSuiteById(suiteId))
+      const resp = await firstValueFrom(this.testLabService.getTestPlans(suiteId))
+      const plans = resp?.testPlans?.length ? resp.testPlans : (detail.testPlans || [])
+      const casesRows = resp?.testCasesByPlan?.length ? resp.testCasesByPlan : (detail.testCasesByPlan || [])
+      const casesByPlan: Record<string, TestCaseDto[]> = {}
+      for (const plan of plans) {
+        casesByPlan[plan.id] = plan.testCases || []
+      }
+
+      for (const row of casesRows) {
+        const planId = String(row?.planId || '').trim()
+        if (planId) casesByPlan[planId] = row.testCases || []
+      }
+      this.detailsModalSuite = detail
+      this.detailsModalProject =
+        detail?.projectId && typeof detail.projectId === 'object'
+          ? (detail.projectId as TestLabProjectDto)
+          : null
+      this.detailsModalPlans = plans
+      this.detailsModalCasesByPlan = casesByPlan
+      this.detailsModalSelectedPlanId = plans[0]?.id ?? null
+      this.detailsModalExecutionHistory = this.readExecutionHistory(suiteId)
+    } catch (err: unknown) {
+      this.errorMessage = getErrorMessage(err, 'Unable to load test details')
+    } finally {
+      this.detailsModalLoading = false
+    }
+  }
+
+  closeDetailsModal(): void {
+    this.detailsModalOpen = false
+    this.detailsModalLoading = false
+    this.detailsModalSuite = null
+    this.detailsModalProject = null
+    this.detailsModalPlans = []
+    this.detailsModalCasesByPlan = {}
+    this.detailsModalSelectedPlanId = null
+    this.detailsModalOpenCaseSteps = {}
+    this.detailsModalExecutionHistory = {}
+  }
+
+  selectDetailsModalPlan(planId: string): void {
+    this.detailsModalSelectedPlanId = planId
+  }
+
+  setDetailsModalTab(tab: 'details' | 'execution'): void {
+    this.detailsModalTab = tab
+  }
+
+  isDetailsModalCaseStepsOpen(planId: string | null | undefined, caseId: string): boolean {
+    return Boolean(this.detailsModalOpenCaseSteps[this.getCaseKey(planId, caseId)])
+  }
+
+  toggleDetailsModalCaseSteps(planId: string | null | undefined, caseId: string): void {
+    const key = this.getCaseKey(planId, caseId)
+    this.detailsModalOpenCaseSteps = {
+      ...this.detailsModalOpenCaseSteps,
+      [key]: !this.detailsModalOpenCaseSteps[key],
+    }
   }
 
   async onOpenSuite(suite: TestSuiteDto) {
@@ -543,6 +691,83 @@ toggleCase(planId: string | null | undefined, caseId: string): void {
     }
   }
 
+  async onRunTestCaseFromModal(planId: string, testCase: TestCaseDto): Promise<void> {
+    const suite = this.detailsModalSuite
+    if (!suite) return
+
+    const suiteId = String(suite._id || '').trim()
+    if (!suiteId || !planId || !testCase?.id) return
+
+    const projectName = this.detailsModalProjectName
+    const suiteName = this.getSuiteDisplayName(suite)
+    const planName = this.detailsModalPlans.find((plan) => plan.id === planId)?.title || '—'
+
+    this.recordExecutionHistory(suiteId, planId, testCase.id)
+
+    this.closeDetailsModal()
+
+    await this.router.navigate(['/execution', testCase.id], {
+      queryParams: {
+        suiteId,
+        planId,
+        projectName,
+        suiteName,
+        planName,
+        testCaseName: testCase.title || testCase.id,
+      },
+    })
+  }
+
+  getExecutionEntries(planId: string, caseId: string): ExecutionEntryDto[] {
+    return this.detailsModalExecutionHistory[this.getExecutionHistoryKey(planId, caseId)] ?? []
+  }
+
+  getLatestExecutionEntry(planId: string, caseId: string): ExecutionEntryDto | null {
+    const entries = this.getExecutionEntries(planId, caseId)
+    return entries.length ? entries[entries.length - 1] : null
+  }
+
+  private getExecutionHistoryKey(planId: string, caseId: string): string {
+    return `${String(planId || '')}::${String(caseId || '')}`
+  }
+
+  private getExecutionHistoryStorageKey(suiteId: string): string {
+    return `testlab.executionHistory.${String(suiteId || '').trim()}`
+  }
+
+  private readExecutionHistory(suiteId: string): Record<string, ExecutionEntryDto[]> {
+    try {
+      const raw = localStorage.getItem(this.getExecutionHistoryStorageKey(suiteId))
+      if (!raw) return {}
+      const parsed = JSON.parse(raw) as Record<string, ExecutionEntryDto[]>
+      return parsed && typeof parsed === 'object' ? parsed : {}
+    } catch {
+      return {}
+    }
+  }
+
+  private writeExecutionHistory(suiteId: string, history: Record<string, ExecutionEntryDto[]>): void {
+    try {
+      localStorage.setItem(this.getExecutionHistoryStorageKey(suiteId), JSON.stringify(history))
+    } catch {
+      // ignore storage failures
+    }
+  }
+
+  private recordExecutionHistory(suiteId: string, planId: string, caseId: string): void {
+    const key = this.getExecutionHistoryKey(planId, caseId)
+    const history = { ...this.detailsModalExecutionHistory }
+    const current = history[key] ?? []
+    const entry: ExecutionEntryDto = {
+      executedAt: new Date().toISOString(),
+      duration: '0s',
+      status: 'passed',
+    }
+    history[key] = [...current, entry]
+    this.detailsModalExecutionHistory = history
+    this.writeExecutionHistory(suiteId, history)
+  }
+
   async onUploadSpec(event: Event, suiteId: string) {
     const input = event.target as HTMLInputElement
     const file = input?.files?.[0]
@@ -590,8 +815,8 @@ toggleCase(planId: string | null | undefined, caseId: string): void {
     return v
   }
 
-  getSuiteStatusKey(suite: TestSuiteDto): Exclude<TestSuiteStatusKey, 'all'> {
-    const raw = suite.status ?? suite.validationStatus ?? 'incomplete'
+  getSuiteStatusKey(suite: TestSuiteDto | null | undefined): Exclude<TestSuiteStatusKey, 'all'> {
+    const raw = suite?.status ?? suite?.validationStatus ?? 'incomplete'
     const key = this.normalizeStatusKey(raw)
     switch (key) {
       case 'completed':
@@ -606,7 +831,7 @@ toggleCase(planId: string | null | undefined, caseId: string): void {
     }
   }
 
-  getSuiteStatusLabel(suite: TestSuiteDto): string {
+  getSuiteStatusLabel(suite: TestSuiteDto | null | undefined): string {
     const key = this.getSuiteStatusKey(suite)
     const labels: Record<Exclude<TestSuiteStatusKey, 'all'>, string> = {
       completed: 'Completed',
@@ -615,7 +840,7 @@ toggleCase(planId: string | null | undefined, caseId: string): void {
     return labels[key]
   }
 
-  getBadgeClass(suite: TestSuiteDto): string {
+  getBadgeClass(suite: TestSuiteDto | null | undefined): string {
     const status = this.getSuiteStatusKey(suite)
     const map: Record<Exclude<TestSuiteStatusKey, 'all'>, string> = {
       completed: 'text-bg-success',
@@ -846,6 +1071,9 @@ closeDropdown(event: MouseEvent): void {
   const target = event.target as HTMLElement
   // Ne pas interférer avec les clics dans tv-cases-body
   if (target?.closest('.tv-cases-body')) return
+  if (!target?.closest('.tv-actions-menu-wrap')) {
+    this.actionMenuSuiteId = null
+  }
   const filterWrap = target?.closest('.tv-filter-wrap')
   if (!filterWrap) {
     this.filterOpen = false

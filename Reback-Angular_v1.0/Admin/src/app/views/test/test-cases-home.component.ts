@@ -66,6 +66,7 @@ export class TestCasesHomeComponent implements OnInit {
   projects: AppProject[] = []
   private acceptedProjectIds = new Set<string>()
   selectedProjectId = ''
+  projectFilterId = ''
   loadingProjects = false
 
   plans: TestPlanDto[] = []
@@ -115,9 +116,15 @@ export class TestCasesHomeComponent implements OnInit {
   // ── Getters ──────────────────────────────────────────────────────────
 
   get selectedProjectTitle(): string {
-    const id = String(this.selectedProjectId || '').trim()
+    const id = String(this.projectFilterId || '').trim()
     if (!id) return ''
     return String(this.projects.find(p => p._id === id)?.title || '').trim()
+  }
+
+  get filteredSuites(): TestSuiteDto[] {
+    const projectId = String(this.projectFilterId || '').trim()
+    if (!projectId) return this.suites
+    return this.suites.filter((suite) => this.getSuiteProjectId(suite) === projectId)
   }
 
   get canEditGenerateForSelectedProject(): boolean {
@@ -316,7 +323,7 @@ export class TestCasesHomeComponent implements OnInit {
       const fromSuite = (this.suites || []).find(s => String(s?._id || '').trim() === String(this.testSuiteId || '').trim())
       const suiteProject = fromSuite?.projectId
       const projectId = String(typeof suiteProject === 'object' ? suiteProject?._id : suiteProject ?? '').trim()
-      if (projectId) this.selectedProjectId = projectId
+      if (projectId && !this.projectFilterId) this.projectFilterId = projectId
     } catch {
       // Best-effort: keep projects empty if API fails
       this.projects = []
@@ -326,55 +333,17 @@ export class TestCasesHomeComponent implements OnInit {
     }
   }
 
-  onApplySelectedProject() {
-    if (!this.selectedProjectId) return
-    if (this.hasUnsavedChanges) {
-      this.pendingAction = () => this.onApplySelectedProject()
-      void this.openUnsavedModal()
-      return
-    }
-    void this.applySelectedProjectInternal()
-  }
-
-  private async applySelectedProjectInternal() {
-    this.loading = true
-    this.errorMessage = ''
-    try {
-      const selectedProjectTitle = this.selectedProjectTitle
-      if (!this.testSuiteId) {
-        this.toastr.warning('Open a test suite first before changing project.', 'Project')
-        return
-      }
-
-      await firstValueFrom(this.testLabService.setTestSuiteProject(this.testSuiteId, this.selectedProjectId))
-      if (selectedProjectTitle) this.currentSuiteName = selectedProjectTitle
-
-      // Reset view state before loading the new suite
-      this.plans = []
-      this.planStatuses = {}
-      this.testCasesByPlan = {}
-      this.expandedPlans = {}
+  onProjectFilterChange(): void {
+    this.projectFilterId = String(this.projectFilterId || '').trim()
+    if (!this.projectFilterId) {
+      this.selectedProjectId = ''
+      this.selectedPlanId = ''
       this.livePlanId = ''
       this.liveCases = []
-      this.selectedPlanId = ''
-      this.dirtyPlans = {}
-      //this.setSuiteDirty(true)
-
-      await this.loadPlansForSuite(this.testSuiteId)
-      void this.router.navigate(['/test-cases'], {
-        queryParams: { suiteId: this.testSuiteId, suiteName: this.currentSuiteName },
-      })
-
-      if (selectedProjectTitle) {
-        this.toastr.success(`Project changed to: ${selectedProjectTitle}`, 'Project')
-      } else {
-        this.toastr.success('Project changed.', 'Project')
-      }
-    } catch (err: unknown) {
-      this.errorMessage = getErrorMessage(err, 'Unable to load project suite')
-    } finally {
-      this.loading = false
+      this.focusedLiveCaseId = ''
+      return
     }
+    this.selectedProjectId = this.projectFilterId
   }
 
   // ── Navigation ────────────────────────────────────────────────────────
@@ -441,11 +410,6 @@ export class TestCasesHomeComponent implements OnInit {
     if (suiteName) this.currentSuiteName = suiteName
 
     // Keep project selector in sync with the suite's projectId (string or populated object)
-    const suiteProjectRef = suite?.projectId
-    const suiteProjectId = String(
-      typeof suiteProjectRef === 'object' ? suiteProjectRef?._id : suiteProjectRef ?? ''
-    ).trim()
-    if (suiteProjectId) this.selectedProjectId = suiteProjectId
     this.expandedSuites[suiteId] = !this.expandedSuites[suiteId]
 
     if (this.expandedSuites[suiteId] && !this.suitePlans[suiteId] && !this.loadingSuitePlans[suiteId]) {
@@ -1241,9 +1205,10 @@ export class TestCasesHomeComponent implements OnInit {
       this.plans = resp?.testPlans || []
       try {
         const suiteDetail = await firstValueFrom(this.testLabService.getTestSuiteById(testSuiteId))
-        const suiteProject = suiteDetail?.projectId
-        const projectId = String(typeof suiteProject === 'object' ? suiteProject?._id : suiteProject ?? '').trim()
-        if (projectId) this.selectedProjectId = projectId
+      const suiteProject = suiteDetail?.projectId
+      const projectId = String(typeof suiteProject === 'object' ? suiteProject?._id : suiteProject ?? '').trim()
+      if (projectId) this.selectedProjectId = projectId
+      if (projectId && !this.projectFilterId) this.projectFilterId = projectId
       } catch {
         // best effort for project preselection
       }

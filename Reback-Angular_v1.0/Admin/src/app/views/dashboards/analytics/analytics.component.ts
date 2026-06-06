@@ -1,56 +1,15 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core'
-import { CommonModule } from '@angular/common'
-import { NgApexchartsModule } from 'ng-apexcharts'
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { NgApexchartsModule } from 'ng-apexcharts';
 
-import type { ChartOptions } from '@/app/common/apexchart.model'
+import type { ChartOptions } from '@/app/common/apexchart.model';
 
 @Component({
   selector: 'app-analytics',
   standalone: true,
   imports: [CommonModule, NgApexchartsModule],
   templateUrl: './analytics.component.html',
-
-  styles: `
-    .ai-insight {
-      border-radius: 0.75rem;
-      padding: 0.9rem 1rem;
-      border-left: 4px solid transparent;
-    }
-
-    .ai-insight-title {
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      font-size: 0.75rem;
-      margin-bottom: 0.25rem;
-    }
-
-    .ai-insight-warning {
-      border-left-color: var(--bs-warning);
-      background: rgba(255, 193, 7, 0.1);
-    }
-
-    .ai-insight-warning .ai-insight-title {
-      color: var(--bs-warning-text-emphasis);
-    }
-
-    .ai-insight-primary {
-      border-left-color: var(--bs-primary);
-      background: rgba(13, 110, 253, 0.08);
-    }
-
-    .ai-insight-primary .ai-insight-title {
-      color: var(--bs-primary-text-emphasis);
-    }
-
-    .ai-insight-success {
-      border-left-color: var(--bs-success);
-      background: rgba(25, 135, 84, 0.08);
-    }
-
-    .ai-insight-success .ai-insight-title {
-      color: var(--bs-success-text-emphasis);
-    }
-  `,
+  styleUrls: ['./analytics.component.css'],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class AnalyticsComponent {
@@ -101,7 +60,9 @@ export class AnalyticsComponent {
       min: 80,
       max: 100,
       tickAmount: 5,
-      labels: { formatter: (val: number) => `${Math.round(val)}` },
+      labels: {
+        formatter: (val: number) => `${Math.round(val)}`,
+      },
     },
     grid: {
       strokeDashArray: 3,
@@ -118,5 +79,5 @@ export class AnalyticsComponent {
         formatter: (val: number) => `${val}%`,
       },
     },
-  }
+  };
 }

@@ -16,6 +16,7 @@ router.get('/', controllerTestSuite.getAll);
 router.get('/user/:userId', controllerTestSuite.getByUser);
 
 router.get('/project/:projectId', controllerTestSuite.getByProject);
+router.get('/executions/recent', controllerTestSuite.getRecentExecutions);
 
 router.get('/plans/:id', controllerTestPlan.getById);
 router.put('/plans/:id', controllerTestPlan.update);
@@ -30,6 +31,7 @@ router.put('/cases/:id', controllerTestCase.update);
 router.delete('/cases/:id', controllerTestCase.delete);
 
 router.get('/:id/plans', requireTestSuiteAccess, controllerTestSuite.getPlans);
+router.get('/:id/executions', requireTestSuiteAccess, controllerTestSuite.getExecutions);
 router.post('/:id/plans', requireTestSuiteAccess, (req, res) => {
   req.body = { ...req.body, testSuiteId: req.params.id };
   return controllerTestPlan.create(req, res);

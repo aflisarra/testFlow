@@ -6,17 +6,14 @@
         <div>
           <h4 class="app-title mb-0">
             <iconify-icon icon="iconamoon:task-duotone" class="app-title-icon"></iconify-icon>
-            <span>Tests</span>
+            <span>Tests History</span>
           </h4>
-          <p class="tv-subtitle">List of test suites.</p>
+          <p class="tv-subtitle">Manage and review your test suites and execution results.</p>
         </div>
 
         <div class="tv-header-actions">
           <span class="badge rounded-pill brand-badge tv-pill">{{ vm.suites.length }} Suites</span>
-          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="vm.loadSuites()" [disabled]="vm.loading">
-            <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>
-            Refresh
-          </button>
+          
         </div>
       </div>
     </div>
@@ -104,16 +101,15 @@
                   <tr>
                     <th style="inline-size: 22%;">Creator</th>
                     <th style="inline-size: 30%;">Suite name</th>
-                    <th style="inline-size: 16%;">Created</th>
+                    <th style="inline-size: 16%;">Created date</th>
                     <th style="inline-size: 14%;">Status</th>
-                    
-                    <th class="text-end" style="inline-size: 9%;">Export</th>
+                    <th class="text-end" style="inline-size: 9%;">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   @if (vm.paginatedSuites.length === 0) {
                     <tr>
-                      <td colspan="6" class="tv-empty-row">
+                      <td colspan="5" class="tv-empty-row">
                         <iconify-icon icon="iconamoon:search-light" style="font-size: 1.5rem; opacity: 0.35;"></iconify-icon>
                         <span>No suites found.</span>
                       </td>
@@ -146,17 +142,41 @@
                           {{ vm.getSuiteStatusLabel(suite) }}
                         </span>
                       </td>
-                      
+
                       <td class="text-end" (click)="$event.stopPropagation()">
-                        <button
-                          type="button"
-                          class="tv-btn-export"
-                          title="Export Word"
-                          (click)="vm.onExportSuite(suite)"
-                          [disabled]="!vm.canOpenSuite(suite) || vm.exportingSuiteId === suite._id"
-                        >
-                          <iconify-icon icon="mdi:file-word-outline"></iconify-icon>
-                        </button>
+                        <div class="tv-actions-menu-wrap">
+                          <button
+                            type="button"
+                            class="tv-actions-trigger"
+                            title="Actions"
+                            aria-label="Open actions menu"
+                            (click)="vm.toggleActionMenu(suite, $event)"
+                            [disabled]="!vm.canOpenSuite(suite)"
+                          >
+                            <iconify-icon icon="mdi:dots-vertical"></iconify-icon>
+                          </button>
+                          @if (vm.actionMenuSuiteId === suite._id) {
+                            <div class="tv-actions-menu">
+                              <button
+                                type="button"
+                                class="tv-actions-item"
+                                (click)="vm.onActionExportSuite(suite, $event)"
+                                [disabled]="vm.exportingSuiteId === suite._id"
+                              >
+                                <iconify-icon icon="mdi:file-word-outline"></iconify-icon>
+                                <span>Export rapport .doc</span>
+                              </button>
+                              <button
+                                type="button"
+                                class="tv-actions-item"
+                                (click)="vm.onActionOpenSuite(suite, $event)"
+                              >
+                                <iconify-icon icon="mdi:clipboard-text-search-outline"></iconify-icon>
+                                <span>Details test</span>
+                              </button>
+                            </div>
+                          }
+                        </div>
                       </td>
                     </tr>
                   }
@@ -180,277 +200,285 @@
           </div>
         </div>
       </div>
+
+      @if (vm.detailsModalOpen) {
+        <button class="tv-suite-modal-backdrop" (click)="vm.closeDetailsModal()">
+          <button
+            class="tv-suite-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="suite-details-modal-title"
+            (click)="$event.stopPropagation()"
+          >
+            <div class="tv-suite-modal__header">
+  <div class="tv-suite-modal__title-row">
+    <div>
+      <div class="tv-suite-modal__eyebrow">
+        <span></span>
+        Test Management Platform
+      </div>
+
+      <h3 id="suite-details-modal-title">Suite Details</h3>
+
+      @if (vm.detailsModalSuite) {
+        <span
+          class="tv-modal-status-badge"
+          [ngClass]="vm.getBadgeClass(vm.detailsModalSuite)"
+        >
+          <span class="tv-status-dot"></span>
+          {{ vm.getSuiteStatusLabel(vm.detailsModalSuite) }}
+        </span>
+      }
+    </div>
+
+    <button
+      type="button"
+      class="tv-suite-modal__x"
+      (click)="vm.closeDetailsModal()"
+      aria-label="Close"
+    >
+      <iconify-icon icon="mdi:close"></iconify-icon>
+    </button>
+  </div>
+
+  <div class="tv-suite-crumb">
+    <span>Suite</span>
+    <iconify-icon icon="mdi:chevron-right"></iconify-icon>
+    <strong>{{ vm.detailsModalSuiteName }}</strong>
+  </div>
+</div>
+
+<mat-tab-group
+  [selectedIndex]="vm.detailsModalTab === 'details' ? 0 : 1"
+  (selectedIndexChange)="vm.setDetailsModalTab($event === 0 ? 'details' : 'execution')"
+>
+  <mat-tab>
+    <ng-template mat-tab-label>
+      <iconify-icon icon="mdi:clipboard-text-outline"></iconify-icon>
+      <span class="ms-2">Details</span>
+      <span class="tv-tab-badge">
+        {{ vm.detailsModalPlans.length }}
+      </span>
+    </ng-template>
+  </mat-tab>
+
+  <mat-tab>
+    <ng-template mat-tab-label>
+      <iconify-icon icon="mdi:play"></iconify-icon>
+      <span class="ms-2">Execution</span>
+      <span class="tv-tab-badge">
+        {{ vm.detailsModalTotalCases }}
+      </span>
+    </ng-template>
+  </mat-tab>
+</mat-tab-group>
+
+            <div class="tv-suite-modal__body">
+              @if (vm.detailsModalLoading) {
+                <div class="tv-loading">
+                  <iconify-icon icon="iconamoon:loading-duotone" class="tv-loading__icon"></iconify-icon>
+                  <span>Loading suite details...</span>
+                </div>
+              }
+
+              @if (!vm.detailsModalLoading && vm.detailsModalTab === 'details') {
+                <div class="tv-modal-details-shell">
+                  <div class="tv-modal-summary-grid">
+                    <div class="tv-modal-project-card">
+                      <div class="tv-modal-project-top">
+                        <div>
+                          <div class="tv-modal-project-title">{{ vm.detailsModalProjectName }}</div>
+                          <div class="tv-modal-project-date">
+                            <iconify-icon icon="mdi:account-group-outline"></iconify-icon>
+                            <span>{{ vm.projectMembers.length }} project members</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="tv-modal-progress">
+                        <div class="tv-modal-progress__bar" [style.width.%]="100"></div>
+                      </div>
+                      <div class="tv-modal-progress-row">
+                        <span>Suite overview</span>
+                        <strong>{{ vm.detailsModalPlans.length }} plans</strong>
+                      </div>
+                    </div>
+
+                    <div class="tv-modal-stat tv-modal-stat--plans">
+                      <div class="tv-modal-stat__icon">
+                        <iconify-icon icon="mdi:vector-polyline"></iconify-icon>
+                      </div>
+                      <div>
+                        <strong>{{ vm.detailsModalPlans.length }}</strong>
+                        <span>Test Plans</span>
+                      </div>
+                    </div>
+                    <div class="tv-modal-stat tv-modal-stat--cases">
+                      <div class="tv-modal-stat__icon">
+                        <iconify-icon icon="mdi:clipboard-check-outline"></iconify-icon>
+                      </div>
+                      <div>
+                        <strong>{{ vm.detailsModalTotalCases }}</strong>
+                        <span>Test Cases</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="tv-details-grid">
+                    <div class="tv-details-card">
+                      <div class="tv-details-card__title">Project members</div>
+                      <div class="tv-details-members">
+                        @if (vm.projectMembers.length) {
+                          @for (member of vm.projectMembers; track vm.getMemberId(member)) {
+                            <div class="tv-details-member">
+                              @if (vm.getMemberPicture(member)) {
+                                <img
+                                  class="tv-member-avatar"
+                                  [src]="vm.getMemberPicture(member)"
+                                  [alt]="vm.getMemberDisplayName(member)"
+                                  (error)="vm.onAvatarError($event)"
+                                />
+                              } @else {
+                                <div class="tv-member-avatar tv-member-avatar--fallback">
+                                  {{ vm.getUserInitials(vm.getMemberDisplayName(member)) }}
+                                </div>
+                              }
+                              <div class="tv-details-member__name">{{ vm.getMemberDisplayName(member) }}</div>
+                            </div>
+                          }
+                        } @else {
+                          <div class="tv-empty-small">No members assigned to this project.</div>
+                        }
+                      </div>
+                    </div>
+
+                    <div class="tv-details-card">
+                      <div class="tv-details-card__title">Suite dates</div>
+                      <div class="tv-details-meta">
+                        <div class="tv-details-meta__row">
+                          <span>Creation date</span>
+                          <strong>{{ (vm.detailsModalSuite?.createdAt | date: 'mediumDate') || '—' }}</strong>
+                        </div>
+                        <div class="tv-details-meta__row">
+                          <span>Last update</span>
+                          <strong>{{ (vm.detailsModalSuite?.updatedAt | date: 'mediumDate') || '—' }}</strong>
+                        </div>
+                        <div class="tv-details-meta__row">
+                          <span>Ending date</span>
+                          <strong>{{ (vm.detailsModalProject?.endDate | date: 'mediumDate') || (vm.detailsModalSuite?.executedAt | date: 'mediumDate') || '—' }}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    
+                  </div>
+                </div>
+              }
+
+              @if (!vm.detailsModalLoading && vm.detailsModalTab === 'execution') {
+  <div class="sdm-panel">
+
+    <!-- Sidebar Plans -->
+    <aside class="sdm-panel__plans">
+      <div class="sdm-panel__plans-hd">
+        Plans <span style="float:right; background:#e2e8f0; border-radius:99px; padding:0 7px; font-size:10px; color:#64748b;">{{ vm.detailsModalPlans.length }}</span>
+      </div>
+      @for (plan of vm.detailsModalPlans; track plan.id) {
+        <button
+          type="button"
+          class="sdm-plan-btn"
+          [class.sdm-plan-btn--active]="vm.detailsModalSelectedPlanId === plan.id"
+          (click)="vm.selectDetailsModalPlan(plan.id)"
+        >
+          <span class="sdm-plan-btn__id">{{ plan.id }}</span>
+          <span class="sdm-plan-btn__title">{{ plan.title || plan.id }}</span>
+        </button>
+      }
+      @if (!vm.detailsModalPlans.length) {
+        <div class="sdm-empty-sm">No test plans.</div>
+      }
+    </aside>
+
+    <!-- Cases area -->
+    <div class="sdm-cases">
+      <div class="sdm-cases__head">
+        <span>Test case</span>
+        <span></span>
+        <span class="sdm-cases__head-actions">Actions</span>
+      </div>
+
+      @for (testCase of vm.detailsModalSelectedCases; track testCase.id) {
+        <div>
+          <div class="sdm-case-row">
+            <span class="sdm-case-title">{{ testCase.title }}</span>
+            <span></span>
+            <div class="sdm-case-actions">
+              <button
+                type="button"
+                class="sdm-btn-run"
+                (click)="vm.onRunTestCaseFromModal(vm.detailsModalSelectedPlanId || '', testCase)"
+                title="Run this test case"
+              >
+                <iconify-icon icon="mdi:play-circle-outline"></iconify-icon>
+                Run
+              </button>
+              <button
+                type="button"
+                class="sdm-btn-steps"
+                [class.sdm-btn-steps--active]="vm.isDetailsModalCaseStepsOpen(vm.detailsModalSelectedPlanId, testCase.id)"
+                (click)="vm.toggleDetailsModalCaseSteps(vm.detailsModalSelectedPlanId, testCase.id)"
+                title="Show test steps"
+              >
+                <iconify-icon [icon]="vm.isDetailsModalCaseStepsOpen(vm.detailsModalSelectedPlanId, testCase.id) ? 'mdi:chevron-up' : 'mdi:format-list-checks'"></iconify-icon>
+                Steps
+              </button>
+            </div>
+          </div>
+
+          @if (vm.isDetailsModalCaseStepsOpen(vm.detailsModalSelectedPlanId, testCase.id)) {
+            <div class="sdm-steps" style="grid-column: 1 / -1;">
+              <div class="sdm-steps__label">Steps</div>
+              @if (testCase.steps?.length) {
+                @for (step of testCase.steps; track $index) {
+                  <div class="sdm-step">
+                    <span class="sdm-step__num">{{ $index + 1 }}</span>
+                    <span class="sdm-step__text">{{ step }}</span>
+                  </div>
+                }
+              } @else {
+                <div style="font-size:11px; color:#94a3b8;">No steps available.</div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      @if (!vm.detailsModalSelectedCases.length) {
+        <div class="sdm-empty-cases">No test cases for this plan.</div>
+      }
     </div>
 
   </div>
 }
-
-@if (view === 'detail') {
-  <div class="tv-detail-page">
-
-    <!-- ── Page header ── -->
-    <div class="tv-detail-page__header">
-      <button type="button" class="tv-back-btn" (click)="vm.onBackToList()">
-        <iconify-icon icon="mdi:chevron-left"></iconify-icon>
-        Back to list
-      </button>
-      <div class="tv-detail-page__title-row">
-        <h4 class="app-title mb-0">
-          <iconify-icon icon="iconamoon:folder-check-duotone" class="app-title-icon"></iconify-icon>
-          <span>{{ vm.currentSuiteName || vm.testSuiteId }}</span>
-        </h4>
-        <p class="tv-subtitle">{{ vm.testPlans.length }} Test Plans · {{ vm.totalTestCases }} Test Cases</p>
-      </div>
-    </div>
-
-    @if (vm.errorMessage) {
-      <div class="alert alert-danger mx-3 mt-2">{{ vm.errorMessage }}</div>
-    }
-
-    <div class="tv-detail-page__body">
-
-      @if (vm.loading) {
-        <div class="tv-loading-state">
-          <iconify-icon icon="iconamoon:loading-duotone" class="tv-loading-icon"></iconify-icon>
-          <span>Loading suite details…</span>
-        </div>
-      } @else {
-
-        <!-- ── Info card ── -->
-        <div class="tv-info-card">
-
-          <div class="tv-info-card__header">
-            <div class="tv-info-card__header-left">
-              <div class="tv-info-icon">
-                <iconify-icon icon="iconamoon:task-duotone"></iconify-icon>
-              </div>
-              <span class="tv-info-card__title">Suite details</span>
-            </div>
-            @if (vm.suiteDetail) {
-              <span class="tv-status-badge" [ngClass]="vm.getBadgeClass(vm.suiteDetail)">
-                <span class="tv-status-dot"></span>
-                {{ vm.getSuiteStatusLabel(vm.suiteDetail) }}
-              </span>
-            }
-          </div>
-
-          <div class="tv-info-card__body">
-
-            <!-- Col: Suite -->
-            <div class="tv-info-col">
-              <div class="tv-col-heading">Suite</div>
-              <div class="tv-info-field">
-                <div class="tv-field-ico"><iconify-icon icon="mdi:clipboard-text-outline"></iconify-icon></div>
-                <div>
-                  <div class="tv-field-label">Name</div>
-                  <div class="tv-field-value">{{ vm.currentSuiteName || '—' }}</div>
-                </div>
-              </div>
             </div>
 
-            <div class="tv-info-divider"></div>
-
-            <!-- Col: Project -->
-            <div class="tv-info-col">
-              <div class="tv-col-heading">Project</div>
-
-              <div class="tv-project-highlight">
-                <div class="tv-field-ico tv-field-ico--amber"><iconify-icon icon="mdi:folder-outline"></iconify-icon></div>
-                <div>
-                  <div class="tv-field-label">Title</div>
-                  <div class="tv-field-value fw-semibold">{{ vm.projectDetail?.title || vm.suiteDetail?.projectTitle || '—' }}</div>
-                </div>
+            <div class="tv-suite-modal__footer">
+              <div>
+                <iconify-icon icon="mdi:clock-outline"></iconify-icon>
+                Last modified {{ (vm.detailsModalSuite?.updatedAt | date: 'mediumDate') || '—' }}
               </div>
-
-              <div class="tv-info-field">
-                <div class="tv-field-ico"><iconify-icon icon="mdi:calendar-start"></iconify-icon></div>
-                <div>
-                  <div class="tv-field-label">Start date</div>
-                  <div class="tv-field-value">{{ (vm.projectDetail?.startDate | date: 'mediumDate') || '—' }}</div>
-                </div>
-              </div>
-
-              <div class="tv-info-field">
-                <div class="tv-field-ico"><iconify-icon icon="mdi:calendar-end"></iconify-icon></div>
-                <div>
-                  <div class="tv-field-label">End date</div>
-                  <div class="tv-field-value">{{ (vm.projectDetail?.endDate | date: 'mediumDate') || '—' }}</div>
-                </div>
-              </div>
-
-              <div class="tv-info-field tv-info-field--align-start">
-                <div class="tv-field-ico"><iconify-icon icon="mdi:account-multiple-outline"></iconify-icon></div>
-                <div style="flex: 1; min-inline-size: 0;">
-                  <div class="tv-members-header">
-                    <span class="tv-field-label mb-0">Members</span>
-                    <button type="button" class="tv-members-toggle" (click)="vm.toggleMembers(); $event.stopPropagation()">
-                      <iconify-icon [icon]="vm.membersOpen ? 'mdi:chevron-up' : 'mdi:chevron-down'"></iconify-icon>
-                      {{ vm.membersOpen ? 'Hide' : 'Show' }}
-                    </button>
-                  </div>
-                  @if (vm.membersOpen) {
-                    @if (vm.projectMembers?.length) {
-                      <div class="tv-members-list">
-                        @for (member of vm.projectMembers; track vm.getMemberId(member)) {
-                          <div class="tv-member">
-                            @if (vm.getMemberPicture(member)) {
-                              <img class="tv-member-avatar" [src]="vm.getMemberPicture(member)" [alt]="vm.getMemberDisplayName(member)" (error)="vm.onAvatarError($event)" />
-                            } @else {
-                              <div class="tv-member-avatar tv-member-avatar--fallback">{{ vm.getUserInitials(vm.getMemberDisplayName(member)) }}</div>
-                            }
-                            <span class="tv-member-name text-truncate">{{ vm.getMemberDisplayName(member) }}</span>
-                          </div>
-                        }
-                      </div>
-                    } @else {
-                      <div class="tv-field-value">—</div>
-                    }
-                  }
-                </div>
-              </div>
-            </div>
-
-            <div class="tv-info-divider"></div>
-
-            <!-- Col: Stats -->
-            <div class="tv-info-col">
-              <div class="tv-col-heading">Stats</div>
-              <div class="tv-stat-grid">
-                <div class="tv-stat tv-stat--blue">
-                  <div class="tv-stat-value">{{ vm.testPlans.length }}</div>
-                  <div class="tv-stat-label">Test Plans</div>
-                </div>
-                <div class="tv-stat tv-stat--amber">
-                  <div class="tv-stat-value">{{ vm.totalTestCases }}</div>
-                  <div class="tv-stat-label">Test Cases</div>
-                </div>
-              </div>
-            </div>
-
-          </div><!-- /tv-info-card__body -->
-
-          <div class="tv-info-card__footer">
-            <button
-              type="button"
-              class="tv-toggle-details-btn"
-              [class.tv-toggle-details-btn--active]="vm.showTestDetails"
-              (click)="vm.toggleTestDetails(); $event.stopPropagation()"
-            >
-              <iconify-icon [icon]="vm.showTestDetails ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="me-1"></iconify-icon>
-              {{ vm.showTestDetails ? 'Hide test details' : 'Show test details' }}
-            </button>
-          </div>
-
-        </div><!-- /tv-info-card -->
-
-        <!-- ── Test plans + cases — rendered BELOW the card, never inside ── -->
-        @if (vm.showTestDetails) {
-          <div class="tv-plans-area">
-
-            <!-- Sidebar: plan list -->
-            <div class="tv-plans-sidebar">
-              <div class="tv-plans-sidebar-header">
-                <iconify-icon icon="mdi:view-list-outline" class="me-1"></iconify-icon>
-                Test Plans
-              </div>
-              <div class="tv-plans-list">
-                @for (plan of vm.testPlans; track plan.id) {
-                  <button
-                    type="button"
-                    class="tv-plan-item"
-                    [class.active]="vm.selectedPlanId === plan.id"
-                    (click)="vm.onSelectPlan(plan)"
-                  >
-                    <span class="tv-plan-id">{{ plan.id }}</span>
-                    <span class="tv-plan-title">{{ plan.title }}</span>
+              <div>
+                <button type="button" class="tv-modal-cancel-btn" (click)="vm.closeDetailsModal()">Close</button>
+                @if (vm.detailsModalSuite) {
+                  <button type="button" class="tv-modal-download-btn" (click)="vm.onExportSuite(vm.detailsModalSuite)">
+                    <iconify-icon icon="mdi:cloud-download-outline"></iconify-icon>
+                    Download Report
                   </button>
                 }
-                @if (!vm.testPlans.length) {
-                  <div class="tv-empty">No plans available.</div>
-                }
               </div>
             </div>
-
-            <!-- Main: cases panel -->
-            <div class="tv-cases-panel">
-              <div class="tv-cases-header">
-                <div class="tv-cases-header-info">
-                  <div class="tv-cases-plan-title">{{ vm.selectedPlan?.title || 'Select a plan' }}</div>
-                  @if (vm.selectedPlan?.description) {
-                    <div class="tv-cases-plan-desc">{{ vm.selectedPlan?.description }}</div>
-                  }
-                </div>
-
-                <button type="button" class="tv-section-back" (click)="vm.toggleTestDetails()">
-                  <iconify-icon icon="mdi:chevron-up"></iconify-icon>
-                  Hide
-                </button>
-              </div>
-
-              <div class="tv-cases-body">
-                @if (vm.generatingCasesPlanId === vm.selectedPlanId) {
-                  <div class="tv-loading-state tv-loading-state--inline">
-                    <iconify-icon icon="iconamoon:loading-duotone" class="tv-loading-icon"></iconify-icon>
-                    <span>Generating test cases…</span>
-                  </div>
-                } @else {
-                  @for (tc of vm.filteredSelectedTestCases; track tc.id) {
-                    <div class="tv-case" [class.tv-case--open]="vm.isCaseOpen(vm.selectedPlanId, tc.id)">
-
-                      <div class="tv-case-header">
-                        <span class="tv-case-id">{{ tc.id }}</span>
-                        <div class="tv-case-title">{{ tc.title }}</div>
-                        <div class="tv-case-actions">
-                          <button
-                            type="button"
-                            class="tv-btn-toggle"
-                            (click)="vm.toggleCase(vm.selectedPlanId, tc.id); $event.stopPropagation()"
-                            [attr.aria-expanded]="vm.isCaseOpen(vm.selectedPlanId, tc.id)"
-                          >
-                            <iconify-icon [icon]="vm.isCaseOpen(vm.selectedPlanId, tc.id) ? 'mdi:chevron-up' : 'mdi:chevron-down'"></iconify-icon>
-                            {{ vm.isCaseOpen(vm.selectedPlanId, tc.id) ? 'Hide' : 'Steps' }}
-                          </button>
-                          <button type="button" class="tv-btn-run" (click)="vm.onRunTestCase(vm.selectedPlanId!, tc.id)">
-                            <iconify-icon icon="mdi:play-circle-outline"></iconify-icon>
-                            Run
-                          </button>
-                          <button type="button" class="tv-btn-delete" (click)="vm.onConfirmDeleteTestCase(vm.selectedPlanId!, tc.id)" title="Delete">
-                            <iconify-icon icon="mdi:trash-can-outline"></iconify-icon>
-                          </button>
-                        </div>
-                      </div>
-
-                      <!-- Steps: use CSS class toggling instead of [hidden] to avoid layout clipping -->
-                      <div class="tv-case-body">
-                        <ol class="tv-steps">
-                          @for (step of tc.steps; track $index) {
-                            <li>{{ step }}</li>
-                          }
-                        </ol>
-                        <div class="tv-case-expected">
-                          <span class="tv-expected-label">Expected result</span>
-                          <span>{{ tc.expected_result }}</span>
-                        </div>
-                      </div>
-
-                    </div>
-                  }
-
-                  @if (!vm.filteredSelectedTestCases.length) {
-                    <div class="tv-empty">
-                      <iconify-icon icon="mdi:test-tube-empty" style="font-size: 2rem; opacity: 0.25;"></iconify-icon>
-                      <p>No test cases generated yet.</p>
-                    </div>
-                  }
-                }
-              </div>
-            </div>
-
-          </div>
-        }
-
+          </button>
+        </button>
       }
-    </div><!-- /tv-detail-page__body -->
-
+    </div>
   </div>
 }

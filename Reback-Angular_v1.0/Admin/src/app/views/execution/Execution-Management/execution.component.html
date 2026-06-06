@@ -13,13 +13,7 @@
     </nav>
 
     <div class="topbar__actions">
-      <button class="btn btn--ghost" (click)="toggleScenario()">
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-          <path d="M2 8a6 6 0 1 0 6-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M2 4v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        Switch scenario
-      </button>
+      
       <button class="btn btn--pause" (click)="rerun()">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
           <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>
@@ -43,6 +37,7 @@
         <h1 class="exec-header__title">{{ scenario.caseName }}</h1>
         <span class="badge" [ngClass]="getStatusBadgeClass()">{{ getStatusLabel() }}</span>
       </div>
+      <!--
       <p class="exec-header__meta">
         Execution ID: <strong>{{ scenario.executionId }}</strong>
         &nbsp;·&nbsp; Environment: <strong>{{ scenario.environment }}</strong>
@@ -51,7 +46,7 @@
             &nbsp;·&nbsp; Execution time: <strong>{{ scenario.executionTime }}</strong>
           </span>
         }
-      </p>
+      </p>-->
     </div>
   </section>
 
@@ -178,27 +173,70 @@
       </div>
 
       <!-- Log stream card (always visible) -->
-      <div class="card">
-        <div class="card__head">
-          <span class="card__head-title">Logstream · standard-execution-core</span>
-          <a class="card__action-link" href="#">↓ Download log</a>
-        </div>
-        <div class="card__body">
-          <div class="logbox logbox--tall">
-            @for (log of streamedLogs; track log.index) {
-              <div class="log-line">
-                <span class="log-num">{{ log.index }}</span>
-                <span class="log-text" [ngClass]="getLogClass(log.level)">
-                  [{{ log.level }}] {{ log.message }}
+      <div class="card recent-runs-card">
+
+  <div class="card__head">
+    <div class="card__head-left">
+      <span class="card__head-title">
+        Recent Test Runs
+      </span>
+    </div>
+  </div>
+
+  <div class="card__body">
+    <div class="table-responsive">
+
+      <table class="recent-runs-table">
+        <thead>
+          <tr>
+            <th>Test Plan</th>
+            <th>Test Cases</th>
+            <th>Status</th>
+            <th>Duration</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          @for (run of paginatedRecentRuns; track run.executionId) {
+            <tr>
+              <td>{{ run.planTitle || run.planKey || run.planId }}</td>
+              <td>{{ run.testCaseTitle || run.testCaseKey || run.testCaseId }}</td>
+              <td>
+                <span class="status-{{ run.status }}">
+                  {{ getRunStatusLabel(run.status) }}
                 </span>
-              </div>
-            }
-            @if (streamedLogs.length === 0) {
-              <div class="logbox__empty">Waiting for log stream...</div>
-            }
-          </div>
-        </div>
+              </td>
+              <td>{{ run.duration }}s</td>
+              <td>{{ (run.finishedAt || run.startedAt || run.createdAt) | date:'medium' }}</td>
+            </tr>
+          }
+
+          @if (!recentRuns.length) {
+            <tr>
+              <td colspan="5" class="empty-state">
+                No executions yet.
+              </td>
+            </tr>
+          }
+        </tbody>
+
+      </table>
+
+    </div>
+    <div class="table-pagination">
+      <span class="table-pagination__meta">
+        {{ recentRunsVisibleStart }}-{{ recentRunsVisibleEnd }} of {{ recentRunsMerged.length }}
+      </span>
+      <div class="table-pagination__actions">
+        <button class="table-pagination__btn" (click)="goToRecentRunsPreviousPage()" [disabled]="recentRunsPage === 1">Prev</button>
+        <button class="table-pagination__btn" (click)="goToRecentRunsNextPage()" [disabled]="recentRunsPage === recentRunsTotalPages">Next</button>
       </div>
+    </div>
+  </div>
+
+</div>
+
 
       <!-- AI Recommendation (fail only) -->
       @if (scenario.aiRecommendation) {
@@ -313,29 +351,47 @@
           </div>
         </div>
       }
+<!-- Recent test runs 
+<div class="card recent-runs-card">
+  <div class="card__head">
+    <span class="card__head-title">Recent Test Runs</span>
+    <a class="card__action-link" href="#">View All</a>
+  </div>
 
-      <!-- Execution logs sidebar 
-      <div>
-        <div class="section-label">Execution Logs</div>
-        <div class="card">
-          <div class="card__body card__body--compact">
-            <div class="logbox logbox--sidebar">
-              @for (log of streamedLogs; track log.index) {
-                <div class="log-line">
-                  <span class="log-num">{{ log.index }}</span>
-                  <span class="log-text" [ngClass]="getLogClass(log.level)">
-                    [{{ log.level }}] {{ log.message }}
-                  </span>
-                </div>
-              }
-              @if (streamedLogs.length === 0) {
-                <div class="logbox__empty">No logs yet...</div>
-              }
-            </div>
-          </div>
-        </div>
-      </div>-->
+  <div class="card__body">
+    <div class="table-responsive">
+      <table class="recent-runs-table">
+        <thead>
+          <tr>
+            <th>Test Plan</th>
+            <th>Test cases</th>
+            <th>STATUS</th>
+            <th>DURATION</th>
+            <th>Date</th>
+          </tr>
+        </thead>
 
+        <tbody>
+          @for (run of recentRuns; track run.executionId) {
+            <tr>
+              <td>{{ run.planTitle || run.planKey || run.planId }}</td>
+              <td>{{ run.testCaseTitle || run.testCaseKey || run.testCaseId }}</td>
+              <td><span class="status-{{ run.status }}">{{ getRunStatusLabel(run.status) }}</span></td>
+              <td>{{ run.duration }}s</td>
+              <td>{{ (run.finishedAt || run.startedAt || run.createdAt) | date: 'medium' }}</td>
+            </tr>
+          }
+          @if (!recentRuns.length) {
+            <tr>
+              <td colspan="5">No executions yet.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>-->
+      
     </aside><!-- /exec-right -->
 
   </div><!-- /exec-body -->
@@ -343,10 +399,10 @@
 </div><!-- /execution-shell -->
 
 @if (selectedScreenshotUrl) {
-  <div class="screenshot-modal" role="dialog" aria-modal="true" aria-label="Screenshot preview" (click)="closeScreenshot()">
-    <div class="screenshot-modal__panel" (click)="$event.stopPropagation()">
+  <button class="screenshot-modal" role="dialog" aria-modal="true" aria-label="Screenshot preview" (click)="closeScreenshot()">
+    <button class="screenshot-modal__panel" (click)="$event.stopPropagation()">
       <button class="screenshot-modal__close" type="button" aria-label="Close screenshot preview" (click)="closeScreenshot()">×</button>
       <img class="screenshot-modal__image" [src]="selectedScreenshotUrl" alt="Screenshot preview" />
-    </div>
-  </div>
+    </button>
+  </button>
 }

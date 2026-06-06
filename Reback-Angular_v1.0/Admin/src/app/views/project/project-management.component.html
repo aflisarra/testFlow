@@ -47,8 +47,8 @@
                   <label class="date-range-label" for="startDate">Start Date <span class="text-danger">*</span></label>
                   <input type="date" class="form-control"
                     [class.is-invalid]="projectForm.controls.startDate.touched && projectForm.controls.startDate.invalid"
-                    class="form-control"
                     [min]="todayDate"
+                    [max]="projectForm.value.endDate || ''"
                     formControlName="startDate"
                     (keydown)="$event.preventDefault()" />
                   @if (projectForm.controls.startDate.touched && projectForm.controls.startDate.errors?.['required']) {
@@ -96,9 +96,8 @@ projectForm.controls.endDate.errors?.['beforeStartDate']) {
                   <label class="date-range-label" for="milestoneDate">Milestone Date <span class="text-danger">*</span></label>
                   <input type="date" class="form-control"
                     [class.is-invalid]="projectForm.controls.milestoneDate.touched && projectForm.controls.milestoneDate.invalid"
-                      class="form-control"
-  [min]="createMinAfterStartDate"
-  [max]="projectForm.value.endDate"
+                    [min]="createMinAfterStartDate"
+                    [max]="projectForm.value.endDate || ''"
                     formControlName="milestoneDate" 
                     (keydown)="$event.preventDefault()"/>
                   @if (projectForm.controls.milestoneDate.touched && projectForm.controls.milestoneDate.errors?.['required']) {
@@ -452,8 +451,8 @@ projectForm.controls.milestoneDate.errors?.['invalidMilestoneRange']) {
           <label class="form-label pm-label" for="startDate">Start Date <span class="text-danger">*</span></label>
           <input type="date" class="form-control"
             [class.is-invalid]="editProjectForm.controls.startDate.touched && editProjectForm.controls.startDate.invalid"
-            class="form-control"
             [min]="todayDate"
+            [max]="editProjectForm.value.endDate || ''"
             formControlName="startDate" 
             (keydown)="$event.preventDefault()"/>
           @if (editProjectForm.controls.startDate.touched && editProjectForm.controls.startDate.errors?.['required']) {
@@ -475,9 +474,8 @@ projectForm.controls.milestoneDate.errors?.['invalidMilestoneRange']) {
           <label class="form-label pm-label" for="milestoneDate">Milestone Date <span class="text-danger">*</span></label>
           <input type="date" class="form-control"
             [class.is-invalid]="editProjectForm.controls.milestoneDate.touched && editProjectForm.controls.milestoneDate.invalid"
-              class="form-control"
-             [min]="createMinAfterStartDate"
-             [max]="projectForm.value.endDate"
+             [min]="editMinAfterStartDate"
+             [max]="editProjectForm.value.endDate || ''"
             formControlName="milestoneDate" 
             (keydown)="$event.preventDefault()"/>
           @if (editProjectForm.controls.milestoneDate.touched && editProjectForm.controls.milestoneDate.errors?.['required']) {

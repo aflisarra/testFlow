@@ -18,7 +18,7 @@ import { getErrorMessage, getErrorStatus } from '@/app/views/test/utils/error.ut
 import { CommonModule } from '@angular/common'
 import { Component, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, ElementRef, HostListener, inject, NgZone, ViewChild } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms'
+import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms'
 import { ActivatedRoute, Router } from '@angular/router'
 import { NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap'
 import { Store } from '@ngrx/store'
@@ -61,8 +61,32 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
     name: ['', Validators.required],
     specDocument: ['', Validators.required],
     projectId: ['', Validators.required],
-    applicationUrl: [''],
+    applicationUrl: ['', [Validators.required, TestSuiteConfigurationComponent.applicationUrlValidator]],
   })
+
+  private static applicationUrlValidator(control: AbstractControl): ValidationErrors | null {
+    const value = String(control.value || '').trim()
+    if (!value) return null
+    if (/^https?:\/\//i.test(value)) return { protocolIncluded: true }
+    if (!/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?::\d{2,5})?(?:\/[^\s]*)?$/i.test(value)) {
+      return { invalidUrl: true }
+    }
+    return null
+  }
+
+  getApplicationUrlErrorMessage(): string {
+    const control = this.testPlanForm.get('applicationUrl')
+    if (!control?.touched || !control.errors) return ''
+    if (control.errors['required']) return 'Application URL is required.'
+    if (control.errors['protocolIncluded']) return 'https:// already exists. Enter only the domain and path.'
+    if (control.errors['invalidUrl']) return 'Enter a valid application URL, for example your-app.com/path.'
+    return 'Application URL is invalid.'
+  }
+
+  private getNormalizedApplicationUrl(value: unknown): string {
+    const raw = String(value || '').trim().replace(/^\/+/, '')
+    return raw ? `https://${raw}` : ''
+  }
 
   // Banner for existing test plan
   showExistingBanner = false
@@ -72,6 +96,14 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   styleConfig = ''
   uploadedFileName = ''
   selectedFile: File | null = null
+  private initialGenerationState: {
+    projectId: string
+    name: string
+    applicationUrl: string
+    styleConfig: string
+    specDocument: string
+    selectedFileName: string
+  } | null = null
 
   generatingPlans = false
   regeneratingPlanId: string | null = null
@@ -113,6 +145,17 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
 
   get nameTest(): string {
     return this.testPlanForm.value.name || '';
+  }
+
+  get canGenerateTestPlan(): boolean {
+    if (this.generatingPlans || !this.isSelectedProjectAccepted) return false
+    if (this.testPlanForm.invalid) return false
+
+    if (!this.initialGenerationState) {
+      return !!this.selectedFile
+    }
+
+    return this.hasGenerationInputsChanged()
   }
 
   onNameTestChange(value: string): void {
@@ -226,6 +269,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
     this.selectedFile = null
     this.uploadedFileName = ''
     this.testPlanForm.patchValue({ specDocument: '', name: '' })
+    this.clearInitialGenerationState()
   }
 
   private async loadExistingTestPlanBanner(projectId: string, promptToEdit = false): Promise<void> {
@@ -380,6 +424,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       specDocument: '',
       projectId,
     })
+    this.clearInitialGenerationState()
   }
 
   private async loadExistingSuiteForEditing(suite: TestSuiteDto): Promise<void> {
@@ -396,9 +441,11 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
     this.testPlanForm.patchValue({
       name: this.getSuiteDisplayName(suite),
       specDocument: suite.specFileName || 'Existing specification',
+      applicationUrl: this.getNormalizedApplicationUrl(suite.urlCible || ''),
     })
     this.uploadedFileName = suite.specFileName || ''
     this.selectedFile = null
+    this.styleConfig = String(suite.description || '').trim()
 
     try {
       const resp = await firstValueFrom(this.testLabService.getTestPlans(suiteId))
@@ -406,17 +453,29 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       this.testCasesByPlan = {}
       this.planStatuses = {}
       for (const plan of this.testPlans) {
-        this.planStatuses[plan.id] = 'reviewing'
+        if (Array.isArray(plan.testCases)) this.testCasesByPlan[plan.id] = plan.testCases
+        this.planStatuses[String(plan.id || '').trim()] = 'pending'
       }
-      for (const row of resp?.validationPlanStatuses || resp?.planStatuses || []) {
+      for (const row of resp?.testCasesByPlan || []) {
+        const planId = String(row?.planId || '').trim()
+        if (planId) this.testCasesByPlan[planId] = Array.isArray(row.testCases) ? row.testCases : []
+      }
+      const storedStatuses = Array.isArray(resp?.validationPlanStatuses)
+        ? resp.validationPlanStatuses
+        : (Array.isArray(resp?.planStatuses) ? resp.planStatuses : [])
+      for (const row of storedStatuses) {
         const planId = String(row?.planId || '').trim()
         const status = String(row?.status || '').trim().toLowerCase()
-        if (planId) this.planStatuses[planId] = status === 'completed' || status === 'confirmed' ? 'confirmed' : 'pending'
+        if (planId) {
+          this.planStatuses[planId] =
+            status === 'completed' || status === 'confirmed' ? 'confirmed' : 'pending'
+        }
       }
       this.plansValidated = this.allPlansConfirmed
       this.sessionSaved = true
       this.showExistingBanner = false
       await this.loadExistingSpecDocumentIfAvailable(suite)
+      this.captureInitialGenerationState()
       this.scrollToPlansResult()
     } catch (err: unknown) {
       this.errorMessage = getErrorMessage(err, 'Unable to load existing test plans')
@@ -445,6 +504,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       )
     }
     this.showExistingBanner = false
+    this.captureInitialGenerationState()
   }
 
   declineExistingData(): void {
@@ -457,6 +517,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
     this.showExistingBanner = false
     this.existingTestPlan = null
     this.currentTestSuiteId = ''
+    this.clearInitialGenerationState()
   }
 
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -481,7 +542,18 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   get allPlansConfirmed(): boolean {
     return (
       this.testPlans.length > 0 &&
-      this.testPlans.every((p) => this.planStatuses[p.id] === 'confirmed')
+      this.testPlans.every((p) => this.planStatuses[String(p.id || '').trim()] === 'confirmed')
+    )
+  }
+
+  get canValidateAndGenerateNextTestCase(): boolean {
+    return this.areAllPlansConfirmed()
+  }
+
+  private areAllPlansConfirmed(): boolean {
+    return (
+      this.testPlans.length > 0 &&
+      this.testPlans.every((p) => this.planStatuses[String(p.id || '').trim()] === 'confirmed')
     )
   }
 
@@ -523,6 +595,43 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       return
     }
     void this.generatePlans()
+  }
+
+  private captureInitialGenerationState(): void {
+    const raw = this.testPlanForm.getRawValue()
+    this.initialGenerationState = {
+      projectId: String(raw.projectId || '').trim(),
+      name: String(raw.name || '').trim(),
+      applicationUrl: this.getNormalizedApplicationUrl(raw.applicationUrl),
+      styleConfig: String(this.styleConfig || '').trim(),
+      specDocument: String(raw.specDocument || '').trim(),
+      selectedFileName: String(this.selectedFile?.name || this.uploadedFileName || '').trim(),
+    }
+  }
+
+  private clearInitialGenerationState(): void {
+    this.initialGenerationState = null
+  }
+
+  private hasGenerationInputsChanged(): boolean {
+    const raw = this.testPlanForm.getRawValue()
+    const current = {
+      projectId: String(raw.projectId || '').trim(),
+      name: String(raw.name || '').trim(),
+      applicationUrl: this.getNormalizedApplicationUrl(raw.applicationUrl),
+      styleConfig: String(this.styleConfig || '').trim(),
+      specDocument: String(raw.specDocument || '').trim(),
+      selectedFileName: String(this.selectedFile?.name || this.uploadedFileName || '').trim(),
+    }
+
+    return (
+      current.projectId !== this.initialGenerationState?.projectId ||
+      current.name !== this.initialGenerationState?.name ||
+      current.applicationUrl !== this.initialGenerationState?.applicationUrl ||
+      current.styleConfig !== this.initialGenerationState?.styleConfig ||
+      current.specDocument !== this.initialGenerationState?.specDocument ||
+      current.selectedFileName !== this.initialGenerationState?.selectedFileName
+    )
   }
 
   onRequestStopGeneration(): void {
@@ -596,7 +705,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   onValidatePlans() {
     if (!this.testPlans.length) return
     this.testPlans.forEach((p) => {
-      this.planStatuses[p.id] = 'confirmed'
+      this.planStatuses[String(p.id || '').trim()] = 'confirmed'
     })
     this.plansValidated = this.allPlansConfirmed
     this.sessionSaved = false
@@ -604,10 +713,10 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   }
 
   onTogglePlanValidation(planId: string) {
-    const current = this.planStatuses[planId]
-    if (current !== 'reviewing' && current !== 'pending' && current !== 'confirmed') return
-
-    this.planStatuses[planId] = current === 'confirmed' ? 'pending' : 'confirmed'
+    const id = String(planId || '').trim()
+    if (!id) return
+    const current = this.planStatuses[id]
+    this.planStatuses[id] = current === 'confirmed' ? 'pending' : 'confirmed'
     this.plansValidated = this.allPlansConfirmed
     this.sessionSaved = false
   }
@@ -633,17 +742,15 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   }
 
   getValidateButtonClass(planId: string): string {
-    const current = this.planStatuses[planId]
+    const current = this.planStatuses[String(planId || '').trim()]
     if (current === 'confirmed') return 'testlab-validate-btn--green'
-    if (current === 'pending') return 'testlab-validate-btn--orange'
-    return 'testlab-validate-btn--gray'
+    return 'testlab-validate-btn--orange'
   }
 
   getValidateButtonLabel(planId: string): string {
-    const current = this.planStatuses[planId]
-    if (current === 'confirmed') return 'Invalidate'
-    if (current === 'pending') return 'Invalidated'
-    return 'Validate'
+    const current = this.planStatuses[String(planId || '').trim()]
+    if (current === 'confirmed') return 'Valid'
+    return 'Invalid'
   }
 
   // Remplacer onSaveSession() â€” retourne false si erreur et affiche toastr
@@ -653,6 +760,13 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       (p) => (this.testCasesByPlan[p.id] || []).length > 0
     )
     const suiteStatus = hasCasesForAllPlans ? 'completed' : 'incomplete'
+    const testCasesByPlan = this.testPlans
+      .filter((plan) => Object.prototype.hasOwnProperty.call(this.testCasesByPlan, plan.id))
+      .map((plan) => ({
+        planId: plan.id,
+        planTitle: plan.title,
+        testCases: this.testCasesByPlan[plan.id] || [],
+      }))
     try {
       await firstValueFrom(
         this.testLabService.saveSuiteSession(this.currentTestSuiteId, {
@@ -660,6 +774,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
           suiteStatus,
           testPlans: this.testPlans,
           planStatuses: this.planStatuses,
+          testCasesByPlan,
         })
       )
       this.sessionSaved = true
@@ -704,7 +819,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       return
     }
 
-    if (!this.allPlansConfirmed) {
+    if (!this.areAllPlansConfirmed()) {
       this.toastr.warning('Please validate all test plans to continue.', 'Validation')
       return
     }
@@ -801,7 +916,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       this.activePlanGenerationRequestId = requestId
       if (this.selectedFile) formData.append('file', this.selectedFile)
       formData.append('styleConfig', this.styleConfig.trim())
-      const applicationUrl = String(this.testPlanForm.getRawValue().applicationUrl || '').trim()
+      const applicationUrl = this.getNormalizedApplicationUrl(this.testPlanForm.getRawValue().applicationUrl)
       formData.append('applicationUrl', applicationUrl)
       formData.append('urlCible', applicationUrl)
       formData.append('description', this.styleConfig.trim())
@@ -832,7 +947,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       }
 
       this.testPlans[index] = updated
-      this.planStatuses[updated.id] = 'pending'
+      this.planStatuses[String(updated.id || '').trim()] = 'pending'
       this.sessionSaved = false
       this.plansValidated = false
     } catch (err: unknown) {
@@ -867,7 +982,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
     const plan = this.currentPlan
     if (!plan) return
 
-    this.planStatuses[plan.id] = 'confirmed'
+    this.planStatuses[String(plan.id || '').trim()] = 'confirmed'
 
     if (this.isLastPlan) {
       // Tous les plans sont confirmÃ©s â†’ naviguer
@@ -894,7 +1009,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       this.currentPlanIndex--
       // Le plan revient en mode "reviewing" pour permettre re-confirmation
       const plan = this.currentPlan
-      if (plan) this.planStatuses[plan.id] = 'reviewing'
+      if (plan) this.planStatuses[String(plan.id || '').trim()] = 'reviewing'
     }
   }
 
@@ -961,7 +1076,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
     this.activeCaseGenerationRequestId = requestId
     this.errorMessage = ''
     this.generatingCases = true
-    this.planStatuses[plan.id] = 'generating'
+    this.planStatuses[String(plan.id || '').trim()] = 'generating'
 
     try {
       const resp = await firstValueFrom(
@@ -976,11 +1091,11 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       )
       if (currentCaseToken !== this.casesGenerationToken) return
       this.testCasesByPlan[plan.id] = resp?.testCases || []
-      this.planStatuses[plan.id] = 'reviewing'
+      this.planStatuses[String(plan.id || '').trim()] = 'reviewing'
     } catch (err: unknown) {
       if (currentCaseToken !== this.casesGenerationToken) return
       this.errorMessage = getErrorMessage(err, 'Erreur génération test cases')
-      this.planStatuses[plan.id] = 'pending'
+      this.planStatuses[String(plan.id || '').trim()] = 'pending'
     } finally {
       if (currentCaseToken === this.casesGenerationToken) {
         this.generatingCases = false
@@ -1071,7 +1186,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       const formData = new FormData()
       formData.append('file', this.selectedFile)
       formData.append('styleConfig', this.styleConfig.trim())
-      const applicationUrl = String(rawForm.applicationUrl || '').trim()
+      const applicationUrl = this.getNormalizedApplicationUrl(rawForm.applicationUrl)
       formData.append('applicationUrl', applicationUrl)
       formData.append('urlCible', applicationUrl)
       formData.append('description', this.styleConfig.trim())
@@ -1095,8 +1210,8 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
       }
       this.testPlans = Array.isArray(result?.testPlans) ? result.testPlans : []
 
-      // Initialiser tous les plans en "reviewing" pour afficher le bouton gris avant validation.
-      this.testPlans.forEach((p) => (this.planStatuses[p.id] = 'reviewing'))
+      // Initialiser tous les plans en "pending" pour afficher l'état invalide par défaut.
+      this.testPlans.forEach((p) => (this.planStatuses[String(p.id || '').trim()] = 'pending'))
 
       if (!this.testPlans.length) {
         this.errorMessage = 'Aucun test plan gÃ©nÃ©rÃ©.'
