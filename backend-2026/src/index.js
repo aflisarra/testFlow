@@ -38,9 +38,6 @@ const mongoUri = process.env.MONGODB_URI || process.env.MONGODB_URL
 //app.use(cors());
 
 
-
-
-
 function parseAllowedOrigins(raw) {
   if (!raw) return ['http://localhost:4200', 'http://localhost:3000']
   return String(raw)

@@ -1,9 +1,6 @@
-import { AuthenticationService } from '@/app/core/services/auth.service'
 import { ApiService } from '@/app/core/services/api.service'
-import { UINotificationService } from '@/app/core/services/ui-notification.service'
+import { AuthenticationService } from '@/app/core/services/auth.service'
 import { ProjectsStateService } from '@/app/core/services/projects-state.service'
-import {  ChangeDetectorRef } from '@angular/core'
-import {MatTabsModule} from '@angular/material/tabs';
 import {
   TestLabService,
   type TestCaseDto,
@@ -12,20 +9,21 @@ import {
   type TestPlanDto,
   type TestSuiteDto,
 } from '@/app/core/services/testlab.service'
+import { UINotificationService } from '@/app/core/services/ui-notification.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import type { SuiteSessionStatus, TestGenerationStatus, TestSuiteStatusKey } from '@/app/views/test/models/status.types'
 import { getErrorMessage } from '@/app/views/test/utils/error.utils'
 import { CommonModule } from '@angular/common'
-import { Component, CUSTOM_ELEMENTS_SCHEMA, HostListener, inject, OnInit } from '@angular/core'
+import { ChangeDetectorRef, Component, CUSTOM_ELEMENTS_SCHEMA, HostListener, inject, NgZone, OnInit } from '@angular/core'
 import { FormsModule } from '@angular/forms'
+import { MatTabsModule } from '@angular/material/tabs'
 import { ActivatedRoute, Router } from '@angular/router'
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
 import { Store } from '@ngrx/store'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { ConfirmModalComponent } from '../../admin/shared/confirm-modal.component'
-
 interface ExecutionEntryDto {
   executedAt: string
   duration: string
@@ -51,6 +49,7 @@ export class TestCasesValidationComponent implements OnInit {
   private router = inject(Router)
   private route = inject(ActivatedRoute)
   private modalService = inject(NgbModal)
+  private ngZone = inject(NgZone)
 private cdr = inject(ChangeDetectorRef)
   loading = false
   errorMessage = ''
@@ -317,19 +316,30 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
   }
 
   onActionOpenSuite(suite: TestSuiteDto, event: Event): void {
-    event.stopPropagation()
-    this.closeActionMenu()
-    void this.openDetailsModal(suite)
+  event.stopPropagation()
+  event.preventDefault()
+  
+  // Capture la suite AVANT de fermer le menu
+  const targetSuite = suite
+  
+  // Ferme le menu après un tick pour ne pas interférer
+  setTimeout(() => {
+    this.actionMenuSuiteId = null
+    void this.openDetailsModal(targetSuite)
+  }, 0)
+}
+
+async openDetailsModal(suite: TestSuiteDto): Promise<void> {
+  if (!this.canOpenSuite(suite)) {
+    this.uiNotification.accessDenied("Access denied: you are not authorized to open this test.")
+    return
   }
 
-  async openDetailsModal(suite: TestSuiteDto): Promise<void> {
-    if (!this.canOpenSuite(suite)) {
-      
-      this.uiNotification.accessDenied("Access denied: you are not authorized to open this test.")
-      return
-    }
-    const suiteId = String(suite?._id || '').trim()
-    if (!suiteId) return
+  const suiteId = String(suite?._id || '').trim()
+  if (!suiteId) return
+
+  // Force l'exécution dans la zone Angular
+  this.ngZone.run(() => {
     this.detailsModalOpen = true
     this.detailsModalLoading = true
     this.detailsModalTab = 'details'
@@ -341,21 +351,25 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     this.detailsModalOpenCaseSteps = {}
     this.detailsModalExecutionHistory = {}
     this.errorMessage = ''
+    this.cdr.detectChanges()
+  })
 
-    try {
-      const detail = await firstValueFrom(this.testLabService.getTestSuiteById(suiteId))
-      const resp = await firstValueFrom(this.testLabService.getTestPlans(suiteId))
-      const plans = resp?.testPlans?.length ? resp.testPlans : (detail.testPlans || [])
-      const casesRows = resp?.testCasesByPlan?.length ? resp.testCasesByPlan : (detail.testCasesByPlan || [])
-      const casesByPlan: Record<string, TestCaseDto[]> = {}
-      for (const plan of plans) {
-        casesByPlan[plan.id] = plan.testCases || []
-      }
+  try {
+    const detail = await firstValueFrom(this.testLabService.getTestSuiteById(suiteId))
+    const resp = await firstValueFrom(this.testLabService.getTestPlans(suiteId))
+    const plans = resp?.testPlans?.length ? resp.testPlans : (detail.testPlans || [])
+    const casesRows = resp?.testCasesByPlan?.length ? resp.testCasesByPlan : (detail.testCasesByPlan || [])
+    const casesByPlan: Record<string, TestCaseDto[]> = {}
 
-      for (const row of casesRows) {
-        const planId = String(row?.planId || '').trim()
-        if (planId) casesByPlan[planId] = row.testCases || []
-      }
+    for (const plan of plans) {
+      casesByPlan[plan.id] = plan.testCases || []
+    }
+    for (const row of casesRows) {
+      const planId = String(row?.planId || '').trim()
+      if (planId) casesByPlan[planId] = row.testCases || []
+    }
+
+    this.ngZone.run(() => {
       this.detailsModalSuite = detail
       this.detailsModalProject =
         detail?.projectId && typeof detail.projectId === 'object'
@@ -365,12 +379,21 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
       this.detailsModalCasesByPlan = casesByPlan
       this.detailsModalSelectedPlanId = plans[0]?.id ?? null
       this.detailsModalExecutionHistory = this.readExecutionHistory(suiteId)
-    } catch (err: unknown) {
+      this.cdr.detectChanges()
+    })
+
+  } catch (err: unknown) {
+    this.ngZone.run(() => {
       this.errorMessage = getErrorMessage(err, 'Unable to load test details')
-    } finally {
+      this.cdr.detectChanges()
+    })
+  } finally {
+    this.ngZone.run(() => {
       this.detailsModalLoading = false
-    }
+      this.cdr.detectChanges()
+    })
   }
+}
 
   closeDetailsModal(): void {
     this.detailsModalOpen = false
@@ -382,6 +405,7 @@ readonly statusFilters: readonly { key: TestSuiteStatusKey; label: string }[] = 
     this.detailsModalSelectedPlanId = null
     this.detailsModalOpenCaseSteps = {}
     this.detailsModalExecutionHistory = {}
+     this.cdr.detectChanges()
   }
 
   selectDetailsModalPlan(planId: string): void {
@@ -1020,11 +1044,12 @@ getTotalCases(suite: TestSuiteDto | null | undefined): number {
     return cleaned.length > 80 ? cleaned.slice(0, 80) + '…' : cleaned || '—'
   }
 
-  canOpenSuite(suite: TestSuiteDto | null | undefined): boolean {
-    if (!suite) return false
-    if (suite.canOpen === false) return false
-    return true
-  }
+ canOpenSuite(suite: TestSuiteDto | null | undefined): boolean {
+  if (!suite) return false;
+  // Seulement false explicite bloque, pas undefined/null
+  if (suite.canOpen === false) return false;
+  return true;
+}
 //do to selenium web driver 
   async onRunSuite(): Promise<void> {
     if (!this.suiteDetail) {
@@ -1069,8 +1094,11 @@ getTotalCases(suite: TestSuiteDto | null | undefined): number {
 @HostListener('document:click', ['$event'])
 closeDropdown(event: MouseEvent): void {
   const target = event.target as HTMLElement
-  // Ne pas interférer avec les clics dans tv-cases-body
   if (target?.closest('.tv-cases-body')) return
+  
+  // Ignore si clic vient du menu actions (géré par toggleActionMenu/onAction*)
+  if (target?.closest('.tv-actions-menu')) return  // ← ajoute cette ligne
+  
   if (!target?.closest('.tv-actions-menu-wrap')) {
     this.actionMenuSuiteId = null
   }

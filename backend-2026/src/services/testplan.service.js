@@ -1,6 +1,6 @@
 const TestPlan = require('../models/testplan.model')
 const TestCase = require('../models/testcase.model')
-
+const axios = require('axios')
 /**
  * Create test plan
  */
@@ -107,10 +107,38 @@ async function deleteTestPlan(planId) {
   return true
 }
 
+/**
+ * Generate plans from AI (NO DB)
+ */
+async function generateTestPlansPreview({ file, styleConfig, applicationUrl }) {
+  try {
+    // Exemple appel vers FastAPI (adapte selon ton projet)
+    const response = await axios.post('http://localhost:8000/generate-test-plan', {
+      file,
+      styleConfig,
+      applicationUrl,
+    })
+
+    const testPlans = response.data?.testPlans || []
+
+    return testPlans.map((plan, index) => ({
+      id: plan.id || `TP-${index + 1}`,
+      title: plan.title,
+      description: plan.description || '',
+    }))
+  } catch (error) {
+    const err = new Error('AI generation failed')
+    err.statusCode = 500
+    throw err
+  }
+}
+
+
 module.exports = {
   createTestPlan,
   getPlansBySuite,
   getPlanById,
   updateTestPlan,
   deleteTestPlan,
+  generateTestPlansPreview,
 }

@@ -1,0 +1,48 @@
+<div class="spec-editor-dialog">
+  <div class="spec-editor-header">
+    <div>
+      <div class="spec-editor-kicker">Specification Document</div>
+      <h2 class="spec-editor-title">{{ data.suiteName || 'Edit Spec' }}</h2>
+      @if (fileName) {
+        <div class="spec-editor-filename">{{ fileName }}</div>
+      }
+    </div>
+    <button type="button" class="spec-editor-close" (click)="cancel()" [disabled]="saving">×</button>
+  </div>
+
+  @if (loading) {
+    <div class="spec-editor-loading">
+      <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+      <span>Loading specification...</span>
+    </div>
+  } @else {
+    @if (errorMessage) {
+      <div class="alert alert-danger">{{ errorMessage }}</div>
+    }
+
+    <div class="spec-editor-body">
+      <ckeditor
+        [editor]="Editor"
+        [config]="editorConfig"
+        [(ngModel)]="htmlContent"
+        name="specContent"
+        [disabled]="saving"
+      ></ckeditor>
+      @if (!htmlContent) {
+        <div class="spec-editor-empty-hint">
+          No specification content loaded.
+        </div>
+      }
+    </div>
+
+    <div class="spec-editor-footer">
+      <button type="button" class="btn btn-outline-secondary" (click)="cancel()" [disabled]="saving">Cancel</button>
+      <button type="button" class="btn btn-brand" (click)="save()" [disabled]="saving">
+        @if (saving) {
+          <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+        }
+        Save
+      </button>
+    </div>
+  }
+</div>

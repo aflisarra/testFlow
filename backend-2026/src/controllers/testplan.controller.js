@@ -64,3 +64,23 @@ exports.delete = async (req, res) => {
     })
   }
 }
+exports.generatePreview = async (req, res) => {
+  try {
+    const { styleConfig, applicationUrl } = req.body
+    const file = req.file // si upload fichier
+
+    const testPlans = await testPlanService.generateTestPlansPreview({
+      file,
+      styleConfig,
+      applicationUrl,
+    })
+
+    return res.status(200).json({
+      testPlans,
+    })
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      message: error.message,
+    })
+  }
+}

@@ -7,6 +7,10 @@ const exportController = require('../controllers/export.controller');
 const authenticateUser = require('../middleware/authenticateUser');
 const { requireTestSuiteAccess } = require('../middleware/testsuite-access.middleware');
 
+const multer = require('multer') // ✅ AJOUT
+const upload = multer({ storage: multer.memoryStorage() }) // ✅ AJOUT
+
+
 router.use(authenticateUser);
 
 router.post('/', controllerTestSuite.create);
@@ -54,5 +58,12 @@ router.get('/:id', requireTestSuiteAccess, controllerTestSuite.getById);
 router.put('/:id', requireTestSuiteAccess, controllerTestSuite.update);
 
 router.delete('/:id', requireTestSuiteAccess, controllerTestSuite.delete);
+
+router.post(
+  '/preview',
+  upload.single('file'), // ✅ maintenant défini
+  controllerTestPlan.generatePreview
+)
+
 
 module.exports = router;

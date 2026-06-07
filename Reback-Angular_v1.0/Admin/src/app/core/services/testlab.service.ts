@@ -136,6 +136,14 @@ export class TestLabService {
   getTestExecutions(testSuiteId: string): Observable<TestExecutionDto[]> {
     return this.api.get<TestExecutionDto[]>(`/api/testsuites/${testSuiteId}/executions`)
   }
+  
+generatePlanPreview(formData: FormData): Observable<{ testPlans: TestPlanDto[] }> {
+  return this.api.post<{ testPlans: TestPlanDto[] }>(
+    `/api/testsuites/preview`,   // ✅ correspond à ton backend
+    formData
+  )
+}
+
 
   getRecentExecutions(limit = 20): Observable<TestExecutionDto[]> {
     return this.api.get<TestExecutionDto[]>(`/api/testsuites/executions/recent?limit=${limit}`)

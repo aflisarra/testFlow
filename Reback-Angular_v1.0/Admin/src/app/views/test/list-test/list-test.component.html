@@ -202,14 +202,14 @@
       </div>
 
       @if (vm.detailsModalOpen) {
-        <button class="tv-suite-modal-backdrop" (click)="vm.closeDetailsModal()">
-          <button
-            class="tv-suite-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="suite-details-modal-title"
-            (click)="$event.stopPropagation()"
-          >
+        <div class="tv-suite-modal-backdrop" (click)="vm.closeDetailsModal()">
+  <div
+    class="tv-suite-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="suite-details-modal-title"
+    (click)="$event.stopPropagation()"
+  >
             <div class="tv-suite-modal__header">
   <div class="tv-suite-modal__title-row">
     <div>
@@ -375,56 +375,73 @@
               }
 
               @if (!vm.detailsModalLoading && vm.detailsModalTab === 'execution') {
-  <div class="sdm-panel">
-
+  <div style="display:flex; height:100%; min-height:0; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#fff;">
+    
     <!-- Sidebar Plans -->
-    <aside class="sdm-panel__plans">
-      <div class="sdm-panel__plans-hd">
-        Plans <span style="float:right; background:#e2e8f0; border-radius:99px; padding:0 7px; font-size:10px; color:#64748b;">{{ vm.detailsModalPlans.length }}</span>
+    <aside style="width:200px; min-width:160px; border-right:1px solid #e2e8f0; background:#f8fafc; display:flex; flex-direction:column; overflow-y:auto;">
+      <div style="padding:10px 14px; font-size:12px; font-weight:600; color:#475569; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; letter-spacing:.04em; text-transform:uppercase;">
+        Plans
+        <span style="background:#e2e8f0; border-radius:99px; padding:1px 7px; font-size:10px; color:#64748b; font-weight:500; text-transform:none; letter-spacing:0;">{{ vm.detailsModalPlans.length }}</span>
       </div>
+
       @for (plan of vm.detailsModalPlans; track plan.id) {
         <button
           type="button"
-          class="sdm-plan-btn"
-          [class.sdm-plan-btn--active]="vm.detailsModalSelectedPlanId === plan.id"
+          style="display:flex; flex-direction:column; gap:1px; padding:9px 14px; border:none; background:transparent; cursor:pointer; text-align:left; border-bottom:1px solid #f1f5f9; transition:background .15s;"
+          [style.background]="vm.detailsModalSelectedPlanId === plan.id ? '#eff6ff' : 'transparent'"
+          [style.borderLeft]="vm.detailsModalSelectedPlanId === plan.id ? '3px solid #3b82f6' : '3px solid transparent'"
           (click)="vm.selectDetailsModalPlan(plan.id)"
         >
-          <span class="sdm-plan-btn__id">{{ plan.id }}</span>
-          <span class="sdm-plan-btn__title">{{ plan.title || plan.id }}</span>
+          <span style="font-size:10px; color:#94a3b8; font-family:monospace;">#{{ plan.id }}</span>
+          <span style="font-size:12px; color:#1e293b; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px;">{{ plan.title || plan.id }}</span>
         </button>
       }
+
       @if (!vm.detailsModalPlans.length) {
-        <div class="sdm-empty-sm">No test plans.</div>
+        <div style="padding:20px 14px; font-size:12px; color:#94a3b8; text-align:center;">No test plans.</div>
       }
     </aside>
 
     <!-- Cases area -->
-    <div class="sdm-cases">
-      <div class="sdm-cases__head">
+    <div style="flex:1; display:flex; flex-direction:column; overflow-y:auto; min-width:0;">
+      
+      <!-- Header -->
+      <div style="display:grid; grid-template-columns:1fr auto 160px; padding:9px 16px; border-bottom:1px solid #e2e8f0; background:#f8fafc; font-size:11px; font-weight:600; color:#64748b; letter-spacing:.04em; text-transform:uppercase; position:sticky; top:0; z-index:1;">
         <span>Test case</span>
         <span></span>
-        <span class="sdm-cases__head-actions">Actions</span>
+        <span style="text-align:right;">Actions</span>
       </div>
 
       @for (testCase of vm.detailsModalSelectedCases; track testCase.id) {
-        <div>
-          <div class="sdm-case-row">
-            <span class="sdm-case-title">{{ testCase.title }}</span>
+        <div style="border-bottom:1px solid #f1f5f9;">
+          
+          <!-- Case row -->
+          <div style="display:grid; grid-template-columns:1fr auto 160px; align-items:center; padding:10px 16px; gap:8px; transition:background .12s;"
+               onmouseenter="this.style.background='#f8fafc'" onmouseleave="this.style.background='transparent'">
+            
+            <span style="font-size:13px; color:#1e293b; font-weight:500;">{{ testCase.title }}</span>
             <span></span>
-            <div class="sdm-case-actions">
+            
+            <div style="display:flex; gap:6px; justify-content:flex-end;">
+              <!-- Run button -->
               <button
                 type="button"
-                class="sdm-btn-run"
+                style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border:none; border-radius:6px; background:#22c55e; color:#fff; font-size:11px; font-weight:600; cursor:pointer; transition:opacity .15s;"
+                onmouseenter="this.style.opacity='.85'" onmouseleave="this.style.opacity='1'"
                 (click)="vm.onRunTestCaseFromModal(vm.detailsModalSelectedPlanId || '', testCase)"
                 title="Run this test case"
               >
                 <iconify-icon icon="mdi:play-circle-outline"></iconify-icon>
                 Run
               </button>
+
+              <!-- Steps button -->
               <button
                 type="button"
-                class="sdm-btn-steps"
-                [class.sdm-btn-steps--active]="vm.isDetailsModalCaseStepsOpen(vm.detailsModalSelectedPlanId, testCase.id)"
+                style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; transition:all .15s;"
+                [style.background]="vm.isDetailsModalCaseStepsOpen(vm.detailsModalSelectedPlanId, testCase.id) ? '#3b82f6' : '#f1f5f9'"
+                [style.color]="vm.isDetailsModalCaseStepsOpen(vm.detailsModalSelectedPlanId, testCase.id) ? '#fff' : '#475569'"
+                [style.border]="vm.isDetailsModalCaseStepsOpen(vm.detailsModalSelectedPlanId, testCase.id) ? 'none' : '1px solid #e2e8f0'"
                 (click)="vm.toggleDetailsModalCaseSteps(vm.detailsModalSelectedPlanId, testCase.id)"
                 title="Show test steps"
               >
@@ -434,14 +451,16 @@
             </div>
           </div>
 
+          <!-- Steps panel -->
           @if (vm.isDetailsModalCaseStepsOpen(vm.detailsModalSelectedPlanId, testCase.id)) {
-            <div class="sdm-steps" style="grid-column: 1 / -1;">
-              <div class="sdm-steps__label">Steps</div>
+            <div style="background:#f8fafc; border-top:1px solid #e2e8f0; padding:12px 20px 14px; margin:0;">
+              <div style="font-size:10px; font-weight:700; color:#64748b; letter-spacing:.06em; text-transform:uppercase; margin-bottom:8px;">Steps</div>
+
               @if (testCase.steps?.length) {
                 @for (step of testCase.steps; track $index) {
-                  <div class="sdm-step">
-                    <span class="sdm-step__num">{{ $index + 1 }}</span>
-                    <span class="sdm-step__text">{{ step }}</span>
+                  <div style="display:flex; align-items:flex-start; gap:10px; padding:5px 0;">
+                    <span style="min-width:20px; height:20px; border-radius:50%; background:#3b82f6; color:#fff; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;">{{ $index + 1 }}</span>
+                    <span style="font-size:12px; color:#334155; line-height:1.5;">{{ step }}</span>
                   </div>
                 }
               } @else {
@@ -449,11 +468,12 @@
               }
             </div>
           }
+
         </div>
       }
 
       @if (!vm.detailsModalSelectedCases.length) {
-        <div class="sdm-empty-cases">No test cases for this plan.</div>
+        <div style="padding:40px 20px; text-align:center; font-size:13px; color:#94a3b8;">No test cases for this plan.</div>
       }
     </div>
 
@@ -476,8 +496,9 @@
                 }
               </div>
             </div>
-          </button>
-        </button>
+          
+        </div>
+        </div>
       }
     </div>
   </div>

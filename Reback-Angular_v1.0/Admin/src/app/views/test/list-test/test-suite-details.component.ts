@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common'
+/*import { CommonModule } from '@angular/common'
 import { Component, CUSTOM_ELEMENTS_SCHEMA, Input } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import type { TestCasesValidationComponent } from './list-test.component'
@@ -14,3 +14,4 @@ import type { TestCasesValidationComponent } from './list-test.component'
 export class TestSuiteDetailsComponent {
   @Input({ required: true }) vm!: TestCasesValidationComponent
 }
+*/
