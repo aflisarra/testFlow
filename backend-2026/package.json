@@ -34,6 +34,7 @@
     "docx": "^9.6.1",
     "dotenv": "^16.0.3",
     "express": "^5.2.1",
+    "form-data": "^4.0.5",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^7.7.0",
     "mongoose-sequence": "^6.0.1",

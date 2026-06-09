@@ -135,9 +135,64 @@ exports.execute = async (req, res) => {
   try {
     const result = String(req.body?.result || req.body?.status || '').trim()
     if (!result) {
-      return res.status(501).json({
-        message: 'Execution not implemented. Provide {result:"Passed"|"Failed"} or integrate a Selenium runner.',
-      })
+      // Start background execution using Selenium runner if available
+      try {
+        const TestCase = require('../models/testcase.model')
+        const { runTestCase } = require('../services/selenium/selenium.service')
+
+        // fire-and-forget background worker
+        ;(async () => {
+          try {
+            const suiteId = String(req.params.id || '').trim()
+            if (!suiteId) return
+            console.log('[EXECUTE] Starting background execution for suite', suiteId)
+            const cases = await TestCase.find({ testSuiteId: suiteId }).sort({ createdAt: 1 }).lean()
+            for (const tc of cases) {
+              try {
+                console.log('[EXECUTE] Running test case', tc._id || tc.id || tc.title)
+                const result = await runTestCase(tc)
+                // persist execution similar to selenium.controller.runTestCaseHandler
+                const executionId = `EX-${Date.now()}-${String(tc.id || tc._id || '').slice(-6)}`
+                await TestExecution.create({
+                  executionId,
+                  testSuiteId: new mongoose.Types.ObjectId(suiteId),
+                  planId: mongoose.Types.ObjectId.isValid(String(tc.planId || '')) ? new mongoose.Types.ObjectId(String(tc.planId)) : null,
+                  testCaseId: null,
+                  planKey: String(tc.planId || ''),
+                  testCaseKey: String(tc.id || ''),
+                  planTitle: String(tc.planTitle || ''),
+                  testCaseTitle: String(tc.title || ''),
+                  status: result.status === 'passed' ? 'passed' : 'failed',
+                  duration: Array.isArray(result.stepResults) ? result.stepResults.length : 0,
+                  startedAt: new Date(),
+                  finishedAt: new Date(),
+                  logs: Array.isArray(result.logs) ? result.logs : [],
+                  screenshots: Array.isArray(result.screenshots) ? result.screenshots : [],
+                  stepsResults: Array.isArray(result.stepResults)
+                    ? result.stepResults.map((step) => ({
+                        step: String(step.name || step.id || ''),
+                        status: step.status === 'passed' ? 'passed' : 'failed',
+                        error: step.status === 'failed' ? String(step.message || '') : '',
+                        screenshot: step.screenshotPath || null,
+                      }))
+                    : [],
+                })
+                console.log('[EXECUTE] Test case saved:', executionId)
+              } catch (tcErr) {
+                console.error('[EXECUTE] Test case execution error:', tcErr)
+              }
+            }
+            console.log('[EXECUTE] Background execution finished for suite', suiteId)
+          } catch (bgErr) {
+            console.error('[EXECUTE] Background execution failed:', bgErr)
+          }
+        })()
+      } catch (e) {
+        console.warn('[EXECUTE] Selenium runner not available:', e?.message || e)
+        return res.status(501).json({ message: 'Execution not implemented. Selenium runner not available.' })
+      }
+
+      return res.status(202).json({ message: 'Execution started' })
     }
 
     const suite = await testSuiteService.updateTestSuiteStatus(req.params.id, result)

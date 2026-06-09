@@ -19,16 +19,28 @@ import { ChangeDetectorRef, Component, CUSTOM_ELEMENTS_SCHEMA, HostListener, inj
 import { FormsModule } from '@angular/forms'
 import { MatTabsModule } from '@angular/material/tabs'
 import { ActivatedRoute, Router } from '@angular/router'
+import { ProjectService } from '@core/services/Project.service'
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
 import { Store } from '@ngrx/store'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { ConfirmModalComponent } from '../../admin/shared/confirm-modal.component'
+
 interface ExecutionEntryDto {
   executedAt: string
   duration: string
   status: 'passed' | 'failed'
 }
+
+interface TeamMemberView {
+  id: string
+  name: string
+  initials: string
+  hasPhoto: boolean
+  photoUrl: string | null
+  isOwner: boolean
+}
+
 
 @Component({
   selector: 'app-test-cases-validation',
@@ -49,6 +61,7 @@ export class TestCasesValidationComponent implements OnInit {
   private router = inject(Router)
   private route = inject(ActivatedRoute)
   private modalService = inject(NgbModal)
+  private projectService = inject(ProjectService)
   private ngZone = inject(NgZone)
 private cdr = inject(ChangeDetectorRef)
   loading = false
@@ -381,6 +394,17 @@ async openDetailsModal(suite: TestSuiteDto): Promise<void> {
       this.detailsModalExecutionHistory = this.readExecutionHistory(suiteId)
       this.cdr.detectChanges()
     })
+
+    // load project users for modal (populate this.members)
+    const projectIdObj = this.detailsModalProject && (this.detailsModalProject as any)?._id
+    const projectId = String(projectIdObj || '')
+    if (projectId) {
+      try {
+        await this.loadMembers(projectId)
+      } catch {
+        // ignore load errors, view will fallback to assignedUsers if available
+      }
+    }
 
   } catch (err: unknown) {
     this.ngZone.run(() => {
@@ -715,32 +739,63 @@ toggleCase(planId: string | null | undefined, caseId: string): void {
     }
   }
 
-  async onRunTestCaseFromModal(planId: string, testCase: TestCaseDto): Promise<void> {
-    const suite = this.detailsModalSuite
-    if (!suite) return
+async onRunTestCaseFromModal(planId: string, testCase: TestCaseDto): Promise<void> {
+  console.log("🧪 CLICK RUN TEST CASE");
 
-    const suiteId = String(suite._id || '').trim()
-    if (!suiteId || !planId || !testCase?.id) return
+  const suite = this.detailsModalSuite;
+  console.log("📦 SUITE:", suite);
 
-    const projectName = this.detailsModalProjectName
-    const suiteName = this.getSuiteDisplayName(suite)
-    const planName = this.detailsModalPlans.find((plan) => plan.id === planId)?.title || '—'
-
-    this.recordExecutionHistory(suiteId, planId, testCase.id)
-
-    this.closeDetailsModal()
-
-    await this.router.navigate(['/execution', testCase.id], {
-      queryParams: {
-        suiteId,
-        planId,
-        projectName,
-        suiteName,
-        planName,
-        testCaseName: testCase.title || testCase.id,
-      },
-    })
+  if (!suite) {
+    console.error("❌ suite = null");
+    return;
   }
+
+  const suiteId = String(suite._id || '').trim();
+  console.log("🆔 suiteId:", suiteId);
+
+  if (!suiteId || !planId || !testCase?.id) {
+    console.error("❌ Missing data:", { suiteId, planId, testCase });
+    return;
+  }
+
+  console.log("✅ TEST CASE SELECTED:", testCase);
+
+  const projectName = this.detailsModalProjectName;
+  const suiteName = this.getSuiteDisplayName(suite);
+  const planName =
+    this.detailsModalPlans.find((plan) => plan.id === planId)?.title || '—';
+
+  console.log("📌 NAVIGATION DATA:", {
+    projectName,
+    suiteName,
+    planName,
+    testCaseId: testCase.id
+  });
+
+  // save history
+  this.recordExecutionHistory(suiteId, planId, testCase.id);
+
+  // close modal
+  console.log("🪟 Closing modal...");
+  this.closeDetailsModal();
+
+  // navigate
+  console.log("➡️ Navigating to execution...");
+  
+await this.router.navigate(['/execution', testCase.id], {
+  queryParams: {
+    suiteId,
+    planId: testCase.planId, // ✅ FIX ICI
+    projectName,
+    suiteName,
+    planName,
+    testCaseName: testCase.title || testCase.id,
+  },
+})
+;
+
+  console.log("✅ Navigation DONE");
+}
 
   getExecutionEntries(planId: string, caseId: string): ExecutionEntryDto[] {
     return this.detailsModalExecutionHistory[this.getExecutionHistoryKey(planId, caseId)] ?? []
@@ -932,10 +987,15 @@ getTotalCases(suite: TestSuiteDto | null | undefined): number {
     return String(member.name || member.email || '').trim()
   }
 
-  getMemberPicture(member: TestLabProjectUserDto | string | null | undefined): string {
-    if (!member || typeof member === 'string') return ''
-    return this.resolveAvatarUrl(String(member.picture || '').trim())
+getMemberPicture(member: TestLabProjectUserDto): string {
+  const pic = member?.picture?.trim()
+
+  if (!pic) {
+    return '/assets/images/users/default-user.svg'
   }
+
+  return this.apiService.toAbsoluteUrl(pic)
+}
 
   getUserInitials(value?: string): string {
     const raw = String(value || '').trim()
@@ -947,9 +1007,12 @@ getTotalCases(suite: TestSuiteDto | null | undefined): number {
     return raw.slice(0, 2).toUpperCase()
   }
 
-  onAvatarError(event: Event): void {
-    ;(event.target as HTMLImageElement).src = '/assets/images/users/default-user.svg'
-  }
+  
+onAvatarError(event: Event): void {
+  const img = event.target as HTMLImageElement
+  img.src = '/assets/images/users/default-user.svg'
+}
+
 
   private async generateTestCases(plan: TestPlanDto, regenerate: boolean) {
     this.generatingCasesPlanId = plan.id
@@ -1126,4 +1189,142 @@ closeDropdown(event: MouseEvent): void {
       // keep current list on failure
     }
   }
+
+  getProjectProgress(): number {
+  if (!this.detailsModalPlans.length) return 0
+
+  const total = this.detailsModalPlans.length
+
+  const completed = this.detailsModalPlans.filter(plan => {
+    const cases =
+      this.detailsModalCasesByPlan[plan.id] ||
+      plan.testCases ||
+      []
+
+    return cases.length > 0
+  }).length
+
+  return Math.round((completed / total) * 100)
+}
+
+get modalTeamMembers(): TeamMemberView[] {
+  // Récupère les membres du projet du modal
+  let members: (TestLabProjectUserDto | string)[] = []
+
+  // 1. Depuis le projet du modal
+  if (this.detailsModalProject?.assignedUsers) {
+    members = [...members, ...this.detailsModalProject.assignedUsers]
+  }
+
+  // 2. Owner du projet du modal
+  if (this.detailsModalProject?.ownerId && typeof this.detailsModalProject.ownerId === 'object') {
+    const owner = this.detailsModalProject.ownerId as TestLabProjectUserDto
+    if (!members.find((m) => this.getMemberId(m) === this.getMemberId(owner))) {
+      members.push(owner)
+    }
+  }
+
+  // 3. Fallback: depuis la suite du modal
+  if (this.detailsModalSuite?.projectId && typeof this.detailsModalSuite.projectId === 'object') {
+    const suiteProjUsers = (this.detailsModalSuite.projectId as TestLabProjectDto)?.assignedUsers
+    if (suiteProjUsers?.length) {
+      for (const user of suiteProjUsers) {
+        if (!members.find((m) => this.getMemberId(m) === this.getMemberId(user))) {
+          members.push(user)
+        }
+      }
+    }
+  }
+
+  // 4. Fallback: owner du projet de la suite
+  if (
+    this.detailsModalSuite?.projectId &&
+    typeof this.detailsModalSuite.projectId === 'object'
+  ) {
+    const suiteProjectOwner = (this.detailsModalSuite.projectId as TestLabProjectDto)?.ownerId
+    if (suiteProjectOwner && typeof suiteProjectOwner === 'object') {
+      const owner = suiteProjectOwner as TestLabProjectUserDto
+      if (!members.find((m) => this.getMemberId(m) === this.getMemberId(owner))) {
+        members.push(owner)
+      }
+    }
+  }
+
+  // Convertir en TeamMemberView
+  return members
+    .filter((m): m is TestLabProjectUserDto => !!m && typeof m !== 'string')
+    .map((member) => {
+      const name = String(member.name || member.email || '').trim()
+
+      const initials = name
+        .split(' ')
+        .map(p => p[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase() || 'U'
+
+      const photo = member.picture?.trim() || ''
+
+      return {
+        id: member._id || '',
+        name,
+        initials,
+        hasPhoto: true,
+        photoUrl: photo
+          ? this.resolveAvatarUrl(photo)
+          : '/assets/images/users/default-user.svg',
+        isOwner: false
+      }
+    })
+}
+
+
+get safeModalMembers(): TeamMemberView[] {
+  return this.modalTeamMembers || []
+}
+
+get detailsModalProjectMembers(): (TestLabProjectUserDto | string)[] {
+  // combine members loaded from API (`this.members`) with project/suite embedded users
+  const membersFromApi = Array.isArray(this.members) ? (this.members as TestLabProjectUserDto[]) : []
+  const collected: (TestLabProjectUserDto | string)[] = []
+
+  // add API-loaded members first
+  for (const m of membersFromApi) {
+    if (this.getMemberId(m)) collected.push(m)
+  }
+
+  // add assignedUsers from detailsModalProject
+  if (this.detailsModalProject?.assignedUsers) {
+    for (const m of this.detailsModalProject.assignedUsers) {
+      if (!collected.find((x) => this.getMemberId(x) === this.getMemberId(m))) collected.push(m)
+    }
+  }
+
+  // add owner from detailsModalProject
+  if (this.detailsModalProject?.ownerId && typeof this.detailsModalProject.ownerId === 'object') {
+    const owner = this.detailsModalProject.ownerId as TestLabProjectUserDto
+    if (!collected.find((x) => this.getMemberId(x) === this.getMemberId(owner))) collected.push(owner)
+  }
+
+  // fallback: suite embedded project users
+  if (this.detailsModalSuite?.projectId && typeof this.detailsModalSuite.projectId === 'object') {
+    const suiteProjUsers = (this.detailsModalSuite.projectId as TestLabProjectDto)?.assignedUsers || []
+    for (const m of suiteProjUsers) {
+      if (!collected.find((x) => this.getMemberId(x) === this.getMemberId(m))) collected.push(m)
+    }
+    const suiteOwner = (this.detailsModalSuite.projectId as TestLabProjectDto)?.ownerId
+    if (suiteOwner && typeof suiteOwner === 'object') {
+      if (!collected.find((x) => this.getMemberId(x) === this.getMemberId(suiteOwner))) collected.push(suiteOwner as TestLabProjectUserDto)
+    }
+  }
+
+  return collected
+}
+
+members: any[] = []
+
+async loadMembers(projectId: string) {
+  this.members = await firstValueFrom(
+    this.projectService.getUsersByProject(projectId)
+  )}
 }

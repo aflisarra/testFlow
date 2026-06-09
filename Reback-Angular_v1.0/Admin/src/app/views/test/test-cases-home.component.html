@@ -95,10 +95,10 @@
             </button>
             }
             <div class="tc-tree-case-actions">
-              <button class="tc-tree-action-btn tc-tree-action-btn--primary"
+              <!--<button class="tc-tree-action-btn tc-tree-action-btn--primary"
                 (click)="onRegeneratePlan(plan, $event)">
                 <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>Regenerate
-              </button>
+              </button>-->
             </div>
             }
           </div>
@@ -157,10 +157,10 @@
             </button>
             }
             <div class="tc-tree-case-actions">
-              <button class="tc-tree-action-btn tc-tree-action-btn--primary"
+              <!--<button class="tc-tree-action-btn tc-tree-action-btn--primary"
                 (click)="onRegeneratePlan(plan, $event, suite._id!)">
                 <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>Regenerate
-              </button>
+              </button>-->
             </div>
             }
           </div>
@@ -203,7 +203,7 @@
               [icon]="(testCasesByPlan[livePlanId] || []).length ? 'iconamoon:restart-duotone' : 'iconamoon:sparkles-duotone'"
               class="me-1"
             ></iconify-icon>
-            {{ (testCasesByPlan[livePlanId] || []).length ? 'Regenerate' : 'Generate' }}
+            {{ (testCasesByPlan[livePlanId] || []).length ? 'View' : 'Generate' }}
           </button>
           }
         </div>

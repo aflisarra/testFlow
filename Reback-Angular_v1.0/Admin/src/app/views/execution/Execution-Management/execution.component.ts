@@ -1,20 +1,19 @@
+import { ApiService } from '@/app/core/services/api.service';
+import { SeleniumRunnerService, type SeleniumRunResponseDto, type SeleniumStepResultDto } from '@/app/core/services/selenium-runner.service';
+import type { ExecutionModelDto, ExecutionModelStepDto, TestCaseDto, TestExecutionDto, TestSuiteDto } from '@/app/core/services/testlab.service';
+import { TestLabService } from '@/app/core/services/testlab.service';
 import { CommonModule } from '@angular/common';
 import {
-    ChangeDetectionStrategy,
-    ChangeDetectorRef,
-    Component,
-    OnInit,
-    DestroyRef,
-    inject,
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  DestroyRef,
+  inject,
+  OnInit,
 } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
-import { interval, Subscription, firstValueFrom } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { TestLabService } from '@/app/core/services/testlab.service'
-import { SeleniumRunnerService, type SeleniumRunResponseDto, type SeleniumStepResultDto } from '@/app/core/services/selenium-runner.service'
-import { ApiService } from '@/app/core/services/api.service'
-import type { ExecutionModelDto, ExecutionModelStepDto, TestCaseDto, TestCasesByPlanDto, TestSuiteDto } from '@/app/core/services/testlab.service'
-import type { TestExecutionDto } from '@/app/core/services/testlab.service'
+import { ActivatedRoute } from '@angular/router';
+import { firstValueFrom, interval, Subscription } from 'rxjs';
 
 import type {
   ExecutionStep,
@@ -23,7 +22,7 @@ import type {
   StepStatus,
   TestScenario,
   TestStatus,
-} from '@/app/interfaces/execution.interface'
+} from '@/app/interfaces/execution.interface';
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type LoadedExecutionTestCase = {
@@ -110,33 +109,51 @@ export class ExecutionComponent implements OnInit {
     { index: 8, level: 'INFO', message: 'Session terminated. Clean-up complete' },
   ];
 
-  ngOnInit(): void {
-    const qp = this.route.snapshot.queryParamMap;
-    const pp = this.route.snapshot.paramMap;
+ngOnInit(): void {
+  console.log("📍 INIT ExecutionComponent");
 
-    this.suiteId = String(qp.get('suiteId') || '').trim()
-    this.planId = String(qp.get('planId') || '').trim()
-    this.testCaseId = String(pp.get('id') || qp.get('testCaseId') || '').trim()
+  this.route.queryParamMap.subscribe((qp) => {
+    const suiteId = String(qp.get('suiteId') || '').trim();
+    const planId = String(qp.get('planId') || '').trim();
 
     const projectName = qp.get('projectName');
     const suiteName = qp.get('suiteName');
     const planName = qp.get('planName');
     const testCaseName = qp.get('testCaseName');
 
-    if (projectName || suiteName || planName || testCaseName) {
-      this.scenario = {
-        ...this.scenario,
-        projectName: projectName || this.scenario.projectName,
-        suiteName: suiteName || this.scenario.suiteName,
-        planName: planName || this.scenario.planName,
-        caseName: testCaseName || this.scenario.caseName,
-      };
-      this.cdr.markForCheck();
-    }
+    this.route.paramMap.subscribe((pp) => {
+      const testCaseId = String(pp.get('id') || '').trim();
 
-    void this.loadAndRun()
-    void this.loadRecentRuns()
-  }
+      // ✅ assignation finale
+      this.suiteId = suiteId;
+      this.planId = planId;
+      this.testCaseId = testCaseId;
+
+      console.log("✅ ALL PARAMS READY:", {
+        suiteId: this.suiteId,
+        planId: this.planId,
+        testCaseId: this.testCaseId
+      });
+
+      // ✅ mise à jour UI
+      if (projectName || suiteName || planName || testCaseName) {
+        this.scenario = {
+          ...this.scenario,
+          projectName: projectName || this.scenario.projectName,
+          suiteName: suiteName || this.scenario.suiteName,
+          planName: planName || this.scenario.planName,
+          caseName: testCaseName || this.scenario.caseName,
+        };
+      }
+
+      this.cdr.markForCheck();
+
+      // ✅ LANCEMENT UNIQUEMENT ICI
+      void this.loadAndRun();
+      void this.loadRecentRuns();
+    });
+  });
+}
 
   // ─── Public actions ───────────────────────────────────────────
 
@@ -463,76 +480,124 @@ element.click()`;
   // â”€â”€â”€ Real execution flow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   private async loadAndRun(): Promise<void> {
-    this.screenshotUrl = null
+  console.log("🚀 loadAndRun START");
 
-    if (!this.suiteId || !this.planId || !this.testCaseId) {
-      this.scenario = {
-        ...this.scenario,
-        status: 'failed',
-        progressPercent: 0,
-        progressLabel: 'Missing navigation parameters',
-        activeStepLabel: '⚠ Missing suiteId/planId/testCaseId',
-        steps: [],
-      }
-      this.streamedLogs = [
-        { index: 1, level: 'ERROR', message: 'Missing suiteId, planId or testCaseId. Navigate from Test List → Run.' },
-      ]
-      this.cdr.markForCheck()
-      return
-    }
+  console.log("📍 PARAMS:", {
+    suiteId: this.suiteId,
+    planId: this.planId,
+    testCaseId: this.testCaseId
+  });
 
-    try {
-      const suite: TestSuiteDto = await firstValueFrom(this.testLabService.getTestSuiteById(this.suiteId))
-      const urlCible = String(suite.urlCible || '').trim()
-      const plans: TestCasesByPlanDto[] = suite.testCasesByPlan || []
-      const plan = plans.find((p) => String(p.planId || '').trim() === this.planId) || null
-      const cases: TestCaseDto[] = plan?.testCases || []
-      const tc = cases.find((c) => String(c.id || '').trim() === this.testCaseId) || null
+  this.screenshotUrl = null;
 
-      if (!tc) {
-        throw new Error(`Test case "${this.testCaseId}" not found in plan "${this.planId}".`)
-      }
-      if (!urlCible) {
-        throw new Error('Missing suite urlCible (application URL).')
-      }
-
-      const steps = Array.isArray(tc.steps) ? tc.steps.map((s) => String(s)) : []
-      const executionModel = this.coerceExecutionModel((tc as any).executionModel || (tc as any).execution_model)
-      const credentials = this.resolveExecutionCredentials(tc, suite)
-      this.loadedTestCase = {
-        id: String(tc.id),
-        title: String(tc.title || tc.id),
-        steps,
-        urlCible,
-        executionModel,
-        ...(credentials ? { credentials } : {}),
-      }
-      this.executionModelSummary = this.describeExecutionModel(executionModel, steps.length)
-
-      // Fill breadcrumb labels if not provided
-      const qp = this.route.snapshot.queryParamMap
-      this.scenario = {
-        ...this.scenario,
-        suiteName: qp.get('suiteName') || this.scenario.suiteName,
-        planName: qp.get('planName') || this.scenario.planName,
-        caseName: qp.get('testCaseName') || this.loadedTestCase.title,
-      }
-
-      await this.executeLoadedTestCase()
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      this.scenario = {
-        ...this.scenario,
-        status: 'failed',
-        progressPercent: 0,
-        progressLabel: 'Failed to load test case',
-        activeStepLabel: '✖ Failed',
-        steps: [],
-      }
-      this.streamedLogs = [{ index: 1, level: 'ERROR', message: msg || 'Unable to load test case.' }]
-      this.cdr.markForCheck()
-    }
+  if (!this.suiteId || !this.planId || !this.testCaseId) {
+    this.scenario = {
+      ...this.scenario,
+      status: 'failed',
+      progressPercent: 0,
+      progressLabel: 'Missing navigation parameters',
+      activeStepLabel: '⚠ Missing suiteId/planId/testCaseId',
+      steps: [],
+    };
+    this.streamedLogs = [
+      { index: 1, level: 'ERROR', message: 'Missing suiteId, planId or testCaseId.' },
+    ];
+    this.cdr.markForCheck();
+    return;
   }
+
+  try {
+    const suite: TestSuiteDto = await firstValueFrom(
+      this.testLabService.getTestSuiteById(this.suiteId)
+    );
+
+    console.log("✅ SUITE LOADED:", suite);
+
+    const urlCible = String(suite.urlCible || '').trim();
+
+    if (!urlCible) {
+      throw new Error('Missing suite urlCible (application URL).');
+    }
+
+    // ✅ ✅ ✅ FIX MAJEUR : récupérer TOUS les test cases
+    const allCases: TestCaseDto[] =
+      (suite.testCasesByPlan || []).flatMap(p => p.testCases || []);
+
+    console.log("📋 ALL TEST CASES:", allCases.map(c => c.id));
+
+    // ✅ chercher le test case directement
+    const tc = allCases.find(
+      (c) => String(c.id || '').trim() === this.testCaseId
+    ) || null;
+
+    console.log("✅ TEST CASE FOUND:", tc);
+
+    if (!tc) {
+      throw new Error(`Test case "${this.testCaseId}" not found.`);
+    }
+
+    // ✅ construire le test case chargé
+    const steps = Array.isArray(tc.steps)
+      ? tc.steps.map((s) => String(s))
+      : [];
+
+    const executionModel = this.coerceExecutionModel(
+      (tc as any).executionModel || (tc as any).execution_model
+    );
+
+    const credentials = this.resolveExecutionCredentials(tc, suite);
+
+    this.loadedTestCase = {
+      id: String(tc.id),
+      title: String(tc.title || tc.id),
+      steps,
+      urlCible,
+      executionModel,
+      ...(credentials ? { credentials } : {}),
+    };
+
+    console.log("✅ LOADED TEST CASE FINAL:", this.loadedTestCase);
+
+    this.executionModelSummary = this.describeExecutionModel(
+      executionModel,
+      steps.length
+    );
+
+    // UI labels
+    const qp = this.route.snapshot.queryParamMap;
+    this.scenario = {
+      ...this.scenario,
+      suiteName: qp.get('suiteName') || this.scenario.suiteName,
+      planName: qp.get('planName') || this.scenario.planName,
+      caseName: qp.get('testCaseName') || this.loadedTestCase.title,
+    };
+
+    this.cdr.markForCheck();
+
+    // ✅ LANCEMENT
+    await this.executeLoadedTestCase();
+
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+
+    console.error("❌ loadAndRun ERROR:", msg);
+
+    this.scenario = {
+      ...this.scenario,
+      status: 'failed',
+      progressPercent: 0,
+      progressLabel: 'Failed to load test case',
+      activeStepLabel: '✖ Failed',
+      steps: [],
+    };
+
+    this.streamedLogs = [
+      { index: 1, level: 'ERROR', message: msg || 'Unable to load test case.' }
+    ];
+
+    this.cdr.markForCheck();
+  }
+}
 
   private async loadRecentRuns(): Promise<void> {
     try {
@@ -752,6 +817,10 @@ element.click()`;
   }
 
   private async executeLoadedTestCase(): Promise<void> {
+    
+console.log("🚀 EXECUTE LOADED TEST CASE");
+console.log("📦 loadedTestCase:", this.loadedTestCase);
+
     if (!this.loadedTestCase) return
 
     this.stopAll()
@@ -780,18 +849,25 @@ element.click()`;
 
     const startedAt = Date.now()
     const payload = {
-      testSuiteId: this.suiteId,
-      planId: this.planId,
-      testCaseId: this.loadedTestCase.id,
-      planTitle: this.scenario.planName,
-      testCaseTitle: this.loadedTestCase.title,
-      id: this.loadedTestCase.id,
-      title: this.loadedTestCase.title,
-      urlCible: this.loadedTestCase.urlCible,
-      steps: this.loadedTestCase.steps,
-      ...(this.loadedTestCase.executionModel ? { executionModel: this.loadedTestCase.executionModel } : {}),
-      ...(this.loadedTestCase.credentials ? { credentials: this.loadedTestCase.credentials } : {}),
-    }
+  id: this.loadedTestCase.id,
+  title: this.loadedTestCase.title,
+
+  testSuiteId: this.suiteId,
+  planId: this.planId,
+
+  // ✅ FIX IMPORTANT
+  url: this.loadedTestCase.urlCible,
+
+  steps: this.loadedTestCase.steps,
+
+  ...(this.loadedTestCase.executionModel
+    ? { executionModel: this.loadedTestCase.executionModel }
+    : {}),
+
+  ...(this.loadedTestCase.credentials
+    ? { credentials: this.loadedTestCase.credentials }
+    : {})
+}
 
       this.runSubscription = this.seleniumRunner.runSingleTestCase(payload)
       .pipe(takeUntilDestroyed(this.destroyRef))

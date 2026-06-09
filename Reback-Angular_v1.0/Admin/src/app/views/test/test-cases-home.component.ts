@@ -1,28 +1,27 @@
 ﻿import { CommonModule } from '@angular/common'
-import { Component, CUSTOM_ELEMENTS_SCHEMA, inject } from '@angular/core'
+import { Component, CUSTOM_ELEMENTS_SCHEMA, HostListener, inject, OnInit } from '@angular/core'
+import { FormsModule } from '@angular/forms'
 import { ActivatedRoute, Router } from '@angular/router'
 import { Store } from '@ngrx/store'
-import { Subscription, firstValueFrom } from 'rxjs'
-import { take } from 'rxjs/operators'
 import { ToastrService } from 'ngx-toastr'
-import { HostListener, OnInit } from '@angular/core'
-import { FormsModule } from '@angular/forms'
+import { firstValueFrom, Subscription } from 'rxjs'
+import { take } from 'rxjs/operators'
 
+import { ApiService } from '@/app/core/services/api.service'
 import { AuthenticationService } from '@/app/core/services/auth.service'
+import { ProjectsStateService } from '@/app/core/services/projects-state.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
+import type { AppProject } from '@/app/interfaces/admin-management.interface'
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import type { PlanValidationStatus, SuiteSessionStatus } from '@/app/views/test/models/status.types'
 import { getErrorMessage } from '@/app/views/test/utils/error.utils'
-import { ProjectsStateService } from '@/app/core/services/projects-state.service'
-import { ApiService } from '@/app/core/services/api.service'
-import type { AppProject } from '@/app/interfaces/admin-management.interface'
 
 import {
   TestLabService,
   type TestCaseDto,
+  type TestCasesByPlanDto,
   type TestPlanDto,
   type TestSuiteDto,
-  type TestCasesByPlanDto,
 } from '@/app/core/services/testlab.service'
 
 // ── Type unique pour les previews d'utilisateur ───────────────────────

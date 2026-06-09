@@ -63,7 +63,9 @@ router.post(
   '/preview',
   upload.single('file'), // ✅ maintenant défini
   controllerTestPlan.generatePreview
-)
+);
+
+router.post('/save-plans', upload.single('file'), controllerTestPlan.savePlans);
 
 
 module.exports = router;

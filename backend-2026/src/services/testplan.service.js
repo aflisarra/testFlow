@@ -1,6 +1,8 @@
 const TestPlan = require('../models/testplan.model')
 const TestCase = require('../models/testcase.model')
-const axios = require('axios')
+const fs = require('fs')
+const FormData = require('form-data')
+
 /**
  * Create test plan
  */
@@ -110,28 +112,82 @@ async function deleteTestPlan(planId) {
 /**
  * Generate plans from AI (NO DB)
  */
+
+const axios = require('axios')
+const { readSpecTextFromUpload } = require('../services/ollama.service')
+
 async function generateTestPlansPreview({ file, styleConfig, applicationUrl }) {
   try {
-    // Exemple appel vers FastAPI (adapte selon ton projet)
-    const response = await axios.post('http://localhost:8000/generate-test-plan', {
-      file,
-      styleConfig,
-      applicationUrl,
-    })
+    let specText = ''
 
-    const testPlans = response.data?.testPlans || []
+    // ✅ 1. EXTRACTION
+    if (file) {
+      console.log('FILE DEBUG:', {
+        hasBuffer: !!file.buffer,
+        path: file.path,
+        name: file.originalname,
+        size: file.size,
+      })
+
+      specText = await readSpecTextFromUpload(file)
+
+      if (!specText) {
+        throw new Error('Spec extraction failed (empty text)')
+      }
+
+      console.log('✅ SPEC LENGTH:', specText.length)
+      console.log('✅ SPEC PREVIEW:', specText.slice(0, 200))
+    }
+
+    // ✅ 2. ENVOI TEXTE À FASTAPI
+
+    
+console.log("PAYLOAD SENT:", {
+  specText: specText.slice(0, 100)
+})
+
+   const formData = new FormData()
+
+formData.append('spec_text', specText)   // ✅ NOM CORRECT
+formData.append('style_config', styleConfig || '')
+formData.append('url_cible', applicationUrl || '')
+
+const response = await axios.post(
+  'http://localhost:8000/generate-plan',
+  formData,
+  {
+    headers: {
+      ...formData.getHeaders(), // ✅ IMPORTANT
+    },
+  }
+)
+
+
+
+    console.log('✅ FastAPI RESPONSE:', response.data)
+
+    const testPlans = response.data?.test_plans || []
 
     return testPlans.map((plan, index) => ({
       id: plan.id || `TP-${index + 1}`,
       title: plan.title,
       description: plan.description || '',
     }))
+
   } catch (error) {
-    const err = new Error('AI generation failed')
-    err.statusCode = 500
+    console.error('🔥 ERROR:', error.response?.data || error.message)
+
+    const err = new Error(
+      error.response?.data?.error || 'AI generation failed'
+    )
+    err.statusCode = error.response?.status || 500
     throw err
   }
 }
+
+
+
+
 
 
 module.exports = {

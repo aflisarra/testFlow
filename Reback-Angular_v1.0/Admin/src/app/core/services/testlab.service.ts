@@ -2,34 +2,32 @@
 // services/testlab.service.ts
 // ============================================================
 
+import { ApiService } from '@/app/core/services/api.service'
 import { Injectable, inject } from '@angular/core'
 import { Observable } from 'rxjs'
 import { map } from 'rxjs/operators'
-import { ApiService } from '@/app/core/services/api.service'
 
 import type {
   GeneratePlanResponse,
   GenerateTestCasesResponse,
   GetTestPlansResponse,
   PlanTestDto,
-  TestPlanDto,
   TestCasesByPlanDto,
+  TestPlanDto,
   TestSuiteDto,
 } from '@/app/interfaces/testlab.interface'
 
 export type {
-  GeneratePlanResponse,
+  ExecutionModelDto,
+  ExecutionModelStepDto, GeneratePlanResponse,
   GenerateTestCasesResponse,
   GetTestPlansResponse,
   PlanTestDto,
-  TestCaseDto,
-  ExecutionModelDto,
-  ExecutionModelStepDto,
-  TestCasesByPlanDto,
+  TestCaseDto, TestCasesByPlanDto,
   TestLabProjectDto,
   TestLabProjectUserDto,
   TestPlanDto,
-  TestSuiteDto,
+  TestSuiteDto
 } from '@/app/interfaces/testlab.interface'
 
 export interface TestExecutionDto {
@@ -68,10 +66,20 @@ export class TestLabService {
     planId: string
     planTitle?: string
     planDescription?: string
+    specText?: string
     regenerate?: boolean
     generationRequestId?: string
   }): Observable<GenerateTestCasesResponse> {
-    return this.api.post<GenerateTestCasesResponse>(`/api/ollama/generate-test-cases`, payload)
+    // backend expects `spec_text` in payload; map from planDescription or explicit specText
+    const body: any = {
+      testSuiteId: payload.testSuiteId,
+      planId: payload.planId,
+      planTitle: payload.planTitle,
+      regenerate: payload.regenerate,
+      generationRequestId: payload.generationRequestId,
+      spec_text: payload.specText || payload.planDescription || ''
+    }
+    return this.api.post<GenerateTestCasesResponse>(`/api/ollama/generate-test-cases`, body)
   }
 
   cancelGeneration(payload: {
@@ -97,6 +105,7 @@ export class TestLabService {
 
   // ✅ GET /api/testsuites/:id
   getTestSuiteById(testSuiteId: string): Observable<TestSuiteDto> {
+    
     return this.api.get<TestSuiteDto>(`/api/testsuites/${testSuiteId}`)
   }
 
@@ -143,6 +152,28 @@ generatePlanPreview(formData: FormData): Observable<{ testPlans: TestPlanDto[] }
     formData
   )
 }
+
+createSuiteWithPlans(payload: {
+  projectId: string
+  name: string
+  testPlans: TestPlanDto[]
+  planStatuses: Record<string, any>
+
+  // ✅ AJOUT ICI
+  specText?: string
+  fileName?: string
+}) {
+  
+ return this.api.post<{ testSuiteId: string }>(
+    `/api/testsuites/save-plans`,
+    payload
+  )
+}
+
+  // POST multipart form when uploading a spec file
+  createSuiteWithPlansForm(formData: FormData) {
+    return this.api.post<{ testSuiteId: string }>(`/api/testsuites/save-plans`, formData)
+  }
 
 
   getRecentExecutions(limit = 20): Observable<TestExecutionDto[]> {
@@ -217,4 +248,7 @@ generatePlanPreview(formData: FormData): Observable<{ testPlans: TestPlanDto[] }
       message,
     })
   }
+
+
+
 }

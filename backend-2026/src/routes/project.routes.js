@@ -18,4 +18,5 @@ router.put('/:id', requireAction(14), requireProjectAccess, projectController.up
 router.patch('/:id/users', requireAction(16), requireProjectAccess, projectController.assignUsers)
 router.delete('/:id', requireAction(15), requireProjectAccess, projectController.deleteProject)
 
+router.get('/:id/usersProject', projectController.getUsersByProject)
 module.exports = router

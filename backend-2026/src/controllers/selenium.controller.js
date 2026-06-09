@@ -3,8 +3,13 @@ const TestExecution = require('../models/TestExecution.model')
 const { runTestCase } = require('../services/selenium/selenium.service')
 
 async function runTestCaseHandler(req, res) {
+  
   try {
-    const testCase = req.body?.testCase || req.body
+    
+const testCase = req.body?.testCase || req.body
+
+console.log("🔥 RECEIVED TEST CASE:", testCase)
+
 
     const modelSteps = testCase?.executionModel?.steps || testCase?.execution_model?.steps
     const hasNaturalSteps = Array.isArray(testCase?.steps) && testCase.steps.length > 0

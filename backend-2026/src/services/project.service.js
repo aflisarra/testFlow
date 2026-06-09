@@ -238,3 +238,33 @@ async function syncInvitationsForProject(project, { invitedBy }) {
 
   await Promise.all([...upserts, revoke])
 }
+
+
+// ✅ Get users by project ID
+exports.getUsersByProject = async (projectId) => {
+  const project = await Project.findById(projectId)
+    .populate('assignedUsers', 'name email picture role')
+    .populate('ownerId', 'name email picture role')
+
+  if (!project) {
+    throw new Error('PROJECT_NOT_FOUND')
+  }
+
+  // ✅ merge owner + users
+  const users = [
+    ...(project.ownerId ? [project.ownerId] : []),
+    ...(project.assignedUsers || [])
+  ]
+
+  // ✅ remove duplicates
+  const seen = new Set()
+  const uniqueUsers = users.filter(user => {
+    const id = String(user._id)
+    if (seen.has(id)) return false
+    seen.add(id)
+    return true
+  })
+
+  return uniqueUsers
+}
+

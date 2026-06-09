@@ -394,7 +394,7 @@
 
 .tc-modal {
   background: #fff; border-radius: 18px; box-shadow: 0 24px 60px rgb(15 23 42 / 22%);
-  inline-size: 100%; max-inline-size: 680px; max-block-size: 85vh;
+  inline-size: 100%; max-inline-size: 1200px; max-block-size: 85vh;
   display: flex; flex-direction: column; overflow: hidden;
   border: none; outline: none; text-align: start; padding: 0; cursor: auto;
 }

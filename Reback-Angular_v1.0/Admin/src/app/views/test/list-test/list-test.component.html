@@ -285,23 +285,76 @@
                 <div class="tv-modal-details-shell">
                   <div class="tv-modal-summary-grid">
                     <div class="tv-modal-project-card">
-                      <div class="tv-modal-project-top">
-                        <div>
-                          <div class="tv-modal-project-title">{{ vm.detailsModalProjectName }}</div>
-                          <div class="tv-modal-project-date">
-                            <iconify-icon icon="mdi:account-group-outline"></iconify-icon>
-                            <span>{{ vm.projectMembers.length }} project members</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="tv-modal-progress">
-                        <div class="tv-modal-progress__bar" [style.width.%]="100"></div>
-                      </div>
-                      <div class="tv-modal-progress-row">
-                        <span>Suite overview</span>
-                        <strong>{{ vm.detailsModalPlans.length }} plans</strong>
-                      </div>
-                    </div>
+
+  <!-- HEADER -->
+  <div class="tv-project-header">
+    
+    <!-- LEFT -->
+    <div>
+      <div class="tv-modal-project-title">
+        {{ vm.detailsModalProjectName }}
+      </div>
+
+      <div class="tv-modal-project-date">
+        {{ (vm.detailsModalSuite?.createdAt | date:'mediumDate') || '—' }}
+        —
+        {{ (vm.detailsModalSuite?.updatedAt | date:'mediumDate') || '—' }}
+      </div>
+    </div>
+
+    <!-- RIGHT (AVATARS STACK) -->
+    <div class="tv-project-members">
+      @for (member of vm.safeModalMembers.slice(0, 3); track member.id) {
+        <div 
+          class="tv-avatar" 
+          [title]="member.name"
+          style="cursor: pointer; transition: transform 0.2s ease;"
+          (mouseenter)="$event.target?.style.transform = 'scale(1.1)'"
+          (mouseleave)="$event.target?.style.transform = 'scale(1)'"
+        >
+          @if (member.photoUrl && member.photoUrl !== '/assets/images/users/default-user.svg') {
+            <img
+              [src]="member.photoUrl"
+              [alt]="member.name"
+              (error)="vm.onAvatarError($event)"
+              style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;"
+            />
+          } @else {
+            <span class="tv-avatar-text" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 600; font-size: 11px;">
+              {{ member.initials }}
+            </span>
+          }
+        </div>
+      }
+
+      @if (vm.safeModalMembers.length > 3) {
+        <div class="tv-avatar tv-avatar-more" style="background: #f0f0f0; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #666; font-size: 10px;">
+          +{{ vm.safeModalMembers.length - 3 }}
+        </div>
+      }
+    </div>
+
+  </div>
+
+  <!-- PROGRESS -->
+  <div class="tv-progress-wrapper">
+
+    <div class="tv-progress-bar">
+      <div 
+        class="tv-progress-fill"
+        [style.width.%]="vm.getProjectProgress()">
+      </div>
+    </div>
+
+    <div class="tv-progress-row">
+      <span>PROJECT COMPLETION</span>
+      <strong>{{ vm.getProjectProgress() }}%</strong>
+    </div>
+
+  </div>
+
+</div>
+
 
                     <div class="tv-modal-stat tv-modal-stat--plans">
                       <div class="tv-modal-stat__icon">
@@ -327,8 +380,8 @@
                     <div class="tv-details-card">
                       <div class="tv-details-card__title">Project members</div>
                       <div class="tv-details-members">
-                        @if (vm.projectMembers.length) {
-                          @for (member of vm.projectMembers; track vm.getMemberId(member)) {
+                        @if (vm.detailsModalProjectMembers.length) {
+                          @for (member of vm.detailsModalProjectMembers; track vm.getMemberId(member)) {
                             <div class="tv-details-member">
                               @if (vm.getMemberPicture(member)) {
                                 <img
@@ -343,6 +396,7 @@
                                 </div>
                               }
                               <div class="tv-details-member__name">{{ vm.getMemberDisplayName(member) }}</div>
+                              
                             </div>
                           }
                         } @else {

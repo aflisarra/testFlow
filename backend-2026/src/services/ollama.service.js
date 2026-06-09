@@ -324,11 +324,33 @@ async function readSpecTextFromUpload(file) {
   if (ext === '.docx') {
     const specText = await extractDocxText(fileBuffer)
     if (!specText) throw httpError(400, 'Unable to extract text from .docx')
+    // Persist a copy for debugging and log a preview
+    try {
+      await fs.mkdir(path.join(process.cwd(), 'uploads', 'spec_texts'), { recursive: true })
+      const safeName = (file.originalname || 'upload').replace(/[^a-zA-Z0-9.-]/g, '_')
+      const outPath = path.join(process.cwd(), 'uploads', 'spec_texts', `${Date.now()}_${safeName}.txt`)
+      await fs.writeFile(outPath, specText, 'utf8')
+      console.log('Spec extracted and saved to:', outPath)
+      console.log('Spec preview:', String(specText).slice(0, 800).replace(/\n/g, ' '))
+    } catch (e) {
+      console.warn('Failed to persist spec text for debugging:', e?.message || e)
+    }
     return specText
   }
 
   const specText = String(Buffer.from(fileBuffer).toString('utf8') || '').trim()
   if (!specText) throw httpError(400, 'Unable to read text from file')
+  // Persist and log for non-docx text files
+  try {
+    await fs.mkdir(path.join(process.cwd(), 'uploads', 'spec_texts'), { recursive: true })
+    const safeName = (file.originalname || 'upload').replace(/[^a-zA-Z0-9.-]/g, '_')
+    const outPath = path.join(process.cwd(), 'uploads', 'spec_texts', `${Date.now()}_${safeName}.txt`)
+    await fs.writeFile(outPath, specText, 'utf8')
+    console.log('Spec extracted and saved to:', outPath)
+    console.log('Spec preview:', String(specText).slice(0, 800).replace(/\n/g, ' '))
+  } catch (e) {
+    console.warn('Failed to persist spec text for debugging:', e?.message || e)
+  }
   return specText
 }
 
@@ -663,13 +685,15 @@ async function generateTestCases({ req, body }) {
 
   let fastApiResponse
   try {
+    // Prefer explicit spec_text coming from the request body, fallback to stored suite.specText
+    const specTextToSend = String(body?.spec_text || '').trim() || String(suite.specText || '').trim()
     fastApiResponse = await axios.post(
       `${baseUrl}/generate-test-cases`,
       {
         plan_id: planId,
         plan_title: planTitle || planId,
         plan_description: planDescription || '',
-        spec_text: truncateSpecText(suite.specText, 800),
+        spec_text: truncateSpecText(specTextToSend, 800),
         style_config: String(suite.styleConfig || ''),
         project_id: project ? String(project._id) : undefined,
         project_title: project ? String(project.title || '') : undefined,
@@ -780,4 +804,5 @@ module.exports = {
   generatePlan,
   generateTestCases,
   cancelGeneration,
+  readSpecTextFromUpload,
 }

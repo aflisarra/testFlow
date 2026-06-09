@@ -51,47 +51,91 @@ async def upload_spec(file: UploadFile = File(...)):
         return JSONResponse(status_code=500, content={"error": f"Upload failed: {str(exc)}"})
 
 
+from fastapi import Form, UploadFile, File
+from typing import Optional
+
+from fastapi import Form, UploadFile, File
+from typing import Optional
+
 @router.post("/generate-plan", response_model=GeneratePlanResponse)
-def generate_plan(payload: GeneratePlanRequest):
-    """
-    Generate enterprise-grade, non-overlapping test plans from spec + style config.
-    Compatibility: keeps the existing response shape: {"test_plans":[...]}.
-    """
-    spec_text = (payload.spec_text or "").strip()
-    style_config = (payload.style_config or "").strip()
-    project_title = (payload.project_title or "").strip()
+async def generate_plan(
+    file: UploadFile = File(None),
+    styleConfig: Optional[str] = Form(None),
+    applicationUrl: Optional[str] = Form(None),
 
-    if not spec_text:
-        return JSONResponse(status_code=400, content={"error": "spec_text is required"})
+    # ✅ IMPORTANT POUR ANNULATION
+    test_suite_id: Optional[str] = Form(None),
+    generation_request_id: Optional[str] = Form(None),
+    generation_scope: Optional[str] = Form("plans"),
 
-    if is_cancelled(
-        test_suite_id=payload.test_suite_id,
-        plan_id="",
-        scope=payload.generation_scope or "plans",
-        request_id=payload.generation_request_id,
-    ):
-        return JSONResponse(status_code=409, content={"error": "Generation cancelled by user."})
-
+    spec_text: Optional[str] = Form(None),
+):
     try:
-        plans = generate_test_plans(spec_text=spec_text, style_config=style_config, project_title=project_title)
+        # ✅ récupération texte
+        if file:
+            file_bytes = await file.read()
+
+            if not file_bytes:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "Empty file"}
+                )
+
+            spec_text_final = extract_spec_text_from_docx_bytes(file_bytes)
+
+        elif spec_text:
+            spec_text_final = spec_text.strip()
+
+        else:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "spec_text or file is required"}
+            )
+
+        if not spec_text_final.strip():
+            return JSONResponse(
+                status_code=422,
+                content={"error": "Document empty"}
+            )
+
+        # ✅ ANNULATION AVANT AI
         if is_cancelled(
-            test_suite_id=payload.test_suite_id,
+            test_suite_id=test_suite_id,
             plan_id="",
-            scope=payload.generation_scope or "plans",
-            request_id=payload.generation_request_id,
+            scope=generation_scope,
+            request_id=generation_request_id,
         ):
-            return JSONResponse(status_code=409, content={"error": "Generation cancelled by user."})
-        return {"test_plans": plans}
-    except FileNotFoundError:
-        return JSONResponse(status_code=500, content=_error_payload("Ollama not found. Install from https://ollama.com"))
-    except subprocess.TimeoutExpired:
-        return JSONResponse(
-            status_code=504,
-            content=_error_payload("Ollama took too long. Check OLLAMA_TEST_PLANS_TIMEOUT / OLLAMA_TIMEOUT."),
+            return JSONResponse(
+                status_code=409,
+                content={"error": "Generation cancelled by user"}
+            )
+
+        # ✅ appel AI
+        plans = generate_test_plans(
+            spec_text=spec_text_final,
+            style_config=(styleConfig or "").strip(),
+            project_title=(applicationUrl or "").strip()
         )
-    except ValueError as exc:
-        return JSONResponse(status_code=502, content=_error_payload("AI returned invalid JSON.", str(exc)))
-    except RuntimeError as exc:
-        return JSONResponse(status_code=502, content=_error_payload("Ollama error.", str(exc)))
+
+        # ✅ ANNULATION APRES AI
+        if is_cancelled(
+            test_suite_id=test_suite_id,
+            plan_id="",
+            scope=generation_scope,
+            request_id=generation_request_id,
+        ):
+            return JSONResponse(
+                status_code=409,
+                content={"error": "Generation cancelled after processing"}
+            )
+
+        return {"test_plans": plans}
+
     except Exception as exc:
-        return JSONResponse(status_code=500, content=_error_payload("Internal error.", str(exc)))
+        import traceback
+        traceback.print_exc()
+
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(exc)}
+        )

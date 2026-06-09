@@ -111,3 +111,18 @@ exports.deleteProject = async (req, res) => {
     res.status(500).json({ message: error.message || MESSAGES.ERROR.SERVER })
   }
 }
+
+exports.getUsersByProject = async (req, res) => {
+  try {
+    const users = await projectService.getUsersByProject(req.params.id)
+
+    res.status(200).json(users)
+
+  } catch (error) {
+    if (error.message === 'PROJECT_NOT_FOUND') {
+      return res.status(404).json({ message: 'Project not found' })
+    }
+
+    res.status(500).json({ message: 'Server error' })
+  }
+}

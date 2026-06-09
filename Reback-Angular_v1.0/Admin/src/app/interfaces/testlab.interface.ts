@@ -12,6 +12,7 @@ export interface TestPlanDto {
   description: string
   testCases?: TestCaseDto[]
   casesCount?: number
+  
 }
 
 export interface GeneratePlanResponse {
@@ -22,6 +23,17 @@ export interface GeneratePlanResponse {
   plans?: PlanTestDto[]
   reused?: boolean
 }
+
+
+export interface CreateSuitePayload {
+  projectId: string
+  name: string
+  testPlans: TestPlanDto[]
+  planStatuses: Record<string, string> // ✅ enlever any
+  specText?: string
+  fileName?: string
+}
+
 
 export interface CreatedBy {
   userId?: string
@@ -69,15 +81,21 @@ export interface ExecutionModelDto {
   confidence?: string
 }
 
+
 export interface TestCaseDto {
   id: string
   title: string
   steps: string[]
   expected_result: string
+
+  planId?: string   // ✅ AJOUT ICI
+  testSuiteId?: string // (optionnel mais recommandé)
+
   executionModel?: ExecutionModelDto | null
   execution_model?: ExecutionModelDto | null
   createdBy?: CreatedBy
 }
+
 
 export interface GenerateTestCasesResponse {
   testSuiteId: string
@@ -178,5 +196,8 @@ export interface TestSuiteDto {
   totalCases?: number
   casesCount?: number
   specFile?: string
-  spec_file?: string
+  spec_file?: string 
+  specText?: string
+  styleConfig?: string
+
 }

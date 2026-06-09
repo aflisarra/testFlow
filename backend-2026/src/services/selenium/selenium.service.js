@@ -15,7 +15,6 @@ function getFirstValue(...values) {
 
 async function captureStepScreenshot(driver, testCase, stepIndex) {
   if (!driver) return null
-
   const screenshotBase64 = await driver.takeScreenshot()
   const screenshotsDir = path.resolve(__dirname, '..', '..', '..', 'uploads', 'screenshots')
   fs.mkdirSync(screenshotsDir, { recursive: true })
@@ -28,7 +27,16 @@ async function captureStepScreenshot(driver, testCase, stepIndex) {
   const absolutePath = path.join(screenshotsDir, filename)
 
   fs.writeFileSync(absolutePath, screenshotBase64, 'base64')
-  return `/api/uploads/screenshots/${filename}`
+  // also save page source
+  try {
+    const pageSource = await driver.getPageSource()
+    const domFilename = `${testCaseId}-step-${stepIndex}-${Date.now()}.html`
+    const domPath = path.join(screenshotsDir, domFilename)
+    fs.writeFileSync(domPath, pageSource, 'utf8')
+    return { screenshot: `/api/uploads/screenshots/${filename}`, dom: `/api/uploads/screenshots/${domFilename}` }
+  } catch (e) {
+    return { screenshot: `/api/uploads/screenshots/${filename}`, dom: null }
+  }
 }
 
 async function runTestCase(testCase) {
@@ -122,6 +130,17 @@ async function runTestCase(testCase) {
     addLog('INFO', `Executable steps: ${steps.length}`)
 
     if (needsBrowser) {
+      addLog('INFO', 'Validating target hostname before creating browser')
+      try {
+        const { hostname } = new URL(String(ctx.baseUrl || '').trim())
+        const dns = require('dns').promises
+        await dns.lookup(hostname)
+        addLog('INFO', `DNS lookup OK: ${hostname}`)
+      } catch (dnsErr) {
+        addLog('ERROR', `DNS lookup failed for ${ctx.baseUrl}: ${dnsErr?.message || dnsErr}`)
+        throw new Error(`Unresolvable hostname for target URL: ${ctx.baseUrl}`)
+      }
+
       addLog('INFO', 'Initializing visible Chrome WebDriver session')
       driver = await createDriver(false)
     } else {
@@ -168,10 +187,12 @@ async function runTestCase(testCase) {
           let screenshotPath = null
 
           try {
-            screenshotPath = await captureStepScreenshot(driver, testCase, index)
-            if (screenshotPath) {
-              screenshots.push(screenshotPath)
-              addLog('INFO', `Screenshot: ${screenshotPath}`)
+            const shot = await captureStepScreenshot(driver, testCase, index)
+            if (shot) {
+              screenshotPath = shot.screenshot || shot
+              const domPath = shot.dom || null
+              if (screenshotPath) screenshots.push(screenshotPath)
+              addLog('INFO', `Screenshot: ${screenshotPath} dom: ${domPath}`)
             }
           } catch (screenshotErr) {
             addLog('WARN', `Screenshot capture failed: ${screenshotErr?.message || String(screenshotErr)}`)
@@ -194,10 +215,12 @@ async function runTestCase(testCase) {
         let screenshotPath = null
 
         try {
-          screenshotPath = await captureStepScreenshot(driver, testCase, index)
-          if (screenshotPath) {
-            screenshots.push(screenshotPath)
-            addLog('INFO', `Screenshot: ${screenshotPath}`)
+          const shot = await captureStepScreenshot(driver, testCase, index)
+          if (shot) {
+            screenshotPath = shot.screenshot || shot
+            const domPath = shot.dom || null
+            if (screenshotPath) screenshots.push(screenshotPath)
+            addLog('INFO', `Screenshot: ${screenshotPath} dom: ${domPath}`)
           }
         } catch (screenshotErr) {
           addLog('WARN', `Screenshot capture failed: ${screenshotErr?.message || String(screenshotErr)}`)

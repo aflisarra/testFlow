@@ -37,15 +37,24 @@
                 <div class="testlab-select-icon">
                   <iconify-icon icon="iconamoon:folder-open-duotone"></iconify-icon>
                 </div>
-                <select class="form-select testlab-project-select"
-                  [class.is-invalid]="testPlanForm.get('projectId')?.touched && testPlanForm.get('projectId')?.invalid"
-                  formControlName="projectId"
-                  (change)="onProjectChange()">
-                  <option value="">-- Select a project --</option>
-                  @for (p of projects; track p._id) {
-                  <option [value]="p._id">{{ p.title }}</option>
-                  }
-                </select>
+                
+
+<select
+  class="form-select testlab-project-select"
+  formControlName="projectId"
+  (click)="onProjectClick()"
+  (change)="onProjectChange()">
+
+  <option value="">-- Select a project --</option>
+
+  @for (p of projects; track p._id) {
+    <option [value]="p._id">{{ p.title }}</option>
+  }
+
+</select>
+
+
+
               </div>
 
               <div class="testlab-project-indicator" [class.is-selected]="!!selectedProjectId"
@@ -119,18 +128,32 @@
     </span>
   </div>
 
+<div class="testlab-url-container">
   <div class="testlab-input-wrapper testlab-input-wrapper-url">
+    
     <span class="testlab-url-prefix-inline">https://</span>
+
     <input
       type="text"
       class="testlab-input testlab-input--url"
       [class.is-invalid]="testPlanForm.get('applicationUrl')?.touched && testPlanForm.get('applicationUrl')?.invalid"
       formControlName="applicationUrl"
-      placeholder="your-app.com/path" />
+      placeholder="your-app.com/path"
+    />
+
+    <!-- ✅ icône moderne -->
+    <span class="testlab-url-icon">
+      <iconify-icon icon="iconamoon:globe-duotone"></iconify-icon>
+    </span>
+
   </div>
+
   @if (testPlanForm.get('applicationUrl')?.touched && testPlanForm.get('applicationUrl')?.invalid) {
-    <div class="invalid-feedback d-block mt-2">{{ getApplicationUrlErrorMessage() }}</div>
+    <div class="invalid-feedback d-block mt-2 animate-fade">
+      {{ getApplicationUrlErrorMessage() }}
+    </div>
   }
+</div>
 </div>
 
           <!-- Style Configuration -->
@@ -509,14 +532,17 @@
           <iconify-icon icon="iconamoon:restart-duotone"></iconify-icon>
           Regenerate (All)
         </button>
-<button 
+
+<button
   type="button" 
-  class="btn btn-validate px-4" 
+  class="btn btn-validate px-4"
   [disabled]="!allPlansConfirmed || finishing"
   (click)="onValidateAndGoToCases()">
+
   <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
-  Validate &amp; Generate test Case
+  Validate & Generate test Case
 </button>
+
       </div>
 
       }

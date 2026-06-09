@@ -2,7 +2,6 @@ import { Injectable, inject } from '@angular/core'
 import { Observable } from 'rxjs'
 import { ApiService } from '@/app/core/services/api.service'
 import type { ExecutionModelDto } from '@/app/interfaces/testlab.interface'
-
 export interface SeleniumStepResultDto {
   index: number
   id?: string
