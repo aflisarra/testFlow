@@ -1,21 +1,21 @@
-import { CUSTOM_ELEMENTS_SCHEMA, Component, DestroyRef, inject, OnInit, AfterViewInit } from '@angular/core'
+import { basePath } from '@/app/common/constants'
+import { MENU, type MenuItem } from '@/app/common/menu-meta'
+import { LogoBoxComponent } from '@/app/components/logo-box.component'
+import { getUser } from '@/app/store/authentication/authentication.selector'
+import { changesidebarsize } from '@/app/store/layout/layout-action'
+import { getSidebarsize } from '@/app/store/layout/layout-selector'
+import { CommonModule } from '@angular/common'
+import { AfterViewInit, Component, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, inject, OnInit } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
-import { SimplebarAngularModule } from 'simplebar-angular'
 import { NavigationEnd, Router, RouterModule } from '@angular/router'
 import {
   NgbCollapse,
   NgbCollapseModule,
   NgbTooltipModule,
 } from '@ng-bootstrap/ng-bootstrap'
-import { CommonModule } from '@angular/common'
-import { findAllParent, findMenuItem } from '../../helpers/utils'
-import { LogoBoxComponent } from '@/app/components/logo-box.component'
-import { MENU, type MenuItem } from '@/app/common/menu-meta'
-import { changesidebarsize } from '@/app/store/layout/layout-action'
 import { Store } from '@ngrx/store'
-import { getSidebarsize } from '@/app/store/layout/layout-selector'
-import { basePath } from '@/app/common/constants'
-import { getUser } from '@/app/store/authentication/authentication.selector'
+import { SimplebarAngularModule } from 'simplebar-angular'
+import { findAllParent, findMenuItem } from '../../helpers/utils'
 
 @Component({
   selector: 'app-sidebar',
@@ -252,6 +252,11 @@ export class SidebarComponent implements OnInit, AfterViewInit {
     const testMenu = clonedMenu.find((m) => m.key === 'test')
     if (testMenu?.subMenu && !canManageProjects) {
       testMenu.subMenu = []
+    }
+
+    const executionMenu = clonedMenu.find((m) => m.key === 'execution')
+    if (executionMenu?.subMenu && !canManageProjects) {
+      executionMenu.subMenu = []
     }
 
     return clonedMenu.filter(

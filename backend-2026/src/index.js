@@ -132,6 +132,21 @@ app.use("/api/ollama", ollamaRoutes);
 app.use('/api/selenium', seleniumRoutes)
 app.use("/auth", authMagic);
 
+
+
+
+
+
+
+// ✅ UNE SEULE FOIS !
+app.use('/api/uploads', express.static(
+  path.join(__dirname, '..', 'uploads')
+))
+
+
+
+
+
 mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true
@@ -139,7 +154,9 @@ mongoose.connect(mongoUri, {
   .then(() => {
     if (process.env.NODE_ENV !== 'production') {
       console.log('✅ Connecté à MongoDB');
+      
     }
+    
     app.listen(port, () => {
       if (process.env.NODE_ENV !== 'production') {
         console.log(`🚀 Server running at http://localhost:${port}`);
@@ -149,4 +166,5 @@ mongoose.connect(mongoUri, {
   .catch(err => {
     console.error('❌ Erreur connexion MongoDB:', err);
   });
+
 //////////////////////////////////////////////////////////////////////////:

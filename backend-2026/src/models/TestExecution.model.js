@@ -85,10 +85,15 @@ const testExecutionSchema = new mongoose.Schema(
       default: 'Chrome',
     },
 
-    logs: {
-      type: [String],
-      default: [],
-    },
+   logs: [
+  {
+    time: String,
+    stepIndex: Number,
+    level: String,
+    message: String,
+    data: Object
+  }
+],
 
     screenshots: {
       type: [String],

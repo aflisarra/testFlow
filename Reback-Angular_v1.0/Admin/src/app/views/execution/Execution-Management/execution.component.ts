@@ -1,5 +1,5 @@
 import { ApiService } from '@/app/core/services/api.service';
-import { SeleniumRunnerService, type SeleniumRunResponseDto, type SeleniumStepResultDto } from '@/app/core/services/selenium-runner.service';
+import { SeleniumRunnerService, type SeleniumStepResultDto } from '@/app/core/services/selenium-runner.service';
 import type { ExecutionModelDto, ExecutionModelStepDto, TestCaseDto, TestExecutionDto, TestSuiteDto } from '@/app/core/services/testlab.service';
 import { TestLabService } from '@/app/core/services/testlab.service';
 import { CommonModule } from '@angular/common';
@@ -764,57 +764,38 @@ element.click()`;
     return this.scenario.steps.filter((step) => Boolean(step.screenshotUrl))
   }
 
-  private mapRunResponseToLogs(resp: SeleniumRunResponseDto): LogLine[] {
-    const payload: any = (resp as any)?.data ?? resp
-    const stepResults = Array.isArray(payload?.stepResults) ? payload.stepResults : []
-    const backendLogs = Array.isArray(payload?.logs) ? payload.logs : []
-    if (backendLogs.length) {
-      return backendLogs.map((line: string, idx: number) => {
-        const text = String(line || '')
-        const level: LogLine['level'] =
-          text.includes('[FAIL]') ? 'FAIL' :
-          text.includes('[ERROR]') ? 'ERROR' :
-          text.includes('[PASS]') ? 'SUCCESS' : 'INFO'
-        return { index: idx + 1, level, message: text.replace(/^\[[A-Z]+\]\s*/, '') }
-      })
+private mapRunResponseToLogs(resp: any): LogLine[] {
+
+  const data = resp?.data ?? resp
+  const logs = data?.logs || []
+
+  return logs.map((log: any, i: number) => {
+
+    const details = log.data
+      ? Object.entries(log.data)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(' | ')
+      : ''
+
+    return {
+      index: i + 1,
+      level: log.level || 'INFO',
+      message: details
+        ? `${log.message} → ${details}`
+        : log.message
     }
-    const logs: LogLine[] = []
-    let i = 1
-    logs.push({ index: i++, level: 'INFO', message: 'Standard execution started' })
-    for (const s of stepResults) {
-      if (s.status === 'passed') {
-        logs.push({ index: i++, level: 'SUCCESS', message: `Step ${s.index}: ${s.name} → passed` })
-      } else {
-        logs.push({ index: i++, level: 'FAIL', message: `Step ${s.index}: ${s.name} → failed` })
-        if (s.message) logs.push({ index: i++, level: 'ERROR', message: String(s.message) })
-        if (s.screenshotPath) logs.push({ index: i++, level: 'INFO', message: `Screenshot: ${s.screenshotPath}` })
-      }
-    }
-    if (payload?.status === 'passed') logs.push({ index: i++, level: 'SUCCESS', message: 'Test PASSED' })
-    if (payload?.status === 'failed') logs.push({ index: i++, level: 'FAIL', message: 'Test FAILED' })
-    if (payload?.status === 'error') logs.push({ index: i++, level: 'ERROR', message: payload.errorMessage || payload.message || 'Test ERROR' })
-    return logs
-  }
+  })
+}
 
-  private resolveScreenshotUrl(rawPath: string): string | null {
-    const value = String(rawPath || '').trim()
-    if (!value) return null
+ private resolveScreenshotUrl(path: string): string | null {
 
-    if (/^data:image\//i.test(value) || /^https?:\/\//i.test(value)) return value
+  if (!path) return null
 
-    const normalized = value.replace(/\\/g, '/')
-    const uploadsIndex = normalized.lastIndexOf('/uploads/')
-    if (uploadsIndex >= 0) {
-      return this.api.toAbsoluteUrl(`/api${normalized.slice(uploadsIndex)}`)
-    }
+  if (path.startsWith('http')) return path
 
-    if (normalized.startsWith('/api/')) return this.api.toAbsoluteUrl(normalized)
-    if (normalized.startsWith('api/')) return this.api.toAbsoluteUrl(`/${normalized}`)
-    if (normalized.startsWith('/uploads/')) return this.api.toAbsoluteUrl(`/api${normalized}`)
-    if (normalized.startsWith('uploads/')) return this.api.toAbsoluteUrl(`/api/${normalized}`)
-
-    return this.api.toAbsoluteUrl(normalized)
-  }
+  // ✅ FIX URL BACKEND
+  return 'http://localhost:3000' + path
+}
 
   private async executeLoadedTestCase(): Promise<void> {
     
@@ -840,7 +821,10 @@ console.log("📦 loadedTestCase:", this.loadedTestCase);
       progressLabel: 'Starting standardized execution...',
       activeStepLabel: '▶ Starting',
     }
-    this.streamedLogs = [{ index: 1, level: 'INFO', message: 'Preparing execution model request...' }]
+    
+this.streamedLogs = [
+  { index: 1, level: 'INFO', message: 'Preparing execution...' }]
+
     this.cdr.markForCheck()
 
     this.startLiveRun()
@@ -937,6 +921,7 @@ console.log("📦 loadedTestCase:", this.loadedTestCase);
           this.cdr.markForCheck()
         },
       })
+      
   }
 
   private startLiveRun(): void {

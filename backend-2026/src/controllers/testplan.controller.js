@@ -94,15 +94,13 @@ exports.generatePreview = async (req, res) => {
 
 exports.savePlans = async (req, res) => {
   try {
-    console.log('BODY:', req.body)
-    console.log('USER:', req.user)
-
     let {
       projectId,
       name,
       testPlans,
       specText,
-      fileName
+      fileName,
+      testSuiteId // ✅ IMPORTANT
     } = req.body
 
     const userId =
@@ -110,112 +108,75 @@ exports.savePlans = async (req, res) => {
       req.user?.id ||
       req.user?._id
 
-    // ✅ 1. PARSER JSON venant de FormData
+    // ✅ parse JSON
     if (typeof testPlans === 'string') {
-      try {
-        testPlans = JSON.parse(testPlans)
-      } catch (err) {
-        console.error('❌ Failed to parse testPlans JSON:', err)
-        testPlans = []
-      }
+      testPlans = JSON.parse(testPlans)
     }
 
-    // ✅ 2. normaliser
     if (!Array.isArray(testPlans)) {
       testPlans = testPlans?.testPlans || []
     }
 
-    console.log('✅ testPlans after normalization:', testPlans)
-
-    // ✅ validation
     if (!projectId || !name || !testPlans.length || !userId) {
       return res.status(400).json({
-        message: 'Missing required fields',
-        debug: {
-          projectId,
-          name,
-          testPlansLength: testPlans?.length,
-          userId
-        }
+        message: 'Missing required fields'
       })
     }
 
     const file = req.file
 
-    // ✅ extraction spec
+    // ✅ SPEC TEXT
     let finalSpecText = String(specText || '').trim() || null
 
     if (!finalSpecText && file) {
-      try {
-        const { readSpecTextFromUpload } = require('../services/ollama.service')
-        const extracted = String(await readSpecTextFromUpload(file)).trim()
-        finalSpecText = extracted || null
-      } catch (e) {
-        console.warn('Spec extraction failed:', e?.message || e)
-        finalSpecText = null
-      }
+      const { readSpecTextFromUpload } = require('../services/ollama.service')
+      finalSpecText = await readSpecTextFromUpload(file)
     }
 
-    // ✅ save file (support buffer + path)
-    const path = require('path')
-    const fs = require('fs/promises')
-
-    let specFilePath = null
-    let specFileNameToStore = fileName || null
-
-    if (file) {
-      try {
-        await fs.mkdir(path.join(process.cwd(), 'uploads', 'specs'), { recursive: true })
-
-        const safeName = (file.originalname || 'spec')
-          .replace(/[^a-zA-Z0-9.-]/g, '_')
-
-        const filenameOnDisk = `${Date.now()}-${safeName}`
-        const outPath = path.join(process.cwd(), 'uploads', 'specs', filenameOnDisk)
-
-        const buffer = file.buffer || (file.path ? await fs.readFile(file.path) : null)
-
-        if (buffer) {
-          await fs.writeFile(outPath, buffer)
-          specFilePath = `uploads/specs/${filenameOnDisk}`
-          specFileNameToStore = file.originalname || specFileNameToStore
-          console.log('✅ Uploaded spec saved to:', specFilePath)
-        }
-
-      } catch (e) {
-        console.warn('Failed to persist uploaded spec file:', e?.message || e)
-      }
-    }
-
-    // ✅ limiter taille texte
     const specTextToStore = finalSpecText
-      ? String(finalSpecText).slice(0, 50_000)
+      ? String(finalSpecText).slice(0, 50000)
       : null
 
-    if (specTextToStore) {
-      console.log(
-        '✅ SpecText preview:',
-        specTextToStore.slice(0, 200).replace(/\n/g, ' ')
-      )
-    }
+    const urlCibleToStore = String(req.body?.urlCible || '').trim() || null
 
-      const urlCibleToStore = String(req.body?.urlCible || req.body?.url || '').trim() || null
+    let suite
 
-      // ✅ créer test suite
-      const suite = await TestSuite.create({
+    // ✅ ✅ ✅ UPDATE
+    if (testSuiteId) {
+      suite = await TestSuite.findById(testSuiteId)
+
+      if (!suite) {
+        return res.status(404).json({ message: 'Suite not found' })
+      }
+
+      suite.nametest = name
+      suite.nom = name
+      suite.specText = specTextToStore
+      suite.specFileName = fileName || suite.specFileName
+      suite.urlCible = urlCibleToStore
+
+      await suite.save()
+
+      // ✅ IMPORTANT : supprimer anciens plans
+      await TestPlan.deleteMany({ testSuiteId: suite._id })
+
+    } else {
+      // ✅ ✅ ✅ CREATE
+
+      suite = await TestSuite.create({
         projectId,
         nametest: name,
         nom: name,
         userId,
         specText: specTextToStore,
-        specFileName: specFileNameToStore || null,
-        specFilePath: specFilePath,
+        specFileName: fileName,
         urlCible: urlCibleToStore,
       })
+    }
 
-    // ✅ créer plans
+    // ✅ CREATE NEW PLANS
     const createdPlans = await Promise.all(
-      testPlans.map((plan) =>
+      testPlans.map(plan =>
         testPlanService.createTestPlan({
           testSuiteId: suite._id,
           id: plan.id,
@@ -231,10 +192,7 @@ exports.savePlans = async (req, res) => {
     })
 
   } catch (error) {
-    console.error('🔥 savePlans error FULL:', error)
-
-    res.status(500).json({
-      message: error.message,
-    })
+    console.error('🔥 savePlans error:', error)
+    res.status(500).json({ message: error.message })
   }
 }

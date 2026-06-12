@@ -72,7 +72,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   styleConfig = ''
   uploadedFileName = ''
   selectedFile: File | null = null
-
+isEditMode = false
   generatingPlans = false
   regeneratingPlanId: string | null = null
   errorMessage = ''
@@ -405,6 +405,7 @@ private prepareFreshTestForSelectedProject(): void {
 }
 
 
+
   private async loadExistingSuiteForEditing(suite: TestSuiteDto): Promise<void> {
     const suiteId = String(suite?._id || '').trim()
     if (!suiteId) return
@@ -426,6 +427,7 @@ this.specText = suite.specText || ''       // ✅ IMPORTANT
 this.styleConfig = suite.styleConfig || '' // ✅ BONUS
     this.uploadedFileName = suite.specFileName || ''
     this.selectedFile = null
+    this.isEditMode = true
 
     try {
       const resp = await firstValueFrom(this.testLabService.getTestPlans(suiteId))
@@ -449,6 +451,7 @@ this.styleConfig = suite.styleConfig || '' // ✅ BONUS
       this.errorMessage = getErrorMessage(err, 'Unable to load existing test plans')
       this.toastr.error(this.errorMessage, 'Test Plan')
     }
+    
   }
 
   private getSuiteDisplayName(suite: TestSuiteDto): string {
@@ -733,7 +736,7 @@ getValidateButtonClass(planId: string): string {
   }*/
 specText: string = ''
   // Remplacer onValidateAndGoToCases()
-  async onValidateAndGoToCases() {
+async onValidateAndGoToCases() {
   if (!this.testPlans.length) {
     this.toastr.warning('Generate at least one test plan first.', 'Validation')
     return
@@ -745,38 +748,73 @@ specText: string = ''
   }
 
   try {
-    // ✅ créer suite + plans seulement ici
-      if (!this.currentTestSuiteId) {
-        let response
-        if (this.selectedFile) {
-          const fd = new FormData()
-          fd.append('projectId', this.testPlanForm.value.projectId)
-          fd.append('name', this.nameTest || 'Test Suite')
-          fd.append('planStatuses', JSON.stringify(this.planStatuses))
-          fd.append('testPlans', JSON.stringify(this.testPlans))
-          fd.append('specText', this.specText || '')
-          fd.append('urlCible', String(this.testPlanForm.value.applicationUrl || '').trim())
-          fd.append('fileName', this.selectedFile?.name || '')
-          fd.append('file', this.selectedFile)
-          response = await firstValueFrom(this.testLabService.createSuiteWithPlansForm(fd))
-        } else {
-          const _fileName = this.selectedFile ? (this.selectedFile as any).name : undefined
-          response = await firstValueFrom(
-            this.testLabService.createSuiteWithPlans({
-              projectId: this.testPlanForm.value.projectId,
-              name: this.nameTest || 'Test Suite',
-              testPlans: this.testPlans,
-              planStatuses: this.planStatuses,
-              specText: this.specText, // ✅ ajouter
-              fileName: _fileName,
-            })
-          )
-        }
+    let response
 
-        this.currentTestSuiteId = (response as any)?.testSuiteId
+    if (!this.currentTestSuiteId) {
+      // ✅ ✅ ✅ CREATE
+
+      if (this.selectedFile) {
+        const fd = new FormData()
+        fd.append('projectId', this.testPlanForm.value.projectId)
+        fd.append('name', this.nameTest || 'Test Suite')
+        fd.append('planStatuses', JSON.stringify(this.planStatuses))
+        fd.append('testPlans', JSON.stringify(this.testPlans))
+        fd.append('specText', this.specText || '')
+        fd.append('urlCible', String(this.testPlanForm.value.applicationUrl || '').trim())
+        fd.append('fileName', this.selectedFile?.name || '')
+        fd.append('file', this.selectedFile)
+
+        response = await firstValueFrom(
+          this.testLabService.createSuiteWithPlansForm(fd)
+        )
+      } else {
+        response = await firstValueFrom(
+          this.testLabService.createSuiteWithPlans({
+            projectId: this.testPlanForm.value.projectId,
+            name: this.nameTest || 'Test Suite',
+            testPlans: this.testPlans,
+            planStatuses: this.planStatuses,
+            specText: this.specText,
+          })
+        )
       }
 
-    // ✅ navigation
+      this.currentTestSuiteId = (response as any)?.testSuiteId
+
+    } else {
+      // ✅ ✅ ✅ UPDATE 🔥🔥🔥
+
+      const payload: any = {
+        testSuiteId: this.currentTestSuiteId,
+        projectId: this.testPlanForm.value.projectId,
+        name: this.nameTest || 'Test Suite',
+        testPlans: this.testPlans,
+        planStatuses: this.planStatuses,
+        specText: this.specText,
+        urlCible: String(this.testPlanForm.value.applicationUrl || '').trim(),
+      }
+
+      if (this.selectedFile) {
+        const fd = new FormData()
+
+        Object.keys(payload).forEach(key => {
+          fd.append(key, payload[key])
+        })
+
+        fd.append('file', this.selectedFile)
+        fd.append('fileName', this.selectedFile.name)
+
+        await firstValueFrom(
+          this.testLabService.createSuiteWithPlansForm(fd)
+        )
+      } else {
+        await firstValueFrom(
+          this.testLabService.createSuiteWithPlans(payload)
+        )
+      }
+    }
+
+    // ✅ NAVIGATION
     this.finishing = true
 
     await this.router.navigate(['/test-cases'], {
@@ -784,7 +822,6 @@ specText: string = ''
       state: { plans: this.testPlans },
     })
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (err) {
     this.toastr.error('Error saving test plans', 'Error')
   } finally {
@@ -891,7 +928,7 @@ const result = await firstValueFrom(
 )
 
 // ✅ IMPORTANT
-this.currentTestSuiteId = '' // ❌ pas de suite en DB
+///this.currentTestSuiteId = '' // ❌ pas de suite en DB
 
 this.testPlans = Array.isArray(result?.testPlans)
   ? result.testPlans
@@ -1057,6 +1094,9 @@ this.testPlans = Array.isArray(result?.testPlans)
         this.generatingCases = false
         this.activeCaseGenerationRequestId = ''
       }
+      
+
+
     }
   }
 
@@ -1173,7 +1213,7 @@ this.testPlans = Array.isArray(result?.testPlans)
     if (currentPlanToken !== this.plansGenerationToken) return
 
     // ✅ NE PAS créer de suite ici
-    this.currentTestSuiteId = ''
+    //this.currentTestSuiteId = ''
 
     // ✅ affichage seulement
     this.testPlans = Array.isArray(result?.testPlans) ? result.testPlans : []
@@ -1210,7 +1250,10 @@ this.testPlans = Array.isArray(result?.testPlans)
       this.activePlanGenerationRequestId = ''
       this.syncProjectIdControlDisabled()
     }
+    
+
   }
+
 }
 
   private isGenerationInProgress(): boolean {

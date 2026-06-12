@@ -316,18 +316,41 @@ function normalizeExecutionModel(model, testCase) {
     const requires = Array.isArray(candidate.requires) ? candidate.requires : fallbackStepModel.requires
     const candidateAction = lower(candidate.action)
     const candidateChannel = lower(candidate.channel)
+    
+let action = candidateAction
+
+// ✅ ✅ ✅ FIX CRITIQUE
+if (
+  rawText.includes("open") &&
+  (rawText.includes("page") || rawText.includes("form"))
+) {
+  action = "open_app"
+}
+
 
     return {
       id: text(candidate.id || fallbackStepModel.id || `S${index + 1}`),
       raw: text(candidate.raw || fallbackStepModel.raw || rawStepText(step)),
       channel: candidateChannel && candidateChannel !== 'unknown' ? candidateChannel : (fallbackStepModel.channel || 'unknown'),
-      action: candidateAction && candidateAction !== 'unknown' ? candidateAction : (fallbackStepModel.action || 'unknown'),
+      
+ction: action && action !== 'unknown'
+  ? action
+  : fallbackStepModel.action || 'unknown',
+
       target: normalizeTarget(candidate.target, fallbackStepModel.target),
       value: normalizeValue(candidate.value, fallbackStepModel.value),
       assertion: normalizeAssertion(candidate.assertion, fallbackStepModel.assertion),
       requires: requires.map((item) => text(item)).filter(Boolean)
     }
   })
+  
+if (
+  rawText.includes("open") &&
+  (rawText.includes("page") || rawText.includes("form"))
+) {
+  action = "open_app"
+}
+
 
   return {
     version: 'execution-model/v1',
@@ -381,6 +404,8 @@ async function resolveExecutionModel(testCase, ctx, addLog = () => {}) {
 
   addLog('INFO', 'Using local execution_model/v1 fallback')
   return buildFallbackExecutionModel(testCase)
+
+  console.log("🔥 EXECUTION MODEL:", JSON.stringify(translated, null, 2))
 }
 
 function describeExecutionStep(step) {

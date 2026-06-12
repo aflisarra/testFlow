@@ -1,0 +1,172 @@
+<div class="execution-history">
+
+  <!-- FILTERS -->
+  <div class="filters-bar">
+
+    <!-- ✅ DATE -->
+    <div class="filter-group">
+      <label class="filter-label">DATE RANGE</label>
+      <div class="filter-select-wrapper">
+        <select (change)="onFilterChange('dateRange', $event)">
+          <option value="1day">Last 1 Day</option>
+          <option value="2days">Last 2 Days</option>
+          <option value="3days">Last 3 Days</option>
+          <option value="7days">Last 7 Days</option>
+          <option value="30days">Last 30 Days</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ✅ STATUS -->
+    <div class="filter-group">
+      <label class="filter-label">STATUS</label>
+      <select (change)="onFilterChange('status', $event)">
+        <option value="">All</option>
+        <option value="passed">Passed</option>
+        <option value="failed">Failed</option>
+        <option value="aborted">Aborted</option>
+        <option value="running">Running</option>
+      </select>
+    </div>
+
+    <!-- ✅ STATE -->
+    <div class="filter-group">
+      <label class="filter-label">STATE</label>
+      <select (change)="onFilterChange('executionState', $event)">
+        <option value="">All</option>
+        <option value="running">Running</option>
+        <option value="finished">Finished</option>
+      </select>
+    </div>
+
+    <!-- ✅ PROJECT -->
+    <div class="filter-group">
+      <label class="filter-label">PROJECT</label>
+      <select (change)="onFilterChange('project', $event)">
+        <option value="">All Projects</option>
+
+        @for (p of projects; track p._id) {
+          <option [value]="p._id">{{ p.title }}</option>
+        }
+      </select>
+    </div>
+
+    <!-- ✅ SUITE -->
+    <div class="filter-group">
+      <label class="filter-label">SUITE</label>
+      <select
+        [disabled]="!filters.project"
+        (change)="onFilterChange('suite', $event)"
+      >
+        <option value="">All Suites</option>
+
+        @for (s of suites; track s._id) {
+          <option [value]="s._id">
+            {{ s.nom || s.nametest }}
+          </option>
+        }
+      </select>
+    </div>
+
+    <!-- ✅ PLAN -->
+    <div class="filter-group">
+      <label class="filter-label">TEST PLAN</label>
+      <select
+        [disabled]="!filters.suite"
+        (change)="onFilterChange('testPlan', $event)"
+      >
+        <option value="">All Plans</option>
+
+        @for (plan of plans; track plan._id) {
+          <option [value]="plan._id">{{ plan.title }}</option>
+        }
+      </select>
+    </div>
+
+    <!-- ✅ TEST CASE -->
+    <div class="filter-group">
+      <label class="filter-label">TEST CASE</label>
+      <select
+        [disabled]="!filters.testPlan"
+        (change)="onFilterChange('testCase', $event)"
+      >
+        <option value="">All Tests</option>
+
+        @for (tc of testCases; track tc._id) {
+          <option [value]="tc.id">{{ tc.title }}</option>
+        }
+      </select>
+    </div>
+
+    <!-- ✅ APPLY -->
+    <button class="btn-apply" (click)="applyFilters()">
+      Apply Filters
+    </button>
+
+  </div>
+
+  <!-- ✅ TABLE -->
+  <div class="table-wrapper">
+    <table class="exec-table">
+
+      <tbody>
+
+        @for (run of filteredRuns; track run.id) {
+
+  <tr
+    (click)="openExecution(run)"
+    style="cursor:pointer"
+  >
+
+    <td>{{ run.id }}</td>
+
+    <td>
+      <b>{{ run.name }}</b><br>
+      <small>{{ run.tags }}</small>
+    </td>
+
+    <td>
+      <span class="status-badge status-{{ run.status }}">
+        {{ run.status }}
+      </span>
+    </td>
+
+    <td>
+      {{ run.startDate }}<br>
+      <small>{{ run.startTime }}</small>
+    </td>
+
+    <td>
+      {{ run.endDate }}<br>
+      <small>{{ run.endTime }}</small>
+    </td>
+
+    <td>{{ run.duration }}</td>
+
+  </tr>
+
+} @empty {
+
+          <tr>
+            <td colspan="6" style="text-align:center;">
+              No executions found
+            </td>
+          </tr>
+
+        }
+
+      </tbody>
+
+    </table>
+  </div>
+
+  
+
+
+</div>
+
+<app-execution-details
+  [execution]="selectedExecution"
+  [visible]="isModalOpen"
+  (closed)="isModalOpen = false"
+></app-execution-details>

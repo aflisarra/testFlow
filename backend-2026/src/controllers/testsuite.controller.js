@@ -204,20 +204,93 @@ exports.execute = async (req, res) => {
 
 exports.getExecutions = async (req, res) => {
   try {
-    const suiteId = String(req.params.id || '').trim()
-    if (!mongoose.Types.ObjectId.isValid(suiteId)) {
-      return res.status(400).json({ message: 'Invalid test suite id' })
+    const {
+      status,
+      project,
+      testSuiteId,
+      planId,
+      testCaseId,
+      executionState,
+      days,
+      page = 1,
+      limit = 10
+    } = req.query
+
+    console.log('🔎 FILTER QUERY:', req.query)
+
+    const filter = {}
+
+    // ✅ FILTER BY PROJECT
+    if (project && mongoose.Types.ObjectId.isValid(project)) {
+      const suites = await require('../models/testsuite')
+        .find({ projectId: project })
+        .select('_id')
+        .lean()
+
+      const suiteIds = suites.map(s => s._id)
+
+      filter.testSuiteId = { $in: suiteIds }
     }
 
-    const rows = await TestExecution.find({ testSuiteId: new mongoose.Types.ObjectId(suiteId) })
-      .sort({ startedAt: -1, createdAt: -1 })
-      .lean()
+    // ✅ FILTER BY SUITE
+    if (testSuiteId && mongoose.Types.ObjectId.isValid(testSuiteId)) {
+      filter.testSuiteId = new mongoose.Types.ObjectId(testSuiteId)
+    }
 
-    return res.status(200).json(rows.map((row) => ({
+    // ✅ FILTER BY PLAN
+    if (planId && mongoose.Types.ObjectId.isValid(planId)) {
+      filter.planId = new mongoose.Types.ObjectId(planId)
+    }
+
+    // ✅ FILTER BY TEST CASE (IMPORTANT 🔥)
+    if (testCaseId) {
+      filter.testCaseKey = String(testCaseId)
+    }
+
+    // ✅ FILTER BY STATUS
+    if (status) {
+      filter.status = status
+    }
+
+    // ✅ FILTER BY EXECUTION STATE (optional)
+    if (executionState) {
+      if (executionState === 'running') {
+        filter.finishedAt = null
+      }
+      if (executionState === 'finished') {
+        filter.finishedAt = { $ne: null }
+      }
+    }
+
+    // ✅ FILTER BY DATE
+    if (days) {
+      const date = new Date()
+      date.setDate(date.getDate() - Number(days))
+      filter.startedAt = { $gte: date }
+    }
+
+    // ✅ PAGINATION
+    const skip = (Number(page) - 1) * Number(limit)
+
+    const [rows, total] = await Promise.all([
+
+      require('../models/TestExecution.model')
+        .find(filter)
+        .sort({ startedAt: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(),
+
+      require('../models/TestExecution.model')
+        .countDocuments(filter)
+
+    ])
+
+    // ✅ FORMAT RESULT
+    const data = rows.map(row => ({
       executionId: row.executionId,
       testSuiteId: String(row.testSuiteId || ''),
       planId: String(row.planId || ''),
-      planKey: row.planKey || '',
       planTitle: row.planTitle || '',
       testCaseId: String(row.testCaseId || ''),
       testCaseKey: row.testCaseKey || '',
@@ -225,12 +298,17 @@ exports.getExecutions = async (req, res) => {
       status: row.status,
       duration: row.duration,
       startedAt: row.startedAt,
-      finishedAt: row.finishedAt,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    })))
+      finishedAt: row.finishedAt
+    }))
+
+    return res.status(200).json({
+      total,
+      data
+    })
+
   } catch (error) {
-    return handleError(res, error)
+    console.error('🔥 getExecutions error:', error)
+    return res.status(500).json({ message: error.message })
   }
 }
 

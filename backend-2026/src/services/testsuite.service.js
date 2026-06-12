@@ -101,7 +101,7 @@ function mergePlanStatuses({ existingStatuses = [], incomingStatuses = [], testP
 
   return (Array.isArray(testPlans) ? testPlans : [])
     .map((plan) => {
-      const planId = String(plan?.id || plan?.planId || '').trim()
+      const planId = String(plan?._id || plan?.id || '').trim()
       if (!planId) return null
 
       const casesCount = Number(plan?.casesCount || 0)
@@ -241,11 +241,13 @@ async function getSuitePlansAndCases(testSuiteId) {
     }
   })
 
-  const testCasesByPlan = plans.map((plan) => ({
-    planId: plan.id,
-    planTitle: plan.title,
-    testCases: casesByMongoPlanId.get(String(plan._id)) || [],
-  }))
+ 
+const testCasesByPlan = plans.map((plan) => ({
+  planId: plan._id, 
+  planTitle: plan.title,
+  testCases: casesByMongoPlanId.get(String(plan._id)) || [],
+}))
+
   const plansHavingTestCases = plans.filter((plan) => (casesByMongoPlanId.get(String(plan._id)) || []).length > 0).length
 
   return { testPlans, testCasesByPlan, plansCount: plans.length, testCasesCount: cases.length, plansHavingTestCases }
@@ -648,6 +650,37 @@ async function setTestSuiteProject(testSuiteId, nextProjectId, viewer = {}) {
   )
     .populate('projectId', 'title')
     .lean()
+}
+
+
+
+exports.getTestPlansByTestSuiteId = async (suiteId) => {
+
+  // ✅ get plans
+  const plans = await TestPlan.find({ testSuiteId: suiteId }).lean()
+
+  // ✅ get test cases of all plans
+  const cases = await TestCase.find({ testSuiteId: suiteId }).lean()
+
+  // ✅ mapping CORRECT (IMPORTANT 🔥)
+  const testCasesByPlan = plans.map(plan => {
+
+    const filteredCases = cases.filter(tc =>
+      String(tc.planId) === String(plan._id) 
+    )
+
+    return {
+      planId: plan._id, 
+      planTitle: plan.title,
+      testCases: filteredCases
+    }
+  })
+
+  return {
+    testSuiteId: suiteId,
+    testPlans: plans,
+    testCasesByPlan
+  }
 }
 
 module.exports = {

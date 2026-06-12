@@ -11,10 +11,7 @@ def build_test_case_translator_prompt(
     expected_result: str,
     context: Dict[str, Any],
 ) -> str:
-    """
-    Prompt for interpreting a natural language test case into a runner-neutral model.
-    The output is intentionally not Selenium, Playwright, Cypress, or Postman code.
-    """
+
     step_lines = "\n".join(f"{index}. {step}" for index, step in enumerate(steps, start=1))
     context_lines = "\n".join(f"- {key}: {value}" for key, value in sorted((context or {}).items()))
 
@@ -54,36 +51,63 @@ def build_test_case_translator_prompt(
         "<s>[INST]\n"
         "You are a senior QA automation architect.\n"
         "Interpret natural language test case steps into a standardized execution model.\n"
-        "This is NOT a translation task. Extract intent, target, data needs, assertions, and API/UI channel.\n"
-        "The model must be independent from Selenium, Playwright, Cypress, Postman, and any concrete driver.\n\n"
+        "This is NOT a translation task. Extract intent, action, target, data needs, and assertions.\n\n"
+
         "### Allowed channels\n"
         "- ui\n"
         "- api\n"
         "- assertion\n"
         "- data\n"
         "- unknown\n\n"
+
         "### Allowed actions\n"
         "- open_app, open_login, navigate, type, type_credentials, click, submit, wait\n"
         "- assert_visible, assert_text, assert_url, assert_authenticated\n"
         "- set_auth, http_request, assert_status\n"
         "- set_context, unknown\n\n"
+
+        "### UI interpretation rules (CRITICAL)\n"
+        "- Any step that means opening or navigating to a page MUST be mapped to action=\"open_app\".\n"
+        "- Examples:\n"
+        "  open page, open form page, open form, open homepage\n"
+        "  go to page, go to form, navigate to page, navigate to form\n"
+        "- Do NOT use action=\"unknown\" for navigation steps.\n"
+        "- If step explicitly says 'login page', use action=\"open_login\".\n"
+        "- Otherwise all navigation → open_app.\n\n"
+
+        "### Inference rules\n"
+        "- Try to infer the most relevant action.\n"
+        "- Use action=\"unknown\" ONLY if the step truly cannot be mapped.\n\n"
+
         "### Hard rules\n"
         "- Output ONLY valid JSON.\n"
         "- Use exactly version \"execution-model/v1\".\n"
-        "- Preserve each input step as one output step in the same order.\n"
-        "- Do not output CSS selectors, XPath, Selenium locators, or code.\n"
-        "- Put secret values behind value.source=\"credential\" and value.key, never in value.text.\n"
-        "- When a step mentions email/password/login credentials, require credentials.email and/or credentials.password.\n"
-        "- For API requests, infer method/path only when explicit in the step; otherwise keep target.path empty.\n"
-        "- If intent is unclear, use action=\"unknown\" but keep the raw step.\n\n"
+        "- Preserve each input step as one output step in same order.\n"
+        "- Do NOT output selectors or automation code.\n"
+        "- Do NOT leave navigation steps as unknown.\n"
+        "- Use credentials for sensitive values.\n\n"
+
+        "### Example mappings\n"
+        "Input: \"Open the form page\"\n"
+        "Output action: open_app\n\n"
+
+        "Input: \"Go to user form\"\n"
+        "Output action: open_app\n\n"
+
+        "Input: \"Open login page\"\n"
+        "Output action: open_login\n\n"
+
         "### Required JSON shape\n"
         f"{example}\n"
+
         "### Test case\n"
         f"- id: {test_case_id or ''}\n"
         f"- title: {title or ''}\n"
         f"- expected_result: {expected_result or ''}\n\n"
+
         "### Steps\n"
         f"{step_lines}\n\n"
+
         "### Execution context\n"
         f"{context_lines or '(none)'}\n"
         "[/INST]"

@@ -54,6 +54,39 @@ async function requireTestSuiteAccess(req, res, next) {
       return res.status(403).json({ message: 'Forbidden' })
     }
 
+        // Enforce project-management permission: users without project actions shouldn't access TestSuite execution
+        try {
+          const User = require('../models/user.model')
+          const Role = require('../models/role.model')
+
+          const userDoc = await User.findById(userId).select('roleId role').lean()
+          let effectiveActions = Array.isArray(req.user?.actions) ? req.user.actions.map((a) => Number(a)) : []
+
+          if (userDoc) {
+            const roleName = String(userDoc.role || '').trim()
+            let roleDoc = null
+            if (roleName) {
+              roleDoc = await Role.findOne({ name: roleName }).select('actions').lean()
+            }
+            if (roleDoc && Array.isArray(roleDoc.actions) && roleDoc.actions.length) {
+              effectiveActions = roleDoc.actions.map((id) => Number(id)).filter(Number.isFinite)
+            }
+          }
+
+          // Project-related action IDs (create/view/edit/delete/invite project)
+          const projectActionIds = [12, 13, 14, 15, 16]
+
+          const hasProjectPermission = effectiveActions.some((id) => projectActionIds.includes(Number(id)))
+
+          // If user is not owner and doesn't have any project-related action, forbid access to TestSuite features
+          if (!isOwner && !hasProjectPermission) {
+            return res.status(403).json({ message: "Forbidden: missing project management permission" })
+          }
+        } catch (err) {
+          // If permission check fails unexpectedly, deny access conservatively
+          return res.status(403).json({ message: 'Forbidden' })
+        }
+
     if (!isOwner) {
       const invitation = await ProjectInvitation.findOne({
         projectId: project._id,

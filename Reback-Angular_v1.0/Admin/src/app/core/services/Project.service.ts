@@ -10,4 +10,17 @@ export class ProjectService {
   getUsersByProject(projectId: string): Observable<any[]> {
     return this.api.get<any[]>(`/api/projects/${projectId}/users`)
   }
+
+  
+getPlansByProject(projectId: string) {
+  return this.api.get(`/api/testplans?projectId=${projectId}`)
+}
+
+// ✅ TEST CASES BY PLAN
+getTestCasesByPlan(planId: string) {
+  return this.api.get(`/api/testcases?planId=${planId}`)
+}
+
+
+
 }

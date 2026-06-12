@@ -1,7 +1,7 @@
-import { Injectable, inject } from '@angular/core'
-import { Observable } from 'rxjs'
 import { ApiService } from '@/app/core/services/api.service'
 import type { ExecutionModelDto } from '@/app/interfaces/testlab.interface'
+import { Injectable, inject } from '@angular/core'
+import { Observable } from 'rxjs'
 export interface SeleniumStepResultDto {
   index: number
   id?: string
@@ -30,4 +30,41 @@ export class SeleniumRunnerService {
   runSingleTestCase(testCase: Record<string, unknown>): Observable<SeleniumRunResponseDto> {
     return this.api.post<SeleniumRunResponseDto>(`/api/selenium/run-test-case`, { testCase })
   }
+
+
+  
+/*getExecutions(filters: any) {
+    return this.api.get('/api/selenium/executions', filters)
+  }*/
+ 
+getExecutions(filters: any) {
+  return this.api.get('/api/selenium/executions', {
+    params: { ...filters }
+  })
+}
+
+
+  
+getProjects() {
+  return this.api.get<any[]>('/api/projects')
+}
+
+
+getSuitesByProject(projectId: string) {
+  return this.api.get<any[]>(`/api/testsuites/project/${projectId}`)
+}
+
+getPlansBySuite(suiteId: string) {
+  return this.api.get<any[]>(`/api/testsuites/${suiteId}/plans`)
+}
+
+getTestCasesByPlan(planId: string) {
+  return this.api.get<any[]>(`/api/testsuites/plans/${planId}/cases`)
+}
+
+
+
+getExecutionDetail(id: string) {
+  return this.api.get(`/api/selenium/executions/${id}`)
+}
 }

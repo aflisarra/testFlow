@@ -115,6 +115,14 @@ export const MENU: MenuItem[] = [
         link: '/execution/Execution-Management',
         parentKey: 'execution',
       },
+       {
+        key: 'Execution History',
+        label: 'Execution history',
+        link: '/execution/Execution-History',
+        parentKey: 'execution',
+      },
+
+      
 
     ],
   },

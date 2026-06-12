@@ -4,6 +4,7 @@ import { Route } from '@angular/router'
 import { RolesManagementComponent } from './admin/roles/roles-management.component'
 import { AllUsersComponent } from './admin/users/all-users.component'
 import { InviteUserComponent } from './admin/users/invite-user.component'
+import { ExecutionHistoryComponent } from './execution/Execution-History/execution-history.component'
 import { ExecutionComponent } from './execution/Execution-Management/execution.component'
 import { UnauthorizedComponent } from './pages/unauthorized/unauthorized.component'
 import { ProjectManagementComponent } from './project/project-management.component'
@@ -84,14 +85,20 @@ export const VIEW_ROUTES: Route[] = [
         .then(m => m.TestCasesValidationComponent),
     data: { title: 'List of Tests' },
   },
-  {
-    path: 'execution/Execution-Management',
-    component: ExecutionComponent,
-    data: { title: 'Test Execution' },
-  },
-  {
-    path: 'execution/:id',
-    component: ExecutionComponent,
-    data: { title: 'Test Execution' },
-  },
+{
+  path: 'execution/Execution-Management',
+  component: ExecutionComponent,
+  data: { title: 'Test Execution' },
+},
+{
+  path: 'execution/Execution-History',   // ← spécifique AVANT le paramètre
+  component: ExecutionHistoryComponent,  // ← bon composant
+  data: { title: 'Execution History' },
+},
+{
+  path: 'execution/:id',                 // ← dynamique EN DERNIER
+  component: ExecutionComponent,
+  data: { title: 'Test Execution' },
+},
+
 ]
