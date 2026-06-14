@@ -1,6 +1,6 @@
 const testPlanService = require('../services/testplan.service')
 const TestSuite = require('../models/testsuite')
-
+const TestPlan = require('../models/testplan.model')
 exports.create = async (req, res) => {
   try {
     const plan = await testPlanService.createTestPlan(req.body)
@@ -102,7 +102,8 @@ exports.savePlans = async (req, res) => {
       fileName,
       testSuiteId // ✅ IMPORTANT
     } = req.body
-
+console.log("TESTPLANS RECEIVED:", testPlans)
+console.log("TYPE:", typeof testPlans)
     const userId =
       req.user?.userId ||
       req.user?.id ||

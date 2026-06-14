@@ -164,10 +164,14 @@ createSuiteWithPlans(payload: {
   fileName?: string
 }) {
   
- return this.api.post<{ testSuiteId: string }>(
-    `/api/testsuites/save-plans`,
-    payload
-  )
+return this.api.post<{ testSuiteId: string }>(
+  `/api/testsuites/save-plans`,
+  {
+    ...payload,
+    testPlans: JSON.stringify(payload.testPlans),
+    planStatuses: JSON.stringify(payload.planStatuses)
+  }
+)
 }
 
   // POST multipart form when uploading a spec file

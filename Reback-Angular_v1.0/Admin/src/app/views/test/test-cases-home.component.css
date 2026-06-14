@@ -191,9 +191,14 @@
 .tc-generate-main-btn {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  line-height: 1;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.tc-btn-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  opacity: 0.85;
 }
 
 .tc-right-plan-id {

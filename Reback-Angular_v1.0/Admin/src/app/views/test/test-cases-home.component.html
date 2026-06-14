@@ -198,13 +198,19 @@
         </div>
         <div class="d-flex gap-2 align-items-center">
           @if (livePlan) {
-          <button class="btn btn-sm btn-brand tc-generate-main-btn" (click)="openModal(livePlan, $event)">
-            <iconify-icon
-              [icon]="(testCasesByPlan[livePlanId] || []).length ? 'iconamoon:restart-duotone' : 'iconamoon:sparkles-duotone'"
-              class="me-1"
-            ></iconify-icon>
-            {{ (testCasesByPlan[livePlanId] || []).length ? 'View' : 'Generate' }}
-          </button>
+         <button class="btn btn-sm btn-brand tc-generate-main-btn" (click)="openModal(livePlan, $event)">
+  <iconify-icon
+    [icon]="(testCasesByPlan[livePlanId] || []).length 
+      ? 'iconamoon:eye-thin' 
+      : 'iconamoon:sparkles-duotone'"
+    width="15"
+    height="15"
+  ></iconify-icon>
+  <span>{{ (testCasesByPlan[livePlanId] || []).length ? 'View' : 'Generate' }}</span>
+  @if ((testCasesByPlan[livePlanId] || []).length) {
+    <span class="tc-btn-count">({{ (testCasesByPlan[livePlanId] || []).length }})</span>
+  }
+</button>
           }
         </div>
       </div>

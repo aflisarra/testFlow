@@ -748,84 +748,107 @@ async onValidateAndGoToCases() {
   }
 
   try {
-    let response
 
-    if (!this.currentTestSuiteId) {
-      // ✅ ✅ ✅ CREATE
+    const fd = new FormData()
 
-      if (this.selectedFile) {
-        const fd = new FormData()
-        fd.append('projectId', this.testPlanForm.value.projectId)
-        fd.append('name', this.nameTest || 'Test Suite')
-        fd.append('planStatuses', JSON.stringify(this.planStatuses))
-        fd.append('testPlans', JSON.stringify(this.testPlans))
-        fd.append('specText', this.specText || '')
-        fd.append('urlCible', String(this.testPlanForm.value.applicationUrl || '').trim())
-        fd.append('fileName', this.selectedFile?.name || '')
-        fd.append('file', this.selectedFile)
+    fd.append(
+      'projectId',
+      this.testPlanForm.value.projectId
+    )
 
-        response = await firstValueFrom(
-          this.testLabService.createSuiteWithPlansForm(fd)
-        )
-      } else {
-        response = await firstValueFrom(
-          this.testLabService.createSuiteWithPlans({
-            projectId: this.testPlanForm.value.projectId,
-            name: this.nameTest || 'Test Suite',
-            testPlans: this.testPlans,
-            planStatuses: this.planStatuses,
-            specText: this.specText,
-          })
-        )
-      }
+    fd.append(
+      'name',
+      this.nameTest || 'Test Suite'
+    )
 
-      this.currentTestSuiteId = (response as any)?.testSuiteId
+    fd.append(
+      'testPlans',
+      JSON.stringify(this.testPlans)
+    )
 
-    } else {
-      // ✅ ✅ ✅ UPDATE 🔥🔥🔥
+    fd.append(
+      'planStatuses',
+      JSON.stringify(this.planStatuses)
+    )
 
-      const payload: any = {
-        testSuiteId: this.currentTestSuiteId,
-        projectId: this.testPlanForm.value.projectId,
-        name: this.nameTest || 'Test Suite',
-        testPlans: this.testPlans,
-        planStatuses: this.planStatuses,
-        specText: this.specText,
-        urlCible: String(this.testPlanForm.value.applicationUrl || '').trim(),
-      }
+    fd.append(
+      'specText',
+      this.specText || ''
+    )
 
-      if (this.selectedFile) {
-        const fd = new FormData()
+    fd.append(
+      'urlCible',
+      String(this.testPlanForm.value.applicationUrl || '').trim()
+    )
 
-        Object.keys(payload).forEach(key => {
-          fd.append(key, payload[key])
-        })
 
-        fd.append('file', this.selectedFile)
-        fd.append('fileName', this.selectedFile.name)
+    // CREATE ou UPDATE
+    if (this.currentTestSuiteId) {
 
-        await firstValueFrom(
-          this.testLabService.createSuiteWithPlansForm(fd)
-        )
-      } else {
-        await firstValueFrom(
-          this.testLabService.createSuiteWithPlans(payload)
-        )
-      }
+      fd.append(
+        'testSuiteId',
+        this.currentTestSuiteId
+      )
+
     }
 
-    // ✅ NAVIGATION
+
+    // fichier optionnel
+    if (this.selectedFile) {
+
+      fd.append(
+        'file',
+        this.selectedFile
+      )
+
+      fd.append(
+        'fileName',
+        this.selectedFile.name
+      )
+    }
+
+
+    const response = await firstValueFrom(
+      this.testLabService.createSuiteWithPlansForm(fd)
+    )
+
+
+    this.currentTestSuiteId =
+      (response as any)?.testSuiteId || this.currentTestSuiteId
+
+
+    // navigation
     this.finishing = true
 
-    await this.router.navigate(['/test-cases'], {
-      queryParams: { suiteId: this.currentTestSuiteId },
-      state: { plans: this.testPlans },
-    })
+    await this.router.navigate(
+      ['/test-cases'],
+      {
+        queryParams: {
+          suiteId: this.currentTestSuiteId
+        },
+        state: {
+          plans: this.testPlans
+        }
+      }
+    )
+
 
   } catch (err) {
-    this.toastr.error('Error saving test plans', 'Error')
+
+    console.error(
+      'SAVE PLANS ERROR:',
+      err
+    )
+
+    this.toastr.error(
+      'Error saving test plans',
+      'Error'
+    )
+
   } finally {
+
     this.finishing = false
+
   }
 }
 
