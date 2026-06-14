@@ -2,15 +2,38 @@ import { ApiService } from '@/app/core/services/api.service'
 import type { ExecutionModelDto } from '@/app/interfaces/testlab.interface'
 import { Injectable, inject } from '@angular/core'
 import { Observable } from 'rxjs'
+
+// ──── Screenshot DTO ──────────────────────────────
+export interface ScreenshotDto {
+  publicUrl?: string
+  path?: string
+  url?: string
+}
+
+// ──── Step Result DTO (Selenium Step) ──────────────
 export interface SeleniumStepResultDto {
   index: number
   id?: string
   name: string
   channel?: string
   action?: string
-  status: 'passed' | 'failed'
+
+  status: 'passed' | 'failed_execution' | 'failed_assertion' | 'skipped'
+
+  // ✅ Message/content
   message?: string
-  screenshotPath?: string | null
+  error?: string
+
+  // ✅ Actual vs Expected (assertions)
+  actual?: string
+  expected?: string
+  actualResult?: string
+  expectedResult?: string
+
+  // ✅ Screenshot support with fallback chain
+  screenshots?: ScreenshotDto[] // Primary: array of screenshots
+  screenshot?: ScreenshotDto    // Fallback: single screenshot object
+  screenshotPath?: string       // Fallback: URL string
 }
 
 export interface SeleniumRunResponseDto {
@@ -19,8 +42,18 @@ export interface SeleniumRunResponseDto {
   errorMessage?: string
   screenshotPath?: string | null
   stepResults?: SeleniumStepResultDto[]
+  screenshots?: ScreenshotDto[]
   executionModel?: ExecutionModelDto | null
   execution_model?: ExecutionModelDto | null
+  logs?: Array<{
+    id?: string
+    timestamp?: string
+    stepIndex?: number
+    level?: string
+    message?: string
+    data?: Record<string, unknown>
+    executionTime?: number
+  }>
 }
 
 @Injectable({ providedIn: 'root' })

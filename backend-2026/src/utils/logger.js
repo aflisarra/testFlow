@@ -1,10 +1,24 @@
-function addLog(logs, stepIndex, level, message, data = {}) {
+function addLog(
+  logs,
+  stepIndex,
+  level,
+  message,
+  data = {}
+) {
+
   logs.push({
-    time: new Date().toISOString(),
+    id: `LOG-${Date.now()}-${Math.random()}`,
+    timestamp: new Date().toISOString(),
+
     stepIndex,
-    level,
-    message,
-    data
+
+    level: String(level || 'INFO').toUpperCase(),
+
+    message: String(message || ''),
+
+    data,
+
+    executionTime: Date.now()
   })
 }
 

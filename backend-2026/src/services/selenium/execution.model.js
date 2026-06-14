@@ -316,6 +316,14 @@ function normalizeExecutionModel(model, testCase) {
     const requires = Array.isArray(candidate.requires) ? candidate.requires : fallbackStepModel.requires
     const candidateAction = lower(candidate.action)
     const candidateChannel = lower(candidate.channel)
+
+    
+const rawText = lower(
+  candidate.raw ||
+  fallbackStepModel.raw ||
+  rawStepText(step)
+)
+
     
 let action = candidateAction
 
@@ -333,7 +341,7 @@ if (
       raw: text(candidate.raw || fallbackStepModel.raw || rawStepText(step)),
       channel: candidateChannel && candidateChannel !== 'unknown' ? candidateChannel : (fallbackStepModel.channel || 'unknown'),
       
-ction: action && action !== 'unknown'
+action: action && action !== 'unknown'
   ? action
   : fallbackStepModel.action || 'unknown',
 

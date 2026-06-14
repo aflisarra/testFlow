@@ -114,10 +114,26 @@
                     <div class="timeline__name">{{ step.name }}</div>
                     <div class="timeline__sub">{{ step.subtitle }}</div>
                     @if (step.screenshotUrl) {
-                      <button class="screenshot-trigger" type="button" (click)="openScreenshot(step.screenshotUrl)" [attr.aria-label]="'Open screenshot step ' + step.id">
-                        <img class="timeline__screenshot" [src]="step.screenshotUrl" [alt]="'Screenshot step ' + step.id" />
-                      </button>
-                    }
+
+  <div style="color:red">
+    {{ step.screenshotUrl }}
+  </div>
+
+  <button
+    class="screenshot-trigger"
+    type="button"
+    (click)="openScreenshot(step.screenshotUrl)"
+    [attr.aria-label]="'Open screenshot step ' + step.id"
+  >
+
+    <img
+      class="timeline__screenshot"
+      [src]="step.screenshotUrl"
+      [alt]="'Screenshot step ' + step.id"
+    />
+
+  </button>
+}
                   </div>
                   <div class="timeline__time">{{ step.timestamp }}</div>
                 </div>
@@ -399,10 +415,44 @@
 </div><!-- /execution-shell -->
 
 @if (selectedScreenshotUrl) {
-  <button class="screenshot-modal" role="dialog" aria-modal="true" aria-label="Screenshot preview" (click)="closeScreenshot()">
-    <button class="screenshot-modal__panel" (click)="$event.stopPropagation()">
+ @if (selectedScreenshotUrl) {
+
+  <div
+    class="screenshot-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Screenshot preview"
+    (click)="closeScreenshot()"
+  >
+
+    <div
+      class="screenshot-modal__panel"
+      (click)="$event.stopPropagation()"
+    >
+
+      <button
+        class="screenshot-modal__close"
+        type="button"
+        aria-label="Close screenshot preview"
+        (click)="closeScreenshot()"
+      >
+        ×
+      </button>
+
+      <img
+        class="screenshot-modal__image"
+        [src]="selectedScreenshotUrl"
+        alt="Screenshot preview"
+      />
+
+    </div>
+
+  </div>
+}
+
+
       <button class="screenshot-modal__close" type="button" aria-label="Close screenshot preview" (click)="closeScreenshot()">×</button>
       <img class="screenshot-modal__image" [src]="selectedScreenshotUrl" alt="Screenshot preview" />
-    </button>
-  </button>
+    
+  
 }

@@ -1,138 +1,308 @@
 const mongoose = require('mongoose')
 
-const stepResultSchema = new mongoose.Schema(
-  {
-    step: String,
+/* ─────────────────────────────────────────────
+   STEP RESULT SCHEMA
+───────────────────────────────────────────── */
 
-    status: {
-      type: String,
-      enum: ['passed', 'failed', 'skipped'],
-      default: 'passed',
-    },
+const stepResultSchema = new mongoose.Schema({
 
-    error: {
-      type: String,
-      default: '',
-    },
-
-    screenshot: {
-      type: String,
-      default: null,
-    },
+  index: {
+    type: Number,
+    default: 0
   },
-  { _id: false }
-)
 
-const testExecutionSchema = new mongoose.Schema(
-  {
-    executionId: {
-      type: String,
-      required: true,
-      unique: true,
-    },
+  step: {
+    type: String,
+    default: ''
+  },
 
-    testSuiteId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'TestSuite',
-      required: true,
-    },
+  action: {
+    type: String,
+    default: ''
+  },
 
-    planId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'TestPlan',
-      default: null,
-    },
+status: {
+  type: String,
+  enum: [
+    'passed',
+    'failed_execution',
+    'failed_assertion',
+    'skipped'
+  ],
+  default: 'passed'
+},
 
-    testCaseId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'TestCase',
-      default: null,
-    },
+actualResult: {
+  type: String,
+  default: ''
+},
 
-    planKey: {
-      type: String,
-      default: '',
-    },
+expectedResult: {
+  type: String,
+  default: ''
+},
 
-    testCaseKey: {
-      type: String,
-      default: '',
-    },
+  duration: {
+    type: Number,
+    default: 0
+  },
 
-    planTitle: {
-      type: String,
-      default: '',
-    },
+  error: {
+    type: String,
+    default: ''
+  },
 
-    testCaseTitle: {
-      type: String,
-      default: '',
-    },
+  selector: {
+    type: String,
+    default: ''
+  },
 
-    status: {
-      type: String,
-      enum: ['running', 'passed', 'failed', 'aborted'],
-      default: 'running',
-    },
+screenshot: {
 
-    environment: {
-      type: String,
-      default: 'Staging',
-    },
+  filename: {
+    type: String,
+    default: ''
+  },
 
-    browser: {
-      type: String,
-      default: 'Chrome',
-    },
+  path: {
+    type: String,
+    default: ''
+  },
 
-   logs: [
-  {
-    time: String,
-    stepIndex: Number,
-    level: String,
-    message: String,
-    data: Object
+  publicUrl: {
+    type: String,
+    default: ''
+  },
+
+  createdAt: {
+    type: String,
+    default: ''
   }
-],
+},
 
-    screenshots: {
-      type: [String],
-      default: [],
-    },
-
-    videoUrl: {
-      type: String,
-      default: null,
-    },
-
-    duration: {
-      type: Number,
-      default: 0,
-    },
-
-    nodeMetrics: {
-      cpuLoad: Number,
-      memoryUsage: String,
-      latency: String,
-      threads: Number,
-    },
-
-    stepsResults: {
-      type: [stepResultSchema],
-      default: [],
-    },
-
-    startedAt: {
-      type: Date,
-      default: Date.now,
-    },
-
-    finishedAt: {
-      type: Date,
-      default: null,
-    },
+  startedAt: {
+    type: Date,
+    default: Date.now
   },
-  { timestamps: true }
-)
 
-module.exports = mongoose.model('TestExecution', testExecutionSchema)
+  finishedAt: {
+    type: Date,
+    default: null
+  }
+
+}, { _id: false })
+
+/* ─────────────────────────────────────────────
+   LOG SCHEMA
+───────────────────────────────────────────── */
+
+const logSchema = new mongoose.Schema({
+
+  timestamp: {
+    type: String,
+    default: () => new Date().toISOString()
+  },
+
+  stepIndex: {
+    type: Number,
+    default: 0
+  },
+
+  level: {
+    type: String,
+    enum: [
+      'INFO',
+      'ACTION',
+      'SUCCESS',
+      'WARN',
+      'ERROR'
+    ],
+    default: 'INFO'
+  },
+
+  message: {
+    type: String,
+    default: ''
+  },
+
+  data: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  }
+
+}, { _id: false })
+
+/* ─────────────────────────────────────────────
+   MAIN EXECUTION SCHEMA
+───────────────────────────────────────────── */
+
+const testExecutionSchema = new mongoose.Schema({
+
+  executionId: {
+    type: String,
+    required: true,
+    unique: true
+  },
+
+  /* ───────────────────────── */
+
+  testSuiteId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TestSuite',
+    required: true
+  },
+
+  planId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TestPlan',
+    default: null
+  },
+
+  testCaseId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TestCase',
+    default: null
+  },
+
+  /* ───────────────────────── */
+
+  planKey: {
+    type: String,
+    default: ''
+  },
+
+  testCaseKey: {
+    type: String,
+    default: ''
+  },
+
+  /* ───────────────────────── */
+
+  planTitle: {
+    type: String,
+    default: ''
+  },
+
+  testCaseTitle: {
+    type: String,
+    default: ''
+  },
+
+  /* ───────────────────────── */
+
+  status: {
+    type: String,
+   enum: [
+  'running',
+  'passed',
+  'failed',
+  'failed_execution',
+  'failed_assertion',
+  'aborted'
+]
+,
+    default: 'running'
+  },
+
+  /* ───────────────────────── */
+
+  environment: {
+    type: String,
+    default: 'Staging'
+  },
+
+  browser: {
+    type: String,
+    default: 'Chrome'
+  },
+
+  platform: {
+    type: String,
+    default: 'Windows'
+  },
+
+  /* ───────────────────────── */
+
+  logs: {
+    type: [logSchema],
+    default: []
+  },
+
+  /* ───────────────────────── */
+
+  screenshots: {
+    type: [String],
+    default: []
+  },
+
+  videoUrl: {
+    type: String,
+    default: null
+  },
+
+  /* ───────────────────────── */
+
+  duration: {
+    type: Number,
+    default: 0
+  },
+
+  /* ───────────────────────── */
+
+  nodeMetrics: {
+
+    cpuLoad: {
+      type: Number,
+      default: 0
+    },
+
+    memoryUsage: {
+      type: String,
+      default: ''
+    },
+
+    latency: {
+      type: String,
+      default: ''
+    },
+
+    threads: {
+      type: Number,
+      default: 0
+    }
+  },
+
+  /* ───────────────────────── */
+
+  stepsResults: {
+    type: [stepResultSchema],
+    default: []
+  },
+
+  /* ───────────────────────── */
+
+  executionModel: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null
+  },
+
+  /* ───────────────────────── */
+
+  startedAt: {
+    type: Date,
+    default: Date.now
+  },
+
+  finishedAt: {
+    type: Date,
+    default: null
+  }
+
+}, {
+  timestamps: true
+})
+
+module.exports = mongoose.model(
+  'TestExecution',
+  testExecutionSchema
+)

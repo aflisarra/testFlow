@@ -414,3 +414,42 @@
   font-size: 13px;
   line-height: 32px;
 }
+.status-badge.status-failed_execution {
+  background: #fef3f2;
+  color: #f04438;
+}
+
+.status-badge.status-failed_assertion {
+  background: #fff7ed;
+  color: #f97316;
+}
+
+.status-badge.status-running {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.status-badge.status-aborted {
+  background: #fffaeb;
+  color: #f79009;
+}
+
+.status-badge.status-failed_execution {
+  background: #fef3f2;
+  color: #f04438;
+}
+
+.status-badge.status-failed_assertion {
+  background: #fff7ed;
+  color: #f97316;
+}
+
+.status-badge.status-running {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.status-badge.status-aborted {
+  background: #fffaeb;
+  color: #f79009;
+}

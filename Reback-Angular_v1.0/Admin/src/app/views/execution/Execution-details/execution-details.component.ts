@@ -1,24 +1,32 @@
+import { SeleniumRunnerService } from '@/app/core/services/selenium-runner.service';
+import { CommonModule } from '@angular/common';
 import {
-  Component,
-  Input,
-  Output,
-  EventEmitter,
-  OnChanges,
-  SimpleChanges,
   ChangeDetectionStrategy,
   ChangeDetectorRef,
+  Component,
+  EventEmitter,
   inject,
+  Input,
+  OnChanges,
+  Output,
+  SimpleChanges,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { SeleniumRunnerService } from '@/app/core/services/selenium-runner.service';
 import { firstValueFrom } from 'rxjs';
 
 export interface ExecutionDetailStep {
   index: number;
   name: string;
-  status: 'passed' | 'failed' | 'warning' | 'skipped';
+  status:
+    | 'passed'
+    | 'failed'
+    | 'failed_execution'
+    | 'failed_assertion'
+    | 'warning'
+    | 'skipped';
   screenshotUrl?: string | null;
   message?: string;
+  actualResult?: string;
+  expectedResult?: string;
 }
 
 export interface ExecutionDetailLog {
@@ -33,7 +41,13 @@ export interface ExecutionDetailData {
   testCaseTitle: string;
   planTitle?: string;
   environment?: string;
-  status: 'passed' | 'failed' | 'aborted' | 'running';
+  status:
+  | 'passed'
+  | 'failed'
+  | 'failed_execution'
+  | 'failed_assertion'
+  | 'aborted'
+  | 'running';
   duration?: number | string;
   platform?: string;
   browser?: string;
@@ -68,52 +82,128 @@ export class ExecutionDetailModalComponent implements OnChanges {
   steps: ExecutionDetailStep[] = [];
   logs: ExecutionDetailLog[] = [];
 
-  async ngOnChanges(changes: SimpleChanges): Promise<void> {
-    if (changes['execution'] && this.execution) {
-      this.activeTab = 'screenshots';
-      this.selectedStepIndex = 0;
-      this.steps = this.execution.steps ?? [];
-      this.logs = this.execution.logs ?? [];
+async ngOnChanges(changes: SimpleChanges): Promise<void> {
+  if (changes['execution'] && this.execution?.executionId) {
 
-      // If no detail yet, try to fetch from backend
-      if (!this.steps.length && !this.logs.length) {
-        await this.fetchExecutionDetail();
-      }
+    this.activeTab = 'screenshots'
+    this.selectedStepIndex = 0
+
+    // ✅ Reset local data
+    this.steps = []
+    this.logs = []
+
+    // ✅ Toujours récupérer les détails complets depuis backend
+    await this.fetchExecutionDetail()
+
+    // ✅ Sélectionner automatiquement le premier step avec screenshot
+    const firstScreenshotIndex = this.steps.findIndex(
+      (step) => Boolean(step.screenshotUrl)
+    )
+
+    if (firstScreenshotIndex >= 0) {
+      this.selectedStepIndex = firstScreenshotIndex
+    } else {
+      this.selectedStepIndex = 0
     }
+
+    console.log('✅ MODAL STEPS:', this.steps)
+    console.log('✅ FIRST SCREENSHOT INDEX:', firstScreenshotIndex)
+
+    this.cdr.markForCheck()
   }
+}
 
-  private async fetchExecutionDetail(): Promise<void> {
-    if (!this.execution?.executionId) return;
-    this.isLoadingDetail = true;
-    this.cdr.markForCheck();
+private async fetchExecutionDetail(): Promise<void> {
+  if (!this.execution?.executionId) return
 
-    try {
-      const detail: any = await firstValueFrom(
-        this.seleniumRunner.getExecutionDetail(this.execution.executionId)
-      );
-      const data = detail?.data ?? detail;
+  this.isLoadingDetail = true
+  this.cdr.markForCheck()
 
-      this.steps = this.mapSteps(data?.stepResults ?? data?.steps ?? []);
-      this.logs = this.mapLogs(data?.logs ?? []);
-    } catch {
-      this.logs = [
-        { timestamp: new Date().toLocaleTimeString(), level: 'ERROR', message: 'Failed to load execution details.' },
-      ];
-    } finally {
-      this.isLoadingDetail = false;
-      this.cdr.markForCheck();
-    }
+  try {
+    const detail: any = await firstValueFrom(
+      this.seleniumRunner.getExecutionDetail(this.execution.executionId)
+    )
+
+    console.log('✅ EXECUTION DETAIL RESPONSE:', detail)
+
+    const data = detail?.data ?? detail
+
+    const rawSteps =
+      data?.stepResults ||
+      data?.steps ||
+      []
+
+    const rawLogs =
+      data?.logs ||
+      []
+
+    console.log('✅ RAW DETAIL STEPS:', rawSteps)
+
+    this.steps = this.mapSteps(rawSteps)
+    this.logs = this.mapLogs(rawLogs)
+
+    console.log('✅ MAPPED DETAIL STEPS:', this.steps)
+
+  } catch (err) {
+    console.error('❌ Failed to load execution details:', err)
+
+    this.logs = [
+      {
+        timestamp: new Date().toLocaleTimeString(),
+        level: 'ERROR',
+        message: 'Failed to load execution details.'
+      },
+    ]
+  } finally {
+    this.isLoadingDetail = false
+    this.cdr.markForCheck()
   }
+}
 
-  private mapSteps(raw: any[]): ExecutionDetailStep[] {
-    return raw.map((r, i) => ({
+private mapSteps(raw: any[]): ExecutionDetailStep[] {
+  return raw.map((r, i) => {
+
+    const screenshotPath =
+      typeof r.screenshotPath === 'string'
+        ? r.screenshotPath
+        : r.screenshotPath?.publicUrl ||
+          r.screenshotPath?.path ||
+          r.screenshot?.publicUrl ||
+          r.screenshot?.path ||
+          r.screenshots?.[0]?.publicUrl ||
+          r.screenshots?.[0]?.path ||
+          ''
+
+    return {
       index: Number(r.index ?? i + 1),
+
       name: String(r.name ?? r.step ?? `Step ${i + 1}`),
-      status: r.status === 'passed' ? 'passed' : r.status === 'failed' ? 'failed' : r.status === 'warning' ? 'warning' : 'skipped',
-      screenshotUrl: r.screenshotPath ? this.resolveUrl(String(r.screenshotPath)) : null,
+
+      status:
+        r.status === 'passed'
+          ? 'passed'
+          : r.status === 'failed_assertion'
+            ? 'failed_assertion'
+            : r.status === 'failed_execution'
+              ? 'failed_execution'
+              : r.status === 'warning'
+                ? 'warning'
+                : r.status === 'skipped'
+                  ? 'skipped'
+                  : 'failed',
+
+      screenshotUrl: screenshotPath
+        ? this.resolveUrl(String(screenshotPath))
+        : null,
+
       message: r.message ?? r.error ?? '',
-    }));
-  }
+
+      actualResult: r.actualResult ?? r.actual ?? '',
+
+      expectedResult: r.expectedResult ?? r.expected ?? '',
+    }
+  })
+}
 
   private mapLogs(raw: any[]): ExecutionDetailLog[] {
     return raw.map((l) => {
@@ -144,15 +234,18 @@ export class ExecutionDetailModalComponent implements OnChanges {
     return this.steps.filter((s) => Boolean(s.screenshotUrl));
   }
 
-  get statusLabel(): string {
-    const map: Record<string, string> = {
-      passed: 'PASSED',
-      failed: 'FAILED',
-      aborted: 'ABORTED',
-      running: 'RUNNING',
-    };
-    return map[this.execution?.status ?? ''] ?? 'UNKNOWN';
+get statusLabel(): string {
+  const map: Record<string, string> = {
+    passed: 'PASSED',
+    failed: 'FAILED',
+    failed_execution: 'FAILED EXECUTION',
+    failed_assertion: 'FAILED ASSERTION',
+    aborted: 'ABORTED',
+    running: 'RUNNING',
   }
+
+  return map[this.execution?.status ?? ''] ?? 'UNKNOWN'
+}
 
   get statusClass(): string {
     return `status-badge--${this.execution?.status ?? 'unknown'}`;
@@ -208,19 +301,30 @@ export class ExecutionDetailModalComponent implements OnChanges {
     return map[level] ?? 'log--info';
   }
 
-  getStepStatusClass(status: string): string {
-    const map: Record<string, string> = {
-      passed: 'thumb--pass',
-      failed: 'thumb--fail',
-      warning: 'thumb--warn',
-      skipped: 'thumb--skip',
-    };
-    return map[status] ?? 'thumb--skip';
-  }
+getStepStatusClass(status: string): string {
+  const map: Record<string, string> = {
+    passed: 'thumb--pass',
+    failed: 'thumb--fail',
+    failed_execution: 'thumb--fail',
+    failed_assertion: 'thumb--fail',
+    warning: 'thumb--warn',
+    skipped: 'thumb--skip',
+  };
+  return map[status] ?? 'thumb--skip';
+}
 
-  getStepStatusIcon(status: string): string {
-    return status === 'passed' ? '✓' : status === 'failed' ? '✕' : status === 'warning' ? '⚠' : '–';
-  }
+getStepStatusIcon(status: string): string {
+  return status === 'passed'
+    ? '✓'
+    : status === 'failed' ||
+      status === 'failed_execution' ||
+      status === 'failed_assertion'
+        ? '✕'
+        : status === 'warning'
+          ? '⚠'
+          : '–';
+}
+
 
   downloadLog(): void {
     const text = this.logs.map((l) => `[${l.timestamp}] [${l.level}] ${l.message}`).join('\n');

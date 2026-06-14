@@ -1,164 +1,455 @@
-//const { By, until } = require('selenium-webdriver')
-const { highlightElement } = require('../../utils/visual')
-const { captureStepScreenshot } = require('../../utils/screenshot')
+const { By, until, Key } = require('selenium-webdriver')
+const { getLocator } = require('../../utils/locator')
 const { addLog } = require('../../utils/logger')
-  const { By, until, Key } = require('selenium-webdriver')
+const { captureStepScreenshot } = require('../../utils/screenshot')
+const { highlightElement } = require('../../utils/visual')
+
 async function runStructuredUiStep(driver, step, ctx, stepIndex) {
 
   const action = (step.action || '').toLowerCase()
 
-  // ✅ NAVIGATE
+  //console.log(`\n➡️ STEP ${stepIndex}: ${step.raw || action}`)
+
+  // ─── NAVIGATE ─────────────────────────────────
   if (action === 'open_app' || action === 'navigate') {
+    
 
     const url = step?.target?.url || ctx.baseUrl
+    addLog(ctx.logs, stepIndex, "ACTION", "Navigate", { url })
+
+    
+
+    
+
+    console.log(`🌍 NAVIGATE → ${url}`)
 
     if (!url || !url.startsWith('http')) {
       throw new Error("Invalid URL: " + url)
     }
 
-    addLog(ctx.logs, stepIndex, "ACTION", "Navigate", { url })
-
     await driver.get(url)
     await driver.wait(until.elementLocated(By.css('body')), 10000)
 
-    await driver.sleep(1000)
+    const shot = await captureStepScreenshot(driver, stepIndex, "navigate")
+    
+addLog(ctx.logs, stepIndex, "INFO", "Navigation screenshot", {
+  screenshot: shot?.publicUrl || shot?.path
+})
 
-    const screenshot = await captureStepScreenshot(driver, stepIndex, "navigate")
+addLog(ctx.logs, stepIndex, "SUCCESS", "Page loaded", {
+  url
+})
 
-    addLog(ctx.logs, stepIndex, "SUCCESS", "Page loaded", { screenshot })
 
-    return { screenshot }
+    return {
+      status: 'passed',
+      screenshots: [shot]
+    }
   }
 
-  // ✅ TYPE
+  // ─── TYPE ─────────────────────────────────
+  if (action === 'type') {
 
 
-if (action === 'type') {
 
-  addLog(ctx.logs, stepIndex, "ACTION", "Start form filling")
+    const screenshots = []
 
-  // ✅ FIRST NAME
-  addLog(ctx.logs, stepIndex, "ACTION", "Typing", {
-    field: "firstName",
-    value: "Sarra"
-  })
-
-  const firstName = await driver.findElement(By.id('firstName'))
-  await firstName.sendKeys("Sarra")
-  await firstName.sendKeys(Key.TAB)
-
-  addLog(ctx.logs, stepIndex, "SUCCESS", "First name filled")
+    
 
 
-  // ✅ LAST NAME
-  addLog(ctx.logs, stepIndex, "ACTION", "Typing", {
-    field: "lastName",
-    value: "Test"
-  })
 
-  const lastName = await driver.findElement(By.id('lastName'))
-  await lastName.sendKeys("Test")
-  await lastName.sendKeys(Key.TAB)
-
-  addLog(ctx.logs, stepIndex, "SUCCESS", "Last name filled")
+    // ✅ INPUTS
+    for (const field of step.fields || []) {
 
 
-  // ❌ EMAIL INVALID
-  addLog(ctx.logs, stepIndex, "ACTION", "Typing", {
-    field: "email",
-    value: "abc"
-  })
+      addLog(ctx.logs, stepIndex, "ACTION", "Typing field", {
+  selector: field.selector,
+  value: field.value
+})
+      const element = await driver.wait(
+        until.elementLocated(getLocator(field)),
+        10000
+      )
 
-  const email = await driver.findElement(By.id('userEmail'))
-  await email.sendKeys("abc")
-  await email.sendKeys(Key.TAB)
+      await highlightElement(driver, element)
 
-  addLog(ctx.logs, stepIndex, "WARN", "Invalid email format detected")
+      const before = await captureStepScreenshot(driver, stepIndex, 'before-type')
+      screenshots.push(before)
 
+      await element.clear()
+      await element.sendKeys(field.value)
 
-  // ✅ GENDER
-  addLog(ctx.logs, stepIndex, "ACTION", "Click", {
-    field: "gender",
-    value: "Male"
-  })
+      console.log(`⌨️ FIELD ${field.selector} = ${field.value}`)
 
-  const gender = await driver.findElement(By.css("label[for='gender-radio-1']"))
-  await driver.executeScript("arguments[0].click()", gender)
+      const after = await captureStepScreenshot(driver, stepIndex, 'after-type')
+      screenshots.push(after)
+      addLog(ctx.logs, stepIndex, "INFO", "Before typing screenshot", {
+  screenshot: before?.publicUrl || before?.path
+})
 
-  addLog(ctx.logs, stepIndex, "SUCCESS", "Gender selected")
+addLog(ctx.logs, stepIndex, "SUCCESS", "Field filled", {
+  selector: field.selector
+})
 
+    }
 
-  // ❌ MOBILE INVALID
-  addLog(ctx.logs, stepIndex, "ACTION", "Typing", {
-    field: "mobile",
-    value: "123"
-  })
+// ✅ RADIOS
+for (const radio of step.radios || []) {
 
-  const mobile = await driver.findElement(By.id('userNumber'))
-  await mobile.sendKeys("123")
-  await mobile.sendKeys(Key.TAB)
+  try {
 
-  addLog(ctx.logs, stepIndex, "WARN", "Invalid mobile number detected")
+    console.log(`🔘 RADIO START ${radio.selector}`)
 
+    const el = await driver.findElement(
+      getLocator(radio)
+    )
 
-  // ✅ ADDRESS
-  addLog(ctx.logs, stepIndex, "ACTION", "Typing", {
-    field: "address",
-    value: "Tunis"
-  })
+    await driver.executeScript(
+      "arguments[0].scrollIntoView({block:'center'})",
+      el
+    )
 
-  const address = await driver.findElement(By.id('currentAddress'))
-  await address.sendKeys("Tunis")
-  await address.sendKeys(Key.TAB)
+    await driver.sleep(500)
 
-  addLog(ctx.logs, stepIndex, "SUCCESS", "Address filled")
+    await driver.executeScript(
+      'arguments[0].click()',
+      el
+    )
 
+    const shot = await captureStepScreenshot(
+      driver,
+      stepIndex,
+      'radio'
+    )
 
-  await driver.sleep(1000)
+    screenshots.push(shot)
 
-  const screenshot = await captureStepScreenshot(driver, stepIndex, "detailed-fill")
+    addLog(
+      ctx.logs,
+      stepIndex,
+      "SUCCESS",
+      "Radio selected",
+      {
+        selector: radio.selector,
+        screenshot: shot?.publicUrl || shot?.path
+      }
+    )
 
-  addLog(ctx.logs, stepIndex, "SUCCESS", "Form filling completed", {
-    screenshot
-  })
+    console.log(`✅ RADIO OK ${radio.selector}`)
 
-  return { screenshot }
+  } catch (err) {
+
+    console.error(`❌ RADIO FAIL`, err)
+
+    addLog(
+      ctx.logs,
+      stepIndex,
+      "ERROR",
+      "Radio selection failed",
+      {
+        selector: radio.selector,
+        error: err.message
+      }
+    )
+
+    throw err
+  }
 }
 
+    // ✅ CHECKBOXES
+// ✅ CHECKBOXES
+for (const checkbox of step.checkboxes || []) {
 
-  // ✅ CLICK
- if (action === 'click' || action === 'submit') {
+  try {
 
-  const element = await driver.wait(
-    until.elementLocated(By.css('#submit')),
-    8000
+    console.log(`☑️ CHECKBOX START ${checkbox.selector}`)
+
+    const el = await driver.findElement(
+      getLocator(checkbox)
+    )
+
+    await driver.executeScript(
+      "arguments[0].scrollIntoView({block:'center'})",
+      el
+    )
+
+    await driver.sleep(500)
+
+    await driver.executeScript(
+      'arguments[0].click()',
+      el
+    )
+
+    const shot = await captureStepScreenshot(
+      driver,
+      stepIndex,
+      'checkbox'
+    )
+
+    screenshots.push(shot)
+
+    addLog(
+      ctx.logs,
+      stepIndex,
+      "SUCCESS",
+      "Checkbox selected",
+      {
+        selector: checkbox.selector,
+        screenshot: shot?.publicUrl || shot?.path
+      }
+    )
+
+    console.log(`✅ CHECKBOX OK ${checkbox.selector}`)
+
+  } catch (err) {
+
+    console.error(`❌ CHECKBOX FAIL`, err)
+
+    addLog(
+      ctx.logs,
+      stepIndex,
+      "ERROR",
+      "Checkbox selection failed",
+      {
+        selector: checkbox.selector,
+        error: err.message
+      }
+    )
+
+    throw err
+  }
+}
+
+    // ✅ FILE UPLOAD
+    for (const upload of step.uploads || []) {
+
+      const el = await driver.findElement(getLocator(upload))
+
+      await el.sendKeys(upload.path)
+
+      const shot = await captureStepScreenshot(driver, stepIndex, 'upload')
+      screenshots.push(shot)
+
+      console.log(`📂 UPLOAD ${upload.path}`)
+      
+addLog(ctx.logs, stepIndex, "SUCCESS", "File uploaded", {
+  path: upload.path
+})
+
+    }
+
+    // ✅ SELECT
+    for (const select of step.selects || []) {
+
+      const el = await driver.findElement(getLocator(select))
+
+      await el.sendKeys(select.value)
+      await el.sendKeys(Key.ENTER)
+
+      const shot = await captureStepScreenshot(driver, stepIndex, 'select')
+      screenshots.push(shot)
+
+      console.log(`📋 SELECT ${select.value}`)
+      
+addLog(ctx.logs, stepIndex, "SUCCESS", "Option selected", {
+  value: select.value
+})
+
+    }
+
+    const finalShot = await captureStepScreenshot(driver, stepIndex, 'final-step')
+    screenshots.push(finalShot)
+
+    return {
+      status: 'passed',
+      screenshots
+    }
+  }
+
+  // ─── CLICK ─────────────────────────────────
+  if (action === 'click' || action === 'submit') {
+
+    const screenshots = []
+
+    
+addLog(ctx.logs, stepIndex, "ACTION", "Click", {
+  selector: step.target.selector
+})
+
+
+    const el = await driver.wait(
+      until.elementLocated(getLocator(step.target)),
+      10000
+    )
+
+    await highlightElement(driver, el)
+
+    const before = await captureStepScreenshot(driver, stepIndex, 'before-click')
+    screenshots.push(before)
+
+
+
+await driver.sleep(500)
+
+await driver.wait(
+  until.elementIsVisible(el),
+  5000
+)
+
+await driver.wait(
+  until.elementIsEnabled(el),
+  5000
+)
+
+
+
+await driver.sleep(500)
+
+await driver.wait(
+  until.elementIsVisible(el),
+  5000
+)
+
+await driver.wait(
+  until.elementIsEnabled(el),
+  5000
+)
+
+await driver.executeScript(
+  'arguments[0].click()',
+  el
+)
+
+await driver.sleep(1000)
+
+const after = await captureStepScreenshot(
+  driver,
+  stepIndex,
+  'after-click'
+)
+
+screenshots.push(after)
+
+console.log(`🖱 CLICK ${step.target.selector}`)
+
+// ✅ VERIFY SUCCESS MODAL
+try {
+
+  const successModal = await driver.wait(
+
+    until.elementLocated(
+      By.id('example-modal-sizes-title-lg')
+    ),
+
+    5000
   )
 
-  await driver.wait(until.elementIsVisible(element), 8000)
+  if (successModal) {
+    const successShot =
+  await captureStepScreenshot(
+    driver,
+    stepIndex,
+    'submit-success'
+  )
 
-  addLog(ctx.logs, stepIndex, "ACTION", "Click Submit")
+screenshots.push(successShot)
 
-  // ✅ IMPORTANT : scroll vers le bouton
-  await driver.executeScript("arguments[0].scrollIntoView(true);", element)
-  await driver.sleep(500)
+addLog(
+  ctx.logs,
+  stepIndex,
+  "INFO",
+  "Submit success screenshot",
+  {
+    screenshot:
+      successShot?.publicUrl ||
+      successShot?.path
+  }
+)
 
-  await highlightElement(driver, element)
+    addLog(
+      ctx.logs,
+      stepIndex,
+      "SUCCESS",
+      "Form submitted successfully"
+    )
 
-  const before = await captureStepScreenshot(driver, stepIndex, "before-click")
+    return {
+      status: 'passed',
+      actual: 'Form submitted successfully',
+      screenshots
+    }
+  }
 
-  // ✅ CLICK JS (corrige bug interactable)
-  await driver.executeScript("arguments[0].click();", element)
+} catch (e) {
 
-  await driver.sleep(1000)
+  addLog(
+    ctx.logs,
+    stepIndex,
+    "WARN",
+    "Submit confirmation modal not found"
+  )
 
-  const after = await captureStepScreenshot(driver, stepIndex, "after-click")
-
-  addLog(ctx.logs, stepIndex, "SUCCESS", "Form submitted", { before, after })
-
-  return { screenshot: after }
+  return {
+    status: 'failed_assertion',
+    error: 'Submit confirmation modal not found',
+    screenshots
+  }
 }
+addLog(ctx.logs, stepIndex, "INFO", "After click screenshot", {
+  screenshot: after?.publicUrl || after?.path
+})
+    return {
+      status: 'passed',
+      screenshots
+    }
+
+    
+  }
+
+  // ─── ASSERTION ─────────────────────────────────
+  if (action === 'assert_text') {
+
+    const el = await driver.findElement(getLocator(step.target))
+    
 
 
+
+    const actual = await el.getText()
+    const expected = step.assertion?.expected || ''
+
+    addLog(ctx.logs, stepIndex, "CHECK", "Assertion", {
+  expected,
+  actual
+})
+
+    console.log(`🧪 ASSERT`)
+    console.log(`👉 EXPECTED: "${expected}"`)
+    console.log(`👉 ACTUAL:   "${actual}"`)
+
+    if (!actual.includes(expected)) {
+
+      console.log(`❌ ASSERTION FAILED`)
+
+      return {
+        status: 'failed_assertion',
+        actual,
+        expected,
+        error: `Expected "${expected}" but got "${actual}"`,
+        screenshots: []
+      }
+    }
+
+    console.log(`✅ ASSERTION PASSED`)
+
+    return {
+      status: 'passed',
+      actual,
+      expected,
+      screenshots: []
+    }
+  }
+
+  // ─── DEFAULT ─────────────────────────────────
   throw new Error("Unsupported action: " + action)
 }
 

@@ -162,7 +162,13 @@ exports.execute = async (req, res) => {
                   testCaseKey: String(tc.id || ''),
                   planTitle: String(tc.planTitle || ''),
                   testCaseTitle: String(tc.title || ''),
-                  status: result.status === 'passed' ? 'passed' : 'failed',
+                  executionModel: tc.executionModel || null,
+                  status:
+  result.status === 'passed'
+    ? 'passed'
+    : result.status === 'failed_assertion'
+      ? 'failed_assertion'
+      : 'failed_execution',
                   duration: Array.isArray(result.stepResults) ? result.stepResults.length : 0,
                   startedAt: new Date(),
                   finishedAt: new Date(),
@@ -171,8 +177,12 @@ exports.execute = async (req, res) => {
                   stepsResults: Array.isArray(result.stepResults)
                     ? result.stepResults.map((step) => ({
                         step: String(step.name || step.id || ''),
-                        status: step.status === 'passed' ? 'passed' : 'failed',
-                        error: step.status === 'failed' ? String(step.message || '') : '',
+status:
+  step.status === 'passed'
+    ? 'passed'
+    : step.status === 'failed_assertion'
+      ? 'failed_assertion'
+      : 'failed_execution',                        error: step.status === 'failed' ? String(step.message || '') : '',
                         screenshot: step.screenshotPath || null,
                       }))
                     : [],

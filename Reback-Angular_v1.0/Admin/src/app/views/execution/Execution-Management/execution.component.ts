@@ -748,17 +748,55 @@ element.click()`;
       })
   }
 
-  private mapStepResultsToScenarioSteps(stepResults: SeleniumStepResultDto[]): ExecutionStep[] {
-    const now = new Date().toLocaleTimeString()
-    return (stepResults || []).map((r) => ({
-      id: Number(r.index) || 0,
-      name: String(r.name || `Step ${r.index}`),
-      subtitle: r.status === 'passed' ? 'Passed' : (r.message || 'Failed'),
-      status: r.status === 'passed' ? 'pass' : 'fail',
-      timestamp: now,
-      screenshotUrl: this.resolveScreenshotUrl(String(r.screenshotPath || '')),
-    }))
-  }
+private mapStepResultsToScenarioSteps(
+  stepResults: SeleniumStepResultDto[]
+): ExecutionStep[] {
+
+  const now = new Date().toLocaleTimeString()
+
+  return (stepResults || []).map((r) => ({
+
+    id: Number(r.index) || 0,
+
+    name: String(r.name || `Step ${r.index}`),
+
+    subtitle:
+      r.status === 'passed'
+        ? 'Passed'
+        : (
+            r.error ||
+            r.message ||
+            'Failed'
+          ),
+
+    status:
+      r.status === 'passed'
+        ? 'pass'
+        : r.status === 'failed_assertion'
+          ? 'fail'
+          : r.status === 'failed_execution'
+            ? 'fail'
+            : 'waiting',
+
+    timestamp: now,
+
+    screenshotUrl: this.resolveScreenshotUrl(
+
+      r.screenshots?.[0]?.publicUrl ||
+
+      r.screenshots?.[0]?.path ||
+
+      r.screenshot?.publicUrl ||
+
+      r.screenshot?.path ||
+
+      r.screenshotPath ||
+
+      ''
+
+    )
+  }))
+}
 
   get stepsWithScreenshots(): ExecutionStep[] {
     return this.scenario.steps.filter((step) => Boolean(step.screenshotUrl))
@@ -767,22 +805,40 @@ element.click()`;
 private mapRunResponseToLogs(resp: any): LogLine[] {
 
   const data = resp?.data ?? resp
-  const logs = data?.logs || []
+
+  const logs = Array.isArray(data?.logs)
+    ? data.logs
+    : []
 
   return logs.map((log: any, i: number) => {
 
-    const details = log.data
-      ? Object.entries(log.data)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join(' | ')
-      : ''
+    const details =
+      log?.data
+        ? Object.entries(log.data)
+            .map(([k, v]) => {
+
+              if (
+                typeof v === 'object' &&
+                v !== null &&
+                'publicUrl' in v
+              ) {
+                return `${k}: ${(v as any).publicUrl}`
+              }
+
+              return `${k}: ${String(v)}`
+            })
+            .join(' | ')
+        : ''
 
     return {
+
       index: i + 1,
-      level: log.level || 'INFO',
+
+      level: String(log?.level || 'INFO'),
+
       message: details
         ? `${log.message} → ${details}`
-        : log.message
+        : String(log?.message || '')
     }
   })
 }
@@ -853,74 +909,176 @@ this.streamedLogs = [
     : {})
 }
 
-      this.runSubscription = this.seleniumRunner.runSingleTestCase(payload)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (resp) => {
-          console.log('[execution] run response', resp)
-          const elapsed = Math.max(0, Date.now() - startedAt)
-          const secs = `${Math.max(1, Math.round(elapsed / 1000))}s`
-          const payload: any = (resp as any)?.data ?? resp
-          const responseModel = this.coerceExecutionModel(payload?.executionModel || payload?.execution_model)
-          if (responseModel) this.executionModelSummary = this.describeExecutionModel(responseModel, this.loadedTestCase?.steps.length || 0)
-          const stepResults = Array.isArray(payload?.stepResults) ? payload.stepResults : []
-          const mappedSteps = stepResults.length ? this.mapStepResultsToScenarioSteps(stepResults) : this.scenario.steps
+      this.runSubscription = this.seleniumRunner
+  .runSingleTestCase(payload)
+  .pipe(takeUntilDestroyed(this.destroyRef))
+  .subscribe({
 
-          const failedStep = stepResults.find((s: SeleniumStepResultDto) => s.status === 'failed') || null
-          const screenshotList = Array.isArray(payload?.screenshots) ? payload.screenshots : []
-          const screenshotPath = String(
-            failedStep?.screenshotPath ||
-            payload?.screenshotPath ||
-            screenshotList[screenshotList.length - 1] ||
-            ''
-          ).trim()
-          this.screenshotUrl = this.resolveScreenshotUrl(screenshotPath)
+    next: (resp) => {
 
-          this.isStreaming = false
-          this.fakeTimelineSubscription?.unsubscribe()
-          this.stopMetrics()
+      console.log('[execution] run response', resp)
 
-          this.scenario = {
-            ...this.scenario,
-            status: payload?.status === 'passed' ? 'passed' : 'failed',
-            executionTime: secs,
-            steps: mappedSteps,
-            progressPercent: 100,
-            progressLabel: payload?.status === 'passed' ? 'Completed' : 'Completed with errors',
-            activeStepLabel: payload?.status === 'passed' ? '✓ Completed' : '✖ Failed',
-            errorMeta: screenshotPath ? {
+      const elapsed = Math.max(0, Date.now() - startedAt)
+      const secs = `${Math.max(1, Math.round(elapsed / 1000))}s`
+
+      const payload: any = (resp as any)?.data ?? resp
+
+      const responseModel = this.coerceExecutionModel(
+        payload?.executionModel || payload?.execution_model
+      )
+
+      if (responseModel) {
+        this.executionModelSummary =
+          this.describeExecutionModel(
+            responseModel,
+            this.loadedTestCase?.steps.length || 0
+          )
+      }
+
+      const stepResults =
+        Array.isArray(payload?.stepResults)
+          ? payload.stepResults
+          : []
+
+      const mappedSteps =
+        stepResults.length
+          ? this.mapStepResultsToScenarioSteps(stepResults)
+          : this.scenario.steps
+
+      const failedStep = stepResults.find(
+        (s: SeleniumStepResultDto) =>
+          s.status === 'failed_execution' ||
+          s.status === 'failed_assertion'
+      ) || null
+
+      const screenshotList = Array.isArray(payload?.screenshots)
+        ? payload.screenshots
+        : []
+
+      const latestScreenshot =
+        screenshotList[screenshotList.length - 1]
+
+      const screenshotPath = String(
+
+  typeof failedStep?.screenshots?.[0] === 'string'
+    ? failedStep?.screenshots?.[0]
+    : failedStep?.screenshots?.[0]?.publicUrl ||
+
+      failedStep?.screenshots?.[0]?.path ||
+
+      failedStep?.screenshot?.publicUrl ||
+
+      failedStep?.screenshot?.path ||
+
+      failedStep?.screenshotPath ||
+
+      latestScreenshot?.publicUrl ||
+
+      latestScreenshot?.path ||
+
+      payload?.screenshot?.publicUrl ||
+
+      payload?.screenshotPath ||
+
+      ''
+
+).trim()
+
+  
+
+      this.screenshotUrl =
+        this.resolveScreenshotUrl(screenshotPath)
+
+      this.isStreaming = false
+
+      this.fakeTimelineSubscription?.unsubscribe()
+
+      this.stopMetrics()
+
+      this.scenario = {
+        ...this.scenario,
+
+        status:
+          payload?.status === 'passed'
+            ? 'passed'
+            : 'failed',
+
+        executionTime: secs,
+
+        steps: mappedSteps,
+
+        progressPercent: 100,
+
+        progressLabel:
+          payload?.status === 'passed'
+            ? 'Completed'
+            : 'Completed with errors',
+
+        activeStepLabel:
+          payload?.status === 'passed'
+            ? '✓ Completed'
+            : '✖ Failed',
+
+        errorMeta: screenshotPath
+          ? {
               errorType: 'SeleniumStepFailed',
               stepName: String(failedStep?.name || ''),
               screenshot: this.screenshotUrl || screenshotPath,
               duration: secs,
-            } : undefined,
-          }
+            }
+          : undefined,
+      }
 
-          const logs = this.mapRunResponseToLogs(resp || { status: 'error' })
-          this.startLogStream(logs)
-          void this.loadRecentRuns()
-          this.stopLiveRunTimer()
-          this.cdr.markForCheck()
-        },
-        error: (err: unknown) => {
-          console.error('[execution] run error', err)
-          const msg = err instanceof Error ? err.message : String(err)
-          this.isStreaming = false
-          this.fakeTimelineSubscription?.unsubscribe()
-          this.stopMetrics()
-          this.scenario = {
-            ...this.scenario,
-            status: 'failed',
-            progressPercent: 100,
-            progressLabel: 'Failed',
-            activeStepLabel: '✖ Failed',
-          }
-          this.streamedLogs = [{ index: 1, level: 'ERROR', message: msg || 'Selenium request failed.' }]
-          this.stopLiveRunTimer()
-          void this.loadRecentRuns()
-          this.cdr.markForCheck()
-        },
-      })
+      // ✅ LOGS FIX
+      const logs = this.mapRunResponseToLogs(payload)
+
+      this.startLogStream(logs)
+
+      void this.loadRecentRuns()
+
+      this.stopLiveRunTimer()
+
+      this.cdr.markForCheck()
+    },
+
+    error: (err: unknown) => {
+
+      console.error('[execution] run error', err)
+
+      const msg =
+        err instanceof Error
+          ? err.message
+          : String(err)
+
+      this.isStreaming = false
+
+      this.fakeTimelineSubscription?.unsubscribe()
+
+      this.stopMetrics()
+
+      this.scenario = {
+        ...this.scenario,
+        status: 'failed',
+        progressPercent: 100,
+        progressLabel: 'Failed',
+        activeStepLabel: '✖ Failed',
+      }
+
+      this.streamedLogs = [
+        {
+          index: 1,
+          level: 'ERROR',
+          message: msg || 'Selenium request failed.'
+        }
+      ]
+
+      this.stopLiveRunTimer()
+
+      void this.loadRecentRuns()
+
+      this.cdr.markForCheck()
+    },
+  })
       
   }
 

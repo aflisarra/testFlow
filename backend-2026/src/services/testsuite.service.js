@@ -243,8 +243,7 @@ async function getSuitePlansAndCases(testSuiteId) {
 
  
 const testCasesByPlan = plans.map((plan) => ({
-  planId: plan._id, 
-  planTitle: plan.title,
+  planId: plan.id, 
   testCases: casesByMongoPlanId.get(String(plan._id)) || [],
 }))
 
@@ -670,7 +669,7 @@ exports.getTestPlansByTestSuiteId = async (suiteId) => {
     )
 
     return {
-      planId: plan._id, 
+      planId: plan.id, 
       planTitle: plan.title,
       testCases: filteredCases
     }

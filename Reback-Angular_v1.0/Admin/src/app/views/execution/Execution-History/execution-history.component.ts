@@ -3,13 +3,17 @@ import { SeleniumRunnerService } from '../../../core/services/selenium-runner.se
 import { ExecutionDetailModalComponent } from '../Execution-details/execution-details.component'
 export interface ExecutionRun {
   id: string
-  name: string
-  tags: string
-  status: 'passed' | 'failed' | 'aborted' | 'running'
-  startDate: string
-  startTime: string
-  endDate: string
-  endTime: string
+  testCaseName: string
+  executedBy: string
+  status:
+    | 'passed'
+    | 'failed'
+    | 'failed_execution'
+    | 'failed_assertion'
+    | 'aborted'
+    | 'running'
+  executionDate: string
+  executionTime: string
   duration: string
 }
 
@@ -24,15 +28,15 @@ export class ExecutionHistoryComponent implements OnInit {
 
   constructor(private seleniumRunnerService: SeleniumRunnerService) {}
 
-  filters = {
-    dateRange: '7days',
-    status: '',
-    project: '',
-    suite: '',
-    testPlan: '',
-    testCase: '',
-    executionState: ''
-  }
+
+filters = {
+  dateRange: '', // ✅ par défaut = all database
+  status: '',
+  project: '',
+  suite: '',
+  testPlan: ''
+}
+
 
   selectedExecution: any = null
 isModalOpen = false
@@ -51,7 +55,10 @@ isModalOpen = false
 
   ngOnInit(): void {
     this.loadProjects()
-    this.applyFilters()
+    
+  // ✅ au début : all executions from database
+  this.applyFilters()
+
   }
 
 
@@ -70,140 +77,140 @@ loadProjects() {
 
 
 _testCasesByPlan: any[] = [] // Cache for test cases by plan to optimize suite → plan → test case flow
-  onFilterChange(key: string, event: any) {
+onFilterChange(key: string, event: any): void {
+  const value = event.target.value
 
-    const value = event.target.value
-
-    this.filters = { ...this.filters, [key]: value }
-
-    // ✅ PROJECT → SUITES
-    if (key === 'project') {
-
-      this.filters.suite = ''
-      this.filters.testPlan = ''
-      this.filters.testCase = ''
-
-      this.suites = []
-      this.plans = []
-      this.testCases = []
-
-      if (value) {
-       
-this.seleniumRunnerService.getSuitesByProject(value)
-  .subscribe((res: any) => {
-
-    console.log("suites:", res)
-
-    this.suites = Array.isArray(res)
-      ? res
-      : res?.data || []
-
-  })
-      }
-    }
-
-    // ✅ SUITE → PLANS
-    if (key === 'suite') {
-
-      this.filters.testPlan = ''
-      this.filters.testCase = ''
-
-      this.plans = []
-      this.testCases = []
-
-      if (value) {
-      
-
-this.seleniumRunnerService.getPlansBySuite(value)
-  .subscribe((res: any) => {
-
-    console.log("plans:", res)
-
-    this.plans = res?.testPlans || []
-
-    // ✅ IMPORTANT
-    this._testCasesByPlan = res?.testCasesByPlan || []
-
-  })
-
-      }
-    }
-
-    // ✅ PLAN → TEST CASES
-if (key === 'testPlan') {
-
-  this.filters.testCase = ''
-
-  let selected = this._testCasesByPlan.find((p: any) =>
-    String(p.testPlanId) === String(value)
-  )
-
-  // ✅ fallback si pas trouvé (très important)
-  if (!selected) {
-    console.warn("⚠️ fallback by index")
-    const index = this.plans.findIndex((p: any) =>
-      String(p._id) === String(value)
-    )
-    selected = this._testCasesByPlan[index]
+  this.filters = {
+    ...this.filters,
+    [key]: value
   }
 
-  this.testCases = selected?.testCases || []
+  // ✅ PROJECT → SUITES only
+  if (key === 'project') {
+    this.filters.suite = ''
+    this.filters.testPlan = ''
 
-  console.log("✅ selected:", selected)
-  console.log("✅ testCases:", this.testCases)
+    this.suites = []
+    this.plans = []
+
+    if (value) {
+      this.seleniumRunnerService.getSuitesByProject(value)
+        .subscribe((res: any) => {
+          console.log('✅ suites:', res)
+
+          this.suites = Array.isArray(res)
+            ? res
+            : res?.data || []
+        })
+    }
+  }
+
+  // ✅ SUITE → PLANS only
+  if (key === 'suite') {
+    this.filters.testPlan = ''
+    this.plans = []
+
+    if (value) {
+      this.seleniumRunnerService.getPlansBySuite(value)
+        .subscribe((res: any) => {
+          console.log('✅ plans:', res)
+
+          this.plans = res?.testPlans || []
+        })
+    }
+  }
+
+  // ❌ IMPORTANT:
+  // do NOT call applyFilters() here
 }
 
+
+
+applyFilters(): void {
+  this.currentPage = 1
+
+  const query: any = {
+    page: this.currentPage,
+    limit: this.pageSize
   }
 
+  // ✅ Date range
+  if (this.filters.dateRange === '1day') query.days = 1
+  if (this.filters.dateRange === '2days') query.days = 2
+  if (this.filters.dateRange === '3days') query.days = 3
+  if (this.filters.dateRange === '7days') query.days = 7
+  if (this.filters.dateRange === '30days') query.days = 30
 
-  applyFilters() {
+  // ✅ Status
+  if (this.filters.status) {
+    query.status = this.filters.status
+  }
 
-    const query: any = {
-      page: this.currentPage,
-      limit: this.pageSize
-    }
+  // ✅ Project
+  if (this.filters.project) {
+    query.project = this.filters.project
+  }
 
-    if (this.filters.status) query.status = this.filters.status
-    if (this.filters.project) query.project = this.filters.project
-    if (this.filters.suite) query.testSuiteId = this.filters.suite
-    if (this.filters.testPlan) query.planId = this.filters.testPlan
-    if (this.filters.testCase) query.testCaseId = this.filters.testCase
-    if (this.filters.executionState) query.executionState = this.filters.executionState
+  // ✅ Suite
+  if (this.filters.suite) {
+    query.testSuiteId = this.filters.suite
+  }
 
-    if (this.filters.dateRange === '1day') query.days = 1
-    if (this.filters.dateRange === '2days') query.days = 2
-    if (this.filters.dateRange === '3days') query.days = 3
-    if (this.filters.dateRange === '7days') query.days = 7
-    if (this.filters.dateRange === '30days') query.days = 30
+  // ✅ Plan
+  if (this.filters.testPlan) {
+    query.planId = this.filters.testPlan
+  }
 
-    this.seleniumRunnerService.getExecutions(query).subscribe((res: any) => {
+  console.log('✅ APPLY FILTER QUERY:', query)
+
+  this.seleniumRunnerService.getExecutions(query)
+    .subscribe((res: any) => {
+      console.log('✅ executions:', res)
 
       this.totalRuns = res.total || 0
 
       this.filteredRuns = (res.data || []).map((r: any) => ({
         id: r.executionId,
-        name: r.testCaseTitle || 'Test',
-        tags: r.planTitle || '',
+
+        testCaseName:
+          r.testCaseTitle ||
+          r.testCaseKey ||
+          'Untitled test case',
+
+        executedBy:
+          r.executedByName ||
+          r.executedBy?.name ||
+          r.createdByName ||
+          r.userName ||
+          'Unknown user',
+
         status: r.status,
-        startDate: new Date(r.startedAt).toLocaleDateString(),
-        startTime: new Date(r.startedAt).toLocaleTimeString(),
-        endDate: r.finishedAt ? new Date(r.finishedAt).toLocaleDateString() : '-',
-        endTime: r.finishedAt ? new Date(r.finishedAt).toLocaleTimeString() : '-',
+
+        executionDate: r.startedAt
+          ? new Date(r.startedAt).toLocaleDateString()
+          : '-',
+
+        executionTime: r.startedAt
+          ? new Date(r.startedAt).toLocaleTimeString()
+          : '-',
+
         duration: `${r.duration || 0}s`
       }))
     })
-  }
+}
 
   
 
-openExecution(run: any) {
-  console.log("CLICK ✅", run)
+openExecution(run: ExecutionRun): void {
+  console.log('CLICK ✅', run)
 
   this.selectedExecution = {
     executionId: run.id,
-    testCaseTitle: run.name,
-    planTitle: run.tags,
-    status: run.status
+    testCaseTitle: run.testCaseName,
+    planTitle: '',
+    status: run.status,
+    duration: run.duration,
+    startedAt: `${run.executionDate} ${run.executionTime}`
   }
 
   this.isModalOpen = true

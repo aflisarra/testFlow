@@ -10,7 +10,7 @@ async function runTestCaseHandler(req, res) {
 const testCase = req.body?.testCase || req.body
 
 console.log("🔥 RECEIVED TEST CASE:", testCase)
-
+console.log("✅ BODY:", JSON.stringify(req.body, null, 2))
 
     const modelSteps = testCase?.executionModel?.steps || testCase?.execution_model?.steps
     const hasNaturalSteps = Array.isArray(testCase?.steps) && testCase.steps.length > 0
@@ -37,6 +37,12 @@ console.log("🔥 RECEIVED TEST CASE:", testCase)
 
     if (suiteId && mongoose.Types.ObjectId.isValid(suiteId)) {
       const executionId = `EX-${Date.now()}-${testCaseId.slice(-6)}`
+      
+console.log(
+  '✅ RESULT STEP RESULTS BEFORE SAVE:',
+  JSON.stringify(result.stepResults, null, 2)
+)
+
       await TestExecution.create({
         executionId,
         testSuiteId: new mongoose.Types.ObjectId(suiteId),
@@ -44,22 +50,89 @@ console.log("🔥 RECEIVED TEST CASE:", testCase)
         testCaseId: null,
         planKey: planId,
         testCaseKey: testCaseId,
+        executionModel: testCase.executionModel || null,
         planTitle: String(testCase?.planTitle || req.body?.planTitle || '').trim(),
         testCaseTitle: String(testCase?.title || req.body?.testCaseTitle || '').trim(),
-        status: result.status === 'passed' ? 'passed' : 'failed',
+        status:
+  result.status === 'passed'
+    ? 'passed'
+    : result.status === 'failed_assertion'
+      ? 'failed_assertion'
+      : 'failed_execution',
+
         duration,
         startedAt: new Date(startedAt),
         finishedAt,
         logs: Array.isArray(result.logs) ? result.logs : [],
         screenshots: Array.isArray(result.screenshots) ? result.screenshots : [],
-        stepsResults: Array.isArray(result.stepResults)
-          ? result.stepResults.map((step) => ({
-              step: String(step.name || step.id || ''),
-              status: step.status === 'passed' ? 'passed' : 'failed',
-              error: step.status === 'failed' ? String(step.message || '') : '',
-              screenshot: step.screenshotPath || null,
-            }))
-          : [],
+      stepsResults: Array.isArray(result.stepResults)
+  ? result.stepResults.map((step) => {
+
+      const screenshotsArray = Array.isArray(step.screenshots)
+        ? step.screenshots.filter(Boolean)
+        : []
+
+      const firstScreenshot =
+        screenshotsArray[0] ||
+        step.screenshot ||
+        null
+
+      const publicUrl =
+        firstScreenshot?.publicUrl ||
+        firstScreenshot?.url ||
+        step.screenshotPath ||
+        ''
+
+      const screenshotPath =
+        firstScreenshot?.path ||
+        ''
+
+      return {
+        index: Number(step.index || 0),
+
+        step: String(step.name || step.step || step.id || ''),
+
+        action: String(step.action || ''),
+
+        status:
+          step.status === 'passed'
+            ? 'passed'
+            : step.status === 'failed_assertion'
+              ? 'failed_assertion'
+              : step.status === 'skipped'
+                ? 'skipped'
+                : 'failed_execution',
+
+        actualResult: String(step.actualResult || step.actual || ''),
+
+        expectedResult: String(step.expectedResult || step.expected || ''),
+
+        error: String(step.error || step.message || ''),
+
+        // ✅ IMPORTANT: toujours objet compatible avec schema
+        screenshot: {
+          filename: firstScreenshot?.filename || '',
+          path: screenshotPath,
+          publicUrl,
+          createdAt:
+            firstScreenshot?.createdAt ||
+            new Date().toISOString()
+        }
+      }
+    })
+  : [],
+
+  executedBy: {
+  userId: req.user?._id || req.user?.userId || null,
+  name:
+    req.user?.name ||
+    req.user?.fullName ||
+    req.user?.email ||
+    testCase?.createdBy?.name ||
+    'Unknown user',
+  picture: req.user?.picture || ''
+},
+
       })
       console.log('[INFO] TestExecution saved:', { suiteId, planId, testCaseId, status: result.status, duration })
     } else {
@@ -78,7 +151,11 @@ console.log("🔥 RECEIVED TEST CASE:", testCase)
     })
 
   } catch (err) {
-    console.error('[ERROR] runTestCaseHandler:', err)
+    
+console.error('[ERROR] runTestCaseHandler:', err)
+
+console.error(err.stack)
+
 
     return res.status(500).json({
       status: 'error',
@@ -89,22 +166,19 @@ console.log("🔥 RECEIVED TEST CASE:", testCase)
 
 
 async function getExecutions(req, res) {
-
   try {
     let {
       status,
       project,
+      testSuiteId,
       planId,
-      testCaseId,
       days,
       fromDate,
       toDate,
       page = 1,
-      limit = 10,
-      executionState
+      limit = 10
     } = req.query
 
-    // ✅ convertir en nombres
     page = parseInt(page)
     limit = parseInt(limit)
 
@@ -112,12 +186,31 @@ async function getExecutions(req, res) {
 
     // ✅ STATUS
     if (status) {
-      query.status = status
+      query.status = String(status).trim()
     }
 
-    // ✅ PROJECT
-    if (project && mongoose.Types.ObjectId.isValid(project)) {
-      query.testSuiteId = new mongoose.Types.ObjectId(project)
+    // ✅ SUITE
+    if (testSuiteId && mongoose.Types.ObjectId.isValid(testSuiteId)) {
+      query.testSuiteId = new mongoose.Types.ObjectId(testSuiteId)
+    }
+
+    // ✅ PROJECT seulement si pas de suite sélectionnée
+    if (
+      !testSuiteId &&
+      project &&
+      mongoose.Types.ObjectId.isValid(project)
+    ) {
+      const TestSuite = require('../models/testsuite')
+
+      const suites = await TestSuite.find({
+        projectId: new mongoose.Types.ObjectId(project)
+      })
+        .select('_id')
+        .lean()
+
+      const suiteIds = suites.map((s) => s._id)
+
+      query.testSuiteId = { $in: suiteIds }
     }
 
     // ✅ PLAN
@@ -125,70 +218,81 @@ async function getExecutions(req, res) {
       query.planId = new mongoose.Types.ObjectId(planId)
     }
 
-    // ✅ TEST CASE
-    if (testCaseId && mongoose.Types.ObjectId.isValid(testCaseId)) {
-      query.testCaseId = new mongoose.Types.ObjectId(testCaseId)
-    }
-
-    // ✅ DATE FILTER (PRIORITÉ : vraie date > days)
-    const now = new Date()
-
+    // ✅ DATE FILTER
     if (fromDate || toDate) {
-
       query.startedAt = {}
 
       if (fromDate) {
-        query.startedAt.$gte = new Date(fromDate)
+        const from = new Date(fromDate)
+        from.setHours(0, 0, 0, 0)
+        query.startedAt.$gte = from
       }
 
       if (toDate) {
-        query.startedAt.$lte = new Date(toDate)
+        const to = new Date(toDate)
+        to.setHours(23, 59, 59, 999)
+        query.startedAt.$lte = to
       }
-
     } else if (days) {
-
       const d = new Date()
-      d.setDate(now.getDate() - parseInt(days))
+      d.setDate(d.getDate() - Number(days))
+      d.setHours(0, 0, 0, 0)
 
       query.startedAt = {
         $gte: d
       }
     }
 
-    // ✅ RUNNING / FINISHED
-    if (executionState === 'running') {
-      query.finishedAt = null
-    }
-
-    if (executionState === 'finished') {
-      query.finishedAt = { $ne: null }
-    }
-
-    console.log("🔎 FILTER QUERY:", query)
+    console.log('🔎 FILTER QUERY FINAL:', query)
 
     const skip = (page - 1) * limit
 
-    const executions = await TestExecution.find(query)
-      .sort({ startedAt: -1 })
-      .skip(skip)
-      .limit(limit)
+    const [executions, total] = await Promise.all([
+      TestExecution.find(query)
+        .sort({ startedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
 
-    const total = await TestExecution.countDocuments(query)
+      TestExecution.countDocuments(query)
+    ])
+
+    const data = executions.map((row) => ({
+      executionId: row.executionId,
+      testSuiteId: String(row.testSuiteId || ''),
+      planId: String(row.planId || ''),
+      planKey: row.planKey || '',
+      planTitle: row.planTitle || '',
+      testCaseId: String(row.testCaseId || ''),
+      testCaseKey: row.testCaseKey || '',
+      testCaseTitle: row.testCaseTitle || '',
+      status: row.status,
+      duration: row.duration,
+      startedAt: row.startedAt,
+      finishedAt: row.finishedAt,
+      createdAt: row.createdAt,
+
+      executedByName:
+        row.executedBy?.name ||
+        row.createdBy?.name ||
+        row.userName ||
+        'Unknown user'
+    }))
 
     return res.json({
       success: true,
-      data: executions,
+      data,
       total,
       page,
       limit
     })
 
   } catch (err) {
-    console.error("❌ getExecutions:", err)
+    console.error('❌ getExecutions:', err)
 
     return res.status(500).json({
       success: false,
-      message: "Error fetching executions"
+      message: 'Error fetching executions'
     })
   }
 }
@@ -196,7 +300,6 @@ async function getExecutions(req, res) {
 
 exports.getExecutionDetail = async (req, res) => {
   try {
-
     const executionId = req.params.id
 
     const execution = await require('../models/TestExecution.model')
@@ -207,37 +310,48 @@ exports.getExecutionDetail = async (req, res) => {
       return res.status(404).json({ message: 'Execution not found' })
     }
 
-    // ✅ FORMAT STEPS (timeline)
     const steps = (execution.stepsResults || []).map((step, index) => ({
-      index: index + 1,
+      index: step.index || index + 1,
+
       name: step.step || `Step ${index + 1}`,
+
       status: step.status,
-      screenshotPath: step.screenshot || null,
-      message: step.error || ''
+
+      screenshotPath:
+        step.screenshot?.publicUrl ||
+        step.screenshot?.path ||
+        null,
+
+      screenshot: step.screenshot || null,
+
+      message: step.error || '',
+
+      actualResult: step.actualResult || '',
+
+      expectedResult: step.expectedResult || ''
     }))
 
-    // ✅ FORMAT LOGS
+    console.log('✅ DETAIL STEPS SENT:', steps)
+
     const logs = (execution.logs || []).map(log => ({
       timestamp: log.timestamp || new Date().toISOString(),
       level: log.level || 'INFO',
-      message: log.message || ''
+      message: log.message || '',
+      data: log.data || {}
     }))
 
-    // ✅ RESPONSE FINAL
-
-res.json({
-  executionId: execution.executionId,
-  testCaseKey: execution.testCaseKey, 
-  testCaseTitle: execution.testCaseTitle,
-  planTitle: execution.planTitle,
-  status: execution.status,
-  duration: execution.duration,
-  startedAt: execution.startedAt,
-  finishedAt: execution.finishedAt,
-  steps,
-  logs
-})
-
+    return res.json({
+      executionId: execution.executionId,
+      testCaseKey: execution.testCaseKey,
+      testCaseTitle: execution.testCaseTitle,
+      planTitle: execution.planTitle,
+      status: execution.status,
+      duration: execution.duration,
+      startedAt: execution.startedAt,
+      finishedAt: execution.finishedAt,
+      steps,
+      logs
+    })
 
   } catch (error) {
     console.error('🔥 getExecutionDetail error:', error)

@@ -133,6 +133,13 @@ app.use('/api/selenium', seleniumRoutes)
 app.use("/auth", authMagic);
 
 
+app.use(
+  '/api/uploads',
+  express.static(
+    path.join(__dirname, '../uploads')
+  )
+)
+
 
 
 
