@@ -1,4 +1,55 @@
+import json
+import re
 import requests
+
+
+def extract_json(text):
+
+    text = text.strip()
+
+    # ✅ remove markdown ```json ```
+    text = re.sub(r"```json", "", text)
+    text = re.sub(r"```", "", text)
+
+    # ✅ remove comments //...
+    text = re.sub(r"//.*", "", text)
+
+    # ✅ remove JS expressions (very important)
+    text = re.sub(r"\+.*?\)", "", text)  # remove "+ Math.random()..."
+    
+    # ✅ fix trailing commas
+    text = re.sub(r",\s*}", "}", text)
+    text = re.sub(r",\s*]", "]", text)
+
+    # ✅ try full parse
+    try:
+        return json.loads(text)
+    except:
+        pass
+
+    # ✅ extract JSON array
+    array_match = re.search(r"\[.*\]", text, re.DOTALL)
+    if array_match:
+        try:
+            return json.loads(array_match.group())
+        except:
+            pass
+
+    # ✅ extract objects individually
+    matches = re.findall(r"\{.*?\}", text, re.DOTALL)
+
+    results = []
+    for m in matches:
+        try:
+            results.append(json.loads(m))
+        except:
+            continue
+
+    if results:
+        return results
+
+    raise Exception(f"Invalid JSON from AI:\n{text}")
+
 
 class AIService:
 
@@ -9,12 +60,16 @@ class AIService:
             json={
                 "model": "mistral",
                 "prompt": prompt,
-                "format": "json"
+                "stream": False
             },
             timeout=timeout
         )
 
-        return resp.json()
+        raw = resp.json().get("response", "").strip()
+
+        print("🧠 RAW:", raw)
+
+        return extract_json(raw)
 
 
 def get_ai_service():

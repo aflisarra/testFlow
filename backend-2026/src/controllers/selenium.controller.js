@@ -3,166 +3,85 @@ const TestExecution = require('../models/TestExecution.model')
 const { runTestCase } = require('../services/selenium/selenium.service')
 
 async function runTestCaseHandler(req, res) {
-  //addLog(logs, 0, "INFO", "Test started")
-  
+
   try {
-    
-const testCase = req.body?.testCase || req.body
 
-console.log("🔥 RECEIVED TEST CASE:", testCase)
-console.log("✅ BODY:", JSON.stringify(req.body, null, 2))
+    const testCase = req.body?.testCase || req.body
 
-    const modelSteps = testCase?.executionModel?.steps || testCase?.execution_model?.steps
-    const hasNaturalSteps = Array.isArray(testCase?.steps) && testCase.steps.length > 0
-    const hasExecutionModel = Array.isArray(modelSteps) && modelSteps.length > 0
+    console.log("🔥 RECEIVED TEST CASE:", testCase)
 
-    // validation simple
-    if (!testCase || (!hasNaturalSteps && !hasExecutionModel)) {
+    // ✅ VALIDATION
+    if (!testCase || !Array.isArray(testCase.steps) || !testCase.steps.length) {
       return res.status(400).json({
         status: 'error',
-        message: 'Invalid payload: testCase steps or executionModel missing.'
+        message: 'testCase.steps is required'
       })
     }
-
-    console.log('[INFO] Running test case:', testCase?.id || testCase?.title)
 
     const startedAt = Date.now()
+
     const result = await runTestCase(testCase)
+
     const finishedAt = new Date()
-    const duration = Math.max(0, Math.round((Date.now() - startedAt) / 1000))
+    const duration = Math.round((Date.now() - startedAt) / 1000)
 
-    const suiteId = String(testCase?.testSuiteId || req.body?.testSuiteId || '').trim()
-    const planId = String(testCase?.planId || req.body?.planId || '').trim()
-    const testCaseId = String(testCase?.id || req.body?.testCaseId || '').trim()
+    // ✅ ✅ ✅ SAFE IDS (EVITE LE CRASH)
+    const suiteId = testCase?.testSuiteId || null
+    const isValidSuite = suiteId && mongoose.Types.ObjectId.isValid(suiteId)
 
-    if (suiteId && mongoose.Types.ObjectId.isValid(suiteId)) {
-      const executionId = `EX-${Date.now()}-${testCaseId.slice(-6)}`
-      
-console.log(
-  '✅ RESULT STEP RESULTS BEFORE SAVE:',
-  JSON.stringify(result.stepResults, null, 2)
-)
-
-      await TestExecution.create({
-        executionId,
-        testSuiteId: new mongoose.Types.ObjectId(suiteId),
-        planId: mongoose.Types.ObjectId.isValid(planId) ? new mongoose.Types.ObjectId(planId) : null,
-        testCaseId: null,
-        planKey: planId,
-        testCaseKey: testCaseId,
-        executionModel: testCase.executionModel || null,
-        planTitle: String(testCase?.planTitle || req.body?.planTitle || '').trim(),
-        testCaseTitle: String(testCase?.title || req.body?.testCaseTitle || '').trim(),
-        status:
-  result.status === 'passed'
-    ? 'passed'
-    : result.status === 'failed_assertion'
-      ? 'failed_assertion'
-      : 'failed_execution',
-
-        duration,
-        startedAt: new Date(startedAt),
-        finishedAt,
-        logs: Array.isArray(result.logs) ? result.logs : [],
-        screenshots: Array.isArray(result.screenshots) ? result.screenshots : [],
-      stepsResults: Array.isArray(result.stepResults)
-  ? result.stepResults.map((step) => {
-
-      const screenshotsArray = Array.isArray(step.screenshots)
-        ? step.screenshots.filter(Boolean)
-        : []
-
-      const firstScreenshot =
-        screenshotsArray[0] ||
-        step.screenshot ||
-        null
-
-      const publicUrl =
-        firstScreenshot?.publicUrl ||
-        firstScreenshot?.url ||
-        step.screenshotPath ||
-        ''
-
-      const screenshotPath =
-        firstScreenshot?.path ||
-        ''
-
-      return {
-        index: Number(step.index || 0),
-
-        step: String(step.name || step.step || step.id || ''),
-
-        action: String(step.action || ''),
-
-        status:
-          step.status === 'passed'
-            ? 'passed'
-            : step.status === 'failed_assertion'
-              ? 'failed_assertion'
-              : step.status === 'skipped'
-                ? 'skipped'
-                : 'failed_execution',
-
-        actualResult: String(step.actualResult || step.actual || ''),
-
-        expectedResult: String(step.expectedResult || step.expected || ''),
-
-        error: String(step.error || step.message || ''),
-
-        // ✅ IMPORTANT: toujours objet compatible avec schema
-        screenshot: {
-          filename: firstScreenshot?.filename || '',
-          path: screenshotPath,
-          publicUrl,
-          createdAt:
-            firstScreenshot?.createdAt ||
-            new Date().toISOString()
-        }
-      }
-    })
-  : [],
-
-  executedBy: {
-  userId: req.user?._id || req.user?.userId || null,
-  name:
-    req.user?.name ||
-    req.user?.fullName ||
-    req.user?.email ||
-    testCase?.createdBy?.name ||
-    'Unknown user',
-  picture: req.user?.picture || ''
-},
-
-      })
-      console.log('[INFO] TestExecution saved:', { suiteId, planId, testCaseId, status: result.status, duration })
-    } else {
-      console.warn('[WARN] TestExecution skipped: missing or invalid suiteId/planId/testCaseId', {
-        suiteId,
-        planId,
-        testCaseId,
-      })
+    const executionData = {
+      executionId: `EX-${Date.now()}`,
+      testCaseTitle: testCase.title || "",
+      status:
+        result.status === 'passed'
+          ? 'passed'
+          : result.status === 'failed_assertion'
+            ? 'failed_assertion'
+            : 'failed_execution',
+      duration,
+      startedAt: new Date(startedAt),
+      finishedAt,
+      logs: result.logs || [],
+      stepsResults: result.stepResults || []
     }
-//addLog(logs, 0, "INFO", "Test started")
 
-    return res.status(200).json({
+    // ✅ ✅ ✅ seulement si valide
+    if (isValidSuite) {
+
+      executionData.testSuiteId = new mongoose.Types.ObjectId(suiteId)
+
+      if (testCase.planId && mongoose.Types.ObjectId.isValid(testCase.planId)) {
+        executionData.planId = new mongoose.Types.ObjectId(testCase.planId)
+      }
+
+      if (testCase.id) {
+        executionData.testCaseKey = String(testCase.id)
+      }
+
+      await TestExecution.create(executionData)
+
+      console.log("✅ Execution saved")
+    } else {
+      console.warn("⚠️ Skip DB save (no valid testSuiteId)")
+    }
+
+    return res.json({
       status: result.status,
-      message: result.message,
       data: result
     })
 
   } catch (err) {
-    
-console.error('[ERROR] runTestCaseHandler:', err)
 
-console.error(err.stack)
-
+    console.error("❌ CONTROLLER ERROR:", err)
 
     return res.status(500).json({
       status: 'error',
-      message: err?.message || 'Unexpected server error.'
+      message: err.message
     })
   }
 }
+
+
 
 
 async function getExecutions(req, res) {

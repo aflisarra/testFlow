@@ -1,51 +1,36 @@
 async function highlightElement(driver, element) {
 
-  // ✅ scroll vers élément
   await driver.executeScript(`
     arguments[0].scrollIntoView({
-      behavior: 'smooth',
+      behavior: 'instant',
       block: 'center'
     });
   `, element)
 
-  await driver.sleep(300)
+  await driver.sleep(200)
 
-  // ✅ effet visuel pro
   await driver.executeScript(`
-
     const el = arguments[0];
-
     const rect = el.getBoundingClientRect();
 
-    const circle = document.createElement('div');
+    const overlay = document.createElement('div');
 
-    circle.style.position = 'fixed';
-    circle.style.left = rect.left + 'px';
-    circle.style.top = rect.top + 'px';
+    overlay.style.position = 'fixed';
+    overlay.style.left = rect.left + 'px';
+    overlay.style.top = rect.top + 'px';
+    overlay.style.width = rect.width + 'px';
+    overlay.style.height = rect.height + 'px';
 
-    circle.style.width = rect.width + 'px';
-    circle.style.height = rect.height + 'px';
+    overlay.style.border = '4px solid red';
+    overlay.style.background = 'rgba(255,0,0,0.15)';
+    overlay.style.zIndex = '9999999';
 
-    circle.style.border = '4px solid red';
-    circle.style.borderRadius = '12px';
+    document.body.appendChild(overlay);
 
-    circle.style.boxShadow = '0 0 20px red';
-
-    circle.style.zIndex = '999999';
-
-    circle.style.pointerEvents = 'none';
-
-    document.body.appendChild(circle);
-
-    setTimeout(() => {
-      circle.remove();
-    }, 1200);
-
+    window.__highlight = overlay;
   `, element)
-
-  await driver.sleep(700)
 }
 
 module.exports = {
-  highlightElement
+  highlightElement  // ✅ IMPORTANT
 }

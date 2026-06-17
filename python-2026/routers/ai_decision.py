@@ -16,6 +16,40 @@ def decide(payload: dict):
 
     ai = get_ai_service()
 
-    result = ai.generate_json(prompt=prompt, timeout=120)
+    result = ai.generate_json(prompt=prompt, timeout=180)
+
+
+    
 
     return result
+
+@router.post("/validate")
+def validate(payload: dict):
+
+    step = payload.get("step")
+    result = payload.get("result")
+    expected = payload.get("expected")
+
+    prompt = f"""
+You are a QA validation AI.
+
+STEP:
+{step}
+
+ACTUAL RESULT:
+{result}
+
+EXPECTED RESULT:
+{expected}
+
+Return JSON:
+
+{{
+  "status": "passed" or "failed",
+  "reason": "short explanation"
+}}
+"""
+
+    ai = get_ai_service()
+
+    return ai.generate_json(prompt=prompt, timeout=120)

@@ -887,3 +887,70 @@
   opacity: 0.4;
   cursor: default;
 }
+
+.screenshot-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  z-index: 9999;
+}
+
+.screenshot-modal__panel {
+  position: relative;
+  background: #fff;
+  padding: 10px;
+  border-radius: 10px;
+
+  /* ✅ taille réduite */
+  max-width: 800px;
+  max-height: 80%;
+}
+
+.screenshot-modal__image {
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+.close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+
+  background: #fff;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+/* ✅ boutons gauche / droite */
+.nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+
+  background: rgba(0,0,0,0.5);
+  color: white;
+
+  border: none;
+  font-size: 24px;
+
+  width: 40px;
+  height: 40px;
+
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.nav-btn.left {
+  left: -50px;
+}
+
+.nav-btn.right {
+  right: -50px;
+}

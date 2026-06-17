@@ -17,15 +17,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-
+from routers import test_plans, test_cases
 import subprocess
 import os
 from dotenv import load_dotenv
-
+from routers.ai_decision import router as ai_router
+from routers.test_runner import router as runner_router
 load_dotenv()  # Must run before importing modules that read env vars.
 
 from core.config import get_settings  # noqa: E402
-from routers import test_plans, test_cases, test_case_translator  # noqa: E402
+#from routers import test_plans, test_cases, test_case_translator  # noqa: E402
 from routers.cancellation import router as cancellation_router  # noqa: E402
 from routers.health import router as health_router  # noqa: E402
 from utils.ollama import run_ollama  # noqa: E402
@@ -69,7 +70,9 @@ app.add_middleware(
 # ── Routers ────────────────────────────────────────────────
 app.include_router(test_plans.router)
 app.include_router(test_cases.router)
-app.include_router(test_case_translator.router)
+#app.include_router(test_case_translator.router)
+app.include_router(ai_router)        
+app.include_router(runner_router)
 app.include_router(cancellation_router)
 app.include_router(health_router)
 

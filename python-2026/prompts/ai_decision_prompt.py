@@ -1,36 +1,85 @@
-def build_ai_decision_prompt(step: dict, dom: str, test_case: str) -> str:
+def build_ai_decision_prompt(step: str, dom: str, test_case: str) -> str:
 
     return f"""
-You are a smart QA automation AI.
+You are an intelligent QA automation AI.
 
-You must execute a test case using the DOM.
+You receive:
+- A test step
+- A list of DOM elements (JSON)
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TEST CASE:
-{test_case}
+Each element contains:
+- id
+- name
+- placeholder
+- type
+- tag
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CURRENT STEP:
-{step}
+━━━━━━━━━━━━━━━━━━━━━━
+YOUR ROLE:
+━━━━━━━━━━━━━━━━━━━━━━
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DOM:
-{dom}
+1. Understand the STEP
+2. Analyze DOM elements
+3. Identify relevant fields
+4. Generate VALID and REALISTIC data dynamically
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━
+DATA GENERATION RULES:
+━━━━━━━━━━━━━━━━━━━━━━
 
-Decide EXACTLY:
-- action
-- target selector
-- value (if type)
+- If placeholder or id contains "name" → generate a real name (e.g. "Sarra", "Ahmed")
+- If field is email → generate valid email (e.g. "user123@test.com")
+- If field is phone → generate 10 digit number
+- If field is date → generate valid date
+- If field is address → generate realistic address
+- If field is subject → generate subject name
+
+
+- Generate different data each time (random but valid)
+- Avoid repeating same values
+
+
+⚠️ IMPORTANT:
+- DO NOT use generic values like "First Name"
+- DO NOT copy placeholder text as value
+- ALWAYS generate realistic data
+
+━━━━━━━━━━━━━━━━━━━━━━
+SELECTOR RULES:
+━━━━━━━━━━━━━━━━━━━━━━
+
+- Use ONLY elements present in DOM
+- Prefer selector = "#id"
+- NEVER use complex selectors (no ">")
+
+❌ DO NOT use:
+- JavaScript expressions (no Math.random, no + concatenation)
+- Comments (no // text)
+- Dynamic code
+
+✅ Only static valid JSON values
+
+━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT FORMAT:
+━━━━━━━━━━━━━━━━━━━━━━
 
 Return ONLY JSON:
 
-{{
-  "action": "type | click",
-  "target": {{
-    "selector": "css selector"
-  }},
-  "value": "text if needed"
-}}
+[
+  {{
+    "action": "type | click",
+    "target": {{
+      "selector": "#id"
+    }},
+    "value": "generated value"
+  }}
+]
+
+━━━━━━━━━━━━━━━━━━━━━━
+STEP:
+{step}
+
+━━━━━━━━━━━━━━━━━━━━━━
+DOM:
+{dom[:3000]}
 """

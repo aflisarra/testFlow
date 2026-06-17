@@ -180,10 +180,38 @@ ngOnInit(): void {
     this.activeTab = tab;
   }
 
-  openScreenshot(url: string | null | undefined): void {
-    if (!url) return
-    this.selectedScreenshotUrl = url
-  }
+ openScreenshot(url: string | null | undefined): void {
+  if (!url) return
+
+  this.currentScreenshots = this.stepsWithScreenshots
+    .map(s => s.screenshotUrl!)
+    .filter(Boolean)
+
+  this.currentScreenshotIndex = this.currentScreenshots.indexOf(url)
+
+  this.selectedScreenshotUrl = url
+}
+
+nextScreenshot(): void {
+  if (this.currentScreenshots.length === 0) return
+
+  this.currentScreenshotIndex =
+    (this.currentScreenshotIndex + 1) % this.currentScreenshots.length
+
+  this.selectedScreenshotUrl =
+    this.currentScreenshots[this.currentScreenshotIndex]
+}
+
+prevScreenshot(): void {
+  if (this.currentScreenshots.length === 0) return
+
+  this.currentScreenshotIndex =
+    (this.currentScreenshotIndex - 1 + this.currentScreenshots.length) %
+    this.currentScreenshots.length
+
+  this.selectedScreenshotUrl =
+    this.currentScreenshots[this.currentScreenshotIndex]
+}
 
   closeScreenshot(): void {
     this.selectedScreenshotUrl = null
@@ -1116,4 +1144,9 @@ this.streamedLogs = [
       this.liveRunTimer = undefined
     }
   }
+
+  
+currentScreenshotIndex = 0
+currentScreenshots: string[] = []
+
 }

@@ -3,9 +3,7 @@ const { runStructuredUiStep } = require('./ui.executor')
 const { addLog } = require('../../utils/logger')
 
 async function runTestCase(testCase) {
-  const { captureStepScreenshot } = require('../../utils/screenshot')
-const { By } = require('selenium-webdriver')
-console.log("✅ TESTCASE RECEIVED:", JSON.stringify(testCase, null, 2))
+
   const driver = await createDriver()
 
   const logs = []
@@ -15,295 +13,78 @@ console.log("✅ TESTCASE RECEIVED:", JSON.stringify(testCase, null, 2))
 
   const ctx = {
     baseUrl: testCase.url,
+    testCase: testCase,
     logs
   }
 
   try {
 
-   
+    const steps = testCase.steps || []
 
-let steps = Array.isArray(testCase?.executionModel?.steps)
-  ? testCase.executionModel.steps
-  : []
+    for (let i = 0; i < steps.length; i++) {
 
+      const step = steps[i]
 
+      console.log(`➡️ STEP ${i + 1}: ${step}`)
 
-    // ✅ FALLBACK SI STEP NON STRUCTURÉ
-    if (!steps.length && Array.isArray(testCase.steps)) {
-steps = testCase.steps.map((raw, i) => {
+      try {
 
-  const text = String(raw).toLowerCase()
+        const result = await runStructuredUiStep(
+          driver,
+          step,
+          ctx,
+          i + 1
+        )
 
-  // ✅ NAVIGATION
-  if (i === 0 || text.includes('navigate')) {
-
-    const cleanUrl = String(testCase.url || '')
-      .replace(/(https?:\/\/.*?)(https?:\/\/.*)/, '$1')
-      .trim()
-
-    return {
-      action: 'navigate',
-
-      raw,
-
-      target: {
-        url: cleanUrl
-      }
-    }
-  }
-
-  // ✅ SUBMIT
-  if (
-    text.includes('submit') ||
-    text.includes('click')
-  ) {
-
-    return {
-      action: 'click',
-
-      raw,
-
-      target: {
-        selector: '#submit',
-        by: 'css'
-      }
-    }
-  }
-
-  // ✅ FORM FILLING
-  if (
-    text.includes('fill') ||
-    text.includes('mandatory')
-  ) {
-
-    return {
-      action: 'type',
-
-      raw,
-
-      fields: [
-
-        {
-          selector: '#firstName',
-          by: 'css',
-          value: 'Sarra'
-        },
-
-        {
-          selector: '#lastName',
-          by: 'css',
-          value: 'AFLI'
-        },
-
-        {
-          selector: '#userEmail',
-          by: 'css',
-          value: 'sarra@test.com'
-        },
-
-        {
-          selector: '#userNumber',
-          by: 'css',
-          value: '5512345612'
-        },
-
-        {
-          selector: '#currentAddress',
-          by: 'css',
-          value: 'Tunis'
-        }
-      ],
-
-      radios: [
-        {
-          selector: "label[for='gender-radio-2']",
-          by: "css"
-        }
-      ],
-
-      checkboxes: [
-        {
-          selector: "label[for='hobbies-checkbox-1']",
-          by: "css"
-        }
-      ],
-
-      uploads: [
-        {
-          selector: "#uploadPicture",
-          by: "css",
-          path: "C:\\Users\\MSI\\Desktop\\user2.png"
-        }
-      ],
-
-      selects: [
-        {
-          selector: "#react-select-3-input",
-          by: "css",
-          value: "NCR"
-        },
-
-        {
-          selector: "#react-select-4-input",
-          by: "css",
-          value: "Delhi"
-        }
-      ]
-    }
-  }
-
-  return {
-    action: 'unknown',
-    raw
-  }
-})
-    }
-
-    console.log("🔥 STEPS:", steps)
-
-for (let i = 0; i < steps.length; i++) {
-
-  
-const step = steps[i]
-
-  console.log(`\n➡️ STEP ${i + 1}: ${step.raw}`)
-
-
-  try {
-
-    const result =
-      await runStructuredUiStep(driver, step, ctx, i + 1)
-      console.log(`STATUS: ${result?.status}`)
-
-    stepResults.push({
+       stepResults.push({
   index: i + 1,
-  name: step.raw,
-  action: step.action,
+  step: step,
 
-  status: result?.status || 'passed',
+  status: result.status,
 
-  // ✅ IMPORTANT
-  screenshots: Array.isArray(result?.screenshots)
-    ? result.screenshots
-    : [],
+  actualResult: JSON.stringify(result.actual || ""),
+  expectedResult: testCase.expected_result || "",
 
-  actualResult: result?.actual || '',
-  expectedResult: result?.expected || '',
+  // ✅ IMPORTANT → prendre seulement le dernier screenshot ou mapper
+  screenshot: (result.screenshots && result.screenshots[0]) || null,
 
-  error: result?.error || ''
+  // ✅ garder aussi tous les screenshots si besoin
+  allScreenshots: result.screenshots || [],
+
+  error: result.error || "",
+
+  startedAt: new Date(),
+  finishedAt: new Date()
 })
 
-    if (
-      result?.status === 'failed_execution' ||
-      result?.status === 'failed_assertion'
-    ) {
-     
-if (
-  result &&
-  (
-    result.status === 'failed_execution' ||
-    result.status === 'failed_assertion'
-  )
-) {
-  throw new Error(result.error || 'Step failed')
-}
+        if (result.status !== 'passed') {
+          throw new Error(result.error || "Step failed")
+        }
 
+      } catch (err) {
+
+        stepResults.push({
+          index: i + 1,
+          name: step,
+          status: 'failed_execution',
+          error: err.message
+        })
+
+        return {
+          status: 'failed_execution',
+          logs,
+          stepResults
+        }
+      }
     }
 
-  } catch (err) {
-
-    stepResults.push({
-
-      index: i + 1,
-      name: step.raw,
-
-      status: 'failed_execution',
-
-      error: err.message,
-
-    screenshots: [
-  await captureStepScreenshot(
-    driver,
-    i + 1,
-    'error'
-  )
-]
-    })
-
     return {
-      status: 'failed_execution',
+      status: 'passed',
       logs,
       stepResults
     }
-  }
-  
-  //console.log(`STATUS: ${result?.status}`)
-}
-
-let finalStatus = 'passed'
-
-// ✅ ASSERTION GLOBALE
-if (testCase.expected_result) {
-
-  try {
-
-    const bodyText = await driver.findElement(By.css('body')).getText()
-
-    console.log(`\n🧪 GLOBAL ASSERT`)
-    console.log(`EXPECTED: ${testCase.expected_result}`)
-    console.log(`ACTUAL: ${bodyText}`)
-
-    const isMatch = bodyText.includes(testCase.expected_result)
-
-    if (!isMatch) {
-
-  console.log(`❌ GLOBAL ASSERT FAILED`)
-
-  finalStatus = 'failed_assertion'
-
-  addLog(ctx.logs, steps.length + 1, "FAIL", "Global assertion failed", {
-    expected: testCase.expected_result,
-    actual: bodyText
-  })
-
-  stepResults.push({
-    index: steps.length + 1,
-    name: 'Global Assertion',
-    status: 'failed_assertion',
-    expectedResult: testCase.expected_result,
-    actualResult: bodyText,
-    error: 'Expected result NOT found in page',
-    screenshots: [
-      await captureStepScreenshot(driver, steps.length + 1, 'assertion')
-    ]
-  })
-} else {
-
-      console.log(`✅ GLOBAL ASSERT PASSED`)
-    }
-
-  } catch (e) {
-
-    console.log(`❌ ASSERT ERROR: ${e.message}`)
-
-    finalStatus = 'failed_execution'
-  }
-}
-
-
-    addLog(logs, steps.length, "SUCCESS", "Test finished")
-
-console.log(`\n🏁 FINAL TEST STATUS: ${finalStatus.toUpperCase()}`)
-return {
-  status: finalStatus,
-  logs,
-  stepResults
-}
-
 
   } catch (err) {
-
-    addLog(logs, 999, "ERROR", err.message)
 
     return {
       status: 'failed',
@@ -313,9 +94,7 @@ return {
 
   } finally {
 
-    await new Promise(r => setTimeout(r, 2000))
     await driver.quit()
-
   }
 }
 

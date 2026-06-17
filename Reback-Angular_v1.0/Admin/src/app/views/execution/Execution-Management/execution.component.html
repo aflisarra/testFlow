@@ -417,33 +417,33 @@
 @if (selectedScreenshotUrl) {
  @if (selectedScreenshotUrl) {
 
+
+<div
+  class="screenshot-modal"
+  *ngIf="selectedScreenshotUrl"
+  (click)="closeScreenshot()"
+>
+
+
+    
   <div
-    class="screenshot-modal"
-    role="dialog"
-    aria-modal="true"
-    aria-label="Screenshot preview"
-    (click)="closeScreenshot()"
+    class="screenshot-modal__panel"
+    (click)="$event.stopPropagation()"
   >
 
-    <div
-      class="screenshot-modal__panel"
-      (click)="$event.stopPropagation()"
-    >
 
-      <button
-        class="screenshot-modal__close"
-        type="button"
-        aria-label="Close screenshot preview"
-        (click)="closeScreenshot()"
-      >
-        ×
-      </button>
+      
+<!-- ❌ bouton close -->
+    <button class="close-btn" (click)="closeScreenshot()">×</button>
 
-      <img
-        class="screenshot-modal__image"
-        [src]="selectedScreenshotUrl"
-        alt="Screenshot preview"
-      />
+
+   
+ <!-- ✅ IMAGE -->
+    <img
+      class="screenshot-modal__image"
+      [src]="selectedScreenshotUrl"
+    />
+<button class="nav-btn right" (click)="nextScreenshot()">❯</button>
 
     </div>
 
