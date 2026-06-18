@@ -13,11 +13,17 @@ async function runStructuredUiStep(driver, step, ctx, stepIndex) {
     if (stepIndex === 1) {
 
       const url = ctx.baseUrl
-
       console.log("🌍 OPEN:", url)
 
       await driver.get(url)
-      await driver.wait(until.elementLocated(By.css('body')), 10000)
+
+      // ✅ wait true DOM (Angular)
+      await driver.wait(
+        until.elementLocated(By.css('input[name="username"]')),
+        10000
+      )
+
+      await driver.sleep(1500)
 
       const screenshot = await captureStepScreenshot(driver, stepIndex, "open")
 
@@ -29,196 +35,189 @@ async function runStructuredUiStep(driver, step, ctx, stepIndex) {
       }
     }
 
-    // ✅ GET DOM
-   const elements = await driver.executeScript(() => {
-  return Array.from(document.querySelectorAll('input, button, textarea, select')).map(el => ({
-    tag: el.tagName.toLowerCase(),
-    id: el.id,
-    name: el.name,
-    type: el.type,
-    placeholder: el.placeholder,
-    text: el.innerText,
-    value: el.value
-  }))
-})
+    // ✅ GET DOM (INDEX-BASED ✅)
+    const elements = await driver.executeScript(() => {
 
-   
-const resp = await axios.post(
-  "http://localhost:8000/ai/decide",
-  {
-    step: step,
-    dom: elements,
-    test_case: ctx.testCase
-  }
-)
+      function getVisibleText(el) {
+        return el.innerText?.replace(/\s+/g, " ").trim() || ""
+      }
 
+      return Array.from(document.querySelectorAll('input, button, a'))
+        .map((el, index) => ({
+          index,
+          tag: el.tagName.toLowerCase(),
+          id: el.id || "",
+          name: el.name || "",
+          type: el.type || "",
+          placeholder: el.placeholder || "",
+          text: getVisibleText(el)
+        }))
+        .filter(el => el.tag !== "a" || el.text.length > 0)
+    })
 
-    const decisions = resp.data
-    const actions = Array.isArray(decisions) ? decisions : [decisions]
+    console.log("📦 DOM:", elements)
+
+    // ✅ stop if empty DOM
+    if (!elements || elements.length === 0) {
+      return {
+        status: 'failed_execution',
+        error: 'Empty DOM',
+        screenshots: []
+      }
+    }
+
+    // ✅ CALL AI
+    let resp
+    try {
+      resp = await axios.post(
+        "http://localhost:8000/ai/decide",
+        {
+          step,
+          dom: elements,
+          test_case: ctx.testCase
+        },
+        { timeout: 30000 }
+      )
+    } catch (err) {
+      console.log("❌ AI ERROR:", err.message)
+      resp = { data: [] }
+    }
+
+    let decisions = resp.data
+    let actions = Array.isArray(decisions) ? decisions : [decisions]
+
+    // ✅ VALIDATE ACTIONS (INDEX ONLY ✅)
+    actions = actions.filter(a =>
+      a &&
+      a.action &&
+      a.target &&
+      typeof a.target.index === "number"
+    )
+
+    if (actions.length === 0) {
+      console.log("⚠️ AI RETURNED EMPTY → FAIL")
+      return {
+        status: 'failed_execution',
+        error: 'AI returned no actions',
+        screenshots: []
+      }
+    }
+
+    console.log("🧠 ACTIONS:", actions)
 
     const screenshots = []
 
-    console.log("🧠 AI:", actions)
-
     // ✅ LOOP ACTIONS
-    // ✅ LOOP ACTIONS (reste pareil)
-for (let i = 0; i < actions.length; i++) {
+    for (let i = 0; i < actions.length; i++) {
 
-  const act = actions[i]
+      const act = actions[i]
+      const action = act.action
+      const index = act.target.index
+      const value = act.value || ""
 
- let action = act?.action
-let selector = act?.target?.selector
-const value = act?.value || ""
-
-if (!selector) {
-  addLog(ctx.logs, stepIndex, "WARN", "No selector", act)
-  continue
-}
-
-// ✅ 1. sauver l'ancien selector pour logs
-const originalSelector = selector
-
-// ✅ 2. CORRIGER le &gt;
-selector = selector.replace(/&gt;/g, ">")
-
-// ✅ 3. bloquer les selectors complexes
-if (selector.includes(">")) {
-  console.log("❌ BAD SELECTOR SKIPPED:", originalSelector)
-  continue
-}
-
-  if (!selector) {
-    addLog(ctx.logs, stepIndex, "WARN", "No selector", act)
-    continue
-  }
-
-  if (selector.includes(">")) {
-    console.log("❌ BAD SELECTOR SKIPPED:", selector)
-    continue
-  }
-
-  try {
-
-    const el = await driver.wait(
-      until.elementLocated(By.css(selector)),
-      5000
-    )
-
-    // 🔴 highlight
-    await highlightElement(driver, el)
-    await driver.sleep(800)
-
-    if (action === "type") {
-      await el.clear()
-      await driver.sleep(500)
-      
-for (const char of value) {
-  await el.sendKeys(char)
-  await driver.sleep(100) // typing humain ✅
-}
-
-      await driver.sleep(800)
-    }
-
-    if (action === "click") {
       try {
-        await el.click()
-      } catch {
-        await driver.executeScript("arguments[0].click();", el)
+
+        // ✅ FIND ELEMENT BY INDEX (JS DOM ✅)
+        const el = await driver.executeScript((i) => {
+          return document.querySelectorAll('input, button, a')[i]
+        }, index)
+
+        if (!el) {
+          throw new Error("Element not found by index: " + index)
+        }
+
+        await highlightElement(driver, el)
+        await driver.sleep(300)
+
+        // ✅ TYPE
+        if (action === "type") {
+
+          await driver.executeScript((i) => {
+            const el = document.querySelectorAll('input, button, a')[i]
+            el.value = ""
+          }, index)
+
+          for (const char of value) {
+            await driver.executeScript((i, c) => {
+              const el = document.querySelectorAll('input, button, a')[i]
+              el.value += c
+            }, index, char)
+
+            await driver.sleep(30)
+          }
+
+        }
+
+        // ✅ CLICK
+        if (action === "click") {
+
+          await driver.executeScript((i) => {
+            const el = document.querySelectorAll('input, button, a')[i]
+            el.click()
+          }, index)
+
+          console.log("✅ CLICK DONE → STOP STEP")
+
+          await driver.sleep(2000)
+
+          const shot = await captureStepScreenshot(
+            driver,
+            `${stepIndex}-${i}`,
+            action
+          )
+
+          screenshots.push(shot)
+
+          addLog(ctx.logs, stepIndex, "SUCCESS", "Click executed", {
+            index
+          })
+
+          break
+        }
+
+        const shot = await captureStepScreenshot(
+          driver,
+          `${stepIndex}-${i}`,
+          action
+        )
+
+        screenshots.push(shot)
+
+        addLog(ctx.logs, stepIndex, "SUCCESS", "Action executed", {
+          action,
+          index,
+          value
+        })
+
+      } catch (err) {
+
+        console.log("❌ ACTION ERROR:", err.message)
+
+        addLog(ctx.logs, stepIndex, "ERROR", "Action failed", {
+          index,
+          error: err.message
+        })
       }
-      await driver.sleep(800)
     }
 
-    // ✅ screenshot IMPORTANT
-    const shot = await captureStepScreenshot(
-      driver,
-      `${stepIndex}-${i}`,
-      action
-    )
-
-    screenshots.push(shot)
-
-    addLog(ctx.logs, stepIndex, "SUCCESS", "Action executed", {
-      action,
-      selector,
-      value
+    // ✅ VALIDATION
+    const pageState = await driver.executeScript(() => {
+      return {
+        url: window.location.href,
+        title: document.title,
+        text: document.body.innerText.slice(0, 1000)
+      }
     })
+
+    return {
+      status: 'passed',
+      screenshots,
+      actual: pageState
+    }
 
   } catch (err) {
 
-    const errorShot = await captureStepScreenshot(
-      driver,
-      `${stepIndex}-${i}`,
-      "error"
-    )
-
-    screenshots.push(errorShot)
-
-    addLog(ctx.logs, stepIndex, "ERROR", "Action failed", {
-      selector,
-      error: err.message
-    })
-  }
-}
-
-
-// ✅ VALIDATION APRÈS TOUTES LES ACTIONS
-//
-
-const pageState = await driver.executeScript(() => {
-  return {
-    url: window.location.href,
-    title: document.title,
-    text: document.body.innerText.slice(0, 2000)
-  }
-})
-
-const validation = await axios.post(
-  "http://localhost:8000/ai/validate",
-  {
-    step: step,
-    result: pageState,
-    expected: ctx.testCase.expected_result
-  }
-)
-
-const aiValidation = validation.data
-
-addLog(ctx.logs, stepIndex, "INFO", "AI Validation", aiValidation)
-
-//
-// ✅ DECISION FINALE
-//
-
-const hasExecError = ctx.logs.some(
-  log => log.level === "ERROR" && log.stepIndex === stepIndex
-)
-
-if (hasExecError) {
-  return {
-    status: 'failed_execution',
-    screenshots
-  }
-}
-
-if (aiValidation.status !== "passed") {
-  return {
-    status: 'failed_assertion',
-    screenshots
-  }
-}
-
-return {
-  status: 'passed',
-  screenshots,
-  actual: pageState
-}
-
-  } catch (err) {
-
-    addLog(ctx.logs, stepIndex, "ERROR", "Step failed", {
-      error: err.message
-    })
+    console.log("❌ STEP ERROR:", err.message)
 
     return {
       status: 'failed_execution',

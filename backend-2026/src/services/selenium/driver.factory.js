@@ -1,7 +1,7 @@
 const { Builder } = require('selenium-webdriver')
+require('chromedriver')
 
-const chrome =
-  require('selenium-webdriver/chrome')
+const chrome = require('selenium-webdriver/chrome')
 
 async function createDriver() {
 
@@ -10,7 +10,9 @@ async function createDriver() {
   options.addArguments(
     '--start-maximized',
     '--disable-infobars',
-    '--disable-notifications'
+    '--disable-notifications',
+    '--disable-dev-shm-usage',
+    '--no-sandbox'
   )
 
   const driver = await new Builder()
@@ -20,13 +22,11 @@ async function createDriver() {
 
   await driver.manage().setTimeouts({
     implicit: 10000,
-    pageLoad: 30000,
-    script: 30000
+    pageLoad: 60000,
+    script: 60000
   })
 
   return driver
 }
 
-module.exports = {
-  createDriver
-}
+module.exports = { createDriver }
