@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -38,13 +38,26 @@ class GenerateTestCasesRequest(BaseModel):
             allow_population_by_field_name = True
 
 
+class Requirement(BaseModel):
+    id: str = ""
+    title: str = ""
+    description: str = ""
+    source: str = ""
+    priority: str = ""
+
+
 class TestCase(BaseModel):
     id: str
     title: str
+    objective: str = ""
+    preconditions: List[str] = Field(default_factory=list)
+    test_data: Any = None
     steps: List[str]
     expected_result: str
     priority: str
+    severity: str = "Major"
     type: str
+    requirements: List[Requirement] = Field(default_factory=list)
 
 
 class TestCasesResponse(BaseModel):

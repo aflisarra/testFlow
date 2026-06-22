@@ -4,6 +4,16 @@ const Project = require('../models/project.model')
 const TestSuite = require('../models/testsuite')
 const TestPlan = require('../models/testplan.model')
 const TestCase = require('../models/testcase.model')
+const {
+  hasOwn,
+  normalizeRequirements,
+  normalizeString,
+  normalizeStringList,
+  normalizeTestData,
+  validatePriority,
+  validateSeverity,
+  validateTestCaseType,
+} = require('../utils/test-artifact-fields')
 
 const TEST_STATUS_VALUES = new Set(['Draft', 'Generating', 'Incomplete', 'Ready', 'Passed', 'Failed'])
 const PLAN_STATUS_VALUES = new Set(['pending', 'generating', 'reviewing', 'confirmed', 'completed', 'incomplete'])
@@ -190,6 +200,29 @@ function normalizeCreatedBy(value) {
   }
 }
 
+function normalizePlanMetadata(plan = {}) {
+  return {
+    objective: normalizeString(plan?.objective),
+    scope: normalizeString(plan?.scope),
+    priority: validatePriority(plan?.priority),
+    requirements: normalizeRequirements(plan?.requirements),
+  }
+}
+
+function normalizeCaseMetadata(testCase = {}) {
+  const rawTestData = hasOwn(testCase, 'test_data') ? testCase.test_data : testCase?.testData
+
+  return {
+    objective: normalizeString(testCase?.objective),
+    preconditions: normalizeStringList(testCase?.preconditions),
+    test_data: normalizeTestData(rawTestData),
+    priority: validatePriority(testCase?.priority),
+    severity: validateSeverity(testCase?.severity),
+    type: validateTestCaseType(testCase?.type),
+    requirements: normalizeRequirements(testCase?.requirements),
+  }
+}
+
 function getPopulatedProject(suite) {
   return suite?.projectId && typeof suite.projectId === 'object' ? suite.projectId : null
 }
@@ -236,6 +269,10 @@ async function getSuitePlansAndCases(testSuiteId) {
       id: plan.id,
       title: plan.title,
       description: plan.description || '',
+      objective: plan.objective || '',
+      scope: plan.scope || '',
+      priority: plan.priority || 'medium',
+      requirements: plan.requirements || [],
       casesCount: testCases.length,
       testCases,
     }
@@ -431,6 +468,7 @@ async function upsertPlans(testSuiteId, testPlans = []) {
               id,
               title,
               description: String(plan?.description || '').trim(),
+              ...normalizePlanMetadata(plan),
             },
           },
           upsert: true,
@@ -454,6 +492,10 @@ async function upsertCasesByPlan(testSuiteId, testCasesByPlan = []) {
         id: stablePlanId,
         title: String(block?.planTitle || stablePlanId).trim(),
         description: '',
+        objective: normalizeString(block?.objective),
+        scope: normalizeString(block?.scope),
+        priority: validatePriority(block?.priority),
+        requirements: normalizeRequirements(block?.requirements),
       })
     }
 
@@ -462,6 +504,11 @@ async function upsertCasesByPlan(testSuiteId, testCasesByPlan = []) {
         const id = String(testCase?.id || `TC-${index + 1}`).trim()
         const title = String(testCase?.title || `Test Case ${index + 1}`).trim()
         if (!id || !title) return null
+
+        // ✅ CHANGEMENT ICI — extraire meta puis retirer test_data si absent
+        const meta = normalizeCaseMetadata(testCase)
+        const hasTestData = hasOwn(testCase, 'test_data') || hasOwn(testCase, 'testData')
+        if (!hasTestData) delete meta.test_data
 
         return {
           updateOne: {
@@ -472,6 +519,7 @@ async function upsertCasesByPlan(testSuiteId, testCasesByPlan = []) {
                 planId: plan._id,
                 id,
                 title,
+                ...meta, // ✅ meta sans test_data si absent
                 steps: Array.isArray(testCase?.steps)
                   ? testCase.steps.map((step) => String(step || '').trim()).filter(Boolean)
                   : [],

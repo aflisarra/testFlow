@@ -452,6 +452,20 @@ async openDetailsModal(suite: TestSuiteDto): Promise<void> {
     }
   }
 
+  formatTestData(value: unknown): string {
+    if (value === null || value === undefined) return '—'
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      return trimmed || '—'
+    }
+
+    try {
+      return JSON.stringify(value, null, 2)
+    } catch {
+      return String(value)
+    }
+  }
+
   async onOpenSuite(suite: TestSuiteDto) {
     this.testSuiteId = String(suite._id).trim()
     if (!this.testSuiteId) return

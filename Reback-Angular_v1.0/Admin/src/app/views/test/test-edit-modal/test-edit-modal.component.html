@@ -15,6 +15,11 @@
   </div>
 
   <div class="mb-3">
+    <label class="form-label" for="tcTestData">Test Data (one line per value)</label>
+    <textarea id="tcTestData" class="form-control" rows="5" [(ngModel)]="testDataText" placeholder="email: valid@test.com&#10;password: Valid123!"></textarea>
+  </div>
+
+  <div class="mb-3">
     <label class="form-label" for="tcExpected">Expected Result</label>
     <textarea id="tcExpected" class="form-control" rows="3" [(ngModel)]="testCase.expected_result" placeholder="Expected result"></textarea>
   </div>

@@ -285,6 +285,11 @@ const testExecutionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: null
   },
+//for debug 
+  linkedDefects: [{
+  id: String,
+  title: String
+}],
 
   /* ───────────────────────── */
 

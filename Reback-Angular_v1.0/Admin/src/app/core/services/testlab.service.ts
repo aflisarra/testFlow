@@ -61,26 +61,27 @@ export class TestLabService {
     return this.api.getBlob(`/api/ollama/testsuite/${testSuiteId}/spec-document`)
   }
 
-  generateTestCases(payload: {
-    testSuiteId: string
-    planId: string
-    planTitle?: string
-    planDescription?: string
-    specText?: string
-    regenerate?: boolean
-    generationRequestId?: string
-  }): Observable<GenerateTestCasesResponse> {
-    // backend expects `spec_text` in payload; map from planDescription or explicit specText
-    const body: any = {
-      testSuiteId: payload.testSuiteId,
-      planId: payload.planId,
-      planTitle: payload.planTitle,
-      regenerate: payload.regenerate,
-      generationRequestId: payload.generationRequestId,
-      spec_text: payload.specText || payload.planDescription || ''
-    }
-    return this.api.post<GenerateTestCasesResponse>(`/api/ollama/generate-test-cases`, body)
+generateTestCases(payload: {
+  testSuiteId: string
+  planId: string
+  planTitle?: string
+  planDescription?: string
+  specText?: string
+  regenerate?: boolean
+  generationRequestId?: string
+}): Observable<GenerateTestCasesResponse> {
+  const body: any = {
+    testSuiteId: payload.testSuiteId,
+    planId: payload.planId,
+    planTitle: payload.planTitle || '',
+    planDescription: payload.planDescription || '',  // ✅ ajouté
+    specText: payload.specText || '',                // ✅ ajouté (alias Pydantic)
+    spec_text: payload.specText || payload.planDescription || '', // ✅ gardé
+    regenerate: payload.regenerate ?? false,
+    generationRequestId: payload.generationRequestId || '',
   }
+  return this.api.post<GenerateTestCasesResponse>(`/api/ollama/generate-test-cases`, body)
+}
 
   cancelGeneration(payload: {
     testSuiteId?: string

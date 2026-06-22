@@ -183,6 +183,10 @@ console.log("TYPE:", typeof testPlans)
           id: plan.id,
           title: plan.title,
           description: plan.description,
+          objective: plan.objective,
+          scope: plan.scope,
+          priority: plan.priority,
+          requirements: plan.requirements,
         })
       )
     )
@@ -194,6 +198,6 @@ console.log("TYPE:", typeof testPlans)
 
   } catch (error) {
     console.error('🔥 savePlans error:', error)
-    res.status(500).json({ message: error.message })
+    res.status(error.statusCode || 500).json({ message: error.message })
   }
 }

@@ -919,7 +919,7 @@
 
 .testlab-plan-edit-input,
 .testlab-plan-edit-textarea {
-    width: min(100%, 720px);
+    inline-size: min(100%, 720px);
     border: 1px solid #dbe7f7;
     border-radius: 10px;
     background: #fff;
@@ -930,7 +930,7 @@
 }
 
 .testlab-plan-edit-input {
-    min-height: 42px;
+    min-block-size: 42px;
     padding: 0.55rem 0.75rem;
     font-family: var(--font-display);
     font-weight: 600;
@@ -938,7 +938,7 @@
 }
 
 .testlab-plan-edit-textarea {
-    min-height: 86px;
+    min-block-size: 86px;
     resize: vertical;
     padding: 0.75rem;
     font-size: 0.8rem;
@@ -1893,4 +1893,55 @@ h1 {
     transform: none;
 }
 
+.testlab-plan-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  border-top: 0.5px solid var(--color-border-tertiary, #e5e5e5);
+  padding-top: 12px;
+  margin-top: 10px;
+}
+.testlab-plan-meta-field {
+  background: var(--color-background-secondary, #f8f8f8);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.testlab-plan-meta-field--full {
+  grid-column: 1 / -1;
+}
+.testlab-plan-meta-label {
+  display: block;
+  font-size: 11px;
+  color: var(--color-text-tertiary, #999);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.testlab-plan-meta-value {
+  font-size: 13px;
+  color: var(--color-text-primary, #111);
+}
+.testlab-plan-meta-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.testlab-plan-meta-badge--high   { background: #FAECE7; color: #993C1D; }
+.testlab-plan-meta-badge--medium { background: #FAEEDA; color: #854F0B; }
+.testlab-plan-meta-badge--low    { background: #EAF3DE; color: #3B6D11; }
+
+.testlab-plan-meta-reqs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.testlab-plan-meta-reqs li {
+  font-size: 12px;
+  color: var(--color-text-secondary, #555);
+  border-left: 2px solid var(--color-border-secondary, #ccc);
+  padding-left: 8px;
+  margin-top: 4px;
+}
 

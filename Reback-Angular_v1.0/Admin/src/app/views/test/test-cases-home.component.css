@@ -595,3 +595,49 @@
 :host-context([data-bs-theme='dark']) .team-avatar--overflow {
   background: #0f172a;
 }
+/* Preconditions */
+.tc-case-label--pre {
+  color: #7c5cbb;
+}
+
+.tc-case-pre-list {
+  margin: 4px 0 0;
+  padding-left: 1.2rem;
+  list-style: disc;
+}
+
+.tc-case-pre-list li {
+  font-size: 12px;
+  color: var(--color-text-secondary, #555);
+  margin-bottom: 2px;
+}
+
+/* Requirements */
+.tc-case-label--req {
+  color: #1a6fa8;
+}
+
+.tc-case-req-list {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tc-case-req-list li {
+  font-size: 12px;
+  color: var(--color-text-secondary, #555);
+  border-left: 2px solid #1a6fa833;
+  padding-left: 8px;
+  margin-bottom: 4px;
+}
+
+.tc-req-desc {
+  color: var(--color-text-tertiary, #888);
+  font-style: italic;
+}
+
+/* Wrapper générique pour les blocs meta */
+.tc-case-meta {
+  padding: 8px 12px;
+  border-top: 0.5px solid var(--color-border-tertiary, #eee);
+}

@@ -98,6 +98,8 @@ isEditMode = false
   sessionSaved = false
   generationGuardModalOpen = false
   generationStopping = false
+  planEditModalOpen = false
+  planEditDraft: TestPlanDto | null = null
   private generationGuardResolve: ((allowed: boolean) => void) | null = null
   private allowGenerationNavigation = false
   private pendingBrowserReload = false
@@ -644,24 +646,83 @@ onTogglePlanValidation(planId: string) {
 }
 
 
-  onToggleManualPlanEdit(planId: string): void {
-    const id = String(planId || '').trim()
-    if (!id) return
-    this.editingPlanIds[id] = !this.editingPlanIds[id]
+  openPlanEditModal(plan: TestPlanDto): void {
+    this.planEditDraft = {
+      ...plan,
+      title: String(plan.title || ''),
+      description: String(plan.description || ''),
+      objective: String(plan.objective || ''),
+      scope: String(plan.scope || ''),
+      priority: String(plan.priority || 'Medium'),
+    }
+    this.planEditModalOpen = true
+  }
+
+  closePlanEditModal(): void {
+    this.planEditModalOpen = false
+    this.planEditDraft = null
+  }
+
+  savePlanEditModal(): void {
+    if (!this.planEditDraft?.id) return
+    const id = this.planEditDraft.id
+    const idx = this.testPlans.findIndex((p) => p.id === id)
+    if (idx < 0) return
+    this.testPlans = this.testPlans.map((p) =>
+      p.id === id
+        ? {
+            ...p,
+            title: String(this.planEditDraft?.title || p.title || ''),
+            description: String(this.planEditDraft?.description || p.description || ''),
+            objective: String(this.planEditDraft?.objective || p.objective || ''),
+            scope: String(this.planEditDraft?.scope || p.scope || ''),
+            priority: String(this.planEditDraft?.priority || p.priority || 'Medium'),
+          }
+        : p
+    )
+    this.sessionSaved = false
+    this.closePlanEditModal()
+  }
+
+  onEditPlanField(field: keyof TestPlanDto, value: string): void {
+    if (!this.planEditDraft) return
+    this.planEditDraft = {
+      ...this.planEditDraft,
+      [field]: value,
+    }
   }
 
   isPlanEditing(planId: string): boolean {
     return Boolean(this.editingPlanIds[String(planId || '').trim()])
   }
 
-  onPlanTitleInput(plan: TestPlanDto, event: Event): void {
-    plan.title = (event.target as HTMLInputElement | null)?.value ?? ''
-    this.sessionSaved = false
-  }
+  async onAbandonPlan(plan: TestPlanDto): Promise<void> {
+    const ref = this.modalService.open(ConfirmModalComponent, {
+      centered: true,
+      windowClass: 'confirm-modal-window',
+      backdropClass: 'confirm-modal-backdrop',
+    })
 
-  onPlanDescriptionInput(plan: TestPlanDto, event: Event): void {
-    plan.description = (event.target as HTMLTextAreaElement | null)?.value ?? ''
-    this.sessionSaved = false
+    ref.componentInstance.title = 'Abandon Test Plan'
+    ref.componentInstance.message = `Are you sure you want to abandon this test plan?`
+    ref.componentInstance.details = `${plan.title || plan.id} will be removed from the current list.`
+    ref.componentInstance.confirmText = 'Abandon'
+    ref.componentInstance.cancelText = 'Cancel'
+    ref.componentInstance.confirmButtonClass = 'btn-danger'
+    ref.componentInstance.icon = 'iconamoon:warning-duotone'
+
+    ref.closed.subscribe((result) => {
+      if (!result) return
+      this.testPlans = this.testPlans.filter((p) => p.id !== plan.id)
+      delete this.testCasesByPlan[plan.id]
+      delete this.planStatuses[plan.id]
+      delete this.editingPlanIds[plan.id]
+      this.plansValidated = this.allPlansConfirmed
+      this.sessionSaved = false
+      if (this.currentPlanIndex >= this.testPlans.length) {
+        this.currentPlanIndex = Math.max(0, this.testPlans.length - 1)
+      }
+    })
   }
 
 get canValidateAndGenerateNextTestCase(): boolean {
@@ -907,109 +968,84 @@ get canGenerateTestPlan(): boolean {
   }
 
   async onRegeneratePlan(plan: TestPlanDto, index: number) {
-    if (!plan?.id || !this.currentTestSuiteId) return
-    if (!this.isSelectedProjectAccepted) {
-      this.toastr.warning('You must accept this project before editing/regenerating test plans.', 'Project Access')
+  if (!plan?.id || !this.currentTestSuiteId) return
+  if (!this.isSelectedProjectAccepted) {
+    this.toastr.warning('You must accept this project before editing/regenerating test plans.', 'Project Access')
+    return
+  }
+  this.errorMessage = ''
+  this.regeneratingPlanId = plan.id
+
+  try {
+    const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
+    let userId = String(user?.id ?? user?._id ?? '').trim()
+    const token = String(user?.token || this.authService.session || '').trim()
+    if (!userId && token) userId = this.resolveUserIdFromToken(token)
+    if (!userId) {
+      this.toastr.error('Session expired. Reconnect and retry.', 'Session')
       return
     }
-    this.errorMessage = ''
-    this.regeneratingPlanId = plan.id
 
-    try {
-      const user = await firstValueFrom(this.store.select(getUser).pipe(take(1)))
-      let userId = String(user?.id ?? user?._id ?? '').trim()
-      const token = String(user?.token || this.authService.session || '').trim()
-      if (!userId && token) userId = this.resolveUserIdFromToken(token)
-      if (!userId) {
-        this.toastr.error('Session expired. Reconnect and retry.', 'Session')
-        return
-      }
+    const formData = new FormData()
+    const requestId = this.newGenerationRequestId('plans')
+    this.activePlanGenerationRequestId = requestId
+    if (this.selectedFile) formData.append('file', this.selectedFile)
+    formData.append('styleConfig', this.styleConfig.trim())
+    const applicationUrl = String(this.testPlanForm.getRawValue().applicationUrl || '').trim()
+    formData.append('applicationUrl', applicationUrl)
+    formData.append('urlCible', applicationUrl)
+    formData.append('description', this.styleConfig.trim())
+    formData.append('userId', userId)
+    formData.append('testSuiteId', this.currentTestSuiteId)
+    formData.append(
+      'nom',
+      `Test Suite - ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`
+    )
+    if (this.nameTest.trim()) formData.append('nametest', this.nameTest.trim())
+    formData.append('planId', plan.id)
+    formData.append('regenerate', 'true')
+    formData.append('generationRequestId', requestId)
 
-      const formData = new FormData()
-      const requestId = this.newGenerationRequestId('plans')
-      this.activePlanGenerationRequestId = requestId
-      if (this.selectedFile) formData.append('file', this.selectedFile)
-      formData.append('styleConfig', this.styleConfig.trim())
-      const applicationUrl = String(this.testPlanForm.getRawValue().applicationUrl || '').trim()
-      formData.append('applicationUrl', applicationUrl)
-      formData.append('urlCible', applicationUrl)
-      formData.append('description', this.styleConfig.trim())
-      formData.append('userId', userId)
-      formData.append('testSuiteId', this.currentTestSuiteId)
-      formData.append(
-        'nom',
-        `Test Suite - ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`
-      )
-      if (this.nameTest.trim()) formData.append('nametest', this.nameTest.trim())
-      formData.append('planId', plan.id)
-      formData.append('regenerate', 'true')
-      formData.append('generationRequestId', requestId)
+    const result = await firstValueFrom(
+      this.testLabService.generatePlanPreview(formData)
+    )
 
-      
-const result = await firstValueFrom(
-  this.testLabService.generatePlanPreview(formData) // ✅ preview فقط
-)
+    // ✅ On ne réassigne PAS this.testPlans entièrement
+    const nextPlans = Array.isArray(result?.testPlans) ? result.testPlans : []
 
-// ✅ IMPORTANT
-///this.currentTestSuiteId = '' // ❌ pas de suite en DB
-
-this.testPlans = Array.isArray(result?.testPlans)
-  ? result.testPlans
-  : []
-
-      const nextPlans = Array.isArray(result?.testPlans) ? result.testPlans : []
-      if (!nextPlans.length) {
-        this.toastr.warning('No regenerated plan returned by backend.', 'Regenerate')
-        return
-      }
-
-      const bySameId = nextPlans.find((p) => p.id === plan.id)
-      const bySameIndex = nextPlans[index] || null
-      const updated = bySameId || bySameIndex
-      if (!updated) {
-        this.toastr.warning('Unable to match regenerated plan.', 'Regenerate')
-        return
-      }
-
-      this.testPlans[index] = updated
-      this.planStatuses[updated.id] = 'pending'
-      this.sessionSaved = false
-      this.plansValidated = false
-    } catch (err: unknown) {
-      const status = getErrorStatus(err)
-      if (status === 502) {
-        this.errorMessage =
-          'Regenerate failed (502 Bad Gateway). Please verify FastAPI/Ollama and retry.'
-      } else {
-        this.errorMessage = getErrorMessage(err, 'Unable to regenerate this plan')
-      }
-    } finally {
-      this.regeneratingPlanId = null
-      this.activePlanGenerationRequestId = ''
+    if (!nextPlans.length) {
+      this.toastr.warning('No regenerated plan returned by backend.', 'Regenerate')
+      return
     }
-  }
 
- 
-  async onStartSequentialFlow() {
-    await this.onValidateAndGoToCases()
-  }
+    const bySameId    = nextPlans.find((p) => p.id === plan.id)
+    const bySameIndex = nextPlans[index] || null
+    const updated     = bySameId || bySameIndex
 
- 
-  async onConfirmCurrentPlan() {
-    const plan = this.currentPlan
-    if (!plan) return
+    if (!updated) {
+      this.toastr.warning('Unable to match regenerated plan.', 'Regenerate')
+      return
+    }
 
-    this.planStatuses[plan.id] = 'confirmed'
+    // ✅ Remplace uniquement le plan à cet index → aucun doublon possible
+    this.testPlans = this.testPlans.map((p, i) => (i === index ? updated : p))
 
-    if (this.isLastPlan) {
-      // Tous les plans sont confirmÃ©s â†’ naviguer
-      await this.finishAndNavigate()
+    this.planStatuses[updated.id] = 'pending'
+    this.sessionSaved = false
+    this.plansValidated = false
+
+  } catch (err: unknown) {
+    const status = getErrorStatus(err)
+    if (status === 502) {
+      this.errorMessage = 'Regenerate failed (502 Bad Gateway). Please verify FastAPI/Ollama and retry.'
     } else {
-      // Passer au plan suivant et gÃ©nÃ©rer ses test cases
-      this.currentPlanIndex++
-      await this.generateCasesForCurrentPlan()
+      this.errorMessage = getErrorMessage(err, 'Unable to regenerate this plan')
     }
+  } finally {
+    this.regeneratingPlanId = null
+    this.activePlanGenerationRequestId = ''
   }
+}
 
   /**
    * RÃ©gÃ©nÃ¨re les test cases du plan courant sans avancer.
@@ -1396,6 +1432,15 @@ this.testPlans = Array.isArray(result?.testPlans)
         el.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 0)
     })
+  }
+
+  scrollToTop(): void {
+    try {
+      const el = typeof document !== 'undefined' ? document.getElementById('top') : null
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    } catch {
+      // ignore
+    }
   }
 private resetFullState(): void {
   const projectId = this.testPlanForm.value.projectId  // ✅ garder

@@ -259,44 +259,80 @@
         </div>
         }
         @for (tc of visibleLiveCases; track tc.id; let i = $index) {
-        <div class="tc-case-card">
-          <div class="tc-case-card-head">
-            <span class="tc-case-num">{{ i + 1 }}</span>
-            <span class="tc-case-id">{{ tc.id }}</span>
-            <span class="tc-case-title">{{ tc.title }}</span>
-            <div class="d-flex align-items-center ms-auto gap-2">
-              @if (getTestCaseAuthorUsers(tc, livePlanId).length > 0) {
-              <div class="team-stack">
-                @for (user of getTestCaseAuthorUsers(tc, livePlanId); track user.id) {
-                <span class="team-avatar" [attr.title]="user.name">
-                  <img [src]="resolveAvatarUrl(user.picture) || '/assets/images/users/default-user.svg'" [alt]="user.name || ''"
-                       class="team-avatar__img" (error)="onAvatarImgError($event)" />
-                  <span class="team-avatar__initials">{{ getInitials(user.name) }}</span>
-                </span>
-                }
-              </div>
-              }
-              <button class="tc-case-edit" (click)="openEditCase(tc.id, $event)" title="Edit">
-                <iconify-icon icon="iconamoon:edit-duotone"></iconify-icon>
-              </button>
-            </div>
-          </div>
-          @if (tc.steps?.length) {
-          <div class="tc-case-steps">
-            <span class="tc-case-label">Steps</span>
-            <ol class="tc-case-step-list">
-              @for (step of tc.steps; track $index) { <li>{{ step }}</li> }
-            </ol>
-          </div>
-          }
-          @if (tc.expected_result) {
-          <div class="tc-case-expected">
-            <span class="tc-case-label text-success">Expected Result</span>
-            <p class="mb-0 small">{{ tc.expected_result }}</p>
-          </div>
-          }
-        </div>
+<div class="tc-case-card">
+  <div class="tc-case-card-head">
+    <span class="tc-case-num">{{ i + 1 }}</span>
+    <span class="tc-case-id">{{ tc.id }}</span>
+    <span class="tc-case-title">{{ tc.title }}</span>
+    <div class="d-flex align-items-center ms-auto gap-2">
+      @if (getTestCaseAuthorUsers(tc, livePlanId).length > 0) {
+      <div class="team-stack">
+        @for (user of getTestCaseAuthorUsers(tc, livePlanId); track user.id) {
+        <span class="team-avatar" [attr.title]="user.name">
+          <img [src]="resolveAvatarUrl(user.picture) || '/assets/images/users/default-user.svg'"
+               [alt]="user.name || ''" class="team-avatar__img" (error)="onAvatarImgError($event)" />
+          <span class="team-avatar__initials">{{ getInitials(user.name) }}</span>
+        </span>
         }
+      </div>
+      }
+      <button class="tc-case-edit" (click)="openEditCase(tc.id, $event)" title="Edit">
+        <iconify-icon icon="iconamoon:edit-duotone"></iconify-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- ✅ Preconditions -->
+  @if (tc.preconditions?.length) {
+  <div class="tc-case-meta">
+    <span class="tc-case-label tc-case-label--pre">Preconditions</span>
+    <ul class="tc-case-pre-list">
+      @for (pre of tc.preconditions; track $index) {
+      <li>{{ pre }}</li>
+      }
+    </ul>
+  </div>
+  }
+
+  @if (tc.steps?.length) {
+  <div class="tc-case-steps">
+    <span class="tc-case-label">Steps</span>
+    <ol class="tc-case-step-list">
+      @for (step of tc.steps; track $index) { <li>{{ step }}</li> }
+    </ol>
+  </div>
+  }
+
+  @if (tc.expected_result) {
+  <div class="tc-case-expected">
+    <span class="tc-case-label text-success">Expected Result</span>
+    <p class="mb-0 small">{{ tc.expected_result }}</p>
+  </div>
+  }
+
+  <div class="tc-case-meta">
+    <span class="tc-case-label tc-case-label--data">Test Data</span>
+    <pre class="tc-case-test-data mb-0">{{ getTestDataText(tc) }}</pre>
+  </div>
+
+  <!-- ✅ Requirements -->
+  @if (tc.requirements?.length) {
+  <div class="tc-case-meta">
+    <span class="tc-case-label tc-case-label--req">Requirements</span>
+    <ul class="tc-case-req-list">
+      @for (req of tc.requirements; track (req.id || $index)) {
+      <li>
+        @if (req.id) { <strong>{{ req.id }}</strong> · }
+        @if (req.title) { {{ req.title }} }
+        @if (req.description) { <span class="tc-req-desc">— {{ req.description }}</span> }
+      </li>
+      }
+    </ul>
+  </div>
+  }
+
+</div>
+}
       </div>
       }
     </main>
@@ -335,74 +371,119 @@
       } @else {
       <div class="tc-modal-cases">
         @for (tc of modalCases; track tc.id; let i = $index) {
-        <div class="tc-case-card">
-          <div class="tc-case-card-head">
-            <span class="tc-case-num">{{ i + 1 }}</span>
-            <span class="tc-case-id">{{ tc.id }}</span>
-            @if (isEditingCase(tc.id)) {
-              <input
-                class="tc-case-title tc-case-title-input"
-                [value]="tc.title"
-                (input)="onEditCaseTitle(tc.id, ($any($event.target).value || ''))"
-                placeholder="Title"
-              />
-            } @else {
-              <span class="tc-case-title">{{ tc.title }}</span>
-            }
-            @if (getTestCaseAuthorUsers(tc, modalPlan.id).length > 0) {
-            <div class="team-stack ms-auto">
-              @for (user of getTestCaseAuthorUsers(tc, modalPlan.id); track user.id) {
-              <span class="team-avatar" [attr.title]="user.name">
-                <img [src]="resolveAvatarUrl(user.picture) || '/assets/images/users/default-user.svg'" [alt]="user.name || ''"
-                     class="team-avatar__img" (error)="onAvatarImgError($event)" />
-                <span class="team-avatar__initials">{{ getInitials(user.name) }}</span>
-              </span>
-              }
-            </div>
-            }
-            <button class="tc-case-edit" (click)="toggleEditCase(tc.id, $event)" title="Edit">
-              <iconify-icon icon="iconamoon:edit-duotone"></iconify-icon>
-            </button>
-          </div>
-          @if (isEditingCase(tc.id)) {
-            <div class="tc-case-steps">
-              <span class="tc-case-label">Steps</span>
-              <textarea
-                class="tc-case-textarea"
-                rows="4"
-                [value]="(tc.steps || []).join('\n')"
-                (input)="onEditCaseSteps(tc.id, ($any($event.target).value || ''))"
-                placeholder="One step per line"
-              ></textarea>
-            </div>
-            <div class="tc-case-expected">
-              <span class="tc-case-label text-success">Expected Result</span>
-              <textarea
-                class="tc-case-textarea"
-                rows="3"
-                [value]="tc.expected_result"
-                (input)="onEditCaseExpected(tc.id, ($any($event.target).value || ''))"
-                placeholder="Expected result"
-              ></textarea>
-            </div>
-          } @else {
-            @if (tc.steps?.length) {
-            <div class="tc-case-steps">
-              <span class="tc-case-label">Steps</span>
-              <ol class="tc-case-step-list">
-                @for (step of tc.steps; track $index) { <li>{{ step }}</li> }
-              </ol>
-            </div>
-            }
-            @if (tc.expected_result) {
-            <div class="tc-case-expected">
-              <span class="tc-case-label text-success">Expected Result</span>
-              <p class="mb-0 small">{{ tc.expected_result }}</p>
-            </div>
-            }
-          }
-        </div>
+<div class="tc-case-card">
+  <div class="tc-case-card-head">
+    <span class="tc-case-num">{{ i + 1 }}</span>
+    <span class="tc-case-id">{{ tc.id }}</span>
+    @if (isEditingCase(tc.id)) {
+      <input
+        class="tc-case-title tc-case-title-input"
+        [value]="tc.title"
+        (input)="onEditCaseTitle(tc.id, ($any($event.target).value || ''))"
+        placeholder="Title"
+      />
+    } @else {
+      <span class="tc-case-title">{{ tc.title }}</span>
+    }
+    @if (getTestCaseAuthorUsers(tc, modalPlan.id).length > 0) {
+    <div class="team-stack ms-auto">
+      @for (user of getTestCaseAuthorUsers(tc, modalPlan.id); track user.id) {
+      <span class="team-avatar" [attr.title]="user.name">
+        <img [src]="resolveAvatarUrl(user.picture) || '/assets/images/users/default-user.svg'"
+             [alt]="user.name || ''" class="team-avatar__img" (error)="onAvatarImgError($event)" />
+        <span class="team-avatar__initials">{{ getInitials(user.name) }}</span>
+      </span>
+      }
+    </div>
+    }
+    <button class="tc-case-edit" (click)="toggleEditCase(tc.id, $event)" title="Edit">
+      <iconify-icon icon="iconamoon:edit-duotone"></iconify-icon>
+    </button>
+  </div>
+
+  @if (isEditingCase(tc.id)) {
+    <!-- mode édition — inchangé -->
+    <div class="tc-case-steps">
+      <span class="tc-case-label">Steps</span>
+      <textarea
+        class="tc-case-textarea" rows="4"
+        [value]="(tc.steps || []).join('\n')"
+        (input)="onEditCaseSteps(tc.id, ($any($event.target).value || ''))"
+        placeholder="One step per line"
+      ></textarea>
+    </div>
+    <div class="tc-case-expected">
+      <span class="tc-case-label text-success">Expected Result</span>
+      <textarea
+        class="tc-case-textarea" rows="3"
+        [value]="tc.expected_result"
+        (input)="onEditCaseExpected(tc.id, ($any($event.target).value || ''))"
+        placeholder="Expected result"
+      ></textarea>
+    </div>
+    <div class="tc-case-meta">
+      <span class="tc-case-label tc-case-label--data">Test Data</span>
+      <textarea
+        class="tc-case-textarea" rows="4"
+        [value]="getTestDataText(tc)"
+        (input)="onEditCaseTestData(tc.id, ($any($event.target).value || ''))"
+        placeholder="email: valid@test.com&#10;password: Valid123!"
+      ></textarea>
+    </div>
+
+  } @else {
+    <!-- ✅ Preconditions (lecture seule) -->
+    @if (tc.preconditions?.length) {
+    <div class="tc-case-meta">
+      <span class="tc-case-label tc-case-label--pre">Preconditions</span>
+      <ul class="tc-case-pre-list">
+        @for (pre of tc.preconditions; track $index) {
+        <li>{{ pre }}</li>
         }
+      </ul>
+    </div>
+    }
+
+    @if (tc.steps?.length) {
+    <div class="tc-case-steps">
+      <span class="tc-case-label">Steps</span>
+      <ol class="tc-case-step-list">
+        @for (step of tc.steps; track $index) { <li>{{ step }}</li> }
+      </ol>
+    </div>
+    }
+
+    @if (tc.expected_result) {
+    <div class="tc-case-expected">
+      <span class="tc-case-label text-success">Expected Result</span>
+      <p class="mb-0 small">{{ tc.expected_result }}</p>
+    </div>
+    }
+
+    <div class="tc-case-meta">
+      <span class="tc-case-label tc-case-label--data">Test Data</span>
+      <pre class="tc-case-test-data mb-0">{{ getTestDataText(tc) }}</pre>
+    </div>
+
+    <!-- ✅ Requirements (lecture seule) -->
+    @if (tc.requirements?.length) {
+    <div class="tc-case-meta">
+      <span class="tc-case-label tc-case-label--req">Requirements</span>
+      <ul class="tc-case-req-list">
+        @for (req of tc.requirements; track (req.id || $index)) {
+        <li>
+          @if (req.id) { <strong>{{ req.id }}</strong> · }
+          @if (req.title) { {{ req.title }} }
+          @if (req.description) { <span class="tc-req-desc">— {{ req.description }}</span> }
+        </li>
+        }
+      </ul>
+    </div>
+    }
+  }
+
+</div>
+}
       </div>
       }
     </div>

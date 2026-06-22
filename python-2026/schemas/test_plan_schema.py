@@ -19,11 +19,23 @@ class GeneratePlanRequest(BaseModel):
     generation_request_id: Optional[str] = Field(default=None, description="Optional generation request id used for cancellation")
 
 
+class Requirement(BaseModel):
+    id: str = ""
+    title: str = ""
+    description: str = ""
+    source: str = ""
+    priority: str = ""
+
+
 class TestPlan(BaseModel):
     id: str
     title: str
     description: str
-
+    objective: str = ""
+    scope: str = ""
+    priority: str = "Medium"
+    requirements: List[Requirement] = Field(default_factory=list)
+    
 
 class GeneratePlanResponse(BaseModel):
     test_plans: List[TestPlan]

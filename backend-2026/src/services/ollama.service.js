@@ -13,6 +13,17 @@ const Project = require('../models/project.model')
 const User = require('../models/user.model')
 
 const { getJwtSecret } = require('../utils/jwt-secrets')
+const {
+  hasOwn,
+  normalizeRequirements,
+  normalizeAutomationTestData,
+  normalizeString,
+  normalizeStringList,
+  normalizeTestData,
+  validatePriority,
+  validateSeverity,
+  validateTestCaseType,
+} = require('../utils/test-artifact-fields')
 
 function httpError(statusCode, message) {
   const err = new Error(message || 'Error')
@@ -29,6 +40,15 @@ function getFastApiBaseUrl() {
 function getFastApiHeaders() {
   const secret = String(process.env.FASTAPI_SECRET || '').trim()
   return secret ? { 'X-Internal-Token': secret } : {}
+}
+
+function getFastApiTimeoutMs(fallbackMs = 185_000) {
+  const raw = String(process.env.FASTAPI_TIMEOUT_MS || process.env.FASTAPI_GENERATION_TIMEOUT_MS || '').trim()
+  if (!raw) return fallbackMs
+
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallbackMs
+  return Math.floor(parsed)
 }
 
 function truncateSpecText(text, maxChars = 800) {
@@ -65,9 +85,27 @@ function normalizeUniqueTestPlans(rawPlans) {
         id: nextId,
         title: String(p?.title || `Test Plan ${idx + 1}`).trim(),
         description: String(p?.description || '').trim(),
+        objective: normalizeString(p?.objective),
+        scope: normalizeString(p?.scope),
+        priority: validatePriority(p?.priority),
+        requirements: normalizeRequirements(p?.requirements),
       }
     })
     .slice(0, 20)
+}
+
+function normalizeTestCaseMetadata(testCase = {}) {
+  const rawTestData = hasOwn(testCase, 'test_data') ? testCase.test_data : testCase?.testData
+
+  return {
+    objective: normalizeString(testCase?.objective),
+    preconditions: normalizeStringList(testCase?.preconditions),
+    test_data: normalizeAutomationTestData(normalizeTestData(rawTestData)),
+    priority: validatePriority(testCase?.priority),
+    severity: validateSeverity(testCase?.severity),
+    type: validateTestCaseType(testCase?.type),
+    requirements: normalizeRequirements(testCase?.requirements),
+  }
 }
 
 function normalizePlanStepsPayload(raw) {
@@ -166,6 +204,10 @@ async function dualWriteTestPlans({ testSuiteId, testPlans }) {
               id,
               title: String(p?.title || '').trim() || id,
               description: String(p?.description || '').trim(),
+              objective: normalizeString(p?.objective),
+              scope: normalizeString(p?.scope),
+              priority: validatePriority(p?.priority),
+              requirements: normalizeRequirements(p?.requirements),
             },
           },
           upsert: true,
@@ -177,7 +219,7 @@ async function dualWriteTestPlans({ testSuiteId, testPlans }) {
   if (ops.length) await TestPlan.bulkWrite(ops, { ordered: false })
 }
 
-async function dualWriteTestCases({ testSuiteId, planKey, planTitle, testCases }) {
+async function dualWriteTestCases({ testSuiteId, planKey, planTitle, planData, testCases }) {
   const stablePlanId = String(planKey || '').trim()
   const list = Array.isArray(testCases) ? testCases : []
   if (!testSuiteId || !stablePlanId || list.length === 0) return
@@ -188,9 +230,15 @@ async function dualWriteTestCases({ testSuiteId, planKey, planTitle, testCases }
       testSuiteId,
       id: stablePlanId,
       title: String(planTitle || stablePlanId).trim(),
-      description: '',
+      description: normalizeString(planData?.description),
+      // ✅ métadonnées préservées
+      objective: normalizeString(planData?.objective),
+      scope: normalizeString(planData?.scope),
+      priority: validatePriority(planData?.priority),
+      requirements: normalizeRequirements(planData?.requirements || []),
     })
   }
+
   const mongoPlanId = plan?._id || null
   if (!mongoPlanId) return
 
@@ -198,6 +246,12 @@ async function dualWriteTestCases({ testSuiteId, planKey, planTitle, testCases }
     .map((tc) => {
       const id = String(tc?.id || '').trim()
       if (!id) return null
+
+      // ✅ Fix test_data — ne pas écraser si absent
+      const meta = normalizeTestCaseMetadata(tc)
+      const hasTestData = hasOwn(tc, 'test_data') || hasOwn(tc, 'testData')
+      if (!hasTestData) delete meta.test_data
+
       return {
         updateOne: {
           filter: { testSuiteId, planId: mongoPlanId, id },
@@ -207,6 +261,7 @@ async function dualWriteTestCases({ testSuiteId, planKey, planTitle, testCases }
               planId: mongoPlanId,
               id,
               title: String(tc?.title || '').trim() || id,
+              ...meta,
               steps: Array.isArray(tc?.steps)
                 ? tc.steps.map((s) => String(s || '').trim()).filter(Boolean)
                 : [],
@@ -423,6 +478,10 @@ async function getTestsuiteTestPlans(testSuiteId) {
     id: plan.id,
     title: plan.title,
     description: plan.description || '',
+    objective: plan.objective || '',
+    scope: plan.scope || '',
+    priority: plan.priority || 'medium',
+    requirements: plan.requirements || [],
     casesCount: (casesByPlanId.get(String(plan._id)) || []).length,
   }))
 
@@ -553,6 +612,10 @@ async function generatePlan({ req, body, file }) {
           id: plan.id,
           title: plan.title,
           description: plan.description || '',
+          objective: plan.objective || '',
+          scope: plan.scope || '',
+          priority: plan.priority || 'medium',
+          requirements: plan.requirements || [],
         })),
         reused: true,
       }
@@ -580,10 +643,13 @@ async function generatePlan({ req, body, file }) {
         generation_scope: 'plans',
         generation_request_id: generationRequestId || undefined,
       },
-      { timeout: 185_000, headers: getFastApiHeaders() }
+      { timeout: getFastApiTimeoutMs(420_000), headers: getFastApiHeaders() }
     )
   } catch (error) {
     const status = Number(error?.response?.status || error?.statusCode || 500)
+    if (error?.code === 'ECONNABORTED' || /timeout/i.test(String(error?.message || ''))) {
+      throw httpError(504, 'FastAPI request timed out while generating plans.')
+    }
     if (status === 409) {
       if (suite) {
         await TestSuite.findByIdAndUpdate(testSuiteId, {
@@ -647,6 +713,12 @@ async function generatePlan({ req, body, file }) {
 }
 
 async function generateTestCases({ req, body }) {
+    // ✅ AJOUTE CES LOGS EN HAUT
+  console.log('🔍 generateTestCases CALLED:', {
+    testSuiteId: body?.testSuiteId,
+    planId: body?.planId,
+    planTitle: body?.planTitle,
+  })
   const testSuiteId = String(body?.testSuiteId || '').trim()
   const planId = String(body?.planId || body?.plan_id || '').trim()
   const planTitle = String(body?.planTitle || body?.plan_title || '').trim()
@@ -676,6 +748,17 @@ async function generateTestCases({ req, body }) {
     }
   }
 
+  // ✅ Extraire les métadonnées du plan existant pour dualWriteTestCases
+  const existingPlanData = existingPlan
+    ? {
+        description: existingPlan.description,
+        objective: existingPlan.objective,
+        scope: existingPlan.scope,
+        priority: existingPlan.priority,
+        requirements: existingPlan.requirements,
+      }
+    : null
+
   await TestSuite.findByIdAndUpdate(testSuiteId, { testStatus: 'Generating' }).catch(() => {})
 
   const baseUrl = getFastApiBaseUrl()
@@ -685,7 +768,6 @@ async function generateTestCases({ req, body }) {
 
   let fastApiResponse
   try {
-    // Prefer explicit spec_text coming from the request body, fallback to stored suite.specText
     const specTextToSend = String(body?.spec_text || '').trim() || String(suite.specText || '').trim()
     fastApiResponse = await axios.post(
       `${baseUrl}/generate-test-cases`,
@@ -701,15 +783,19 @@ async function generateTestCases({ req, body }) {
         generation_scope: 'cases',
         generation_request_id: generationRequestId || undefined,
       },
-      { timeout: 185_000, headers: getFastApiHeaders() }
+      { timeout: getFastApiTimeoutMs(420_000), headers: getFastApiHeaders() }
     )
   } catch (error) {
     const status = Number(error?.response?.status || error?.statusCode || 500)
+    if (error?.code === 'ECONNABORTED' || /timeout/i.test(String(error?.message || ''))) {
+      throw httpError(504, 'FastAPI request timed out while generating test cases.')
+    }
     if (status === 409) {
       await TestSuite.findByIdAndUpdate(testSuiteId, {
         testStatus: previousTestStatus || 'Draft',
         lastGeneratedAt: new Date(),
       }).catch(() => {})
+       console.error('🔥 generateTestCases ERROR:', error.message, error.stack)
       throw httpError(409, 'Generation cancelled by user.')
     }
     throw error
@@ -717,6 +803,7 @@ async function generateTestCases({ req, body }) {
 
   const testCases = fastApiResponse?.data?.test_cases || fastApiResponse?.data?.testCases
   const resolvedTitle = String(fastApiResponse?.data?.plan_title || planTitle || planId).trim()
+
   if (!Array.isArray(testCases) || !testCases.length) {
     await TestSuite.findByIdAndUpdate(testSuiteId, {
       testStatus: 'Incomplete',
@@ -733,6 +820,7 @@ async function generateTestCases({ req, body }) {
         ? tc.steps.map((s) => String(s || '').trim()).filter(Boolean)
         : [],
       expected_result: String(tc?.expected_result || tc?.expectedResult || '').trim(),
+      ...normalizeTestCaseMetadata(tc), // ✅ inclut test_data si présent dans tc
       executionModel: tc?.executionModel || tc?.execution_model || null,
       createdBy: null,
     }))
@@ -752,15 +840,21 @@ async function generateTestCases({ req, body }) {
       item.createdBy = createdBy
     }
   }
+
   suite.lastActionBy = { userId: actor.userId, name: actor.name || '', action, at: new Date() }
   suite.testStatus = 'Draft'
   suite.lastGeneratedAt = new Date()
   suite.savedAt = null
   await suite.save()
 
-  await dualWriteTestCases({ testSuiteId: suite._id, planKey: planId, planTitle: resolvedTitle, testCases: normalized }).catch(
-    () => {}
-  )
+  // ✅ planData passé pour préserver les métadonnées si plan auto-créé
+  await dualWriteTestCases({
+    testSuiteId: suite._id,
+    planKey: planId,
+    planTitle: resolvedTitle,
+    planData: existingPlanData,
+    testCases: normalized,
+  }).catch(() => {})
 
   return { testSuiteId, planId, planTitle: resolvedTitle, testCases: normalized, reused: false }
 }

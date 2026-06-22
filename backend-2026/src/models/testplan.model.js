@@ -1,4 +1,20 @@
 const mongoose = require('mongoose')
+const {
+  PRIORITY_VALUES,
+  castPriority,
+  normalizeRequirements,
+} = require('../utils/test-artifact-fields')
+
+const requirementSchema = new mongoose.Schema(
+  {
+    id: { type: String, default: '', trim: true },
+    title: { type: String, default: '', trim: true },
+    description: { type: String, default: '', trim: true },
+    source: { type: String, default: '', trim: true },
+    priority: { type: String, default: '', trim: true },
+  },
+  { _id: false }
+)
 
 const testPlanSchema = new mongoose.Schema(
   {
@@ -11,6 +27,34 @@ const testPlanSchema = new mongoose.Schema(
     id: { type: String, required: true, trim: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, default: '', trim: true },
+    objective: { type: String, default: '', trim: true },
+    scope: { type: String, default: '', trim: true },
+    priority: {
+      type: String,
+      enum: PRIORITY_VALUES,
+
+      default: 'medium',
+      set: castPriority,
+    },
+    requirements: {
+      type: [requirementSchema],
+      default: [],
+      set: normalizeRequirements,
+      validate: {
+        validator: (requirements) =>
+          Array.isArray(requirements) &&
+          requirements.every((requirement) =>
+            Boolean(
+              String(requirement?.id || '').trim() ||
+                String(requirement?.title || '').trim() ||
+                String(requirement?.description || '').trim()
+            )
+          ),
+        message: 'Each requirement must include at least an id, title, or description',
+      },
+    },
+
+    
   },
   { timestamps: true }
 )
@@ -25,4 +69,3 @@ Future step:
 - migrate TestSuite.testPlans → TestPlan collection
 - then remove embedded arrays safely
 */
-

@@ -3,8 +3,20 @@ from __future__ import annotations
 from typing import Final
 
 
-PRIORITIES: Final[tuple[str, ...]] = ("High", "Medium", "Low")
+PRIORITIES: Final[tuple[str, ...]] = ("Critical", "High", "Medium", "Low")
+SEVERITIES: Final[tuple[str, ...]] = ("Blocker", "Critical", "Major", "Minor", "Trivial")
 TEST_CASE_TYPES: Final[tuple[str, ...]] = (
+    "Functional",
+    "Regression",
+    "Integration",
+    "E2E",
+    "API",
+    "UI",
+    "Performance",
+    "Security",
+    "Smoke",
+    "Sanity",
+    "Usability",
     "Positive",
     "Negative",
     "Boundary",
@@ -14,8 +26,7 @@ TEST_CASE_TYPES: Final[tuple[str, ...]] = (
 )
 
 DEFAULT_TEST_PLANS_MIN: Final[int] = 4
-DEFAULT_TEST_PLANS_MAX: Final[int] = 8
+DEFAULT_TEST_PLANS_MAX: Final[int] = 6
 
-DEFAULT_TEST_CASES_MIN: Final[int] = 4
-DEFAULT_TEST_CASES_MAX: Final[int] = 6
-
+DEFAULT_TEST_CASES_MIN: Final[int] = 3
+DEFAULT_TEST_CASES_MAX: Final[int] = 3

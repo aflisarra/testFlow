@@ -24,7 +24,7 @@ logger = get_logger("utils.ollama")
 
 
 def get_ollama_model() -> str:
-    return os.getenv("OLLAMA_MODEL", "mistral")
+    return os.getenv("OLLAMA_MODEL", "qwen2.5-coder:7b")
 
 
 def get_ollama_path() -> str:
@@ -174,8 +174,9 @@ def run_ollama(prompt: str, timeout: int | None = None) -> str:
 
     url = "http://127.0.0.1:11434/api/generate"
     options: dict[str, object] = {
-        "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "4096")),
-        "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.2")),
+        "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "2048")),
+    "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.1")),
+    "num_predict": int(os.getenv("OLLAMA_NUM_PREDICT", "800")),
     }
     num_predict = os.getenv("OLLAMA_NUM_PREDICT", "").strip()
     if num_predict:

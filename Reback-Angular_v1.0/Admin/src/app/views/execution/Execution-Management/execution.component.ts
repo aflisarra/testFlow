@@ -944,15 +944,44 @@ this.streamedLogs = [
 
     next: (resp) => {
 
-      console.log('[execution] run response', resp)
+      console.log('[execution] run response raw', resp)
 
       const elapsed = Math.max(0, Date.now() - startedAt)
       const secs = `${Math.max(1, Math.round(elapsed / 1000))}s`
 
       const payload: any = (resp as any)?.data ?? resp
+      const innerData: any = payload?.data ?? payload
+      console.log('[execution] run response payload', payload)
+      console.log('[execution] run response inner data', innerData)
+
+      if (
+        payload == null ||
+        (typeof payload === 'object' && !Array.isArray(payload) && Object.keys(payload).length === 0)
+      ) {
+        this.isStreaming = false
+        this.fakeTimelineSubscription?.unsubscribe()
+        this.stopMetrics()
+        this.stopLiveRunTimer()
+        this.scenario = {
+          ...this.scenario,
+          status: 'failed',
+          progressPercent: 100,
+          progressLabel: 'Empty response from Selenium runner',
+          activeStepLabel: '✖ Empty response',
+        }
+        this.streamedLogs = [
+          {
+            index: 1,
+            level: 'ERROR',
+            message: 'Selenium runner returned an empty response body.',
+          },
+        ]
+        this.cdr.markForCheck()
+        return
+      }
 
       const responseModel = this.coerceExecutionModel(
-        payload?.executionModel || payload?.execution_model
+        innerData?.executionModel || innerData?.execution_model
       )
 
       if (responseModel) {
@@ -964,8 +993,8 @@ this.streamedLogs = [
       }
 
       const stepResults =
-        Array.isArray(payload?.stepResults)
-          ? payload.stepResults
+        Array.isArray(innerData?.stepResults)
+          ? innerData.stepResults
           : []
 
       const mappedSteps =
@@ -979,38 +1008,27 @@ this.streamedLogs = [
           s.status === 'failed_assertion'
       ) || null
 
-      const screenshotList = Array.isArray(payload?.screenshots)
-        ? payload.screenshots
+      const screenshotList = Array.isArray(innerData?.screenshots)
+        ? innerData.screenshots
         : []
 
       const latestScreenshot =
         screenshotList[screenshotList.length - 1]
 
       const screenshotPath = String(
-
-  typeof failedStep?.screenshots?.[0] === 'string'
-    ? failedStep?.screenshots?.[0]
-    : failedStep?.screenshots?.[0]?.publicUrl ||
-
-      failedStep?.screenshots?.[0]?.path ||
-
-      failedStep?.screenshot?.publicUrl ||
-
-      failedStep?.screenshot?.path ||
-
-      failedStep?.screenshotPath ||
-
-      latestScreenshot?.publicUrl ||
-
-      latestScreenshot?.path ||
-
-      payload?.screenshot?.publicUrl ||
-
-      payload?.screenshotPath ||
-
-      ''
-
-).trim()
+        typeof failedStep?.screenshots?.[0] === 'string'
+          ? failedStep?.screenshots?.[0]
+          : failedStep?.screenshots?.[0]?.publicUrl ||
+            failedStep?.screenshots?.[0]?.path ||
+            failedStep?.screenshot?.publicUrl ||
+            failedStep?.screenshot?.path ||
+            failedStep?.screenshotPath ||
+            latestScreenshot?.publicUrl ||
+            latestScreenshot?.path ||
+            innerData?.screenshot?.publicUrl ||
+            innerData?.screenshotPath ||
+            ''
+      ).trim()
 
   
 
@@ -1027,7 +1045,7 @@ this.streamedLogs = [
         ...this.scenario,
 
         status:
-          payload?.status === 'passed'
+          innerData?.status === 'passed'
             ? 'passed'
             : 'failed',
 
@@ -1038,12 +1056,12 @@ this.streamedLogs = [
         progressPercent: 100,
 
         progressLabel:
-          payload?.status === 'passed'
+          innerData?.status === 'passed'
             ? 'Completed'
             : 'Completed with errors',
 
         activeStepLabel:
-          payload?.status === 'passed'
+          innerData?.status === 'passed'
             ? '✓ Completed'
             : '✖ Failed',
 

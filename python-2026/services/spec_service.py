@@ -67,6 +67,9 @@ def extract_requirements(spec_text: str) -> List[Dict[str, str]]:
     ]
     """
     normalized = normalize_spec_text(spec_text)
+    # Clean noisy DOCX XML leftovers that can leak into extracted requirements.
+    normalized = re.sub(r"<\/?w:[^>]+>", " ", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"<\/?[^>]+>", " ", normalized)
     modules = detect_modules(spec_text)
 
     lines = [ln.strip() for ln in normalized.split("\n") if ln.strip()]
@@ -109,14 +112,16 @@ def extract_requirements(spec_text: str) -> List[Dict[str, str]]:
 
     out: List[Dict[str, str]] = []
     for i, text in enumerate(uniq, start=1):
+        cleaned_text = re.sub(r"<\/?w:[^>]+>", " ", text, flags=re.IGNORECASE)
+        cleaned_text = re.sub(r"<\/?[^>]+>", " ", cleaned_text)
+        cleaned_text = re.sub(r"\s+", " ", cleaned_text).strip()
         module = _guess_module(text, modules)
         out.append(
             {
                 "id": f"REQ-{i:03d}",
                 "module": module,
-                "text": text,
+                "text": cleaned_text,
                 "priority": classify_priority(text),
             }
         )
     return out
-

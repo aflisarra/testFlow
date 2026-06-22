@@ -19,7 +19,13 @@ export function getErrorMessage(err: unknown, fallback: string): string {
   if (!err) return fallback
   if (typeof err === 'string') return err || fallback
   if (err instanceof Error) return err.message || fallback
-  if (isRecord(err)) return readNestedMessage(err) || fallback
+  if (isRecord(err)) {
+    const status = getErrorStatus(err)
+    if (status === 504) {
+      return 'Generation took too long. Please retry, or reduce the spec size if possible.'
+    }
+    return readNestedMessage(err) || fallback
+  }
   return fallback
 }
 
@@ -28,4 +34,3 @@ export function getErrorStatus(err: unknown): number | null {
   const status = err['status']
   return typeof status === 'number' ? status : null
 }
-

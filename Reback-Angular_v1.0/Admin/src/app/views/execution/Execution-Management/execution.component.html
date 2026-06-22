@@ -105,7 +105,7 @@
           <!-- Timeline tab -->
           @if (activeTab === 'timeline') {
             <div class="timeline">
-              @for (step of scenario.steps; track step.id) {
+@for (step of scenario.steps; track $index) {
                 <div class="timeline__item">
                   <div class="step-icon" [ngClass]="getStepIconClass(step.status)">
                     <span class="dot" [ngClass]="getDotClass(step.status)"></span>
@@ -144,7 +144,7 @@
           <!-- Logs tab -->
           @if (activeTab === 'logs') {
             <div class="logbox" #logbox>
-              @for (log of streamedLogs; track log.index) {
+@for (log of streamedLogs; track $index) {
                 <div class="log-line">
                   <span class="log-num">{{ log.index }}</span>
                   <span class="log-text" [ngClass]="getLogClass(log.level)">
@@ -214,7 +214,7 @@
         </thead>
 
         <tbody>
-          @for (run of paginatedRecentRuns; track run.executionId) {
+@for (run of paginatedRecentRuns; track $index) {
             <tr>
               <td>{{ run.planTitle || run.planKey || run.planId }}</td>
               <td>{{ run.testCaseTitle || run.testCaseKey || run.testCaseId }}</td>

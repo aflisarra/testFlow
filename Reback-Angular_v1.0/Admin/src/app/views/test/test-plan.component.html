@@ -1,9 +1,6 @@
-<div class="testlab-page">
+<div class="testlab-page" id="top">
   <div class="testlab-container px-2 px-lg-3 pb-2 pb-lg-3 pt-0">
-    <!-- ═══════════════════════════════════════════════════════════════════
-         ÉTAPE 1 — Formulaire de génération des plans
-         Visible tant qu'aucun plan n'est généré OU qu'on régénère
-    ════════════════════════════════════════════════════════════════════ -->
+
     @if (currentPlanIndex === -1) {
 
     <div class="testlab-hero mb-0">
@@ -16,7 +13,7 @@
     @if (errorMessage) {
     <div class="alert alert-danger mb-4">{{ errorMessage }}</div>
     }
-    <!-- New layout (keep legacy block hidden below) -->
+
     <div class="row g-3 align-items-stretch testlab-form-grid" [formGroup]="testPlanForm">
       <div class="col-12 col-lg-7">
         <div class="testlab-stack">
@@ -27,34 +24,26 @@
                 <iconify-icon icon="iconamoon:folder-duotone" class="testlab-title-icon"></iconify-icon>
                 <span>Project Selection</span>
               </span>
-          <span class="testlab-step-group">
-            <span class="testlab-step-dot-ui">1</span>
-            <span class="testlab-step-chip">Step 1</span>
-          </span>
+              <span class="testlab-step-group">
+                <span class="testlab-step-dot-ui">1</span>
+                <span class="testlab-step-chip">Step 1</span>
+              </span>
             </label>
             <div class="testlab-project-row">
               <div class="testlab-project-select-wrap">
                 <div class="testlab-select-icon">
                   <iconify-icon icon="iconamoon:folder-open-duotone"></iconify-icon>
                 </div>
-                
-
-<select
-  class="form-select testlab-project-select"
-  formControlName="projectId"
-  (click)="onProjectClick()"
-  (change)="onProjectChange()">
-
-  <option value="">-- Select a project --</option>
-
-  @for (p of projects; track p._id) {
-    <option [value]="p._id">{{ p.title }}</option>
-  }
-
-</select>
-
-
-
+                <select
+                  class="form-select testlab-project-select"
+                  formControlName="projectId"
+                  (click)="onProjectClick()"
+                  (change)="onProjectChange()">
+                  <option value="">-- Select a project --</option>
+                  @for (p of projects; track p._id) {
+                    <option [value]="p._id">{{ p.title }}</option>
+                  }
+                </select>
               </div>
 
               <div class="testlab-project-indicator" [class.is-selected]="!!selectedProjectId"
@@ -74,7 +63,6 @@
               Linked to: <span class="testlab-emphasis">{{ selectedProjectTitle }}</span>
             </p>
             }
-
             @if (!projects.length && !loadingProjects) {
             <p class="small text-muted mb-0 mt-2">No projects found.</p>
             }
@@ -90,10 +78,10 @@
                 <iconify-icon icon="iconamoon:text-duotone" class="testlab-title-icon testlab-title-icon--small"></iconify-icon>
                 <span>Test Name</span>
               </span>
-          <span class="testlab-step-group">
-            <span class="testlab-step-dot-ui">2</span>
-            <span class="testlab-step-chip">Step 2</span>
-          </span>
+              <span class="testlab-step-group">
+                <span class="testlab-step-dot-ui">2</span>
+                <span class="testlab-step-chip">Step 2</span>
+              </span>
             </div>
             <div class="testlab-input-wrapper">
               <iconify-icon icon="iconamoon:text-duotone" class="testlab-input-icon-left"></iconify-icon>
@@ -101,60 +89,50 @@
               [class.is-invalid]="testPlanForm.get('name')?.touched && testPlanForm.get('name')?.invalid"
               placeholder="Enter a descriptive name for your test suite" formControlName="name" />
               @if (testPlanForm.get('name')?.value) {
-            <iconify-icon icon="iconamoon:check-circle-1-duotone" class="testlab-input-icon-check"
-              ></iconify-icon>}
+              <iconify-icon icon="iconamoon:check-circle-1-duotone" class="testlab-input-icon-check"></iconify-icon>
+              }
             </div>
             @if (testPlanForm.get('name')?.touched && testPlanForm.get('name')?.errors?.['required']) {
             <div class="invalid-feedback d-block mt-2">Test name is required.</div>
             }
           </div>
 
-          <!-- STEP 3 · Application URL -->
-
-<div class="testlab-card testlab-field-card p-3">
-  <div class="testlab-card-title testlab-card-title--with-chip">
-    <span class="testlab-card-title-left">
-      <iconify-icon
-        icon="iconamoon:globe-duotone"
-        class="testlab-title-icon testlab-title-icon--green testlab-title-icon--small">
-      </iconify-icon>
-
-      <span>Application URL</span>
-    </span>
-
-    <span class="testlab-step-group">
-      <span class="testlab-step-dot-ui">3</span>
-      <span class="testlab-step-chip">Step 3</span>
-    </span>
-  </div>
-
-<div class="testlab-url-container">
-  <div class="testlab-input-wrapper testlab-input-wrapper-url">
-    
-    <span class="testlab-url-prefix-inline">https://</span>
-
-    <input
-      type="text"
-      class="testlab-input testlab-input--url"
-      [class.is-invalid]="testPlanForm.get('applicationUrl')?.touched && testPlanForm.get('applicationUrl')?.invalid"
-      formControlName="applicationUrl"
-      placeholder="your-app.com/path"
-    />
-
-    <!-- ✅ icône moderne -->
-    <span class="testlab-url-icon">
-      <iconify-icon icon="iconamoon:globe-duotone"></iconify-icon>
-    </span>
-
-  </div>
-
-  @if (testPlanForm.get('applicationUrl')?.touched && testPlanForm.get('applicationUrl')?.invalid) {
-    <div class="invalid-feedback d-block mt-2 animate-fade">
-      {{ getApplicationUrlErrorMessage() }}
-    </div>
-  }
-</div>
-</div>
+          <!-- Application URL -->
+          <div class="testlab-card testlab-field-card p-3">
+            <div class="testlab-card-title testlab-card-title--with-chip">
+              <span class="testlab-card-title-left">
+                <iconify-icon
+                  icon="iconamoon:globe-duotone"
+                  class="testlab-title-icon testlab-title-icon--green testlab-title-icon--small">
+                </iconify-icon>
+                <span>Application URL</span>
+              </span>
+              <span class="testlab-step-group">
+                <span class="testlab-step-dot-ui">3</span>
+                <span class="testlab-step-chip">Step 3</span>
+              </span>
+            </div>
+            <div class="testlab-url-container">
+              <div class="testlab-input-wrapper testlab-input-wrapper-url">
+                <span class="testlab-url-prefix-inline">https://</span>
+                <input
+                  type="text"
+                  class="testlab-input testlab-input--url"
+                  [class.is-invalid]="testPlanForm.get('applicationUrl')?.touched && testPlanForm.get('applicationUrl')?.invalid"
+                  formControlName="applicationUrl"
+                  placeholder="your-app.com/path"
+                />
+                <span class="testlab-url-icon">
+                  <iconify-icon icon="iconamoon:globe-duotone"></iconify-icon>
+                </span>
+              </div>
+              @if (testPlanForm.get('applicationUrl')?.touched && testPlanForm.get('applicationUrl')?.invalid) {
+              <div class="invalid-feedback d-block mt-2 animate-fade">
+                {{ getApplicationUrlErrorMessage() }}
+              </div>
+              }
+            </div>
+          </div>
 
           <!-- Style Configuration -->
           <div class="testlab-card testlab-field-card p-3">
@@ -163,10 +141,10 @@
                 <iconify-icon icon="iconamoon:settings-duotone" class="testlab-title-icon"></iconify-icon>
                 <span>Style Configuration</span>
               </span>
-          <span class="testlab-step-group">
-            <span class="testlab-step-dot-ui">4</span>
-            <span class="testlab-step-chip">Step 4</span>
-          </span>
+              <span class="testlab-step-group">
+                <span class="testlab-step-dot-ui">4</span>
+                <span class="testlab-step-chip">Step 4</span>
+              </span>
             </div>
             <div class="testlab-textarea-wrapper">
               <iconify-icon icon="iconamoon:edit-duotone" class="testlab-textarea-icon"></iconify-icon>
@@ -183,33 +161,32 @@
           <!-- Specifications -->
           <div class="testlab-card testlab-field-card p-2">
             <div class="testlab-card-title testlab-card-title--with-chip">
-  <span class="testlab-card-title-left">
-    <iconify-icon icon="iconamoon:document-duotone" class="testlab-title-icon"></iconify-icon>
-    <span>Specifications</span>
-  </span>
-          <span class="testlab-step-group">
-            <span class="testlab-step-dot-ui">5</span>
-            <span class="testlab-step-chip">Step 5</span>
-          </span>
-</div>
+              <span class="testlab-card-title-left">
+                <iconify-icon icon="iconamoon:document-duotone" class="testlab-title-icon"></iconify-icon>
+                <span>Specifications</span>
+              </span>
+              <span class="testlab-step-group">
+                <span class="testlab-step-dot-ui">5</span>
+                <span class="testlab-step-chip">Step 5</span>
+              </span>
+            </div>
             <p class="testlab-card-subtitle mb-3">Upload your test specifications</p>
 
             <input #fileInput type="file" accept=".docx,.md,.txt" class="d-none" (change)="onFileSelected($event)" />
             <div
-  class="testlab-dropzone"
-  role="button"
-  tabindex="0"
-  (click)="fileInput.click()"
-  (keydown.enter)="fileInput.click()"
-  (keydown.space)="fileInput.click()"
->
+              class="testlab-dropzone"
+              role="button"
+              tabindex="0"
+              (click)="fileInput.click()"
+              (keydown.enter)="fileInput.click()"
+              (keydown.space)="fileInput.click()"
+            >
               <div class="testlab-dropzone-icon">
                 <iconify-icon icon="iconamoon:cloud-upload-duotone"></iconify-icon>
               </div>
               <p class="testlab-dropzone-title">Upload Word Doc</p>
               <p class="testlab-dropzone-hint">or click to browse</p>
               <p class="testlab-dropzone-format">Supports Word (.docx), Markdown (.md), or Text (.txt)</p>
-
               @if (uploadedFileName) {
               <div class="testlab-file-selected">
                 <iconify-icon icon="iconamoon:check-circle-1-duotone"></iconify-icon>
@@ -225,11 +202,11 @@
                 formControlName="specDocument"
                 placeholder="No spec document selected" readonly />
               @if (testPlanForm.get('specDocument')?.value) {
-  <iconify-icon
-    icon="iconamoon:check-circle-1-duotone"
-    class="testlab-input-icon-check">
-  </iconify-icon>
-}
+              <iconify-icon
+                icon="iconamoon:check-circle-1-duotone"
+                class="testlab-input-icon-check">
+              </iconify-icon>
+              }
             </div>
             @if (testPlanForm.get('specDocument')?.touched && testPlanForm.get('specDocument')?.errors?.['required']) {
             <div class="invalid-feedback d-block mt-2">Specification document is required.</div>
@@ -243,7 +220,7 @@
             <div class="testlab-summary-meta">Estimated time: 1-2 minutes</div>
 
             <button class="btn btn-generate w-100 mt-3 py-3 testlab-generate-btn testlab-generate-btn--wide" type="button"
-              [disabled]="!canGenerateTestPlan" (click)="onGeneratePlan()">
+              [disabled]="!canGenerateTestPlan" (click)="scrollToTop(); onGeneratePlan()">
               <span>{{ generatingPlans ? 'Generating Test Plans...' : 'Generate Test Plan' }}</span>
               <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
             </button>
@@ -252,159 +229,7 @@
       </div>
     </div>
 
-    @if (false) {
-    <!-- Test Name + Project Selection (side-by-side on large screens) -->
-    <div class="row g-3 align-items-stretch mb-3 testlab-top-fields">
-      <!-- Test Name Input -->
-      <div class="col-12 col-lg-6">
-        <div class="testlab-card testlab-field-card p-4 h-100">
-         <div class="testlab-card-title">
-  <iconify-icon icon="iconamoon:text-duotone" class="testlab-title-icon"></iconify-icon>
-  <span>Test Name</span>
-</div>
-          <p class="testlab-card-subtitle mb-3">Give a name to your test suite</p>
-
-          <div class="testlab-input-wrapper">
-            <!-- ✅ Icône info ajoutée à gauche -->
-            <iconify-icon icon="iconamoon:information-circle-duotone" class="testlab-input-icon-left"></iconify-icon>
-
-            <input type="text" class="testlab-input testlab-input--with-icon"
-              placeholder="Enter a descriptive name for your test suite" [value]="nameTest"
-              (input)="onNameTestInput($event)" />
-
-            @if (nameTest) {
-  <iconify-icon
-    icon="iconamoon:check-circle-1-duotone"
-    class="testlab-input-icon-check">
-  </iconify-icon>
-}
-          </div>
-        </div>
-      </div>
-
-      <!-- Project Selection -->
-      <div class="col-12 col-lg-6">
-        <div class="testlab-card testlab-field-card p-4 h-100">
-          <div class="testlab-card-title">
-            <iconify-icon icon="iconamoon:folder-duotone" class="testlab-title-icon"></iconify-icon>
-            <span>Select Project</span>
-          </div>
-          <p class="testlab-card-subtitle mb-3">Link this test suite with a project</p>
-
-          <div class="testlab-project-row">
-            <div class="testlab-project-select-wrap">
-              <div class="testlab-select-icon">
-                <iconify-icon icon="iconamoon:folder-open-duotone"></iconify-icon>
-              </div>
-                <select class="form-select testlab-project-select" formControlName="projectId"
-                  [disabled]="loadingProjects || generatingPlans" (change)="onProjectChange()">
-                <option value="">-- Select a project --</option>
-                @for (p of projects; track p._id) {
-                <option [value]="p._id">{{ p.title }}</option>
-                }
-              </select>
-            </div>
-
-            <div class="testlab-project-indicator" [class.is-selected]="!!selectedProjectId"
-              [class.is-loading]="loadingProjects" title="Project status">
-              @if (loadingProjects) {
-              <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin"></iconify-icon>
-              } @else if (selectedProjectId) {
-              <iconify-icon icon="iconamoon:check-circle-1-duotone"></iconify-icon>
-              } @else {
-              <iconify-icon icon="iconamoon:information-circle-duotone"></iconify-icon>
-              }
-            </div>
-          </div>
-
-          @if (selectedProjectId && selectedProjectTitle) {
-          <p class="testlab-project-selected mt-3">
-            <iconify-icon icon="iconamoon:check-duotone"></iconify-icon>
-            Linked to: <span class="testlab-emphasis">{{ selectedProjectTitle }}</span>
-          </p>
-          }
-
-          @if (!projects.length && !loadingProjects) {
-          <p class="small text-muted mb-0 mt-2">No projects found.</p>
-          }
-        </div>
-      </div>
-    </div>
-
-    <div class="row g-3 align-items-stretch">
-      <!-- Style Configuration -->
-      <div class="col-12 col-lg-6">
-        <div class="testlab-card p-4 h-100">
-          <div class="testlab-card-title">
-            <iconify-icon icon="iconamoon:settings-duotone" class="testlab-title-icon"></iconify-icon>
-            <span>Style Configuration</span>
-          </div>
-          <p class="testlab-card-subtitle mb-3">
-            Define tone, depth, and structure
-          </p>
-          <div class="testlab-textarea-wrapper">
-            <iconify-icon icon="iconamoon:edit-duotone" class="testlab-textarea-icon"></iconify-icon>
-            <textarea class="testlab-textarea testlab-textarea--compact"
-              placeholder="e.g. verbosity: high, format: gherkin, prioritize: edge-cases" [value]="styleConfig"
-              (input)="onStyleConfigInput($event)"></textarea>
-          </div>
-          <p class="testlab-help mt-3">
-            <iconify-icon icon="iconamoon:lightbulb-duotone"></iconify-icon>
-            Customize the tone, technical depth, and test sequence structure.
-          </p>
-        </div>
-      </div>
-
-      <!-- Upload File -->
-      <div class="col-12 col-lg-6">
-        <div class="testlab-card p-4 h-100">
-          <div class="testlab-card-title">
-            <iconify-icon icon="iconamoon:document-duotone" class="testlab-title-icon"></iconify-icon>
-            <span>Specification Document</span>
-          </div>
-          <p class="testlab-card-subtitle mb-3">Upload your test specifications</p>
-
-          <input #fileInputLegacy type="file" accept=".docx,.md,.txt" class="d-none"
-            (change)="onFileSelected($event)" />
-          <div
-  class="testlab-dropzone"
-  role="button"
-  tabindex="0"
-  (click)="fileInputLegacy.click()"
-  (keydown.enter)="fileInputLegacy.click()"
-  (keydown.space)="fileInputLegacy.click()"
->
-            <div class="testlab-dropzone-icon">
-              <iconify-icon icon="iconamoon:cloud-upload-duotone"></iconify-icon>
-            </div>
-            <p class="testlab-dropzone-title">Drag &amp; drop your file</p>
-            <p class="testlab-dropzone-hint">or click to browse</p>
-            <p class="testlab-dropzone-format">Supports Word (.docx), Markdown (.md), or Text (.txt)</p>
-
-            @if (uploadedFileName) {
-            <div class="testlab-file-selected">
-              <iconify-icon icon="iconamoon:check-circle-1-duotone"></iconify-icon>
-              <span>{{ uploadedFileName }}</span>
-            </div>
-            }
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Generate Button -->
-    <div class="testlab-cta justify-content-center mt-5">
-      <button class="btn btn-generate px-5 py-3 testlab-generate-btn" type="button" [disabled]="generatingPlans"
-        (click)="onGeneratePlan()">
-        <iconify-icon icon="iconamoon:sparkles-duotone"></iconify-icon>
-        <span>{{ generatingPlans ? 'Generating Test Plans...' : 'Generate Test Plan' }}</span>
-      </button>
-    </div>
-    }
-
     @if (generatingPlans || testPlans.length) {
-
-    <!-- Test Plans Result Zone -->
     <div #plansResult id="plansResult" class="testlab-card p-4 mt-5">
       @if (generatingPlans) {
       <div class="d-flex align-items-start justify-content-between gap-3 mb-4">
@@ -440,35 +265,22 @@
 
       } @else if (testPlans.length) {
 
-      <!-- Header with Counter -->
       <div class="d-flex align-items-start justify-content-between gap-3 mb-3">
         <div>
           <h4 class="testlab-result-title mb-1">Generated Test Plans</h4>
-
         </div>
         <span class="testlab-pill">{{ testPlans.length }} Plans</span>
       </div>
 
-      <!-- Plans List (Read-only) -->
       <div class="testlab-plan-list">
         @for (plan of testPlans; track plan.id; let i = $index) {
         <div class="testlab-plan-item testlab-plan-item--readonly">
           <div class="testlab-plan-title d-flex align-items-center justify-content-between gap-2">
             <div>
               <span class="testlab-plan-badge">#{{ i + 1 }}</span>
-              @if (isPlanEditing(plan.id)) {
-              <input
-                type="text"
-                class="testlab-plan-edit-input"
-                [value]="plan.title"
-                (input)="onPlanTitleInput(plan, $event)"
-              />
-              } @else {
               <span class="testlab-plan-name">{{ plan.title }}</span>
-              }
             </div>
             <div class="testlab-plan-actions">
-              
               <button type="button" class="btn btn-sm btn-validate testlab-validate-btn"
                 [ngClass]="getValidateButtonClass(plan.id)"
                 [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
@@ -477,23 +289,24 @@
                 <span>{{ getValidateButtonLabel(plan.id) }}</span>
               </button>
 
-               <!-- Manual Edit -->
-  <button
-    type="button"
-    class="btn-edit-plan"
-    [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
-    (click)="onToggleManualPlanEdit(plan.id)"
-  >
-    <iconify-icon
-      [icon]="isPlanEditing(plan.id)
-        ? 'iconamoon:check-circle-1-duotone'
-        : 'iconamoon:edit-duotone'"
-    ></iconify-icon>
-
-    <span>
-      {{ isPlanEditing(plan.id) ? 'Save' : 'Edit' }}
-    </span>
-  </button>
+              <button
+                type="button"
+                class="btn-edit-plan"
+                [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
+                (click)="openPlanEditModal(plan)"
+              >
+                <iconify-icon icon="iconamoon:edit-duotone"></iconify-icon>
+                <span>Edit</span>
+              </button>
+              <button
+                type="button"
+                class="btn-edit-plan"
+                [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
+                (click)="onAbandonPlan(plan)"
+              >
+                <iconify-icon icon="iconamoon:trash-duotone"></iconify-icon>
+                <span>Abandon</span>
+              </button>
               <button type="button" class="btn btn-sm btn-regenerate testlab-regenerate-btn"
                 [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
                 (click)="onRegeneratePlan(plan, i)">
@@ -505,24 +318,36 @@
                 <span>Regenerate</span>
                 }
               </button>
-            
-
             </div>
           </div>
-          @if (isPlanEditing(plan.id)) {
-          <textarea
-            class="testlab-plan-edit-textarea"
-            [value]="plan.description"
-            (input)="onPlanDescriptionInput(plan, $event)"
-          ></textarea>
-          } @else {
           <div class="testlab-plan-desc">{{ plan.description }}</div>
-          }
+
+          <div class="testlab-plan-meta">
+            @if (plan.objective) {
+            <div class="testlab-plan-meta-field">
+              <span class="testlab-plan-meta-label">Objective</span>
+              <span class="testlab-plan-meta-value">{{ plan.objective }}</span>
+            </div>
+            }
+            @if (plan.scope) {
+            <div class="testlab-plan-meta-field">
+              <span class="testlab-plan-meta-label">Scope</span>
+              <span class="testlab-plan-meta-value">{{ plan.scope }}</span>
+            </div>
+            }
+            @if (plan.priority) {
+            <div class="testlab-plan-meta-field">
+              <span class="testlab-plan-meta-label">Priority</span>
+              <span class="testlab-plan-meta-badge testlab-plan-meta-badge--{{ plan.priority }}">
+                {{ plan.priority }}
+              </span>
+            </div>
+            }
+          </div>
         </div>
         }
       </div>
 
-      <!-- Actions -->
       <div class="testlab-actions mt-4">
         <button type="button" class="btn btn-cancel px-4" (click)="onCancelPlans()">
           <iconify-icon icon="iconamoon:close-duotone"></iconify-icon>
@@ -532,22 +357,18 @@
           <iconify-icon icon="iconamoon:restart-duotone"></iconify-icon>
           Regenerate (All)
         </button>
-
-<button
-  type="button" 
-  class="btn btn-validate px-4"
-  [disabled]="!allPlansConfirmed || finishing"
-  (click)="onValidateAndGoToCases()">
-
-  <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
-  Validate & Generate test Case
-</button>
-
+        <button
+          type="button"
+          class="btn btn-validate px-4"
+          [disabled]="!allPlansConfirmed || finishing"
+          (click)="scrollToTop(); onValidateAndGoToCases()">
+          <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
+          Validate &amp; Generate test Case
+        </button>
       </div>
 
       }
     </div>
-
     }
 
     }<!-- fin @if currentPlanIndex === -1 -->
@@ -558,7 +379,6 @@
     ════════════════════════════════════════════════════════════════════ -->
     @if (currentPlanIndex >= 0) {
 
-    <!-- Global Progress Bar -->
     <div class="testlab-progress-bar-wrapper mb-5">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <span class="testlab-progress-label">
@@ -574,7 +394,6 @@
           [style.width.%]="(confirmedCount / testPlans.length) * 100"></div>
       </div>
 
-      <!-- Plan Stepper -->
       <div class="testlab-stepper mt-3">
         @for (plan of testPlans; track plan.id; let i = $index) {
         <div class="testlab-step" [class.testlab-step--active]="i === currentPlanIndex"
@@ -597,11 +416,9 @@
     <div class="alert alert-danger mb-4">{{ errorMessage }}</div>
     }
 
-    <!-- Current Plan Card -->
     @if (currentPlan) {
     <div class="testlab-card p-4">
 
-      <!-- Plan Header -->
       <div class="d-flex align-items-start justify-content-between gap-3 mb-4">
         <div>
           <div class="testlab-plan-badge mb-2">#{{ currentPlanIndex + 1 }}</div>
@@ -615,23 +432,19 @@
           @if (planStatuses[currentPlan.id] === 'generating') {
           <iconify-icon icon="iconamoon:settings-duotone" class="testlab-spin"></iconify-icon>
           Generating...
-          }
-          @else if (planStatuses[currentPlan.id] === 'reviewing') {
+          } @else if (planStatuses[currentPlan.id] === 'reviewing') {
           <iconify-icon icon="iconamoon:eye-duotone"></iconify-icon>
           Review
-          }
-          @else if (planStatuses[currentPlan.id] === 'confirmed') {
+          } @else if (planStatuses[currentPlan.id] === 'confirmed') {
           <iconify-icon icon="iconamoon:check-circle-1-duotone"></iconify-icon>
           Confirmed
-          }
-          @else {
+          } @else {
           <iconify-icon icon="iconamoon:clock-duotone"></iconify-icon>
           Pending
           }
         </span>
       </div>
 
-      <!-- Generating State -->
       @if (generatingCases) {
       <div class="tc-generating-state">
         <div class="tc-generating-head">
@@ -664,7 +477,6 @@
         </div>
       </div>
 
-      <!-- Test Cases Available -->
       } @else if (currentTestCases.length) {
       <div class="testlab-case-list mt-3">
         @for (tc of currentTestCases; track tc.id) {
@@ -676,14 +488,12 @@
                 <span class="testlab-case-title">{{ tc.title }}</span>
               </div>
             </div>
-            <!-- Delete Test Case -->
             <button type="button" class="btn btn-sm btn-cancel testlab-delete-btn"
               (click)="onDeleteTestCase(currentPlan.id, tc.id)" title="Remove test case">
               <iconify-icon icon="iconamoon:trash-duotone"></iconify-icon>
             </button>
           </div>
 
-          <!-- Steps -->
           @if (tc.steps?.length) {
           <ul class="testlab-steps mt-2 mb-2">
             @for (step of tc.steps; track $index) {
@@ -702,7 +512,6 @@
         }
       </div>
 
-      <!-- No Test Cases -->
       } @else {
       <div class="testlab-empty-state">
         <iconify-icon icon="iconamoon:document-duotone"></iconify-icon>
@@ -710,16 +519,13 @@
       </div>
       }
 
-      <!-- Current Plan Actions -->
       <div class="testlab-actions mt-5">
-        <!-- Previous Plan Button -->
         <button type="button" class="btn btn-cancel px-3"
           [disabled]="generatingCases" (click)="onGoToPreviousPlan()">
           <iconify-icon icon="iconamoon:arrow-left-2-duotone"></iconify-icon>
           Previous
         </button>
 
-        <!-- Tools: Copy / Download -->
         <button type="button" class="btn btn-cancel px-3"
           [disabled]="generatingCases || !currentTestCases.length" (click)="onCopyCurrentPlan()"
           title="Copy to clipboard">
@@ -733,14 +539,12 @@
           <span>Download</span>
         </button>
 
-        <!-- Regenerate Test Cases -->
         <button type="button" class="btn btn-outline-primary px-4" [disabled]="generatingCases"
           (click)="onRegenerateCurrentCases()">
           <iconify-icon icon="iconamoon:restart-duotone"></iconify-icon>
           Regenerate Cases
         </button>
 
-        <!-- Confirm and Next (or Finish) -->
         <button type="button" class="btn btn-brand px-4 testlab-confirm-btn"
           [disabled]="generatingCases || !currentTestCases.length || finishing" (click)="onConfirmCurrentPlan()">
           @if (finishing) {
@@ -763,6 +567,51 @@
 
   </div>
 </div>
+
+@if (planEditModalOpen && planEditDraft) {
+<button class="tc-modal-backdrop" (click)="closePlanEditModal()">
+  <button class="tc-modal" (click)="$event.stopPropagation()">
+    <div class="tc-modal-header">
+      <div>
+        <span class="tc-modal-plan-id">{{ planEditDraft.id }}</span>
+        <h5 class="tc-modal-title mb-0">Edit Test Plan</h5>
+      </div>
+      <button class="btn-close confirm-close" type="button" aria-label="Close" (click)="closePlanEditModal()"></button>
+    </div>
+    <div class="tc-modal-body custom-scrollbar">
+      <div class="mb-3">
+        <label class="form-label">Title</label>
+        <input class="form-control" [value]="planEditDraft.title" (input)="onEditPlanField('title', ($any($event.target).value || ''))" />
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Description</label>
+        <textarea class="form-control" rows="4" [value]="planEditDraft.description" (input)="onEditPlanField('description', ($any($event.target).value || ''))"></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Objective</label>
+        <textarea class="form-control" rows="3" [value]="planEditDraft.objective || ''" (input)="onEditPlanField('objective', ($any($event.target).value || ''))"></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Scope</label>
+        <textarea class="form-control" rows="3" [value]="planEditDraft.scope || ''" (input)="onEditPlanField('scope', ($any($event.target).value || ''))"></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Priority</label>
+        <select class="form-select" [value]="planEditDraft.priority || 'Medium'" (change)="onEditPlanField('priority', ($any($event.target).value || 'Medium'))">
+          <option>Critical</option>
+          <option>High</option>
+          <option>Medium</option>
+          <option>Low</option>
+        </select>
+      </div>
+    </div>
+    <div class="tc-modal-actions-bottom">
+      <button class="btn btn-cancel px-4" (click)="closePlanEditModal()">Cancel</button>
+      <button class="btn btn-brand px-4" (click)="savePlanEditModal()">Save</button>
+    </div>
+  </button>
+</button>
+}
 
 @if (generationGuardModalOpen) {
 <div class="tc-modal-backdrop"></div>

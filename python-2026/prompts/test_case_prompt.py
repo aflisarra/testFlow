@@ -13,86 +13,125 @@ def build_test_case_prompt(
     linked_requirements: List[Dict[str, str]],
     spec_chunks: List[Dict[str, str]],
 ) -> str:
-    """
-    Prompt template only.
-    Forces JSON reliability and a balanced case mix.
-    """
+
     project_block = project_title.strip() or "(not provided)"
     style_block = style_config.strip() or "(none)"
 
     req_lines: List[str] = []
-    for r in linked_requirements[:18]:
-        req_lines.append(f"- {r.get('id')} [{r.get('module')}] ({r.get('priority')}): {r.get('text')}")
+    for r in linked_requirements[:5]:
+        req_lines.append(
+            f"- {r.get('id')} [{r.get('module')}] "
+            f"({r.get('priority')}): {r.get('text')}"
+        )
 
     chunk_lines: List[str] = []
-    for ch in spec_chunks[:6]:
-        chunk_lines.append(f"## {ch.get('title')}\n{ch.get('text')[:900]}")
+    for ch in spec_chunks[:3]:
+        chunk_lines.append(
+            f"## {ch.get('title')}\n{ch.get('text')[:500]}"
+        )
+
 
     example = (
-        '{\n'
-        '  "test_cases": [\n'
-        '    {\n'
-        '      "id": "TC-1.1",\n'
-        '      "title": "Login succeeds with valid credentials",\n'
-        '      "steps": ["Open login page", "Enter valid email and password", "Click Sign in"],\n'
-        '      "expected_result": "User is authenticated and redirected to dashboard",\n'
-        '      "priority": "High",\n'
-        '      "type": "Positive"\n'
-        '    }\n'
-        '  ]\n'
-        '}\n'
-    )
+    '{\n'
+    '  "test_cases": [\n'
+    '    {\n'
+    '      "id": "TC-1.1",\n'
+    '      "title": "Login with valid credentials",\n'
+    '      "objective": "Verify that a user can login successfully",\n'
+    '      "steps": [\n'
+    '        "Open login page",\n'
+    '        "Enter valid credentials",\n'
+    '        "Click login button"\n'
+    '      ],\n'
+    '      "expected_result": "User is redirected to dashboard",\n'
+    '      "test_data": {\n'
+    '        "email": "valid@test.com"\n'
+    '      },\n'
+    '      "priority": "High",\n'
+    '      "severity": "Critical",\n'
+    '      "type": "Positive"\n'
+    '    }\n'
+    '  ]\n'
+    '}'
+)
+
 
     return (
         "<s>[INST]\n"
+
         "You are a Senior QA Engineer.\n"
-        "Follow ISTQB and write test cases that are realistic and verifiable.\n"
-        "You MUST use only the provided spec content. Do NOT invent UI elements or endpoints.\n\n"
+        "Follow ISTQB principles.\n"
+        "Generate realistic and executable test cases.\n"
+        "Use ONLY provided specification.\n"
+        "Do NOT invent pages, APIs, buttons, or fields.\n\n"
+
+
         "### Task\n"
-        "Generate 4 to 6 test cases for the given test plan.\n\n"
-        "### Required mix\n"
-        "- Include at least: 1 Positive, 1 Negative, 1 Boundary, 1 Validation or Error handling.\n"
-        "- Add Permission cases ONLY if roles/permissions exist in spec.\n\n"
+        "Generate exactly 3 test cases only.\n"
+"Each test case must have 3-5 steps maximum.\n"
+"Do not generate extra test cases.\n"
+"Keep JSON small and concise.\n\n"
+
+
+        "### Required mix (MANDATORY)\n"
+"- TC-1 must be Positive.\n"
+"- TC-2 must be Negative.\n"
+"- TC-3 must be Boundary.\n"
+"- Use Validation or Error handling only if relevant.\n\n"
+
+
         "### Hard rules\n"
         "- No duplicates.\n"
         "- Steps must be executable by a tester.\n"
-        "- expected_result must be specific and measurable.\n"
-        "- priority must be one of: High, Medium, Low.\n"
-        "- type must be one of: Positive, Negative, Boundary, Permission, Validation, Error handling.\n\n"
-        "### Output format (STRICT)\n"
+        "- expected_result must be precise.\n"
+        "- priority values only: Critical, High, Medium, Low.\n"
+        "- severity values only: Blocker, Critical, Major, Minor, Trivial.\n"
+        "- type values only: Positive, Negative, Boundary, Permission, Validation, Error handling.\n\n"
+
+
+        "### Output format STRICT\n"
         "- Output ONLY valid JSON.\n"
-        "- Output a JSON object with a single key: \"test_cases\".\n"
-        "- Each test case object has exactly: id, title, steps, expected_result, priority, type.\n"
-        "- steps is an array of 3-6 strings.\n\n"
-        
-"### Navigation rule (MANDATORY)\n"
-"- Any step that contains \"open\", \"navigate\", or \"go to\" MUST represent opening the application or a page.\n"
-"- DO NOT include full URLs in the generated steps.\n"
-"- Steps should be simple and human-readable.\n"
-"- Examples:\n"
-"  - Open the application\n"
-"  - Open the form page\n"
-"  - Navigate to login page\n"
-"- The system backend will automatically use the application URL (baseUrl / urlCible).\n"
-"- NEVER generate steps like:\n"
-"  Navigate to https://...\n"
-"- Always keep navigation steps simple without URLs.\n"
+        "- No markdown.\n"
+        "- No explanation.\n"
+        "- JSON object must contain ONLY key: test_cases.\n"
+        "- Each test case MUST contain exactly:"
+        "id, title, objective, steps, expected_result, test_data, priority, severity, type, requirements.\n"
+        "- requirements must reference linked requirement ids whenever available.\n"
+        "- do not invent requirements; use only the provided context.\n\n"
+
+
+        "### Navigation rule\n"
+        "- Steps containing open/navigate/go to must only mention pages.\n"
+        "- Never include URLs.\n"
+        "Examples:\n"
+        "Open application\n"
+        "Open login page\n"
+        "Navigate to dashboard\n\n"
+
 
         "### Example\n"
-        f"{example}\n"
+        f"{example}\n\n"
+
+
         "### Test plan\n"
         f"- id: {plan_id}\n"
         f"- title: {plan_title}\n"
         f"- description: {plan_description}\n\n"
+
+
         "### Context\n"
         f"- Project: {project_block}\n"
-        f"- UI Style Config: {style_block}\n\n"
-        "### Linked requirements (subset)\n"
+        f"- UI Style: {style_block}\n\n"
+
+
+        "### Linked requirements (context only)\n"
         + "\n".join(req_lines)
         + "\n\n"
-        "### Spec chunks (subset)\n"
+
+
+        "### Spec chunks\n"
         + "\n\n".join(chunk_lines)
         + "\n\n"
+
         "[/INST]"
     )
-

@@ -12,6 +12,16 @@ export interface TestPlanDto {
   description: string
   testCases?: TestCaseDto[]
   casesCount?: number
+  objective?: string   // ← nouveau
+  scope?: string       // ← nouveau
+  priority?: string    // ← nouveau
+  requirements?: {     // ← nouveau
+    id?: string
+    title?: string
+    description?: string
+    source?: string
+    priority?: string
+  }[]
   
 }
 
@@ -88,8 +98,23 @@ export interface TestCaseDto {
   steps: string[]
   expected_result: string
 
-  planId?: string   // ✅ AJOUT ICI
-  testSuiteId?: string // (optionnel mais recommandé)
+  planId?: string
+  testSuiteId?: string
+
+  // ✅ Nouveaux champs Selenium-utiles
+  objective?: string
+  preconditions?: string[]
+  requirements?: {
+    id?: string
+    title?: string
+    description?: string
+    source?: string
+    priority?: string
+  }[]
+  priority?: string
+  severity?: string
+  type?: string
+  test_data?: unknown
 
   executionModel?: ExecutionModelDto | null
   execution_model?: ExecutionModelDto | null

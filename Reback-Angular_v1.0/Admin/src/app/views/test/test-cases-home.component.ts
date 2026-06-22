@@ -378,7 +378,10 @@ export class TestCasesHomeComponent implements OnInit {
       if (!userId && token) userId = this.resolveUserIdFromToken(token)
       if (!userId) { this.errorMessage = 'Session expired.'; return }
       const suites = await firstValueFrom(this.testLabService.getTestSuitesByUser(userId))
-      this.suites = Array.isArray(suites) ? suites : []
+      this.suites = (Array.isArray(suites) ? suites : []).filter((suite) => {
+        const projectId = this.getSuiteProjectId(suite)
+        return !projectId || this.acceptedProjectIds.has(projectId)
+      })
     } catch (err: unknown) {
       this.errorMessage = getErrorMessage(err, 'Unable to load test suites')
     } finally {
@@ -456,6 +459,20 @@ export class TestCasesHomeComponent implements OnInit {
   focusLiveCase(caseId: string, event?: Event): void {
     event?.stopPropagation()
     this.focusedLiveCaseId = String(caseId || '').trim()
+  }
+
+  formatTestData(value: unknown): string {
+    if (value === null || value === undefined) return '—'
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      return trimmed || '—'
+    }
+
+    try {
+      return JSON.stringify(value, null, 2)
+    } catch {
+      return String(value)
+    }
   }
 
   clearFocusedLiveCase(): void {
@@ -733,6 +750,28 @@ export class TestCasesHomeComponent implements OnInit {
 
   onEditCaseExpected(caseId: string, value: string) {
     this.updateModalCase(caseId, (tc) => ({ ...tc, expected_result: String(value || '') }))
+  }
+
+  getTestDataText(testCase: TestCaseDto): string {
+    const value = testCase?.test_data
+    if (value === null || value === undefined) return ''
+    if (typeof value === 'string') return value
+    if (Array.isArray(value)) return value.map((v) => String(v)).join('\n')
+    if (typeof value === 'object') {
+      return Object.entries(value as Record<string, unknown>)
+        .map(([key, val]) => `${key}: ${String(val)}`)
+        .join('\n')
+    }
+    return String(value)
+  }
+
+  onEditCaseTestData(caseId: string, value: string) {
+    const test_data = String(value || '')
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join('\n')
+    this.updateModalCase(caseId, (tc) => ({ ...tc, test_data }))
   }
 
   onEditCaseSteps(caseId: string, value: string) {

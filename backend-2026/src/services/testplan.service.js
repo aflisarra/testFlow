@@ -2,12 +2,43 @@ const TestPlan = require('../models/testplan.model')
 const TestCase = require('../models/testcase.model')
 const fs = require('fs')
 const FormData = require('form-data')
+const {
+  hasOwn,
+  normalizeRequirements,
+  normalizeString,
+  validatePriority,
+} = require('../utils/test-artifact-fields')
+
+function normalizeTestPlanMetadata(data = {}, { includeDefaults = false } = {}) {
+  const payload = {}
+
+  if (includeDefaults || hasOwn(data, 'objective')) {
+    payload.objective = normalizeString(data.objective)
+  }
+
+  if (includeDefaults || hasOwn(data, 'scope')) {
+    payload.scope = normalizeString(data.scope)
+  }
+
+  if (includeDefaults || hasOwn(data, 'priority')) {
+    payload.priority = validatePriority(data.priority)
+  }
+
+  if (includeDefaults || hasOwn(data, 'requirements')) {
+    payload.requirements = normalizeRequirements(data.requirements)
+  }
+
+  return payload
+}
 
 /**
  * Create test plan
  */
-async function createTestPlan({ testSuiteId, id, title, description }) {
-  if (!testSuiteId || !title) {
+async function createTestPlan(data = {}) {
+  const { testSuiteId, id, title, description } = data
+  const normalizedTitle = normalizeString(title)
+
+  if (!testSuiteId || !normalizedTitle) {
     const error = new Error('testSuiteId and title are required')
     error.statusCode = 400
     throw error
@@ -18,8 +49,9 @@ async function createTestPlan({ testSuiteId, id, title, description }) {
   return await TestPlan.create({
     testSuiteId,
     id: String(id || `TP-${existingCount + 1}`).trim(),
-    title,
-    description: description || '',
+    title: normalizedTitle,
+    description: normalizeString(description),
+    ...normalizeTestPlanMetadata(data, { includeDefaults: true }),
   })
 }
 
@@ -73,13 +105,14 @@ async function getPlanById(planId) {
  * Update plan
  */
 async function updateTestPlan(planId, data) {
+  const update = normalizeTestPlanMetadata(data)
+  if (hasOwn(data, 'title')) update.title = normalizeString(data.title)
+  if (hasOwn(data, 'description')) update.description = normalizeString(data.description)
+
   const plan = await TestPlan.findByIdAndUpdate(
     planId,
-    {
-      title: data.title,
-      description: data.description,
-    },
-    { new: true }
+    update,
+    { new: true, runValidators: true }
   )
 
   if (!plan) {
@@ -170,8 +203,12 @@ const response = await axios.post(
 
     return testPlans.map((plan, index) => ({
       id: plan.id || `TP-${index + 1}`,
-      title: plan.title,
-      description: plan.description || '',
+      title: normalizeString(plan.title) || `Test Plan ${index + 1}`,
+      description: normalizeString(plan.description),
+      objective: normalizeString(plan.objective),
+      scope: normalizeString(plan.scope),
+      priority: validatePriority(plan.priority),
+      requirements: normalizeRequirements(plan.requirements),
     }))
 
   } catch (error) {

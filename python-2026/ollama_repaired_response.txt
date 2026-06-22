@@ -1,0 +1,11 @@
+```json
+{
+  "data": [
+    {"type":"click","selector":"input[name='username']","value":""},
+    {"type":"type","selector":"input[name='username']","value":"John@test123"},
+    {"type":"click","selector":"input[name='password']","value":""},
+    {"type":"type","selector":"input[name='password']","value":""},
+    {"type":"click","selector":"button[type='submit']","value":""}
+  ]
+}
+```

@@ -11,71 +11,102 @@ def build_test_plan_prompt(
     requirements: List[Dict[str, str]],
     spec_chunks: List[Dict[str, str]],
 ) -> str:
-    """
-    Prompt template only.
-    Uses ISTQB/IEEE style constraints and forces strict JSON.
-    """
+
     project_block = project_title.strip() or "(not provided)"
     style_block = style_config.strip() or "(none)"
 
-    # Keep payload compact: include requirement snippets per module and top chunks.
-    req_lines: List[str] = []
-    for r in requirements[:30]:
-        req_lines.append(f"- {r.get('id')} [{r.get('module')}] ({r.get('priority')}): {r.get('text')}")
 
-    chunk_lines: List[str] = []
+    chunk_lines = []
     for ch in spec_chunks[:10]:
-        chunk_lines.append(f"## {ch.get('title')}\n{ch.get('text')[:900]}")
+        chunk_lines.append(
+            f"## {ch.get('title')}\n{ch.get('text')[:900]}"
+        )
 
-    modules_text = ", ".join(modules[:15]) if modules else "Core Functionality"
+    
 
-    example = (
-        '{\n'
-        '  "test_plans": [\n'
-        '    {"id": "TP-1", "title": "Authentication", "description": "Login, logout, sessions, access rules"},\n'
-        '    {"id": "TP-2", "title": "CRUD Operations", "description": "Create, edit, delete, data persistence"},\n'
-        '    {"id": "TP-3", "title": "Search & Filtering", "description": "Search, filter, sort, pagination"},\n'
-        '    {"id": "TP-4", "title": "Error Handling", "description": "Validation, failures, recovery messages"}\n'
-        '  ]\n'
-        '}\n'
-    )
+
+    example = """
+{
+  "test_plans": [
+    {
+      "id": "TP-1",
+      "title": "Student Registration",
+      "description": "Verification of student registration workflow",
+      "objective": "Verify that student registration behaves according to specification",
+      "scope": "Student creation, required fields, and submission flow",
+      "priority": "High"
+    }
+  ]
+}
+"""
+
 
     return (
         "<s>[INST]\n"
-        "You are a Senior QA Engineer and Test Analyst.\n"
-        "Follow ISTQB and IEEE 829 principles.\n"
-        "You MUST use only the provided specification content. Do NOT invent features.\n\n"
-        "### Task\n"
-        "Generate 4 to 8 SMART, non-overlapping test plans that cover the application.\n"
-        "Plans must be feature-level (module/flow level), not field-level.\n\n"
-        "### Hard rules\n"
-        "- No duplicates.\n"
-        "- No overlapping scopes.\n"
-        "- Use spec only; if a feature is not in spec, do not include it.\n"
-        "- Avoid generic filler titles (e.g., 'General Testing').\n"
-        "- Prefer plans aligned to detected modules.\n\n"
-        "### Output format (STRICT)\n"
-        "- Output ONLY valid JSON.\n"
-        "- Output a JSON object with a single key: \"test_plans\".\n"
-        "- \"test_plans\" is an array of objects with exactly keys: id, title, description.\n"
-        "- id format: TP-1, TP-2, ...\n"
-        "- title: 2-5 words, module/flow name.\n"
-        "- description: 8-14 words, concrete scope.\n\n"
+
+        "You are a Senior QA Engineer specialized in test analysis.\n"
+        "Use ISTQB principles for test planning.\n\n"
+
+        "Your task is to transform the provided specification into professional QA test plans.\n\n"
+
+        "CORE LOGIC:\n"
+        "A test plan represents a REAL application feature, business workflow, or user journey.\n"
+        "The specification is the only source of truth.\n\n"
+
+        "DO NOT:\n"
+        "- invent features\n"
+        "- add generic QA areas\n"
+        "- create Security, Performance, CRUD, Authentication plans unless explicitly described\n"
         
-         
+        "- create plans only because they are common in QA projects\n\n"
+
+        "DO:\n"
+        "- identify actual features from the specification\n"
+        "- group related flows together\n"
+        "- create meaningful feature-level test plans\n"
+        "- avoid duplicates\n"
+        "- create fewer plans if the specification is small\n\n"
+
+
+        "### Generation rules\n"
+        "- Minimum: only what exists in specification\n"
+        "- Maximum: 6 plans\n"
+        "- One plan = one feature/workflow\n"
+        "- Scope must describe what will be tested\n"
+        "- Objective must describe verification purpose\n\n"
+
+
+        "### Output STRICT JSON ONLY\n"
+        "No markdown.\n"
+        "No explanation.\n\n"
+
+        "Return exactly:\n"
+        "{ \"test_plans\": [] }\n\n"
+
+        "Each object MUST contain ONLY:\n"
+"id, title, description, objective, scope, priority\n\n"
+
+        "Priority values:\n"
+        "Critical | High | Medium | Low\n\n"
+
+    
+
 
         "### Example\n"
         f"{example}\n"
-        "### Context\n"
-        f"- Project: {project_block}\n"
-        f"- UI Style Config: {style_block}\n"
-        f"- Detected modules: {modules_text}\n\n"
-        "### Extracted requirements (subset)\n"
-        + "\n".join(req_lines)
-        + "\n\n"
-        "### Specification chunks (subset)\n"
+
+
+        "### Project\n"
+        f"{project_block}\n\n"
+
+        "### UI Style\n"
+        f"{style_block}\n\n"
+
+
+        "### Specification\n"
         + "\n\n".join(chunk_lines)
+        
         + "\n\n"
+
         "[/INST]"
     )
-

@@ -9,7 +9,8 @@
     "build": "echo \"No build step for JavaScript backend\"",
     "start": "node src/index.js",
     "seed": "echo \"No seed entrypoint configured\"",
-    "test": "echo \"No tests specified\""
+    "test": "node --test",
+    "migrate:test-artifacts": "node src/migrations/20260618-add-test-artifact-metadata.js"
   },
   "keywords": [],
   "author": "",

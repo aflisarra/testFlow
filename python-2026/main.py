@@ -81,6 +81,7 @@ app.include_router(health_router)
 @app.get("/")
 def root():
     log_event(logger, "health_root_called")
+    logger.info(f"✅ FINAL test_data: {resolved_test_case.get('test_data')}")
     return {
         "status":    "running",
         "version":   "2.0.0",

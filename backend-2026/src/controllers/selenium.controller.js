@@ -2,15 +2,42 @@ const mongoose = require('mongoose')
 const TestExecution = require('../models/TestExecution.model')
 const { runTestCase } = require('../services/selenium/selenium.service')
 
+// ✅ AJOUT
+const testCaseService = require('../services/testcase.service')
+
 async function runTestCaseHandler(req, res) {
 
   try {
 
-    const testCase = req.body?.testCase || req.body
+    const body = req.body || {}
 
-    console.log("🔥 RECEIVED TEST CASE:", testCase)
+    console.log("🔥 REQUEST BODY:", body)
 
-    // ✅ VALIDATION
+    let testCase = body.testCase || body
+    let result
+
+    const startedAt = Date.now()
+
+    // ✅ ✅ ✅ CAS 1 : EXECUTION PAR planId (CORRECT)
+    if (body.planId) {
+
+      console.log("📥 Loading test cases from DB using planId:", body.planId)
+
+      const casesFromDB = await testCaseService.getByPlan(body.planId)
+
+      if (!casesFromDB.length) {
+        return res.status(404).json({
+          status: 'error',
+          message: 'No test cases found for this plan'
+        })
+      }
+
+      testCase = casesFromDB[0]
+
+      console.log("✅ TEST CASE FROM DB:", testCase)
+    }
+
+    // ✅ ✅ ✅ VALIDATION
     if (!testCase || !Array.isArray(testCase.steps) || !testCase.steps.length) {
       return res.status(400).json({
         status: 'error',
@@ -18,34 +45,43 @@ async function runTestCaseHandler(req, res) {
       })
     }
 
-    const startedAt = Date.now()
+    // ✅ ✅ ✅ EXECUTION
+    result = await runTestCase(testCase)
 
-    const result = await runTestCase(testCase)
+    const safeResult = result || {
+      status: 'failed_execution',
+      logs: [],
+      stepResults: []
+    }
 
     const finishedAt = new Date()
     const duration = Math.round((Date.now() - startedAt) / 1000)
 
-    // ✅ ✅ ✅ SAFE IDS (EVITE LE CRASH)
     const suiteId = testCase?.testSuiteId || null
     const isValidSuite = suiteId && mongoose.Types.ObjectId.isValid(suiteId)
 
     const executionData = {
       executionId: `EX-${Date.now()}`,
       testCaseTitle: testCase.title || "",
+      planKey: testCase.planId ? String(testCase.planId) : '',
+      planTitle: testCase.planTitle || '',
       status:
-        result.status === 'passed'
+        safeResult.status === 'passed'
           ? 'passed'
-          : result.status === 'failed_assertion'
+          : safeResult.status === 'failed_assertion'
             ? 'failed_assertion'
             : 'failed_execution',
       duration,
       startedAt: new Date(startedAt),
       finishedAt,
-      logs: result.logs || [],
-      stepsResults: result.stepResults || []
+      logs: safeResult.logs || [],
+      stepResults: safeResult.stepResults || [],
     }
 
-    // ✅ ✅ ✅ seulement si valide
+    if (testCase.id) {
+      executionData.testCaseKey = String(testCase.id)
+    }
+
     if (isValidSuite) {
 
       executionData.testSuiteId = new mongoose.Types.ObjectId(suiteId)
@@ -54,20 +90,17 @@ async function runTestCaseHandler(req, res) {
         executionData.planId = new mongoose.Types.ObjectId(testCase.planId)
       }
 
-      if (testCase.id) {
-        executionData.testCaseKey = String(testCase.id)
+      try {
+        await TestExecution.create(executionData)
+        console.log("✅ Execution saved")
+      } catch (dbErr) {
+        console.error("⚠️ Execution save failed:", dbErr)
       }
-
-      await TestExecution.create(executionData)
-
-      console.log("✅ Execution saved")
-    } else {
-      console.warn("⚠️ Skip DB save (no valid testSuiteId)")
     }
 
     return res.json({
-      status: result.status,
-      data: result
+      status: safeResult.status,
+      data: safeResult
     })
 
   } catch (err) {
@@ -80,9 +113,6 @@ async function runTestCaseHandler(req, res) {
     })
   }
 }
-
-
-
 
 async function getExecutions(req, res) {
   try {
@@ -229,7 +259,9 @@ exports.getExecutionDetail = async (req, res) => {
       return res.status(404).json({ message: 'Execution not found' })
     }
 
-    const steps = (execution.stepsResults || []).map((step, index) => ({
+    const rawSteps = execution.stepResults || execution.stepsResults || []
+
+    const steps = rawSteps.map((step, index) => ({
       index: step.index || index + 1,
 
       name: step.step || `Step ${index + 1}`,

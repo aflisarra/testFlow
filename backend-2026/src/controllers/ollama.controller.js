@@ -111,7 +111,9 @@ async function generateTestCases(req, res) {
       await TestSuite.findByIdAndUpdate(testSuiteId, {
         testStatus: 'Incomplete',
         lastGeneratedAt: new Date(),
-      }).catch(() => {})
+      }).catch(() => {
+        console.error('🔥 CONTROLLER ERROR:', error.message, error.statusCode)
+      })
     }
     return res
       .status(status)
