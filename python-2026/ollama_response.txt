@@ -1,59 +1,9 @@
 ```json
 {
-  "test_cases": [
+  "data": [
     {
-      "id": "TC-1",
-      "title": "Login with valid credentials",
-      "objective": "Verify that a user can login successfully",
-      "steps": [
-        "Open login page",
-        "Enter valid credentials",
-        "Click login button"
-      ],
-      "expected_result": "User is redirected to dashboard",
-      "test_data": {
-        "email": "valid@test.com",
-        "password": "ValidPass123"
-      },
-      "priority": "High",
-      "severity": "Critical",
-      "type": "Positive"
-    },
-    {
-      "id": "TC-2",
-      "title": "Login with invalid credentials",
-      "objective": "Verify that a user cannot login with incorrect credentials",
-      "steps": [
-        "Open login page",
-        "Enter invalid credentials",
-        "Click login button"
-      ],
-      "expected_result": "Error message is displayed indicating invalid credentials",
-      "test_data": {
-        "email": "invalid@test.com",
-        "password": "InvalidPass123"
-      },
-      "priority": "High",
-      "severity": "Critical",
-      "type": "Negative"
-    },
-    {
-      "id": "TC-3",
-      "title": "Login with empty credentials",
-      "objective": "Verify that a user cannot login without entering any credentials",
-      "steps": [
-        "Open login page",
-        "Leave email and password fields empty",
-        "Click login button"
-      ],
-      "expected_result": "Error message is displayed indicating that both fields are required",
-      "test_data": {
-        "email": "",
-        "password": ""
-      },
-      "priority": "High",
-      "severity": "Critical",
-      "type": "Boundary"
+      "type": "click",
+      "selector": "a[text='Admin']"
     }
   ]
 }

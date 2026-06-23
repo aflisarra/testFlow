@@ -19,6 +19,23 @@ function pickFirst(data, keys) {
   return undefined
 }
 
+async function resolvePlanId(planId) {
+  const raw = String(planId || '').trim()
+  if (!raw) return null
+
+  const direct = await TestPlan.findById(raw).select('_id id').lean().catch(() => null)
+  if (direct) {
+    return { _id: direct._id, id: direct.id || raw }
+  }
+
+  const byStableId = await TestPlan.findOne({ id: raw }).select('_id id').lean().catch(() => null)
+  if (byStableId) {
+    return { _id: byStableId._id, id: byStableId.id || raw }
+  }
+
+  return null
+}
+
 function normalizeTestCaseMetadata(data = {}, { includeDefaults = false } = {}) {
   const payload = {}
 
@@ -94,6 +111,22 @@ async function createTestCase(data) {
     throw error
   }
 
+  const resolvedPlan = await resolvePlanId(resolvedPlanId)
+  if (!resolvedPlan) {
+    const error = new Error('TestPlan not found')
+    error.statusCode = 404
+    throw error
+  }
+
+  resolvedPlanId = resolvedPlan._id
+
+  console.log('[TestCase:create] resolved plan', {
+    requestedPlanId: String(planId || testPlanId || '').trim(),
+    mongoPlanId: String(resolvedPlanId),
+    stablePlanId: String(resolvedPlan.id || ''),
+    testSuiteId: String(resolvedTestSuiteId),
+  })
+
   const existingCount = await TestCase.countDocuments({
     testSuiteId: resolvedTestSuiteId,
     planId: resolvedPlanId,
@@ -103,7 +136,14 @@ async function createTestCase(data) {
     normalizeTestData(data.test_data)
   )
 
-  return await TestCase.create({
+  console.log('[TestCase:create] normalized test_data', {
+    requestedTestSuiteId: String(resolvedTestSuiteId),
+    requestedPlanId: String(resolvedPlanId),
+    count: Array.isArray(normalizedTestData) ? normalizedTestData.length : 0,
+    test_data: normalizedTestData,
+  })
+
+  const saved = await TestCase.create({
     testSuiteId: resolvedTestSuiteId,
     planId: resolvedPlanId,
     id: String(id || `TC-${existingCount + 1}`).trim(),
@@ -125,6 +165,16 @@ async function createTestCase(data) {
 
     test_data: normalizedTestData
   })
+
+  console.log('[TestCase:create] saved document', {
+    _id: String(saved?._id || ''),
+    id: String(saved?.id || ''),
+    title: String(saved?.title || ''),
+    planId: String(saved?.planId || ''),
+    testSuiteId: String(saved?.testSuiteId || ''),
+  })
+
+  return saved
 }
 
 
@@ -132,11 +182,23 @@ async function createTestCase(data) {
  * Get cases by plan
  */
 async function getByPlan(planId) {
-  const cases = await TestCase.find({ planId })
+  const resolvedPlan = await resolvePlanId(planId)
+  if (!resolvedPlan) {
+    console.log('[TestCase:getByPlan] no plan found', { requestedPlanId: String(planId || '') })
+    return []
+  }
+
+  const cases = await TestCase.find({ planId: resolvedPlan._id })
   .sort({ createdAt: 1 })
   .lean()
 
-return cases.map(tc => ({
+  console.log('[TestCase:getByPlan] loaded cases', {
+    requestedPlanId: String(planId || ''),
+    mongoPlanId: String(resolvedPlan._id || ''),
+    count: cases.length,
+  })
+
+  return cases.map(tc => ({
   ...tc,
 
   // ✅ FIX CRITIQUE
@@ -162,6 +224,21 @@ async function updateTestCase(testCaseId, data) {
 
   if (hasOwn(data, 'executionModel') || hasOwn(data, 'execution_model')) {
     update.executionModel = data.executionModel || data.execution_model || null
+  }
+
+  if (hasOwn(data, 'test_data') || hasOwn(data, 'testData')) {
+    console.log('[TestCase:update] incoming test_data', {
+      testCaseId,
+      raw: pickFirst(data, ['test_data', 'testData']),
+    })
+  }
+
+  if (hasOwn(update, 'test_data')) {
+    console.log('[TestCase:update] normalized test_data', {
+      testCaseId,
+      test_data: update.test_data,
+      count: Array.isArray(update.test_data) ? update.test_data.length : 0,
+    })
   }
 
   const updated = await TestCase.findByIdAndUpdate(
@@ -250,6 +327,11 @@ async function getTestCasesForSelenium(testSuiteId) {
     .populate('planId', 'id title')
     .sort({ createdAt: 1 })
     .lean()
+
+  console.log('[TestCase:getForSelenium]', {
+    testSuiteId: String(testSuiteId || ''),
+    count: cases.length,
+  })
 
   return cases.map((tc) => ({
     testCaseId: tc._id,

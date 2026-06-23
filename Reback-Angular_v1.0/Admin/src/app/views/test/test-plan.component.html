@@ -114,7 +114,7 @@
             </div>
             <div class="testlab-url-container">
               <div class="testlab-input-wrapper testlab-input-wrapper-url">
-                <span class="testlab-url-prefix-inline">https://</span>
+                
                 <input
                   type="text"
                   class="testlab-input testlab-input--url"
@@ -569,48 +569,52 @@
 </div>
 
 @if (planEditModalOpen && planEditDraft) {
-<button class="tc-modal-backdrop" (click)="closePlanEditModal()">
-  <button class="tc-modal" (click)="$event.stopPropagation()">
-    <div class="tc-modal-header">
-      <div>
+<div class="tc-modal-backdrop" (click)="closePlanEditModal()"></div>
+<div class="tc-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="planEditTitle">
+  <div class="tc-modal-card tc-modal-card--plan" (click)="$event.stopPropagation()">
+    <div class="tc-modal-head tc-modal-head--plan">
+      <div class="tc-modal-head-copy">
         <span class="tc-modal-plan-id">{{ planEditDraft.id }}</span>
-        <h5 class="tc-modal-title mb-0">Edit Test Plan</h5>
+        <h5 id="planEditTitle" class="tc-modal-title mb-0">Edit Test Plan</h5>
+        <p class="tc-modal-subtitle mb-0">Refine the plan details before saving your updates.</p>
       </div>
       <button class="btn-close confirm-close" type="button" aria-label="Close" (click)="closePlanEditModal()"></button>
     </div>
-    <div class="tc-modal-body custom-scrollbar">
-      <div class="mb-3">
-        <label class="form-label">Title</label>
-        <input class="form-control" [value]="planEditDraft.title" (input)="onEditPlanField('title', ($any($event.target).value || ''))" />
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Description</label>
-        <textarea class="form-control" rows="4" [value]="planEditDraft.description" (input)="onEditPlanField('description', ($any($event.target).value || ''))"></textarea>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Objective</label>
-        <textarea class="form-control" rows="3" [value]="planEditDraft.objective || ''" (input)="onEditPlanField('objective', ($any($event.target).value || ''))"></textarea>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Scope</label>
-        <textarea class="form-control" rows="3" [value]="planEditDraft.scope || ''" (input)="onEditPlanField('scope', ($any($event.target).value || ''))"></textarea>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Priority</label>
-        <select class="form-select" [value]="planEditDraft.priority || 'Medium'" (change)="onEditPlanField('priority', ($any($event.target).value || 'Medium'))">
-          <option>Critical</option>
-          <option>High</option>
-          <option>Medium</option>
-          <option>Low</option>
-        </select>
+    <div class="tc-modal-body tc-modal-body--plan custom-scrollbar">
+      <div class="tc-modal-grid">
+        <div class="tc-modal-field tc-modal-field--full">
+          <label class="form-label">Title</label>
+          <input class="form-control" [value]="planEditDraft.title" (input)="onEditPlanField('title', ($any($event.target).value || ''))" />
+        </div>
+        <div class="tc-modal-field tc-modal-field--full">
+          <label class="form-label">Description</label>
+          <textarea class="form-control tc-modal-textarea" rows="4" [value]="planEditDraft.description" (input)="onEditPlanField('description', ($any($event.target).value || ''))"></textarea>
+        </div>
+        <div class="tc-modal-field">
+          <label class="form-label">Objective</label>
+          <textarea class="form-control tc-modal-textarea" rows="4" [value]="planEditDraft.objective || ''" (input)="onEditPlanField('objective', ($any($event.target).value || ''))"></textarea>
+        </div>
+        <div class="tc-modal-field">
+          <label class="form-label">Scope</label>
+          <textarea class="form-control tc-modal-textarea" rows="4" [value]="planEditDraft.scope || ''" (input)="onEditPlanField('scope', ($any($event.target).value || ''))"></textarea>
+        </div>
+        <div class="tc-modal-field tc-modal-field--full">
+          <label class="form-label">Priority</label>
+          <select class="form-select" [value]="planEditDraft.priority || 'Medium'" (change)="onEditPlanField('priority', ($any($event.target).value || 'Medium'))">
+            <option>Critical</option>
+            <option>High</option>
+            <option>Medium</option>
+            <option>Low</option>
+          </select>
+        </div>
       </div>
     </div>
-    <div class="tc-modal-actions-bottom">
-      <button class="btn btn-cancel px-4" (click)="closePlanEditModal()">Cancel</button>
-      <button class="btn btn-brand px-4" (click)="savePlanEditModal()">Save</button>
+    <div class="tc-modal-actions tc-modal-actions--plan">
+      <button type="button" class="btn btn-cancel px-4" (click)="closePlanEditModal()">Cancel</button>
+      <button type="button" class="btn btn-brand px-4" (click)="savePlanEditModal()">Save changes</button>
     </div>
-  </button>
-</button>
+  </div>
+</div>
 }
 
 @if (generationGuardModalOpen) {

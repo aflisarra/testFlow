@@ -39,9 +39,13 @@ def _flatten_test_data(value):
     if value is None:
         return items
     if isinstance(value, str):
-        text = value.strip()
-        if text:
-            items.append(text)
+        # The UI sometimes stores multiple credentials in one string using
+        # line breaks (e.g. "Admin\nadmin123"). Split them so the fallback
+        # can consume each value separately.
+        for part in value.replace("\r", "\n").split("\n"):
+            text = part.strip()
+            if text:
+                items.append(text)
         return items
     if isinstance(value, (int, float, bool)):
         items.append(str(value))
@@ -79,6 +83,33 @@ def _flatten_test_data(value):
     if text:
         items.append(text)
     return items
+
+
+def _extract_test_data_source(test_case):
+    """
+    Normalize the many shapes used across the project so fallback logic
+    can reliably find test data even when the payload uses camelCase,
+    nested wrappers, or Mongo-style documents.
+    """
+    if not isinstance(test_case, dict):
+        return []
+
+    candidates = [
+        test_case.get("test_data"),
+        test_case.get("testData"),
+        test_case.get("data"),
+        test_case.get("test_case", {}).get("test_data") if isinstance(test_case.get("test_case"), dict) else None,
+        test_case.get("test_case", {}).get("testData") if isinstance(test_case.get("test_case"), dict) else None,
+        test_case.get("testCase", {}).get("test_data") if isinstance(test_case.get("testCase"), dict) else None,
+        test_case.get("testCase", {}).get("testData") if isinstance(test_case.get("testCase"), dict) else None,
+        test_case.get("credentials"),
+    ]
+
+    for candidate in candidates:
+        if candidate not in (None, "", []):
+            return candidate
+
+    return []
 
 
 def _make_default_values():
@@ -155,6 +186,46 @@ def _infer_test_data_from_dom(dom, step=""):
         elif input_type in {"tel", "number"}:
             push(defaults["phone"])
 
+    # Login forms are often too short for the generic heuristics above.
+    # If we can see a username field and a password field, make sure both
+    # receive values in DOM order so the fallback does not stop after one
+    # inferred item.
+    if not inferred:
+        field_types = [
+            (
+                str(el.get("tag") or "").lower(),
+                str(el.get("type") or "").lower().strip(),
+                " ".join(
+                    [
+                        str(el.get("id") or "").lower(),
+                        str(el.get("name") or "").lower(),
+                        str(el.get("placeholder") or "").lower(),
+                        str(el.get("ariaLabel") or "").lower(),
+                        str(el.get("title") or "").lower(),
+                        str(el.get("text") or "").lower(),
+                    ]
+                ),
+            )
+            for el in dom
+            if isinstance(el, dict)
+        ]
+
+        has_password = any(tag == "input" and input_type == "password" for tag, input_type, _ in field_types)
+        has_username = any(
+            tag == "input"
+            and (
+                "user" in haystack
+                or "login" in haystack
+                or "email" in haystack
+                or "name" in haystack
+            )
+            for tag, input_type, haystack in field_types
+            if input_type != "password"
+        )
+
+        if has_username and has_password:
+            inferred.extend([defaults["email"], defaults["password"]])
+
     return inferred
 
 
@@ -167,18 +238,27 @@ def _dom_to_fill_actions(dom, test_case):
         return []
 
     # ✅ get test_data
-    test_data = []
-    if isinstance(test_case, dict):
-        test_data = (
-            test_case.get("test_data")
-            or test_case.get("testData")
-            or test_case.get("data")
-            or []
-        )
+    test_data = _extract_test_data_source(test_case)
+    logger.info(
+        "🧪 test_data source resolved",
+        extra={
+            "has_test_case": isinstance(test_case, dict),
+            "keys": sorted(list(test_case.keys())) if isinstance(test_case, dict) else [],
+            "test_data_type": type(test_data).__name__,
+        },
+    )
+    logger.info("🧪 test_data raw source", extra={"test_data": test_data})
 
     logger.info(f"📊 Raw test_data: {test_data}")
 
     raw_values = _flatten_test_data(test_data)
+    logger.info(
+        "🧪 flattened test_data values",
+        extra={
+            "count": len(raw_values),
+            "values": raw_values,
+        },
+    )
     defaults = _make_default_values()
     if not raw_values:
         logger.warning("⚠️ No test_data → using default values")
@@ -218,6 +298,13 @@ def _dom_to_fill_actions(dom, test_case):
         placeholder = str(el.get("placeholder") or "").lower()
         haystack = " ".join([field_id, name, placeholder, str(el.get("ariaLabel") or "").lower(), str(el.get("text") or "").lower()])
 
+        # Login forms frequently expose username/email and password fields
+        # with minimal metadata; treat them explicitly before consuming the
+        # generic ordered test data cursor.
+        if "password" in haystack or input_type == "password":
+            return raw_values[cursor] if cursor < len(raw_values) else defaults["password"]
+        if any(token in haystack for token in ("user", "login", "email", "username")):
+            return raw_values[cursor] if cursor < len(raw_values) else defaults["email"]
         if "subjects" in haystack:
             return defaults["subject"]
         if "birth" in haystack or "dateofbirth" in haystack or "dob" in haystack:
@@ -321,7 +408,9 @@ def _dom_submit_action(dom):
     if not isinstance(dom, list):
         return None
 
-    submit_keywords = ("submit", "save", "register", "continue", "next")
+    # Include login-style buttons so auth flows still click the final submit
+    # action after filling credentials.
+    submit_keywords = ("submit", "save", "register", "continue", "next", "login", "sign in", "sign-in")
 
     for el in dom:
         if not isinstance(el, dict) or el.get("disabled"):

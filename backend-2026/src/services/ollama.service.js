@@ -282,7 +282,18 @@ async function dualWriteTestCases({ testSuiteId, planKey, planTitle, planData, t
     })
     .filter(Boolean)
 
-  if (ops.length) await TestCase.bulkWrite(ops, { ordered: false })
+  if (!ops.length) return
+
+  const result = await TestCase.bulkWrite(ops, { ordered: false })
+  console.log('[dualWriteTestCases] saved cases', {
+    testSuiteId: String(testSuiteId),
+    planKey: stablePlanId,
+    planMongoId: String(mongoPlanId),
+    matchedCount: result?.matchedCount || 0,
+    modifiedCount: result?.modifiedCount || 0,
+    upsertedCount: result?.upsertedCount || 0,
+  })
+  return result
 }
 
 function runPowerShell(command) {
@@ -848,13 +859,17 @@ async function generateTestCases({ req, body }) {
   await suite.save()
 
   // ✅ planData passé pour préserver les métadonnées si plan auto-créé
-  await dualWriteTestCases({
+  const persistResult = await dualWriteTestCases({
     testSuiteId: suite._id,
     planKey: planId,
     planTitle: resolvedTitle,
     planData: existingPlanData,
     testCases: normalized,
-  }).catch(() => {})
+  })
+
+  if (!persistResult) {
+    throw httpError(500, 'Test cases were generated but could not be saved to MongoDB.')
+  }
 
   return { testSuiteId, planId, planTitle: resolvedTitle, testCases: normalized, reused: false }
 }

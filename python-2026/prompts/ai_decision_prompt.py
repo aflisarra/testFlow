@@ -36,6 +36,9 @@ def build_ai_decision_prompt(step: str, dom, test_case) -> str:
                 "name",
                 "phone",
                 "address",
+                "date",
+                "dob",
+                "birthDate",
             )
 
             matched = False
@@ -56,15 +59,52 @@ def build_ai_decision_prompt(step: str, dom, test_case) -> str:
             items.append(text)
         return items
 
+    def compact_dom(value):
+        """
+        If `dom` is the structured list produced by capture_dom_elements()
+        (dom_capture.py), strip empty keys to save space within the 6000
+        character budget sent to the model. Any other format passes
+        through unchanged (backward compatibility).
+        """
+        if not isinstance(value, list):
+            return value
+        # Keep the model input tight: only the whitelisted fields survive,
+        # and empty values are removed after the projection.
+        allowed_keys = {
+            "tag",
+            "type",
+            "id",
+            "name",
+            "placeholder",
+            "ariaLabel",
+            "title",
+            "testId",
+            "text",
+            "disabled",
+            "options",
+        }
+        compacted = []
+        for el in value:
+            if not isinstance(el, dict):
+                continue
+            projected = {k: v for k, v in el.items() if k in allowed_keys and v not in (None, "", [])}
+            if "options" in projected and isinstance(projected["options"], list):
+                projected["options"] = [
+                    {k: v for k, v in opt.items() if v not in (None, "", [])}
+                    for opt in projected["options"]
+                    if isinstance(opt, dict)
+                ]
+            compacted.append(projected)
+        return compacted
+
     def safe(v):
         try:
             return json.dumps(v, ensure_ascii=False)[:6000]
-        except:
+        except Exception:
             return str(v)[:6000]
 
     step_text = str(step or "").strip()
-    dom_text = safe(dom)
-    test_case_text = safe(test_case)
+    dom_text = safe(compact_dom(dom))
 
     test_data = []
     if isinstance(test_case, dict):

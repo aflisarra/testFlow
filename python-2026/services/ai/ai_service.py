@@ -1,7 +1,7 @@
 import json
 import re
 import requests
-
+from json_utils import safe_json_loads
 
 def extract_json(text):
 
@@ -52,25 +52,33 @@ def extract_json(text):
 
 
 class AIService:
-
+ 
     def generate_json(self, prompt: str, timeout: int):
-
+ 
         resp = requests.post(
             "http://localhost:11434/api/generate",
             json={
                 "model": "qwen2.5-coder:7b",
                 "prompt": prompt,
-                "stream": False
+                "stream": False,
+                "format": "json",              # force Ollama to output valid JSON
+                "options": {"temperature": 0},  # deterministic, less filler text
             },
-            
-            timeout=timeout
+            timeout=timeout,
         )
-
+        resp.raise_for_status()
+ 
         raw = resp.json().get("response", "").strip()
-
         print("🧠 RAW:", raw)
-
-        return extract_json(raw)
+ 
+        try:
+            return safe_json_loads(raw)
+        except Exception as e:
+            # Don't crash the whole request if the model output was
+            # imperfect — fall back to an empty list, consistent with
+            # _extract_actions() on the router side.
+            print("❌ JSON parse failed:", e, "\nRAW WAS:\n", raw)
+            return {"data": []}
 
 
 def get_ai_service():

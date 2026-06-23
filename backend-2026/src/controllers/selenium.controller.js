@@ -14,6 +14,13 @@ async function runTestCaseHandler(req, res) {
     console.log("🔥 REQUEST BODY:", body)
 
     let testCase = body.testCase || body
+    console.log("🧪 EXECUTION INPUT testCase:", {
+      hasTestCase: Boolean(testCase),
+      id: testCase?.id || '',
+      planId: testCase?.planId || '',
+      testSuiteId: testCase?.testSuiteId || '',
+      test_data: testCase?.test_data || testCase?.testData || testCase?.data || [],
+    })
     let result
 
     const startedAt = Date.now()

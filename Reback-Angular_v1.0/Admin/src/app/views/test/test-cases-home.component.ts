@@ -765,12 +765,21 @@ export class TestCasesHomeComponent implements OnInit {
     return String(value)
   }
 
-  onEditCaseTestData(caseId: string, value: string) {
-    const test_data = String(value || '')
+  private parseTestDataLines(value: string): string[] {
+    return String(value || '')
       .split(/\r?\n/)
       .map((s) => s.trim())
       .filter(Boolean)
-      .join('\n')
+  }
+
+  onEditCaseTestData(caseId: string, value: string) {
+    const test_data = this.parseTestDataLines(value)
+    console.log('[TestCasesHome] edit test_data', {
+      caseId,
+      raw: value,
+      test_data,
+      count: test_data.length,
+    })
     this.updateModalCase(caseId, (tc) => ({ ...tc, test_data }))
   }
 

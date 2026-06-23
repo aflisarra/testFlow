@@ -31,6 +31,7 @@ type LoadedExecutionTestCase = {
   steps: string[]
   urlCible: string
   executionModel?: ExecutionModelDto | null
+  test_data?: unknown
   credentials?: {
     email?: string
     password?: string
@@ -574,6 +575,7 @@ element.click()`;
     );
 
     const credentials = this.resolveExecutionCredentials(tc, suite);
+    const testData = (tc as any).test_data ?? (tc as any).testData ?? (tc as any).data ?? null;
 
     this.loadedTestCase = {
       id: String(tc.id),
@@ -581,10 +583,16 @@ element.click()`;
       steps,
       urlCible,
       executionModel,
+      ...(testData ? { test_data: testData } : {}),
       ...(credentials ? { credentials } : {}),
     };
 
     console.log("✅ LOADED TEST CASE FINAL:", this.loadedTestCase);
+    console.log("🧪 LOADED TEST DATA:", {
+      hasTestData: Boolean(testData),
+      testData,
+      count: Array.isArray(testData) ? testData.length : 0,
+    });
 
     this.executionModelSummary = this.describeExecutionModel(
       executionModel,
@@ -917,25 +925,41 @@ this.streamedLogs = [
 
     const startedAt = Date.now()
     const payload = {
-  id: this.loadedTestCase.id,
-  title: this.loadedTestCase.title,
+      id: this.loadedTestCase.id,
+      title: this.loadedTestCase.title,
 
-  testSuiteId: this.suiteId,
-  planId: this.planId,
+      testSuiteId: this.suiteId,
+      planId: this.planId,
 
   // ✅ FIX IMPORTANT
-  url: this.loadedTestCase.urlCible,
+      url: this.loadedTestCase.urlCible,
 
-  steps: this.loadedTestCase.steps,
+      steps: this.loadedTestCase.steps,
 
-  ...(this.loadedTestCase.executionModel
-    ? { executionModel: this.loadedTestCase.executionModel }
-    : {}),
+      ...(this.loadedTestCase.executionModel
+        ? { executionModel: this.loadedTestCase.executionModel }
+        : {}),
 
-  ...(this.loadedTestCase.credentials
-    ? { credentials: this.loadedTestCase.credentials }
-    : {})
-}
+  // Keep the canonical field name for the Python fallback and preserve
+  // credentials for backward compatibility with older payload shapes.
+      ...(this.loadedTestCase.test_data
+        ? { test_data: this.loadedTestCase.test_data }
+        : {}),
+
+      ...(this.loadedTestCase.credentials
+        ? { credentials: this.loadedTestCase.credentials }
+        : {}),
+    }
+
+    console.log('[execution] outgoing payload', {
+      id: payload.id,
+      planId: payload.planId,
+      testSuiteId: payload.testSuiteId,
+      hasTestData: Array.isArray((payload as any).test_data),
+      testDataCount: Array.isArray((payload as any).test_data) ? (payload as any).test_data.length : 0,
+      testData: (payload as any).test_data,
+      hasCredentials: Boolean((payload as any).credentials),
+    })
 
       this.runSubscription = this.seleniumRunner
   .runSingleTestCase(payload)

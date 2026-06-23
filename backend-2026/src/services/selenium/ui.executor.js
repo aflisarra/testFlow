@@ -1,4 +1,4 @@
-const { By, until } = require('selenium-webdriver')
+const { By, until, Select } = require('selenium-webdriver')
 const axios = require('axios')
 
 const { captureStepScreenshot } = require('../../utils/screenshot')
@@ -19,10 +19,12 @@ async function runStructuredUiStep(driver, step, ctx, stepIndex) {
       await driver.get(url)
 
       // ✅ wait true DOM (Angular)
-     await driver.wait(async () => {
-  const inputs = await driver.findElements(By.css('input, textarea, select'))
-  return inputs.length > 0
-}, 10000)
+      await driver.wait(async () => {
+        const inputs = await driver.findElements(
+          By.css('input, button, a, textarea, select, [role="button"], [role="link"]')
+        )
+        return inputs.length > 0
+      }, 10000)
 
       await driver.sleep(1500)
 
@@ -117,11 +119,20 @@ async function runStructuredUiStep(driver, step, ctx, stepIndex) {
           ctx.testCase?.test_data ||
           ctx.testCase?.testData ||
           ctx.testCase?.data ||
+          ctx.testCase?.credentials ||
           [],
+        credentials: ctx.testCase?.credentials || null,
         executionModel: ctx.testCase?.executionModel || null,
         current_step_index: stepIndex,
         current_step: step
       }
+
+      console.log('[ui.executor] ai payload', {
+        id: structuredTestCase.id,
+        hasTestData: Array.isArray(structuredTestCase.test_data),
+        testDataCount: Array.isArray(structuredTestCase.test_data) ? structuredTestCase.test_data.length : 0,
+        hasCredentials: Boolean(structuredTestCase.credentials),
+      })
 
       resp = await axios.post(
         "http://localhost:8000/ai/decide",
@@ -156,7 +167,15 @@ async function runStructuredUiStep(driver, step, ctx, stepIndex) {
     const testDataValues = Array.isArray(rawTestData)
       ? rawTestData
           .map((item) => {
-            if (typeof item === 'string') return item.trim()
+            if (typeof item === 'string') {
+              // Support a single string carrying multiple credentials on
+              // separate lines, e.g. "Admin\nadmin123".
+              return item
+                .replace(/\r/g, '\n')
+                .split('\n')
+                .map((part) => part.trim())
+                .filter(Boolean)
+            }
             if (item && typeof item === 'object') {
               return String(
                 item.value ||
@@ -170,10 +189,18 @@ async function runStructuredUiStep(driver, step, ctx, stepIndex) {
             }
             return String(item || '').trim()
           })
+          .flat()
           .filter(Boolean)
       : rawTestData && typeof rawTestData === 'object'
         ? Object.values(rawTestData)
-            .map((item) => String(item || '').trim())
+            .map((item) =>
+              String(item || '')
+                .replace(/\r/g, '\n')
+                .split('\n')
+                .map((part) => part.trim())
+                .filter(Boolean)
+            )
+            .flat()
             .filter(Boolean)
         : []
 
@@ -206,6 +233,8 @@ async function runStructuredUiStep(driver, step, ctx, stepIndex) {
     addLog(ctx.logs, stepIndex, "INFO", "AI actions received", { actions })
 
     const screenshots = []
+    const indexedElementsSelector = 'input, button, a, textarea, select, [role="button"], [role="link"]'
+    const indexedElements = await driver.findElements(By.css(indexedElementsSelector))
     const editableElements = await driver.findElements(By.css('input, textarea, select'))
     const highlightedSelectors = new Set()
     const executedActionKeys = new Set()
@@ -239,8 +268,10 @@ async function runStructuredUiStep(driver, step, ctx, stepIndex) {
 
       if (normalized.startsWith("__index:")) {
         const rawIndex = Number(normalized.slice("__index:".length))
-        if (Number.isInteger(rawIndex) && rawIndex >= 0 && rawIndex < editableElements.length) {
-          return editableElements[rawIndex]
+        if (Number.isInteger(rawIndex) && rawIndex >= 0 && rawIndex < indexedElements.length) {
+          // Keep the index mapping identical to DOM capture so AI and executor
+          // resolve the exact same element for "__index:N".
+          return indexedElements[rawIndex]
         }
         return null
       }
@@ -371,6 +402,7 @@ async function runStructuredUiStep(driver, step, ctx, stepIndex) {
 
         if (action === "type") {
           const inputType = String(await el.getAttribute('type').catch(() => '') || '').toLowerCase().trim()
+          const tagName = String(await el.getTagName().catch(() => '') || '').toLowerCase().trim()
           const currentValue = normalizeValue(await el.getAttribute('value').catch(() => ''))
           const alreadyFilled = currentValue.length > 0
           const visible = await isVisibleElement(el)
@@ -421,6 +453,23 @@ async function runStructuredUiStep(driver, step, ctx, stepIndex) {
           }
           if (!value && inputType !== "file") {
             value = ""
+          }
+
+          if (tagName === "select") {
+            // Selects must be handled by Selenium Select instead of typing,
+            // otherwise option selection becomes fragile and browser-specific.
+            const select = new Select(el)
+            try {
+              select.selectByVisibleText(value)
+            } catch (_) {
+              try {
+                select.selectByValue(value)
+              } catch (selectErr) {
+                throw new Error(`Unable to select option "${value}" for ${selector}: ${selectErr.message}`)
+              }
+            }
+            await sleep(500)
+            continue
           }
 
           if (alreadyFilled && currentValue === normalizeValue(value)) {

@@ -1,6 +1,7 @@
 const testPlanService = require('../services/testplan.service')
 const TestSuite = require('../models/testsuite')
 const TestPlan = require('../models/testplan.model')
+const TestCase = require('../models/testcase.model')
 exports.create = async (req, res) => {
   try {
     const plan = await testPlanService.createTestPlan(req.body)
@@ -158,7 +159,8 @@ console.log("TYPE:", typeof testPlans)
 
       await suite.save()
 
-      // ✅ IMPORTANT : supprimer anciens plans
+      // ✅ IMPORTANT : supprimer anciens plans et cases liés
+      await TestCase.deleteMany({ testSuiteId: suite._id })
       await TestPlan.deleteMany({ testSuiteId: suite._id })
 
     } else {

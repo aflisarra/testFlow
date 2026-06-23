@@ -42,15 +42,25 @@ export class TestEditModalComponent {
     return String(value)
   }
 
-  set testDataText(value: string) {
-    const lines = String(value || '')
+  private parseTestDataLines(value: string): string[] {
+    return String(value || '')
       .split(/\r?\n/)
       .map((s) => s.trim())
       .filter(Boolean)
+  }
 
+  set testDataText(value: string) {
+    const lines = this.parseTestDataLines(value)
+    console.log('[TestEditModal] parsed test_data lines', {
+      raw: value,
+      lines,
+      count: lines.length,
+    })
     this.testCase = {
       ...this.testCase,
-      test_data: lines.join('\n'),
+      // Keep each credential/value as a separate array entry so the
+      // backend and AI fallback can consume them in order.
+      test_data: lines,
     }
   }
 
@@ -64,8 +74,14 @@ export class TestEditModalComponent {
       title: String(this.testCase?.title || '').trim(),
       expected_result: String(this.testCase?.expected_result || '').trim(),
       steps: Array.isArray(this.testCase?.steps) ? this.testCase.steps : [],
-      test_data: this.testCase?.test_data ?? null,
+      test_data: Array.isArray(this.testCase?.test_data)
+        ? this.testCase.test_data
+        : this.parseTestDataLines(this.testDataText),
     }
+    console.log('[TestEditModal] saving test case', {
+      id: updated?.id,
+      test_data: updated?.test_data,
+    })
     this.activeModal.close(updated)
   }
 }
