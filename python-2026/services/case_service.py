@@ -184,6 +184,50 @@ def _mock_cases(plan_id: str) -> List[Dict[str, Any]]:
     ][:DEFAULT_TEST_CASES_MAX]
 
 
+def _normalize_step_details(steps: List[str], step_details: Any, fallback_expected: str = "") -> List[Dict[str, Any]]:
+    normalized: List[Dict[str, Any]] = []
+    raw_details = step_details if isinstance(step_details, list) else []
+
+    if raw_details:
+        for idx, step in enumerate(steps, start=0):
+            detail = raw_details[idx] if idx < len(raw_details) and isinstance(raw_details[idx], dict) else {}
+            normalized.append(
+                {
+                    "step": str(detail.get("step") or step or f"Step {idx + 1}").strip(),
+                    "expected_result": str(
+                        detail.get("expected_result")
+                        or detail.get("expectedResult")
+                        or detail.get("expected")
+                        or fallback_expected
+                        or ""
+                    ).strip(),
+                }
+            )
+        return normalized
+
+    for idx, step in enumerate(steps, start=1):
+        normalized.append(
+            {
+                "step": str(step or f"Step {idx}").strip(),
+                "expected_result": str(fallback_expected or "").strip(),
+            }
+        )
+    return normalized
+
+
+def _ensure_step_details_expected(step_details: List[Dict[str, Any]]) -> None:
+    missing = [
+        idx + 1
+        for idx, detail in enumerate(step_details)
+        if not str(detail.get("expected_result") or "").strip()
+    ]
+    if missing:
+        raise ValueError(
+            "AI must provide a non-empty expected_result for every stepDetails item. "
+            f"Missing at steps: {missing}"
+        )
+
+
 def generate_test_cases(
     *,
     plan_id: str,
@@ -232,6 +276,13 @@ def generate_test_cases(
         steps = item.get("steps") or []
         if isinstance(steps, str):
             steps = [steps]
+        clean_steps = [str(s).strip() for s in steps if str(s).strip()]
+        step_details = _normalize_step_details(
+            clean_steps,
+            item.get("stepDetails", item.get("step_details", [])),
+            str(item.get("expected_result") or "").strip(),
+        )
+        _ensure_step_details_expected(step_details)
         normalized.append(
             {
                 "id": str(item.get("id") or f"{prefix}.{i}").strip() or f"{prefix}.{i}",
@@ -239,7 +290,8 @@ def generate_test_cases(
                 "objective": str(item.get("objective") or f"Verify {item.get('title') or f'Test Case {i}'}").strip(),
                 "preconditions": _string_list(item.get("preconditions")),
                 "test_data": item.get("test_data", item.get("testData", None)),
-                "steps": [str(s).strip() for s in steps if str(s).strip()],
+                "steps": clean_steps,
+                "stepDetails": step_details,
                 "expected_result": str(item.get("expected_result") or "").strip(),
                 "priority": _normalize_priority(str(item.get("priority") or "Medium")),
                 "severity": _normalize_severity(str(item.get("severity") or "Major")),

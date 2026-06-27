@@ -21,6 +21,20 @@ const requirementSchema = new mongoose.Schema(
   { _id: false }
 )
 
+const stepDetailSchema = new mongoose.Schema(
+  {
+    step: { type: String, default: '', trim: true },
+    expected_result: { type: String, default: '', trim: true },
+    actual_result: { type: String, default: '', trim: true },
+    status: {
+      type: String,
+      enum: ['pending', 'passed', 'failed_execution', 'failed_assertion', 'skipped'],
+      default: 'pending',
+    },
+  },
+  { _id: false }
+)
+
 const createdBySchema = new mongoose.Schema(
   {
     userId: {
@@ -98,6 +112,10 @@ test_data: {
       },
     },
     steps: { type: [String], default: [] },
+    stepDetails: {
+      type: [stepDetailSchema],
+      default: [],
+    },
     expected_result: { type: String, default: '', trim: true },
     executionModel: { type: mongoose.Schema.Types.Mixed, default: null },
 

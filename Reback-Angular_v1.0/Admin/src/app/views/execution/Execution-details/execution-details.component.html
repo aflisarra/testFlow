@@ -15,10 +15,16 @@
           <ng-container *ngIf="execution.planTitle">
             &nbsp;·&nbsp;{{ execution.planTitle }}
           </ng-container>
+          <ng-container *ngIf="execution.executedByName">
+            &nbsp;·&nbsp;{{ execution.executedByName }}
+          </ng-container>
           <ng-container *ngIf="execution.environment">
             &nbsp;·&nbsp;{{ execution.environment }}
           </ng-container>
         </span>
+        <div class="modal-meta small text-muted mt-1" *ngIf="executedByLabel">
+          Executed by: <strong>{{ executedByLabel }}</strong>
+        </div>
       </div>
       <button class="modal-close" (click)="onClose()" aria-label="Close">✕</button>
     </div>

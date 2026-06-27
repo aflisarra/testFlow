@@ -104,7 +104,7 @@ async function generateTestCases(req, res) {
     if (status === 409) {
       return res.status(409).json({ message: messageFromError(error, 'Generation cancelled by user.') })
     }
-
+console.log('🔥 RAW stepDetails from Python:', tc.stepDetails)
     const testSuiteId = String(req.body?.testSuiteId || '').trim()
     if (testSuiteId) {
       const TestSuite = require('../models/testsuite')

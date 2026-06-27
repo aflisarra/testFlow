@@ -107,6 +107,7 @@
                   </tr>
                 </thead>
                 <tbody>
+                  <!-- /pagination -->
                   @if (vm.paginatedSuites.length === 0) {
                     <tr>
                       <td colspan="5" class="tv-empty-row">
@@ -124,6 +125,7 @@
                       (keydown.enter)="vm.onSuiteRowClick(suite)"
                       (click)="vm.onSuiteRowClick(suite)"
                     >
+                    <!-- /Creator -->
                       <td>
                         <div class="tv-user-cell">
                           <div class="tv-avatar">{{ vm.getUserInitials(suite.creatorName) }}</div>
@@ -131,18 +133,21 @@
                         </div>
                       </td>
                       <td>
+                        <!-- /Name Suite -->
                         <span class="tv-suite-name">{{ vm.getSuiteDisplayName(suite) }}</span>
                       </td>
+                      <!-- /Date -->
                       <td class="tv-date-cell">
                         {{ suite.createdAt ? (suite.createdAt | date: 'dd MMM yyyy') : '—' }}
                       </td>
                       <td>
+                        <!-- /Status -->
                         <span class="tv-status-badge" [ngClass]="vm.getBadgeClass(suite)">
                           <span class="tv-status-dot"></span>
                           {{ vm.getSuiteStatusLabel(suite) }}
                         </span>
                       </td>
-
+                        <!-- /modale -->
                       <td class="text-end" (click)="$event.stopPropagation()">
                         <div class="tv-actions-menu-wrap">
                           <button
@@ -378,32 +383,44 @@
 
                   <div class="tv-details-grid">
                     <div class="tv-details-card">
-                      <div class="tv-details-card__title">Project members</div>
-                      <div class="tv-details-members">
-                        @if (vm.detailsModalProjectMembers.length) {
-                          @for (member of vm.detailsModalProjectMembers; track vm.getMemberId(member)) {
-                            <div class="tv-details-member">
-                              @if (vm.getMemberPicture(member)) {
-                                <img
-                                  class="tv-member-avatar"
-                                  [src]="vm.getMemberPicture(member)"
-                                  [alt]="vm.getMemberDisplayName(member)"
-                                  (error)="vm.onAvatarError($event)"
-                                />
-                              } @else {
-                                <div class="tv-member-avatar tv-member-avatar--fallback">
-                                  {{ vm.getUserInitials(vm.getMemberDisplayName(member)) }}
-                                </div>
-                              }
-                              <div class="tv-details-member__name">{{ vm.getMemberDisplayName(member) }}</div>
-                              
-                            </div>
-                          }
-                        } @else {
-                          <div class="tv-empty-small">No members assigned to this project.</div>
-                        }
-                      </div>
-                    </div>
+  <div class="tv-details-card__title">Project members</div>
+
+  @if (vm.detailsModalProjectMembers.length) {
+    <div class="tv-stacked-avatars">
+      @for (member of vm.detailsModalProjectMembers.slice(0, 4); track vm.getMemberId(member)) {
+        <div class="tv-stack-avatar" [title]="vm.getMemberDisplayName(member)">
+          @if (vm.getMemberPicture(member)) {
+            <img
+              [src]="vm.getMemberPicture(member)"
+              [alt]="vm.getMemberDisplayName(member)"
+              (error)="vm.onAvatarError($event)"
+            />
+          } @else {
+            {{ vm.getUserInitials(vm.getMemberDisplayName(member)) }}
+          }
+        </div>
+      }
+
+      @if (vm.detailsModalProjectMembers.length > 4) {
+        <div class="tv-stack-avatar tv-stack-avatar--more">
+          +{{ vm.detailsModalProjectMembers.length - 4 }}
+        </div>
+      }
+    </div>
+
+    <!-- Noms en dessous -->
+    <div class="tv-members-names">
+      @for (member of vm.detailsModalProjectMembers; track vm.getMemberId(member)) {
+        <span class="tv-member-chip">
+          {{ vm.getMemberDisplayName(member) }}
+        </span>
+      }
+    </div>
+
+  } @else {
+    <div class="tv-empty-small">No members assigned to this project.</div>
+  }
+</div>
 
                     <div class="tv-details-card">
                       <div class="tv-details-card__title">Suite dates</div>
@@ -480,7 +497,7 @@
               <!-- Run button -->
               <button
                 type="button"
-                style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border:none; border-radius:6px; background:#22c55e; color:#fff; font-size:11px; font-weight:600; cursor:pointer; transition:opacity .15s;"
+                style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border:none; border-radius:6px; background:#f89f1e; color:#fff; font-size:11px; font-weight:600; cursor:pointer; transition:opacity .15s;"
                 onmouseenter="this.style.opacity='.85'" onmouseleave="this.style.opacity='1'"
                 (click)="vm.onRunTestCaseFromModal(vm.detailsModalSelectedPlanId || '', testCase)"
                 title="Run this test case"
@@ -513,7 +530,7 @@
               @if (testCase.steps?.length) {
                 @for (step of testCase.steps; track $index) {
                   <div style="display:flex; align-items:flex-start; gap:10px; padding:5px 0;">
-                    <span style="min-width:20px; height:20px; border-radius:50%; background:#3b82f6; color:#fff; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;">{{ $index + 1 }}</span>
+                    <span style="min-width:20px; height:20px; border-radius:50%; background:#0244ad; color:#fff; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;">{{ $index + 1 }}</span>
                     <span style="font-size:12px; color:#334155; line-height:1.5;">{{ step }}</span>
                   </div>
                 }

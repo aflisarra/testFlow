@@ -15,6 +15,10 @@ async function createDriver() {
     '--no-sandbox'
   )
 
+  // Keep navigation from blocking the whole execution when the target page
+  // is slow to finish rendering. We still verify the DOM manually after load.
+  options.setPageLoadStrategy('eager')
+
   const driver = await new Builder()
     .forBrowser('chrome')
     .setChromeOptions(options)
@@ -22,7 +26,7 @@ async function createDriver() {
 
   await driver.manage().setTimeouts({
     implicit: 10000,
-    pageLoad: 60000,
+    pageLoad: 120000,
     script: 60000
   })
 

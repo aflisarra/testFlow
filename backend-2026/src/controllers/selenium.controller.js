@@ -1,9 +1,77 @@
 const mongoose = require('mongoose')
 const TestExecution = require('../models/TestExecution.model')
+const User = require('../models/user.model')
 const { runTestCase } = require('../services/selenium/selenium.service')
 
 // ✅ AJOUT
 const testCaseService = require('../services/testcase.service')
+
+function normalizeUserPreview(user) {
+  if (!user) return null
+  const source = user?.user && typeof user.user === 'object' ? user.user : user
+  const name = String(source?.name || source?.nom || source?.username || source?.firstName || '').trim()
+  const picture = String(source?.picture || source?.avatar || '').trim()
+  const userId = String(source?.userId || source?.id || source?._id || source?.sub || '').trim()
+
+  if (!name && !picture && !userId) return null
+  return { userId: userId || null, name, picture }
+}
+
+function normalizeScreenshotEntry(screenshot) {
+  if (!screenshot) return null
+  if (typeof screenshot === 'string') {
+    const value = screenshot.trim()
+    if (!value) return null
+    return {
+      filename: '',
+      path: value,
+      publicUrl: value,
+      createdAt: '',
+    }
+  }
+  if (typeof screenshot === 'object') {
+    const path = String(screenshot.path || screenshot.publicUrl || screenshot.url || '').trim()
+    if (!path && !screenshot.filename) return null
+    return {
+      filename: String(screenshot.filename || '').trim(),
+      path,
+      publicUrl: String(screenshot.publicUrl || screenshot.url || path || '').trim(),
+      createdAt: String(screenshot.createdAt || '').trim(),
+    }
+  }
+  return null
+}
+
+function getActorName(actor) {
+  if (!actor) return ''
+  return String(
+    actor?.name ||
+    actor?.nom ||
+    actor?.username ||
+    actor?.fullName ||
+    ''
+  ).trim()
+}
+
+async function resolveActor(req) {
+  const fromToken = normalizeUserPreview(req.user)
+  if (fromToken?.name || fromToken?.picture) return fromToken
+
+  const userId = String(req.user?.userId || req.user?.id || req.user?._id || '').trim()
+  if (!userId) return fromToken
+
+  try {
+    const user = await User.findById(userId).select('name picture email').lean()
+    if (!user) return fromToken
+    return {
+      userId,
+      name: String(user.name || user.email || '').trim(),
+      picture: String(user.picture || '').trim(),
+    }
+  } catch {
+    return fromToken
+  }
+}
 
 async function runTestCaseHandler(req, res) {
 
@@ -24,6 +92,7 @@ async function runTestCaseHandler(req, res) {
     let result
 
     const startedAt = Date.now()
+    const executedBy = await resolveActor(req)
 
     // ✅ ✅ ✅ CAS 1 : EXECUTION PAR planId (CORRECT)
     if (body.planId) {
@@ -82,7 +151,12 @@ async function runTestCaseHandler(req, res) {
       startedAt: new Date(startedAt),
       finishedAt,
       logs: safeResult.logs || [],
-      stepResults: safeResult.stepResults || [],
+      stepsResults: safeResult.stepResults || [],
+    }
+
+    if (executedBy) {
+      executionData.executedBy = executedBy
+      executionData.createdBy = executedBy
     }
 
     if (testCase.id) {
@@ -227,12 +301,16 @@ async function getExecutions(req, res) {
       startedAt: row.startedAt,
       finishedAt: row.finishedAt,
       createdAt: row.createdAt,
-
+      executedBy: row.executedBy || row.createdBy || null,
       executedByName:
-        row.executedBy?.name ||
-        row.createdBy?.name ||
-        row.userName ||
-        'Unknown user'
+        getActorName(row.executedBy) ||
+        getActorName(row.createdBy) ||
+        String(row.userName || '').trim() ||
+        'Unknown user',
+
+         // ✅ AJOUTE CES DEUX LIGNES
+  executedBy: row.executedBy || row.createdBy || null,
+  executedByPicture: row.executedBy?.picture || row.createdBy?.picture || null,
     }))
 
     return res.json({
@@ -266,9 +344,25 @@ exports.getExecutionDetail = async (req, res) => {
       return res.status(404).json({ message: 'Execution not found' })
     }
 
-    const rawSteps = execution.stepResults || execution.stepsResults || []
+    const rawSteps = execution.stepsResults || execution.stepResults || []
+    const rawScreenshots = Array.isArray(execution.screenshots)
+      ? execution.screenshots.map(normalizeScreenshotEntry).filter(Boolean)
+      : []
 
-    const steps = rawSteps.map((step, index) => ({
+    const resolvedSteps = rawSteps.length
+      ? rawSteps
+      : rawScreenshots.map((shot, index) => ({
+          index: index + 1,
+          step: `Step ${index + 1}`,
+          status: 'passed',
+          screenshot: shot,
+          screenshotPath: shot.publicUrl || shot.path || '',
+          actualResult: '',
+          expectedResult: '',
+          error: '',
+        }))
+
+    const steps = resolvedSteps.map((step, index) => ({
       index: step.index || index + 1,
 
       name: step.step || `Step ${index + 1}`,
@@ -277,7 +371,9 @@ exports.getExecutionDetail = async (req, res) => {
 
       screenshotPath:
         step.screenshot?.publicUrl ||
+        (typeof step.screenshot === 'string' ? step.screenshot : null) ||
         step.screenshot?.path ||
+        (typeof step.screenshotPath === 'string' ? step.screenshotPath : null) ||
         null,
 
       screenshot: step.screenshot || null,
@@ -303,11 +399,19 @@ exports.getExecutionDetail = async (req, res) => {
       testCaseKey: execution.testCaseKey,
       testCaseTitle: execution.testCaseTitle,
       planTitle: execution.planTitle,
+      executedByName:
+        getActorName(execution.executedBy) ||
+        getActorName(execution.createdBy) ||
+        String(execution.userName || '').trim() ||
+        'Unknown user',
+      executedBy: execution.executedBy || execution.createdBy || null,
       status: execution.status,
       duration: execution.duration,
       startedAt: execution.startedAt,
       finishedAt: execution.finishedAt,
       steps,
+      stepResults: steps,
+      screenshots: rawScreenshots,
       logs
     })
 

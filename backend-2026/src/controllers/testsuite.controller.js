@@ -1,9 +1,44 @@
 const mongoose = require('mongoose')
 const TestExecution = require('../models/TestExecution.model')
+const User = require('../models/user.model')
 const testSuiteService = require('../services/testsuite.service')
 
 function getUserId(req) {
   return String(req.user?.userId || req.user?.id || req.user?._id || '').trim()
+}
+
+function normalizeActor(req) {
+  const source = req?.user || {}
+  const name = String(source?.name || source?.nom || source?.username || '').trim()
+  const picture = String(source?.picture || source?.avatar || '').trim()
+  const userId = getUserId(req)
+  if (!userId && !name && !picture) return null
+  return { userId: userId || null, name, picture }
+}
+
+function getActorName(actor) {
+  if (!actor) return ''
+  return String(actor?.name || actor?.nom || actor?.username || actor?.fullName || '').trim()
+}
+
+async function resolveActor(req) {
+  const direct = normalizeActor(req)
+  if (direct?.name || direct?.picture) return direct
+
+  const userId = getUserId(req)
+  if (!userId) return direct
+
+  try {
+    const user = await User.findById(userId).select('name picture email').lean()
+    if (!user) return direct
+    return {
+      userId,
+      name: String(user.name || user.email || '').trim(),
+      picture: String(user.picture || '').trim(),
+    }
+  } catch {
+    return direct
+  }
 }
 
 function handleError(res, error) {
@@ -151,8 +186,29 @@ exports.execute = async (req, res) => {
               try {
                 console.log('[EXECUTE] Running test case', tc._id || tc.id || tc.title)
                 const result = await runTestCase(tc)
+                const actor = await resolveActor(req)
                 // persist execution similar to selenium.controller.runTestCaseHandler
                 const executionId = `EX-${Date.now()}-${String(tc.id || tc._id || '').slice(-6)}`
+                const stepsResults = Array.isArray(result.stepResults)
+                  ? result.stepResults.map((step) => ({
+                      index: step.index || 0,
+                      step: String(step.step || step.name || ''),
+                      status:
+                        step.status === 'passed'
+                          ? 'passed'
+                          : step.status === 'failed_assertion'
+                            ? 'failed_assertion'
+                            : 'failed_execution',
+                      actualResult: String(step.actualResult || ''),
+                      expectedResult: String(step.expectedResult || ''),
+                      error: String(step.error || ''),
+                      screenshot: step.screenshot || null,
+                      screenshotPath:
+                        step.screenshot?.publicUrl ||
+                        step.screenshot?.path ||
+                        (typeof step.screenshot === 'string' ? step.screenshot : ''),
+                    }))
+                  : []
                 await TestExecution.create({
                   executionId,
                   testSuiteId: new mongoose.Types.ObjectId(suiteId),
@@ -163,6 +219,8 @@ exports.execute = async (req, res) => {
                   planTitle: String(tc.planTitle || ''),
                   testCaseTitle: String(tc.title || ''),
                   executionModel: tc.executionModel || null,
+                  executedBy: actor,
+                  createdBy: actor,
                   status:
   result.status === 'passed'
     ? 'passed'
@@ -174,18 +232,8 @@ exports.execute = async (req, res) => {
                   finishedAt: new Date(),
                   logs: Array.isArray(result.logs) ? result.logs : [],
                   screenshots: Array.isArray(result.screenshots) ? result.screenshots : [],
-                  stepsResults: Array.isArray(result.stepResults)
-                    ? result.stepResults.map((step) => ({
-                        step: String(step.name || step.id || ''),
-status:
-  step.status === 'passed'
-    ? 'passed'
-    : step.status === 'failed_assertion'
-      ? 'failed_assertion'
-      : 'failed_execution',                        error: step.status === 'failed' ? String(step.message || '') : '',
-                        screenshot: step.screenshotPath || null,
-                      }))
-                    : [],
+                  stepsResults,
+                  stepResults: stepsResults,
                 })
                 console.log('[EXECUTE] Test case saved:', executionId)
               } catch (tcErr) {
@@ -308,7 +356,13 @@ exports.getExecutions = async (req, res) => {
       status: row.status,
       duration: row.duration,
       startedAt: row.startedAt,
-      finishedAt: row.finishedAt
+      finishedAt: row.finishedAt,
+      executedBy: row.executedBy || row.createdBy || null,
+      executedByName:
+        getActorName(row.executedBy) ||
+        getActorName(row.createdBy) ||
+        String(row.userName || '').trim() ||
+        'Unknown user'
     }))
 
     return res.status(200).json({
@@ -345,6 +399,12 @@ exports.getRecentExecutions = async (req, res) => {
       finishedAt: row.finishedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      executedBy: row.executedBy || row.createdBy || null,
+      executedByName:
+        getActorName(row.executedBy) ||
+        getActorName(row.createdBy) ||
+        String(row.userName || '').trim() ||
+        'Unknown user',
     })))
   } catch (error) {
     return handleError(res, error)

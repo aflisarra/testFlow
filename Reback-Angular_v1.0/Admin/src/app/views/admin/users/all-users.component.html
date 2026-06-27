@@ -205,7 +205,7 @@
                   <div class="d-flex align-items-center">
                     <img [src]="resolveAvatarUrl(user.picture)" (error)="onAvatarError($event)" alt="avatar"
                       class="rounded-circle me-2 border" style="inline-size:32px;block-size:32px;object-fit:cover;" />
-                    <span class="fw-medium">{{ user.name }}</span>
+                    <span class="fw-medium">{{ getUserDisplayName(user) }}</span>
                   </div>
                 </td>
                 <td>{{ user.email }}</td>

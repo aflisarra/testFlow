@@ -16,15 +16,25 @@ async function runStructuredUiStep(driver, step, ctx, stepIndex) {
       const url = ctx.baseUrl
       console.log("🌍 OPEN:", url)
 
-      await driver.get(url)
+      try {
+        await driver.get(url)
+      } catch (err) {
+        // Some pages finish rendering after the browser's page-load event.
+        // We keep going and confirm readiness with an explicit DOM wait below.
+        console.warn("⚠️ driver.get timeout/renderer delay:", err.message)
+      }
 
       // ✅ wait true DOM (Angular)
       await driver.wait(async () => {
+        const ready = await driver.executeScript(() => document.readyState)
+        if (ready !== 'complete' && ready !== 'interactive') {
+          return false
+        }
         const inputs = await driver.findElements(
           By.css('input, button, a, textarea, select, [role="button"], [role="link"]')
         )
         return inputs.length > 0
-      }, 10000)
+      }, 30000)
 
       await driver.sleep(1500)
 

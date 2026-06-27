@@ -34,6 +34,24 @@ def _is_fill_step(step: str) -> bool:
     )
 
 
+def _is_click_step(step: str) -> bool:
+    step_lower = (step or "").strip().lower()
+    return any(
+        keyword in step_lower
+        for keyword in (
+            "click",
+            "submit",
+            "press",
+            "open",
+            "go",
+            "navigate",
+            "login",
+            "sign in",
+            "sign-in",
+        )
+    )
+
+
 def _flatten_test_data(value):
     items = []
     if value is None:
@@ -503,17 +521,6 @@ def decide(payload: AIDecisionPayload):
             logger.info("✅ Fill step detected → using fallback")
             fill_actions = _dom_to_fill_actions(dom, resolved_test_case)
             if fill_actions:
-                submit_action = _dom_submit_action(dom)
-                if submit_action and not any(
-                    isinstance(a, dict)
-                    and str(a.get("type") or "").lower() == "click"
-                    and any(
-                        token in str(a.get("selector") or "").lower()
-                        for token in ("submit", "save", "continue", "next", "register")
-                    )
-                    for a in fill_actions
-                ):
-                    fill_actions.append(submit_action)
                 return {"data": fill_actions}
 
         # ✅ ANTI WRONG CLICK
@@ -526,21 +533,17 @@ def decide(payload: AIDecisionPayload):
             )
 
             if only_clicks and has_inputs:
-                logger.warning("❌ AI tried click while inputs exist → override")
+                logger.warning("❌ AI tried click while inputs exist")
+                if _is_click_step(step):
+                    logger.info("✅ Click step detected → keep click semantics")
+                    submit_action = _dom_submit_action(dom)
+                    if submit_action:
+                        return {"data": [submit_action]}
+                    return extracted
 
+                logger.warning("⚠️ Non-click step with inputs → fallback to fill actions")
                 fill_actions = _dom_to_fill_actions(dom, resolved_test_case)
                 if fill_actions:
-                    submit_action = _dom_submit_action(dom)
-                    if submit_action and not any(
-                        isinstance(a, dict)
-                        and str(a.get("type") or "").lower() == "click"
-                        and any(
-                            token in str(a.get("selector") or "").lower()
-                            for token in ("submit", "save", "continue", "next", "register")
-                        )
-                        for a in fill_actions
-                    ):
-                        fill_actions.append(submit_action)
                     return {"data": fill_actions}
 
         # ✅ return AI if valid

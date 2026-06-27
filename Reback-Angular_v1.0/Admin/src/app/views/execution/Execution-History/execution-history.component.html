@@ -1,191 +1,280 @@
 <div class="execution-history">
 
-  <!-- FILTERS -->
-  <div class="filters-bar">
+  <!-- ─── Header ─────────────────────────────────────────────── -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Execution history</h1>
+      <p>Track and review all test run results across your projects</p>
+    </div>
+    <button class="btn-export">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Export CSV
+    </button>
+  </div>
 
-
-  <!-- ✅ DATE -->
-
-  <!-- DATE -->
-  <div class="filter-group">
-    <label class="filter-label">DATE RANGE</label>
-    <div class="filter-select-wrapper">
-      
-<select
-  [value]="filters.dateRange"
-  (change)="onFilterChange('dateRange', $event)"
->
-  <option value="">All Dates</option>
-  <option value="1day">Last 1 Day</option>
-  <option value="2days">Last 2 Days</option>
-  <option value="3days">Last 3 Days</option>
-  <option value="7days">Last 7 Days</option>
-  <option value="30days">Last 30 Days</option>
-</select>
-
+  <!-- ─── Metrics ────────────────────────────────────────────── -->
+  <div class="metrics-row">
+    <div class="metric-card">
+      <span class="metric-label">Total runs</span>
+      <span class="metric-value">{{ totalRuns }}</span>
+      <span class="metric-trend">All time</span>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">Passed</span>
+      <span class="metric-value m-pass">
+        {{ filteredRuns | statusCount:'passed' }}
+      </span>
+      <span class="metric-trend">This period</span>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">Failed</span>
+      <span class="metric-value m-fail">
+        {{ filteredRuns | statusCount:'failed' }}
+      </span>
+      <span class="metric-trend">This period</span>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">Pass rate</span>
+      <span class="metric-value m-warn">
+        {{ filteredRuns | passRate }}%
+      </span>
+      <span class="metric-trend">This period</span>
     </div>
   </div>
 
+  <!-- ─── Filters ────────────────────────────────────────────── -->
+  <div class="filters-bar">
 
+    <!-- Date range -->
+    <div class="filter-group">
+      <label class="filter-label">Date range</label>
+      <div class="filter-select-wrapper has-icon">
+        <span class="filter-icon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8"  y1="2" x2="8"  y2="6"/>
+            <line x1="3"  y1="10" x2="21" y2="10"/>
+          </svg>
+        </span>
+        <select [value]="filters.dateRange" (change)="onFilterChange('dateRange', $event)">
+          <option value="">All dates</option>
+          <option value="1day">Last 1 day</option>
+          <option value="2days">Last 2 days</option>
+          <option value="3days">Last 3 days</option>
+          <option value="7days">Last 7 days</option>
+          <option value="30days">Last 30 days</option>
+        </select>
+      </div>
+    </div>
 
-   
- <!-- ✅ STATUS -->
- 
-  <div class="filter-group">
-    <label class="filter-label">STATUS</label>
-    <select
-      [value]="filters.status"
-      (change)="onFilterChange('status', $event)"
-    >
-      <option value="">All</option>
-      <option value="passed">Passed</option>
-      <option value="failed_execution">Failed Execution</option>
-      <option value="failed_assertion">Failed Assertion</option>
-      <option value="failed">Failed</option>
-      <option value="aborted">Aborted</option>
-      <option value="running">Running</option>
-    </select>
-  </div>
+    <!-- Status -->
+    <div class="filter-group">
+      <label class="filter-label">Status</label>
+      <div class="filter-select-wrapper">
+        <select [value]="filters.status" (change)="onFilterChange('status', $event)">
+          <option value="">All statuses</option>
+          <option value="passed">Passed</option>
+          <option value="failed_execution">Failed execution</option>
+          <option value="failed_assertion">Failed assertion</option>
+          <option value="failed">Failed</option>
+          <option value="aborted">Aborted</option>
+          <option value="running">Running</option>
+        </select>
+      </div>
+    </div>
 
+    <!-- Project -->
+    <div class="filter-group">
+      <label class="filter-label">Project</label>
+      <div class="filter-select-wrapper">
+        <select [value]="filters.project" (change)="onFilterChange('project', $event)">
+          <option value="">All projects</option>
+          @for (p of projects; track p._id) {
+            <option [value]="p._id">{{ p.title }}</option>
+          }
+        </select>
+      </div>
+    </div>
 
-
-
-
-
-  <!-- ✅ PROJECT -->
-
-  <div class="filter-group">
-    <label class="filter-label">PROJECT</label>
-    <select
-      [value]="filters.project"
-      (change)="onFilterChange('project', $event)"
-    >
-      <option value="">All Projects</option>
-
-      @for (p of projects; track p._id) {
-        <option [value]="p._id">{{ p.title }}</option>
-      }
-    </select>
-  </div>
-
-
-
-    <!-- ✅ SUITE -->
-
-  <!-- ✅ SUITE -->
-
-  <div class="filter-group">
-    <label class="filter-label">SUITE</label>
-    <select
-      [value]="filters.suite"
-      [disabled]="!filters.project"
-      (change)="onFilterChange('suite', $event)"
-    >
-      <option value="">All Suites</option>
-
-      @for (s of suites; track s._id) {
-        <option [value]="s._id">
-          {{ s.nom || s.nametest }}
-        </option>
-      }
-    </select>
-  </div>
-
-
-
- 
-  <!-- ✅ TEST PLAN -->
-
-  <!-- TEST PLAN -->
-  <div class="filter-group">
-    <label class="filter-label">TEST PLAN</label>
-    <select
-      [value]="filters.testPlan"
-      [disabled]="!filters.suite"
-      (change)="onFilterChange('testPlan', $event)"
-    >
-      <option value="">All Plans</option>
-
-      @for (plan of plans; track plan._id) {
-        <option [value]="plan._id">{{ plan.title }}</option>
-      }
-    </select>
-  </div>
-
-  <!-- APPLY -->
-  <button class="btn-apply" (click)="applyFilters()">
-    Apply Filters
-  </button>
-
-</div>
-
-<div class="table-wrapper">
-  <table class="exec-table">
-
-    <thead>
-      <tr>
-        <th>Test Case</th>
-        <th>Executed By</th>
-        <th>Status</th>
-        <th>Execution Date</th>
-        <th>Duration</th>
-      </tr>
-    </thead>
-
-    <tbody>
-
-      @for (run of filteredRuns; track run.id) {
-
-        <tr
-          (click)="openExecution(run)"
-          style="cursor:pointer"
+    <!-- Suite -->
+    <div class="filter-group">
+      <label class="filter-label">Suite</label>
+      <div class="filter-select-wrapper">
+        <select
+          [value]="filters.suite"
+          [disabled]="!filters.project"
+          (change)="onFilterChange('suite', $event)"
         >
+          <option value="">All suites</option>
+          @for (s of suites; track s._id) {
+            <option [value]="s._id">{{ s.nom || s.nametest }}</option>
+          }
+        </select>
+      </div>
+    </div>
 
-          <td>
-            <b>{{ run.testCaseName }}</b>
-            <br />
-            <small>{{ run.id }}</small>
-          </td>
+    <!-- Test plan -->
+    <div class="filter-group">
+      <label class="filter-label">Test plan</label>
+      <div class="filter-select-wrapper">
+        <select
+          [value]="filters.testPlan"
+          [disabled]="!filters.suite"
+          (change)="onFilterChange('testPlan', $event)"
+        >
+          <option value="">All plans</option>
+          @for (plan of plans; track plan._id) {
+            <option [value]="plan._id">{{ plan.title }}</option>
+          }
+        </select>
+      </div>
+    </div>
 
-          <td>
-            {{ run.executedBy }}
-          </td>
+    <button class="btn-apply" (click)="applyFilters()">Apply filters</button>
 
-          <td>
-            <span class="status-badge status-{{ run.status }}">
-              {{ run.status }}
-            </span>
-          </td>
+  </div>
 
-          <td>
-            {{ run.executionDate }}
-            <br />
-            <small>{{ run.executionTime }}</small>
-          </td>
-
-          <td>
-            {{ run.duration }}
-          </td>
-
-        </tr>
-
-      } @empty {
-
+  <!-- ─── Table ───────────────────────────────────────────────── -->
+  <div class="table-wrapper">
+    <table class="exec-table">
+      <colgroup>
+        <col /><col /><col /><col /><col /><col />
+      </colgroup>
+      <thead>
         <tr>
-          <td colspan="5" style="text-align:center;">
-            No executions found
-          </td>
+          <th>Test case</th>
+          <th>Executed by</th>
+          <th>Status</th>
+          <th>Execution date</th>
+          <th>Duration</th>
+          <th></th>
         </tr>
+      </thead>
 
-      }
+      <tbody>
+        @for (run of filteredRuns; track run.id) {
+          <tr
+            class="row-{{ run.status }}"
+            (click)="openExecution(run)"
+          >
+            <!-- Test case -->
+            <td>
+              <span class="test-name">{{ run.testCaseName }}</span>
+              <span class="test-id">{{ run.id }}</span>
+            </td>
 
-    </tbody>
+            <!-- Executed by -->
+<td>
+  <div class="exec-user">
+    @if (run.executedByPicture) {
+      <img
+        class="user-avatar user-avatar--photo"
+        [src]="run.executedByPicture"
+        [alt]="run.executedBy"
+        (error)="onAvatarError($event)"
+      />
+    } @else {
+      <div class="user-avatar">{{ run.executedBy | userInitials }}</div>
+    }
+    <span class="user-name">{{ run.executedBy }}</span>
+  </div>
+</td>
 
-  </table>
+            <!-- Status -->
+            <td>
+              <span class="status-badge status-{{ run.status }}">
+                <span class="status-dot"></span>
+                {{ run.status | statusLabel }}
+              </span>
+            </td>
+
+            <!-- Date -->
+            <td>
+              <div class="time-cell">
+                <span class="time-date">{{ run.executionDate }}</span>
+                <span class="time-hour">{{ run.executionTime }}</span>
+              </div>
+            </td>
+
+            <!-- Duration -->
+            <td>
+              <span class="duration-cell">{{ run.duration }}</span>
+            </td>
+
+            <!-- Action -->
+            <td>
+              <!--<button class="btn-view" (click)="$event.stopPropagation(); openExecution(run)">
+                View
+              </button>-->
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="6">
+              <div class="empty-state">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <p>No executions found for the selected filters</p>
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    <!-- Footer -->
+    <div class="table-footer">
+      <span class="showing-label">
+        Showing {{ (currentPage - 1) * pageSize + 1 }}–{{ [currentPage * pageSize, totalRuns] | min }} of {{ totalRuns }}
+      </span>
+
+      <div class="pagination">
+        <!-- Prev -->
+        <button class="page-btn"
+          [disabled]="currentPage === 1"
+          (click)="changePage(currentPage - 1)">
+          ‹
+        </button>
+
+        <!-- Pages -->
+        @for (p of pageNumbers; track p) {
+          @if (p === '…') {
+            <span class="page-ellipsis">…</span>
+          } @else {
+            <button
+              class="page-btn"
+              [class.page-active]="p === currentPage"
+              (click)="changePage(+p)">
+              {{ p }}
+            </button>
+          }
+        }
+
+        <!-- Next -->
+        <button class="page-btn"
+          [disabled]="currentPage * pageSize >= totalRuns"
+          (click)="changePage(currentPage + 1)">
+          ›
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Detail Modal ─────────────────────────────────────────── -->
+  <app-execution-details
+    [execution]="selectedExecution"
+    [visible]="isModalOpen"
+    (closed)="isModalOpen = false"
+  ></app-execution-details>
+
 </div>
-
-<app-execution-details
-  [execution]="selectedExecution"
-  [visible]="isModalOpen"
-  (closed)="isModalOpen = false"
-></app-execution-details>

@@ -75,6 +75,45 @@ function normalizeTestCaseMetadata(data = {}, { includeDefaults = false } = {}) 
   return payload
 }
 
+/*function normalizeStepDetails(value, fallbackSteps = []) {
+  const source = Array.isArray(value) ? value : []
+  return source
+    .map((item, index) => {
+      if (typeof item === 'string') {
+        const step = normalizeString(item)
+        if (!step) return null
+        return {
+          step,
+          expected_result: '',
+          actual_result: '',
+          status: 'pending',
+        }
+      }
+
+      if (item && typeof item === 'object') {
+        const step = normalizeString(item.step || item.raw || item.text || item.name)
+        if (!step) return null
+        return {
+          step,
+          expected_result: normalizeString(item.expected_result || item.expectedResult || item.expected || ''),
+          actual_result: normalizeString(item.actual_result || item.actualResult || ''),
+          status: String(item.status || 'pending'),
+        }
+      }
+
+      const fallback = normalizeString(fallbackSteps[index] || '')
+      return fallback
+        ? {
+            step: fallback,
+            expected_result: '',
+            actual_result: '',
+            status: 'pending',
+          }
+        : null
+    })
+    .filter(Boolean)
+}*/
+
 /**
  * Create test case
  */
@@ -92,6 +131,8 @@ async function createTestCase(data) {
     executionModel,
     execution_model,
     createdBy,
+    stepDetails,
+    step_details,
   } = data
 
   let resolvedPlanId = planId || testPlanId
@@ -135,6 +176,7 @@ async function createTestCase(data) {
   const normalizedTestData = normalizeAutomationTestData(
     normalizeTestData(data.test_data)
   )
+  const normalizedStepDetails = normalizeStepDetails(stepDetails || step_details, steps)
 
   console.log('[TestCase:create] normalized test_data', {
     requestedTestSuiteId: String(resolvedTestSuiteId),
@@ -159,6 +201,7 @@ async function createTestCase(data) {
     requirements: normalizeRequirements(data.requirements || []),
 
     steps: normalizeStringList(steps),
+    stepDetails: normalizedStepDetails,
     expected_result: normalizeString(expected_result || expectedResult),
     executionModel: executionModel || execution_model || null,
     createdBy: createdBy || null,
@@ -218,6 +261,9 @@ async function updateTestCase(testCaseId, data) {
 
   if (hasOwn(data, 'title')) update.title = normalizeString(data.title)
   if (hasOwn(data, 'steps')) update.steps = normalizeStringList(data.steps)
+  if (hasOwn(data, 'stepDetails') || hasOwn(data, 'step_details')) {
+    update.stepDetails = normalizeStepDetails(data.stepDetails || data.step_details, data.steps || [])
+  }
   if (hasOwn(data, 'expected_result') || hasOwn(data, 'expectedResult')) {
     update.expected_result = normalizeString(data.expected_result || data.expectedResult)
   }
@@ -238,6 +284,13 @@ async function updateTestCase(testCaseId, data) {
       testCaseId,
       test_data: update.test_data,
       count: Array.isArray(update.test_data) ? update.test_data.length : 0,
+    })
+  }
+
+  if (hasOwn(update, 'stepDetails')) {
+    console.log('[TestCase:update] normalized stepDetails', {
+      testCaseId,
+      count: Array.isArray(update.stepDetails) ? update.stepDetails.length : 0,
     })
   }
 
@@ -344,6 +397,7 @@ async function getTestCasesForSelenium(testSuiteId) {
     objective: tc.objective || '',
     preconditions: tc.preconditions || [],
     test_data: normalizeAutomationTestData(tc.test_data || []),
+    stepDetails: Array.isArray(tc.stepDetails) ? tc.stepDetails : [],
     priority: tc.priority || 'medium',
     severity: tc.severity || 'major',
     type: tc.type || 'functional',

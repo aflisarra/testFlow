@@ -298,15 +298,24 @@
   <div class="tc-case-steps">
     <span class="tc-case-label">Steps</span>
     <ol class="tc-case-step-list">
-      @for (step of tc.steps; track $index) { <li>{{ step }}</li> }
+      @for (step of tc.steps; track $index) {
+  <li class="tc-case-step-item">
+    <div class="tc-step-action">
+      <span class="tc-step-num">{{ $index + 1 }}</span>
+      <span class="tc-step-text">{{ step }}</span>
+    </div>
+    @if (getStepExpectedResult(tc, $index)) {
+      <div class="tc-step-expected">
+        <span class="tc-step-expected-label">
+          <iconify-icon icon="iconamoon:check-circle-1-duotone"></iconify-icon>
+          Expected
+        </span>
+        <span class="tc-step-expected-text">{{ getStepExpectedResult(tc, $index) }}</span>
+      </div>
+    }
+  </li>
+}
     </ol>
-  </div>
-  }
-
-  @if (tc.expected_result) {
-  <div class="tc-case-expected">
-    <span class="tc-case-label text-success">Expected Result</span>
-    <p class="mb-0 small">{{ tc.expected_result }}</p>
   </div>
   }
 
@@ -411,14 +420,36 @@
         (input)="onEditCaseSteps(tc.id, ($any($event.target).value || ''))"
         placeholder="One step per line"
       ></textarea>
+      @if (tc.steps?.length) {
+      <div class="tc-case-step-edit-list">
+        @for (step of tc.steps; track $index) {
+        <div class="tc-case-step-edit-item">
+          <div class="tc-case-step-edit-title">
+            <span class="tc-case-step-index">{{ $index + 1 }}</span>
+            <span class="tc-case-step-text">{{ step }}</span>
+          </div>
+          <div class="tc-case-expected mt-2">
+            <span class="tc-case-label text-success">Expected Result</span>
+            <textarea
+              class="tc-case-textarea"
+              rows="2"
+              [value]="tc.stepDetails?.[$index]?.expected_result || tc.expected_result || ''"
+              (input)="onEditCaseStepExpected(tc.id, $index, ($any($event.target).value || ''))"
+              placeholder="Expected result for this step"
+            ></textarea>
+          </div>
+        </div>
+        }
+      </div>
+      }
     </div>
     <div class="tc-case-expected">
-      <span class="tc-case-label text-success">Expected Result</span>
+      <span class="tc-case-label text-success">Global Expected Result</span>
       <textarea
         class="tc-case-textarea" rows="3"
         [value]="tc.expected_result"
         (input)="onEditCaseExpected(tc.id, ($any($event.target).value || ''))"
-        placeholder="Expected result"
+        placeholder="Fallback expected result"
       ></textarea>
     </div>
     <div class="tc-case-meta">
@@ -448,15 +479,24 @@
     <div class="tc-case-steps">
       <span class="tc-case-label">Steps</span>
       <ol class="tc-case-step-list">
-        @for (step of tc.steps; track $index) { <li>{{ step }}</li> }
-      </ol>
+        @for (step of tc.steps; track $index) {
+  <li class="tc-case-step-item">
+    <div class="tc-step-action">
+      <span class="tc-step-num">{{ $index + 1 }}</span>
+      <span class="tc-step-text">{{ step }}</span>
     </div>
+    @if (getStepExpectedResult(tc, $index)) {
+      <div class="tc-step-expected">
+        <span class="tc-step-expected-label">
+          <iconify-icon icon="iconamoon:check-circle-1-duotone"></iconify-icon>
+          Expected
+        </span>
+        <span class="tc-step-expected-text">{{ getStepExpectedResult(tc, $index) }}</span>
+      </div>
     }
-
-    @if (tc.expected_result) {
-    <div class="tc-case-expected">
-      <span class="tc-case-label text-success">Expected Result</span>
-      <p class="mb-0 small">{{ tc.expected_result }}</p>
+  </li>
+}
+      </ol>
     </div>
     }
 

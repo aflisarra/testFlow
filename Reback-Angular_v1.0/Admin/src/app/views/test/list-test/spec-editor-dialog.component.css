@@ -3,8 +3,8 @@
 }
 
 .spec-editor-dialog {
-  width: min(55vw, 760px);
-  height: min(60vh, 560px);
+  inline-size: min(55vw, 760px);
+  block-size: min(60vh, 560px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -18,7 +18,7 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 1.1rem 1.25rem;
-  border-bottom: 1px solid #e5ebf3;
+  border-block-end: 1px solid #e5ebf3;
 }
 
 .spec-editor-kicker {
@@ -37,7 +37,7 @@
 }
 
 .spec-editor-filename {
-  margin-top: 0.2rem;
+  margin-block-start: 0.2rem;
   color: #64748b;
   font-size: 0.82rem;
 }
@@ -80,7 +80,7 @@
   justify-content: flex-end;
   gap: 0.6rem;
   padding: 0.85rem 1rem 1rem;
-  border-top: 1px solid #e5ebf3;
+  border-block-start: 1px solid #e5ebf3;
   background: #fbfcfe;
 }
 
@@ -93,7 +93,7 @@
 }
 
 .spec-editor-empty-hint {
-  margin-top: 0.75rem;
+  margin-block-start: 0.75rem;
   padding: 0.6rem 0.75rem;
   border: 1px dashed #cbd5e1;
   border-radius: 10px;

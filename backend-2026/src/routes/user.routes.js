@@ -15,8 +15,9 @@ router.post('/add', requireAction(2), upload.single('picture'), userController.c
 router.get('/profile', userController.getUserProfile);
 
 // Get all users
-// Backward-compatible: allow either "list-users" (10) or legacy "view-user" (4)
-router.get('/', requireAction([10, 4]), userController.getUsers);
+// Allow project-management users to load team members for project forms,
+// while still supporting the dedicated user-management permissions.
+router.get('/', requireAction([10, 4, 11, 12, 13, 14, 15]), userController.getUsers);
 
 // Get user by id
 router.get('/:id', requireAction(4), userController.getUser);

@@ -1,5 +1,20 @@
 const mongoose = require('mongoose')
 
+const actorSchema = new mongoose.Schema({
+  userId: {
+    type: String,
+    default: ''
+  },
+  name: {
+    type: String,
+    default: ''
+  },
+  picture: {
+    type: String,
+    default: ''
+  }
+}, { _id: false })
+
 /* ─────────────────────────────────────────────
    STEP RESULT SCHEMA
 ───────────────────────────────────────────── */
@@ -240,6 +255,16 @@ const testExecutionSchema = new mongoose.Schema({
     default: null
   },
 
+  createdBy: {
+    type: actorSchema,
+    default: null
+  },
+
+  executedBy: {
+    type: actorSchema,
+    default: null
+  },
+
   /* ───────────────────────── */
 
   duration: {
@@ -275,6 +300,11 @@ const testExecutionSchema = new mongoose.Schema({
   /* ───────────────────────── */
 
   stepsResults: {
+    type: [stepResultSchema],
+    default: []
+  },
+
+  stepResults: {
     type: [stepResultSchema],
     default: []
   },

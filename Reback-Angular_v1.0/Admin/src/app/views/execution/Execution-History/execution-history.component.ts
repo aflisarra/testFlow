@@ -1,6 +1,15 @@
+import { CommonModule } from '@angular/common'
 import { Component, OnInit } from '@angular/core'
 import { SeleniumRunnerService } from '../../../core/services/selenium-runner.service'
 import { ExecutionDetailModalComponent } from '../Execution-details/execution-details.component'
+import {
+  MinPipe,
+  PassRatePipe,
+  StatusCountPipe,
+  StatusLabelPipe,
+  UserInitialsPipe,
+} from './execution-history.pipes'
+
 export interface ExecutionRun {
   id: string
   testCaseName: string
@@ -16,205 +25,176 @@ export interface ExecutionRun {
   executionTime: string
   duration: string
 }
+export interface ExecutionRun {
+  id: string
+  testCaseName: string
+  executedBy: string
+  executedByPicture: string | null  // ✅ AJOUTE
+  status: 'passed' | 'failed' | 'failed_execution' | 'failed_assertion' | 'aborted' | 'running'
+  executionDate: string
+  executionTime: string
+  duration: string
+}
+
+
 
 @Component({
   selector: 'app-execution-history',
   templateUrl: './execution-history.component.html',
   styleUrls: ['./execution-history.component.css'],
   standalone: true,
-  imports: [ExecutionDetailModalComponent]
+  imports: [
+    CommonModule,
+    ExecutionDetailModalComponent,
+    StatusLabelPipe,
+    UserInitialsPipe,
+    PassRatePipe,
+    StatusCountPipe,
+    MinPipe,
+  ],
 })
 export class ExecutionHistoryComponent implements OnInit {
 
   constructor(private seleniumRunnerService: SeleniumRunnerService) {}
 
+  // ─── Filters state ──────────────────────────────────────────────────────────
+  filters = {
+    dateRange: '',
+    status: '',
+    project: '',
+    suite: '',
+    testPlan: '',
+  }
 
-filters = {
-  dateRange: '', // ✅ par défaut = all database
-  status: '',
-  project: '',
-  suite: '',
-  testPlan: ''
-}
-
-
+  // ─── Modal state ────────────────────────────────────────────────────────────
   selectedExecution: any = null
-isModalOpen = false
+  isModalOpen = false
 
-
+  // ─── Pagination ─────────────────────────────────────────────────────────────
   pageSize = 5
   currentPage = 1
   totalRuns = 0
 
+  // ─── Data ───────────────────────────────────────────────────────────────────
   filteredRuns: ExecutionRun[] = []
-
   projects: any[] = []
   suites: any[] = []
   plans: any[] = []
-  testCases: any[] = []
 
+  // ─── Lifecycle ──────────────────────────────────────────────────────────────
   ngOnInit(): void {
     this.loadProjects()
-    
-  // ✅ au début : all executions from database
-  this.applyFilters()
-
+    this.applyFilters()
   }
 
+  // ─── Page numbers for pagination ────────────────────────────────────────────
+  get pageNumbers(): (number | '…')[] {
+    const total = Math.ceil(this.totalRuns / this.pageSize)
+    const c = this.currentPage
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
 
-loadProjects() {
-  this.seleniumRunnerService.getProjects()
-    .subscribe((res: any) => {
+    const pages: (number | '…')[] = [1]
+    if (c > 3) pages.push('…')
+    for (let i = Math.max(2, c - 1); i <= Math.min(total - 1, c + 1); i++) {
+      pages.push(i)
+    }
+    if (c < total - 2) pages.push('…')
+    pages.push(total)
+    return pages
+  }
 
-      console.log("projects:", res)
+  changePage(page: number): void {
+    const total = Math.ceil(this.totalRuns / this.pageSize)
+    if (page < 1 || page > total) return
+    this.currentPage = page
+    this.fetchExecutions()
+  }
 
-      this.projects = Array.isArray(res)
-        ? res
-        : res?.data || []
-
+  // ─── Data loading ────────────────────────────────────────────────────────────
+  loadProjects(): void {
+    this.seleniumRunnerService.getProjects().subscribe((res: any) => {
+      this.projects = Array.isArray(res) ? res : res?.data ?? []
     })
-}
-
-
-_testCasesByPlan: any[] = [] // Cache for test cases by plan to optimize suite → plan → test case flow
-onFilterChange(key: string, event: any): void {
-  const value = event.target.value
-
-  this.filters = {
-    ...this.filters,
-    [key]: value
   }
 
-  // ✅ PROJECT → SUITES only
-  if (key === 'project') {
-    this.filters.suite = ''
-    this.filters.testPlan = ''
+  onFilterChange(key: string, event: any): void {
+    const value = event.target.value
+    this.filters = { ...this.filters, [key]: value }
 
-    this.suites = []
-    this.plans = []
-
-    if (value) {
-      this.seleniumRunnerService.getSuitesByProject(value)
-        .subscribe((res: any) => {
-          console.log('✅ suites:', res)
-
-          this.suites = Array.isArray(res)
-            ? res
-            : res?.data || []
+    if (key === 'project') {
+      this.filters.suite = ''
+      this.filters.testPlan = ''
+      this.suites = []
+      this.plans = []
+      if (value) {
+        this.seleniumRunnerService.getSuitesByProject(value).subscribe((res: any) => {
+          this.suites = Array.isArray(res) ? res : res?.data ?? []
         })
+      }
+    }
+
+    if (key === 'suite') {
+      this.filters.testPlan = ''
+      this.plans = []
+      if (value) {
+        this.seleniumRunnerService.getPlansBySuite(value).subscribe((res: any) => {
+          this.plans = res?.testPlans ?? []
+        })
+      }
     }
   }
 
-  // ✅ SUITE → PLANS only
-  if (key === 'suite') {
-    this.filters.testPlan = ''
-    this.plans = []
+  applyFilters(): void {
+    this.currentPage = 1
+    this.fetchExecutions()
+  }
 
-    if (value) {
-      this.seleniumRunnerService.getPlansBySuite(value)
-        .subscribe((res: any) => {
-          console.log('✅ plans:', res)
+  private fetchExecutions(): void {
+    const query: any = { page: this.currentPage, limit: this.pageSize }
 
-          this.plans = res?.testPlans || []
-        })
+    const dayMap: Record<string, number> = {
+      '1day': 1, '2days': 2, '3days': 3, '7days': 7, '30days': 30,
     }
-  }
+    if (this.filters.dateRange && dayMap[this.filters.dateRange]) {
+      query.days = dayMap[this.filters.dateRange]
+    }
 
-  // ❌ IMPORTANT:
-  // do NOT call applyFilters() here
-}
+    if (this.filters.status)   query.status      = this.filters.status
+    if (this.filters.project)  query.project     = this.filters.project
+    if (this.filters.suite)    query.testSuiteId = this.filters.suite
+    if (this.filters.testPlan) query.planId      = this.filters.testPlan
 
-
-
-applyFilters(): void {
-  this.currentPage = 1
-
-  const query: any = {
-    page: this.currentPage,
-    limit: this.pageSize
-  }
-
-  // ✅ Date range
-  if (this.filters.dateRange === '1day') query.days = 1
-  if (this.filters.dateRange === '2days') query.days = 2
-  if (this.filters.dateRange === '3days') query.days = 3
-  if (this.filters.dateRange === '7days') query.days = 7
-  if (this.filters.dateRange === '30days') query.days = 30
-
-  // ✅ Status
-  if (this.filters.status) {
-    query.status = this.filters.status
-  }
-
-  // ✅ Project
-  if (this.filters.project) {
-    query.project = this.filters.project
-  }
-
-  // ✅ Suite
-  if (this.filters.suite) {
-    query.testSuiteId = this.filters.suite
-  }
-
-  // ✅ Plan
-  if (this.filters.testPlan) {
-    query.planId = this.filters.testPlan
-  }
-
-  console.log('✅ APPLY FILTER QUERY:', query)
-
-  this.seleniumRunnerService.getExecutions(query)
-    .subscribe((res: any) => {
-      console.log('✅ executions:', res)
-
-      this.totalRuns = res.total || 0
-
-      this.filteredRuns = (res.data || []).map((r: any) => ({
-        id: r.executionId,
-
-        testCaseName:
-          r.testCaseTitle ||
-          r.testCaseKey ||
-          'Untitled test case',
-
-        executedBy:
-          r.executedByName ||
-          r.executedBy?.name ||
-          r.createdByName ||
-          r.userName ||
-          'Unknown user',
-
-        status: r.status,
-
-        executionDate: r.startedAt
-          ? new Date(r.startedAt).toLocaleDateString()
-          : '-',
-
-        executionTime: r.startedAt
-          ? new Date(r.startedAt).toLocaleTimeString()
-          : '-',
-
-        duration: `${r.duration || 0}s`
-      }))
+    this.seleniumRunnerService.getExecutions(query).subscribe((res: any) => {
+      this.totalRuns = res.total ?? 0
+      this.filteredRuns = (res.data ?? []).map((r: any): ExecutionRun => ({
+  id:                 r.executionId,
+  testCaseName:       r.testCaseTitle ?? r.testCaseKey ?? 'Untitled test case',
+  executedBy:         r.executedByName ?? r.executedBy?.name ?? 'Unknown user',
+  executedByPicture:  r.executedBy?.picture ?? r.createdBy?.picture ?? null,  // ✅ AJOUTE
+  status:             r.status,
+  executionDate:      r.startedAt ? new Date(r.startedAt).toLocaleDateString() : '—',
+  executionTime:      r.startedAt ? new Date(r.startedAt).toLocaleTimeString() : '—',
+  duration:           `${r.duration ?? 0}s`,
+}))
     })
-}
-
-  
-
-openExecution(run: ExecutionRun): void {
-  console.log('CLICK ✅', run)
-
-  this.selectedExecution = {
-    executionId: run.id,
-    testCaseTitle: run.testCaseName,
-    planTitle: '',
-    status: run.status,
-    duration: run.duration,
-    startedAt: `${run.executionDate} ${run.executionTime}`
   }
 
-  this.isModalOpen = true
+  // ─── Modal ──────────────────────────────────────────────────────────────────
+  openExecution(run: ExecutionRun): void {
+    this.selectedExecution = {
+      executionId:   run.id,
+      testCaseTitle: run.testCaseName,
+      planTitle:     '',
+      executedByName: run.executedBy,
+      status:        run.status,
+      duration:      run.duration,
+      startedAt:     `${run.executionDate} ${run.executionTime}`,
+    }
+    this.isModalOpen = true
+  }
+
+  onAvatarError(event: Event): void {
+  const img = event.target as HTMLImageElement
+  img.style.display = 'none'
 }
-
-
 }

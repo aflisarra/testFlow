@@ -108,6 +108,53 @@ function normalizeTestCaseMetadata(testCase = {}) {
   }
 }
 
+function normalizeStepDetails(value, fallbackSteps = []) {
+  const source = Array.isArray(value) ? value : []
+
+  return (source.length ? source : fallbackSteps.map(step => ({ step })))
+    .map((item, index) => {
+      if (typeof item === 'string') {
+        return {
+          step: normalizeString(item),
+          expected_result: '',
+          actual_result: '',
+          status: 'pending'
+        }
+      }
+
+      if (item && typeof item === 'object') {
+        const step = normalizeString(
+          item.step || item.raw || item.text || item.name || fallbackSteps[index]
+        )
+
+        return {
+          step: step || `Step ${index + 1}`,
+
+          // ✅ FIX IMPORTANT
+          expected_result: normalizeString(
+            item.expected_result ??
+            item.expectedResult ??
+            item.expected ??
+            ''
+          ),
+
+          actual_result: normalizeString(
+            item.actual_result ?? item.actualResult ?? ''
+          ),
+
+          status: normalizeString(item.status || 'pending') || 'pending'
+        }
+      }
+
+      return {
+        step: normalizeString(fallbackSteps[index] || `Step ${index + 1}`),
+        expected_result: '',
+        actual_result: '',
+        status: 'pending'
+      }
+    })
+}
+
 function normalizePlanStepsPayload(raw) {
   const list = Array.isArray(raw) ? raw : []
   return list
@@ -251,6 +298,11 @@ async function dualWriteTestCases({ testSuiteId, planKey, planTitle, planData, t
       const meta = normalizeTestCaseMetadata(tc)
       const hasTestData = hasOwn(tc, 'test_data') || hasOwn(tc, 'testData')
       if (!hasTestData) delete meta.test_data
+      const hasStepDetails = hasOwn(tc, 'stepDetails') || hasOwn(tc, 'step_details')
+      const normalizedStepDetails = normalizeStepDetails(
+        hasStepDetails ? (tc.stepDetails || tc.step_details) : [],
+        Array.isArray(tc?.steps) ? tc.steps : []
+      )
 
       return {
         updateOne: {
@@ -266,6 +318,7 @@ async function dualWriteTestCases({ testSuiteId, planKey, planTitle, planData, t
                 ? tc.steps.map((s) => String(s || '').trim()).filter(Boolean)
                 : [],
               expected_result: String(tc?.expected_result || tc?.expectedResult || '').trim(),
+              stepDetails: normalizedStepDetails,
               executionModel: tc?.executionModel || tc?.execution_model || null,
               createdBy: tc?.createdBy
                 ? {
@@ -823,19 +876,35 @@ async function generateTestCases({ req, body }) {
     throw httpError(502, 'FastAPI returned empty test cases')
   }
 
-  const normalized = testCases
-    .map((tc, idx) => ({
+  
+const normalized = testCases
+  .map((tc, idx) => {
+
+    console.log('🚀 RAW stepDetails FROM API:', tc.stepDetails)
+
+    return {
       id: String(tc?.id || `TC-${idx + 1}`).trim(),
       title: String(tc?.title || `Test Case ${idx + 1}`).trim(),
+
       steps: Array.isArray(tc?.steps)
         ? tc.steps.map((s) => String(s || '').trim()).filter(Boolean)
         : [],
+
       expected_result: String(tc?.expected_result || tc?.expectedResult || '').trim(),
-      ...normalizeTestCaseMetadata(tc), // ✅ inclut test_data si présent dans tc
+
+      stepDetails: normalizeStepDetails(
+        tc.stepDetails || tc.step_details || [],
+        Array.isArray(tc?.steps) ? tc.steps : []
+      ),
+
+      ...normalizeTestCaseMetadata(tc),
+
       executionModel: tc?.executionModel || tc?.execution_model || null,
       createdBy: null,
-    }))
-    .slice(0, 50)
+    }
+  })
+  .slice(0, 50)
+
 
   const action = regenerate ? 'regenerate-test-case' : 'generate-test-case'
   const actor = await resolveActorName(getActorFromReq(req))

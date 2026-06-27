@@ -30,6 +30,9 @@ interface ExecutionEntryDto {
   executedAt: string
   duration: string
   status: 'passed' | 'failed'
+   // ✅ AJOUTE
+  executedByName?: string
+  executedByPicture?: string
 }
 
 interface TeamMemberView {
@@ -351,7 +354,6 @@ async openDetailsModal(suite: TestSuiteDto): Promise<void> {
   const suiteId = String(suite?._id || '').trim()
   if (!suiteId) return
 
-  // Force l'exécution dans la zone Angular
   this.ngZone.run(() => {
     this.detailsModalOpen = true
     this.detailsModalLoading = true
@@ -382,12 +384,18 @@ async openDetailsModal(suite: TestSuiteDto): Promise<void> {
       if (planId) casesByPlan[planId] = row.testCases || []
     }
 
+    // ✅ Extraire le projet ICI, avant le ngZone.run
+    const resolvedProject =
+      detail?.projectId && typeof detail.projectId === 'object'
+        ? (detail.projectId as TestLabProjectDto)
+        : null
+
+    // ✅ Extraire le projectId ICI aussi
+    const projectId = String((resolvedProject as any)?._id || '').trim()
+
     this.ngZone.run(() => {
       this.detailsModalSuite = detail
-      this.detailsModalProject =
-        detail?.projectId && typeof detail.projectId === 'object'
-          ? (detail.projectId as TestLabProjectDto)
-          : null
+      this.detailsModalProject = resolvedProject  // ✅ objet complet avec assignedUsers
       this.detailsModalPlans = plans
       this.detailsModalCasesByPlan = casesByPlan
       this.detailsModalSelectedPlanId = plans[0]?.id ?? null
@@ -395,14 +403,13 @@ async openDetailsModal(suite: TestSuiteDto): Promise<void> {
       this.cdr.detectChanges()
     })
 
-    // load project users for modal (populate this.members)
-    const projectIdObj = this.detailsModalProject && (this.detailsModalProject as any)?._id
-    const projectId = String(projectIdObj || '')
+    // ✅ Maintenant projectId est disponible directement
     if (projectId) {
       try {
         await this.loadMembers(projectId)
+        this.cdr.detectChanges()  // ✅ refresh après loadMembers
       } catch {
-        // ignore load errors, view will fallback to assignedUsers if available
+        // ignore
       }
     }
 
@@ -933,14 +940,14 @@ await this.router.navigate(['/execution', testCase.id], {
     return labels[key]
   }
 
-  getBadgeClass(suite: TestSuiteDto | null | undefined): string {
-    const status = this.getSuiteStatusKey(suite)
-    const map: Record<Exclude<TestSuiteStatusKey, 'all'>, string> = {
-      completed: 'text-bg-success',
-      incomplete: 'text-bg-danger',
-    }
-    return map[status]
+getBadgeClass(suite: TestSuiteDto | null | undefined): string {
+  const status = this.getSuiteStatusKey(suite)
+  const map: Record<Exclude<TestSuiteStatusKey, 'all'>, string> = {
+    completed: 'completed',   // ← correspond à votre CSS
+    incomplete: 'incomplete', // ← correspond à votre CSS
   }
+  return map[status]
+}
 
   getSuiteDisplayName(suite: TestSuiteDto): string {
     const userFacing = String(suite?.nametest || '').trim()

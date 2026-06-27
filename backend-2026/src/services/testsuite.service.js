@@ -223,6 +223,26 @@ function normalizeCaseMetadata(testCase = {}) {
   }
 }
 
+function normalizeStepDetails(value, fallbackSteps = []) {
+  const source = Array.isArray(value) ? value : []
+
+  if (source.length) {
+    return source.map((item, index) => ({
+      step: normalizeString(item?.step || item?.raw || item?.title || fallbackSteps[index] || `Step ${index + 1}`),
+      expected_result: normalizeString(item?.expected_result || item?.expectedResult || item?.expected || ''),
+      actual_result: normalizeString(item?.actual_result || item?.actualResult || ''),
+      status: normalizeString(item?.status || 'pending') || 'pending',
+    }))
+  }
+
+  return fallbackSteps.map((step, index) => ({
+    step: normalizeString(step || `Step ${index + 1}`),
+    expected_result: '',
+    actual_result: '',
+    status: 'pending',
+  }))
+}
+
 function getPopulatedProject(suite) {
   return suite?.projectId && typeof suite.projectId === 'object' ? suite.projectId : null
 }
@@ -237,7 +257,7 @@ function formatSuiteSummary(
 
   return {
     ...suite,
-    projectId: project ? project._id : suite?.projectId || null,
+    projectId: project ?? suite?.projectId ?? null,
     projectTitle: project ? String(project.title || '').trim() : '',
     creatorName: user?.name || user?.email || 'Unknown User',
     picture: user?.picture || null,
@@ -274,14 +294,30 @@ async function getSuitePlansAndCases(testSuiteId) {
       priority: plan.priority || 'medium',
       requirements: plan.requirements || [],
       casesCount: testCases.length,
-      testCases,
+      testCases: testCases.map((testCase) => ({
+        ...testCase,
+        test_data: Array.isArray(testCase.test_data)
+          ? testCase.test_data
+          : testCase.test_data != null
+            ? [testCase.test_data]
+            : [],
+        stepDetails: Array.isArray(testCase.stepDetails) ? testCase.stepDetails : [],
+      })),
     }
   })
 
  
 const testCasesByPlan = plans.map((plan) => ({
   planId: plan.id, 
-  testCases: casesByMongoPlanId.get(String(plan._id)) || [],
+  testCases: (casesByMongoPlanId.get(String(plan._id)) || []).map((testCase) => ({
+    ...testCase,
+    test_data: Array.isArray(testCase.test_data)
+      ? testCase.test_data
+      : testCase.test_data != null
+        ? [testCase.test_data]
+        : [],
+    stepDetails: Array.isArray(testCase.stepDetails) ? testCase.stepDetails : [],
+  })),
 }))
 
   const plansHavingTestCases = plans.filter((plan) => (casesByMongoPlanId.get(String(plan._id)) || []).length > 0).length
@@ -295,7 +331,14 @@ async function getSuiteOrThrow(testSuiteId) {
   }
 
   const suite = await TestSuite.findById(testSuiteId)
-    .populate('projectId', 'title startDate endDate milestoneDate assignedUsers ownerId')
+    .populate({
+  path: 'projectId',
+  select: 'title startDate endDate milestoneDate assignedUsers ownerId',
+  populate: [
+    { path: 'assignedUsers', select: 'name email picture' },
+    { path: 'ownerId', select: 'name email picture' }
+  ]
+})
     .populate('userId', 'name email picture')
     .lean()
 
@@ -364,6 +407,7 @@ async function getTestSuitesByProject(projectId) {
 }
 
 async function getTestSuiteById(testSuiteId) {
+  
   const suite = await getSuiteOrThrow(testSuiteId)
   const planData = await getSuitePlansAndCases(testSuiteId)
 
@@ -509,6 +553,11 @@ async function upsertCasesByPlan(testSuiteId, testCasesByPlan = []) {
         const meta = normalizeCaseMetadata(testCase)
         const hasTestData = hasOwn(testCase, 'test_data') || hasOwn(testCase, 'testData')
         if (!hasTestData) delete meta.test_data
+        const hasStepDetails = hasOwn(testCase, 'stepDetails') || hasOwn(testCase, 'step_details')
+        const normalizedStepDetails = normalizeStepDetails(
+          hasStepDetails ? (testCase.stepDetails || testCase.step_details) : [],
+          Array.isArray(testCase?.steps) ? testCase.steps : []
+        )
 
         return {
           updateOne: {
@@ -524,6 +573,7 @@ async function upsertCasesByPlan(testSuiteId, testCasesByPlan = []) {
                   ? testCase.steps.map((step) => String(step || '').trim()).filter(Boolean)
                   : [],
                 expected_result: String(testCase?.expected_result || testCase?.expectedResult || '').trim(),
+                stepDetails: normalizedStepDetails,
                 executionModel: testCase?.executionModel || testCase?.execution_model || null,
                 createdBy: normalizeCreatedBy(testCase?.createdBy),
               },

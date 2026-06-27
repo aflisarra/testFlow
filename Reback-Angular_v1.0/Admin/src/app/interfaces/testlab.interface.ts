@@ -91,6 +91,13 @@ export interface ExecutionModelDto {
   confidence?: string
 }
 
+export interface TestCaseStepDetailDto {
+  step: string
+  expected_result?: string
+  actual_result?: string
+  status?: 'pending' | 'passed' | 'failed_execution' | 'failed_assertion' | 'skipped'
+}
+
 
 export interface TestCaseDto {
   id: string
@@ -115,6 +122,7 @@ export interface TestCaseDto {
   severity?: string
   type?: string
   test_data?: unknown
+  stepDetails?: TestCaseStepDetailDto[]
 
   executionModel?: ExecutionModelDto | null
   execution_model?: ExecutionModelDto | null

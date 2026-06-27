@@ -299,7 +299,8 @@ private async initPermissions(): Promise<void> {
   // ─── Load data ──────────────────────────────────────────────────────────────
 
   loadUsers(): void {
-    if (!this.canListUsers) {
+    const canShowProjectTeamUsers = this.canCreateProject || this.canEditProject || this.canViewProjects
+    if (!this.canListUsers && !canShowProjectTeamUsers) {
       this.users = []
       this.usersLoading = false
       return

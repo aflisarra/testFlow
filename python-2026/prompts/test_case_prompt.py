@@ -43,6 +43,20 @@ def build_test_case_prompt(
     '        "Enter valid credentials",\n'
     '        "Click login button"\n'
     '      ],\n'
+    '      "stepDetails": [\n'
+    '        {\n'
+    '          "step": "Open login page",\n'
+    '          "expected_result": "Login page is displayed"\n'
+    '        },\n'
+    '        {\n'
+    '          "step": "Enter valid credentials",\n'
+    '          "expected_result": "Username and password fields accept the provided values"\n'
+    '        },\n'
+    '        {\n'
+    '          "step": "Click login button",\n'
+    '          "expected_result": "User is redirected to dashboard"\n'
+    '        }\n'
+    '      ],\n'
     '      "expected_result": "User is redirected to dashboard",\n'
     '      "test_data": {\n'
     '        "email": "valid@test.com"\n'
@@ -84,6 +98,9 @@ def build_test_case_prompt(
         "- No duplicates.\n"
         "- Steps must be executable by a tester.\n"
         "- expected_result must be precise.\n"
+        "- stepDetails is required and must contain one object per step.\n"
+        "- Each stepDetails item must include: step, expected_result.\n"
+        "- Keep the step text identical between steps[] and stepDetails[].\n"
         "- priority values only: Critical, High, Medium, Low.\n"
         "- severity values only: Blocker, Critical, Major, Minor, Trivial.\n"
         "- type values only: Positive, Negative, Boundary, Permission, Validation, Error handling.\n\n"
@@ -95,7 +112,7 @@ def build_test_case_prompt(
         "- No explanation.\n"
         "- JSON object must contain ONLY key: test_cases.\n"
         "- Each test case MUST contain exactly:"
-        "id, title, objective, steps, expected_result, test_data, priority, severity, type, requirements.\n"
+        "id, title, objective, steps, stepDetails, expected_result, test_data, priority, severity, type, requirements.\n"
         "- requirements must reference linked requirement ids whenever available.\n"
         "- do not invent requirements; use only the provided context.\n\n"
 

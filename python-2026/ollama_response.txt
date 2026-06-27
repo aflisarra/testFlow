@@ -1,10 +1,9 @@
 ```json
 {
-  "data": [
-    {
-      "type": "click",
-      "selector": "a[text='Admin']"
-    }
+  "data":[
+    {"type":"type","selector":"input[name='username']","value":"invalid@test.com"},
+    {"type":"type","selector":"input[name='password']","value":"InvalidPass123"},
+    {"type":"click","selector":"button[type='submit']"}
   ]
 }
 ```

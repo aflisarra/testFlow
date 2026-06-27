@@ -46,6 +46,11 @@ class Requirement(BaseModel):
     priority: str = ""
 
 
+class StepDetail(BaseModel):
+    step: str
+    expected_result: str
+
+
 class TestCase(BaseModel):
     id: str
     title: str
@@ -53,6 +58,10 @@ class TestCase(BaseModel):
     preconditions: List[str] = Field(default_factory=list)
     test_data: Any = None
     steps: List[str]
+
+    # ✅ AJOUT CRITIQUE
+    stepDetails: List[StepDetail] = Field(default_factory=list)
+
     expected_result: str
     priority: str
     severity: str = "Major"

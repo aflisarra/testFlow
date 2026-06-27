@@ -752,6 +752,31 @@ export class TestCasesHomeComponent implements OnInit {
     this.updateModalCase(caseId, (tc) => ({ ...tc, expected_result: String(value || '') }))
   }
 
+  onEditCaseStepExpected(caseId: string, stepIndex: number, value: string) {
+    const normalizedId = String(caseId || '').trim()
+    if (!normalizedId || stepIndex < 0) {
+      return
+    }
+
+    this.updateModalCase(normalizedId, (tc) => {
+      const steps = Array.isArray(tc.steps) ? tc.steps : []
+      const currentDetails = Array.isArray(tc.stepDetails) ? tc.stepDetails : []
+      const stepDetails = [...currentDetails]
+      const existingDetail = stepDetails[stepIndex] || {}
+
+      stepDetails[stepIndex] = {
+        ...existingDetail,
+        step: String(existingDetail.step || steps[stepIndex] || '').trim(),
+        expected_result: String(value || ''),
+      }
+
+      return {
+        ...tc,
+        stepDetails,
+      }
+    })
+  }
+
   getTestDataText(testCase: TestCaseDto): string {
     const value = testCase?.test_data
     if (value === null || value === undefined) return ''
@@ -763,6 +788,16 @@ export class TestCasesHomeComponent implements OnInit {
         .join('\n')
     }
     return String(value)
+  }
+
+  getStepExpectedResult(testCase: TestCaseDto, index: number): string {
+    const detail = Array.isArray(testCase?.stepDetails) ? testCase.stepDetails[index] : null
+    return String(
+      detail?.expected_result ||
+      detail?.actual_result ||
+      testCase?.expected_result ||
+      ''
+    ).trim()
   }
 
   private parseTestDataLines(value: string): string[] {

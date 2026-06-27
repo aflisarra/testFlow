@@ -40,6 +40,8 @@ export interface ExecutionDetailData {
   testCaseKey: string;
   testCaseTitle: string;
   planTitle?: string;
+  executedByName?: string;
+  executedBy?: { name?: string; picture?: string } | null;
   environment?: string;
   status:
   | 'passed'
@@ -82,8 +84,8 @@ export class ExecutionDetailModalComponent implements OnChanges {
   steps: ExecutionDetailStep[] = [];
   logs: ExecutionDetailLog[] = [];
 
-async ngOnChanges(changes: SimpleChanges): Promise<void> {
-  if (changes['execution'] && this.execution?.executionId) {
+  async ngOnChanges(changes: SimpleChanges): Promise<void> {
+    if (changes['execution'] && this.execution?.executionId) {
 
     this.activeTab = 'screenshots'
     this.selectedStepIndex = 0
@@ -119,16 +121,29 @@ private async fetchExecutionDetail(): Promise<void> {
   this.isLoadingDetail = true
   this.cdr.markForCheck()
 
-  try {
-    const detail: any = await firstValueFrom(
-      this.seleniumRunner.getExecutionDetail(this.execution.executionId)
-    )
+    try {
+      const detail: any = await firstValueFrom(
+        this.seleniumRunner.getExecutionDetail(this.execution.executionId)
+      )
 
     console.log('✅ EXECUTION DETAIL RESPONSE:', detail)
 
     const data = detail?.data ?? detail
 
+    if (this.execution) {
+      this.execution = {
+        ...this.execution,
+        executedByName:
+          data?.executedByName ||
+          this.execution.executedByName ||
+          data?.executedBy?.name ||
+          'Unknown user',
+        executedBy: data?.executedBy || this.execution.executedBy || null,
+      }
+    }
+
     const rawSteps =
+      data?.stepsResults ||
       data?.stepResults ||
       data?.steps ||
       []
@@ -163,16 +178,20 @@ private async fetchExecutionDetail(): Promise<void> {
 private mapSteps(raw: any[]): ExecutionDetailStep[] {
   return raw.map((r, i) => {
 
-    const screenshotPath =
-      typeof r.screenshotPath === 'string'
-        ? r.screenshotPath
-        : r.screenshotPath?.publicUrl ||
-          r.screenshotPath?.path ||
-          r.screenshot?.publicUrl ||
-          r.screenshot?.path ||
-          r.screenshots?.[0]?.publicUrl ||
-          r.screenshots?.[0]?.path ||
-          ''
+      const screenshotPath =
+        typeof r.screenshotPath === 'string'
+          ? r.screenshotPath
+          : r.screenshotPath?.publicUrl ||
+            r.screenshotPath?.path ||
+            (typeof r.screenshot === 'string' ? r.screenshot : '') ||
+            r.screenshot?.publicUrl ||
+            r.screenshot?.path ||
+            r.allScreenshots?.[0]?.publicUrl ||
+            r.allScreenshots?.[0]?.path ||
+            r.screenshots?.[0]?.publicUrl ||
+            r.screenshots?.[0]?.path ||
+            r.screenshotUrl ||
+            ''
 
     return {
       index: Number(r.index ?? i + 1),
@@ -260,6 +279,14 @@ get statusLabel(): string {
   get platformLabel(): string {
     const parts = [this.execution?.browser, this.execution?.platform].filter(Boolean);
     return parts.length ? parts.join(' / ') : 'Chrome / Unknown OS';
+  }
+
+  get executedByLabel(): string {
+    return String(
+      this.execution?.executedByName ||
+      this.execution?.executedBy?.name ||
+      'Unknown user'
+    ).trim()
   }
 
   selectStep(index: number): void {

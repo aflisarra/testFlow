@@ -158,7 +158,12 @@ loadRoles(): void {
 
     this.adminService.getUsers().subscribe({
       next: (users) => {
-        this.users = (users || []).filter((u) => !this.isCurrentUser(u))
+        this.users = (users || [])
+          .map((u) => ({
+            ...u,
+            name: this.getUserDisplayName(u),
+          }))
+          .filter((u) => !this.isCurrentUser(u))
         this.clampUserPage()
         this.loading = false
       },
@@ -265,21 +270,21 @@ private handleCreateUserError(err: HttpErrorResponse): void {
   const message = (err?.error?.message || '').toLowerCase()
 
   if (message.includes('email')) {
-    this.uiNotification.accessDenied('Email already exists.')
+    this.uiNotification.error('Email already exists.')
     return
   }
 
   if (message.includes('name')) {
-    this.uiNotification.accessDenied('Name already exists.')
+    this.uiNotification.error('Name already exists.')
     return
   }
 
   if (message.includes('role')) {
-    this.uiNotification.accessDenied('Selected role not found.')
+    this.uiNotification.error('Selected role not found.')
     return
   }
 
-  this.uiNotification.accessDenied('Unable to create user.')
+  this.uiNotification.error('Unable to create user.')
 }
 
   onEditUser(user: AppUser) {
@@ -318,7 +323,7 @@ private handleCreateUserError(err: HttpErrorResponse): void {
     })
     ref.componentInstance.title = 'Delete user'
     //ref.componentInstance.message = 'This will delete'
-    ref.componentInstance.entityName = user.name
+    ref.componentInstance.entityName = this.getUserDisplayName(user)
     //ref.componentInstance.details = 'This action cannot be undone.'
     ref.componentInstance.confirmText = 'Delete'
     ref.componentInstance.cancelText = 'Cancel'
@@ -395,5 +400,10 @@ private handleCreateUserError(err: HttpErrorResponse): void {
   private clampUserPage(): void {
     if (this.currentUserPage < 1) this.currentUserPage = 1
     if (this.currentUserPage > this.totalUserPages) this.currentUserPage = this.totalUserPages
+  }
+
+  getUserDisplayName(user: AppUser | null | undefined): string {
+    const source = user as unknown as { name?: string; nom?: string; username?: string }
+    return String(source?.name || source?.nom || source?.username || '').trim() || 'Unnamed user'
   }
 }
