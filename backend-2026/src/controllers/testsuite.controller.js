@@ -9,7 +9,12 @@ function getUserId(req) {
 
 function normalizeActor(req) {
   const source = req?.user || {}
-  const name = String(source?.name || source?.nom || source?.username || '').trim()
+  const firstName = String(source?.firstName || '').trim()
+  const lastName = String(source?.lastName || '').trim()
+  const name =
+    String(source?.fullName || source?.name || source?.nom || '').trim() ||
+    [firstName, lastName].filter(Boolean).join(' ').trim() ||
+    String(source?.username || source?.email || '').trim()
   const picture = String(source?.picture || source?.avatar || '').trim()
   const userId = getUserId(req)
   if (!userId && !name && !picture) return null
@@ -18,7 +23,17 @@ function normalizeActor(req) {
 
 function getActorName(actor) {
   if (!actor) return ''
-  return String(actor?.name || actor?.nom || actor?.username || actor?.fullName || '').trim()
+  const firstName = String(actor?.firstName || '').trim()
+  const lastName = String(actor?.lastName || '').trim()
+  return String(
+    actor?.fullName ||
+    actor?.name ||
+    actor?.nom ||
+    actor?.username ||
+    [firstName, lastName].filter(Boolean).join(' ').trim() ||
+    actor?.email ||
+    ''
+  ).trim()
 }
 
 async function resolveActor(req) {
@@ -361,8 +376,9 @@ exports.getExecutions = async (req, res) => {
       executedByName:
         getActorName(row.executedBy) ||
         getActorName(row.createdBy) ||
+        getActorName(row.user) ||
         String(row.userName || '').trim() ||
-        'Unknown user'
+        ''
     }))
 
     return res.status(200).json({
@@ -403,8 +419,9 @@ exports.getRecentExecutions = async (req, res) => {
       executedByName:
         getActorName(row.executedBy) ||
         getActorName(row.createdBy) ||
+        getActorName(row.user) ||
         String(row.userName || '').trim() ||
-        'Unknown user',
+        '',
     })))
   } catch (error) {
     return handleError(res, error)

@@ -25,6 +25,8 @@ def build_ai_decision_prompt(step: str, dom, test_case) -> str:
         if isinstance(value, dict):
             preferred_keys = (
                 "value",
+                "classes",
+                "checked",
                 "text",
                 "input",
                 "password",
@@ -39,6 +41,7 @@ def build_ai_decision_prompt(step: str, dom, test_case) -> str:
                 "date",
                 "dob",
                 "birthDate",
+                "index",
             )
 
             matched = False
@@ -71,23 +74,40 @@ def build_ai_decision_prompt(step: str, dom, test_case) -> str:
         # Keep the model input tight: only the whitelisted fields survive,
         # and empty values are removed after the projection.
         allowed_keys = {
-            "tag",
-            "type",
-            "id",
-            "name",
-            "placeholder",
-            "ariaLabel",
-            "title",
-            "testId",
-            "text",
-            "disabled",
-            "options",
-        }
+
+    "index",
+    "tag",
+    "role",
+    "type",
+    "id",
+    "name",
+    "placeholder",
+    "ariaLabel",
+    "ariaExpanded",
+    "ariaHaspopup",
+    "title",
+    "testId",
+    "text",
+    "value",
+    "classes",
+    "checked",
+    "disabled",
+    "visible",
+    "rect",
+    "options",
+
+}
         compacted = []
         for el in value:
             if not isinstance(el, dict):
                 continue
             projected = {k: v for k, v in el.items() if k in allowed_keys and v not in (None, "", [])}
+            if (
+                projected.get("role") == "option"
+                and projected.get("visible") is True
+                and projected.get("text")
+            ):
+                projected["selector"] = f'text={str(projected["text"]).strip()}'
             if "options" in projected and isinstance(projected["options"], list):
                 projected["options"] = [
                     {k: v for k, v in opt.items() if v not in (None, "", [])}
@@ -115,77 +135,442 @@ def build_ai_decision_prompt(step: str, dom, test_case) -> str:
             or []
         )
 
+    execution_memory = {}
+    if isinstance(test_case, dict):
+        execution_memory = (
+            test_case.get("execution_memory")
+            or test_case.get("executionMemory")
+            or {}
+        )
+
     flattened_test_data = flatten_test_data(test_data)
     test_data_text = "\n".join(
         f"{idx + 1}. {value}" for idx, value in enumerate(flattened_test_data)
     ) or "[]"
+    memory_text = safe(execution_memory) if execution_memory else "{}"
 
     return f"""
 You are a Selenium automation planner.
 
-Convert STEP into UI actions using DOM and TEST DATA.
+Your task is to convert a TEST STEP into executable Selenium UI actions
+using ONLY the provided DOM and TEST DATA.
 
-OUTPUT (STRICT JSON):
+OUTPUT FORMAT (STRICT JSON ONLY):
+
 {{"data":[{{"type":"type|click","selector":"CSS selector","value":"text"}}]}}
 
 RULES:
-- Return ONLY JSON
-- No explanation
-- Use only elements from DOM
-- Prefer id (#id) if available
-- If the DOM contains input, textarea, or select elements for the current step, you MUST generate type actions for them
-- For "Enter", "Fill", "Provide", "Type", "Insert", or "Set" steps, output ONLY type actions unless no editable field exists
-- For "Click" or "Submit" steps, output click actions only when the step is clearly about navigation or submission
-- Never click page wrappers, containers, or unrelated links when editable fields exist
-- Use TEST DATA VALUES in order, top to bottom
-- Treat TEST DATA as ordered values, not as a free-form paragraph
-- If TEST DATA is empty and the step is about filling fields, still target the editable fields and use empty strings rather than inventing click actions
-- Prefer visible form controls that match the step intent
+
+- Return ONLY valid JSON.
+- No explanation.
+- No markdown.
+- Use ONLY elements existing in DOM.
+- Never invent selectors.
+
+Prefer selectors:
+
+1. id (#id)
+2. name
+3. testId
+4. unique CSS selector
+5. text selector for buttons/options
 
 ---
 
-IMPORTANT:
+STEP INTENT HAS HIGHEST PRIORITY.
 
-If step says:
-- "Enter", "Fill", "Provide"
-→ Fill ALL input fields
+Analyze STEP first.
+Then apply EXECUTION MEMORY constraints.
+Then use DOM.
 
-If step says:
-- "Click", "Submit"
-→ Click button
+================================================
+CLICK ACTION RULES
+================================================
 
-Decision order:
-1. Find editable fields that match the step intent.
-2. Use one type action per field, in DOM order, mapping TEST DATA values sequentially.
-3. Only if no editable field exists, consider a click action.
+If STEP contains:
 
----
+- click
+- submit
+- register
+- login
+- save
+- continue
+- confirm
+- next
+- press
+- create account
 
-EXAMPLE:
+Generate ONLY click actions.
 
-STEP: Enter user details
-TEST DATA: ["John","Doe","john@mail.com"]
+Ignore input fields.
 
-DOM:
-input id="firstName"
-input id="lastName"
-input id="email"
+For click:
 
-OUTPUT:
-{{"data":[
-  {{"type":"type","selector":"#firstName","value":"John"}},
-  {{"type":"type","selector":"#lastName","value":"Doe"}},
-  {{"type":"type","selector":"#email","value":"john@mail.com"}}
-]}}
-- ALWAYS generate values even if TEST DATA is empty.
+Prefer:
+
+1. button[type="submit"]
+2. button elements
+3. input type="submit"
+4. role="button"
+5. text matching button
+
+For registration steps:
+
+Strongly prefer buttons whose visible text matches:
+
+- Create account
+- Register
+- Sign up
+- Submit
+
+Apply this priority:
+
+Create account > Register > Sign up > Submit > Continue
+
+Social login buttons must never be selected when a registration submit button exists.
+
+Never click:
+
+- hidden elements
+- visible=false
+- height=0
+- width=0
+- wrappers
+- containers
+- captcha
+- checkbox unless required
+- radio unless required
+
+Never select OAuth or social authentication buttons:
+
+- Continue with Google
+- Continue with Apple
+- Continue with Facebook
+- Continue with Microsoft
+- Login with Google
+- Sign in with Google
+- Sign in with Apple
+
+These buttons are not form submission buttons.
+
+
+Never use __index selector when a stable selector exists.
+
+For register/login/create account steps:
+
+Only skip:
+- checkbox (unless explicitly required)
+- radio (unless required)
+
+BUT:
+
+- If STEP requires dropdown selection, you MUST complete dropdown first before any submit.
+- Dropdown selection always has higher priority than form submission.
+
+Only click the submit/register button.
+
+Planner memory rules:
+
+- Ignore any action already present in EXECUTION MEMORY.executed_actions.
+- If a field is already present in EXECUTION MEMORY.filled_fields with the
+  expected value, do not type it again.
+- If a dropdown is already present in EXECUTION MEMORY.selected_dropdowns
+  with the requested value, do not reopen it.
+- If a checkbox is already present in EXECUTION MEMORY.checked_checkboxes,
+  do not click it again.
+- Only generate actions for the current step.
+- Never repeat actions from previous steps.
+================================================
+TYPE ACTION RULES
+================================================
+
+If STEP contains:
+
+- enter
+- fill
+- type
+- provide
+- insert
+- set
+
+Generate ONLY type actions.
+
+Find:
+
+- input
+- textarea
+- select
+
+Map TEST DATA:
+
+email -> email field
+
+password -> password field
+
+username -> username field
+
+
+Do NOT fill unrelated fields.
+
+If a visible button contains the exact text mentioned in the STEP,
+always use that button.
+
+Example:
+
+STEP:
+Click register button "Create account"
+
+
+Correct:
+
+{{
+  "type":"click",
+  "selector":"text=Create account",
+  "value":""
+}}
+
+
+Incorrect:
+
+{{
+  "type":"click",
+  "selector":"__index:8",
+  "value":""
+}}
+
+
+If STEP contains "Select" or "Choose":
+
+You MUST STRICTLY follow this sequence:
+
+1. Find dropdown trigger
+2. Click dropdown trigger
+3. WAIT for options to appear
+4. Select matching option
+
+CRITICAL:
+
+- Do NOT interact with ANY other element before completing dropdown selection
+- Do NOT click checkbox, button or link before dropdown is selected
+- Dropdown selection is mandatory and cannot be skipped
+
+Never skip dropdown.
+Never go to next elements before selecting value.
+
+================================================
+PRIORITY RULES
+================================================
+
+Priority of actions:
+
+1. Dropdown selection (highest priority)
+2. Input typing
+3. Checkbox / radio
+4. Submit button (lowest priority)
+
+Rules:
+
+- NEVER click submit if dropdown not selected
+- NEVER click checkbox if dropdown exists in step
+- ALWAYS complete dropdown before any other action
+================================================
+DROPDOWN HANDLING RULES
+================================================
+If STEP is about dropdown:
+
+- NEVER click checkbox
+- NEVER click unrelated elements
+- IGNORE all checkbox and links
+
+If STEP requires selecting a value in any dropdown implementation:
+
+Example:
+
+Select Tunisia country
+
+
+Do this sequence:
+
+1. Find dropdown trigger:
+
+- button
+- role=combobox
+- role=listbox
+- aria-haspopup
+- aria-haspopup="listbox"
+- aria-haspopup="dialog"
+- aria-haspopup="menu"
+- aria-expanded
+- input dropdown trigger
+- any visible custom dropdown trigger
+
+
+2. Click dropdown trigger.
+   If the visible text selector already matches the trigger,
+   click that element first.
+   Prefer the trigger whose text/label/aria/name best matches the
+   requested dropdown value when several buttons are visible.
+
+3. Wait for the popup/listbox/options to be visible.
+   If the DOM changes after opening, use the updated DOM.
+
+4. If a search input exists inside the opened dropdown:
+
+- focus it
+- clear it
+- type the requested value
+
+
+5. Find the option whose visible text exactly matches the requested value.
+
+6. If it is not immediately visible:
+
+- scroll the dropdown container, not the page
+- continue until found or end reached
+
+7. Click the matching visible option.
+
+8. If the dropdown refuses to open:
+
+- type the requested value into the trigger if it is an input/combobox
+- do not choose an arbitrary option
+
+If an element contains:
+
+- aria-haspopup
+- aria-expanded
+- role=combobox
+- role=listbox
+
+It MUST be treated as a dropdown trigger.
+
+For options:
+
+ONLY click if:
+
+- role="option"
+- text matches
+- visible=true
+
+
+Never click:
+
+- visible=false
+- height=0
+- width=0
+
+
+Never use:
+
+__index:N
+
+for dropdown options.
+
+If the dropdown does not open after clicking the trigger,
+type the requested value into the dropdown input or combobox
+instead of choosing an arbitrary option.
+Do not click a random button from the page.
+Use the trigger related to the dropdown value when available.
+Support React, Vue, Angular, Svelte, Next.js, GitHub Primer, Material UI,
+Ant Design, Radix, HeadlessUI, Bootstrap, PrimeReact, Chakra and custom div/button dropdowns.
+
+
+Correct:
+
+{{
+"type":"click",
+"selector":"text=Tunisia",
+"value":"Tunisia"
+}}
+
+
+Incorrect:
+
+{{
+"type":"click",
+"selector":"__index:50",
+"value":"Tunisia"
+}}
+
+
+================================================
+INDEX SELECTOR RULES
+================================================
+
+__index is allowed ONLY as last fallback.
+
+Never use __index for:
+
+- dropdown option
+- hidden element
+- role=option
+- dropdown items
+- list items
+- menu items
+
+For dropdown options:
+
+If DOM contains:
+
+role="option"
+visible=true
+text="VALUE"
+
+generate:
+
+{{
+"type":"click",
+"selector":"text=VALUE",
+"value":"VALUE"
+}}
+
+
+If element has text:
+
+use:
+
+text=ElementText
+
+
+================================================
+TEST DATA RULES
+================================================
+
+- Use only provided TEST DATA.
+- Do not invent values.
+- Respect order.
+- Empty data only for required fields.
+
+
+================================================
+ACTION CONSISTENCY
+================================================
+
+- One action = one STEP intention.
+- Minimum required actions.
+- All selectors must exist.
+- Do not repeat actions from previous steps.
+- If the current step is a dropdown selection, return only the
+  dropdown trigger click and the final option click/value handling.
+- Do not re-emit completed email/password/checkbox actions when the
+  current step is about another field or dropdown.
+
 ---
 
 STEP:
+
 {step_text}
 
 TEST DATA:
+
 {test_data_text}
 
+EXECUTION MEMORY:
+
+{memory_text}
+
 DOM:
+
 {dom_text}
+
 """

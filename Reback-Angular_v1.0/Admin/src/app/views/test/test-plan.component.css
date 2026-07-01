@@ -2073,3 +2073,69 @@ h1 {
   padding-left: 8px;
   margin-top: 4px;
 }
+.tc-edit-steps { margin-block-end: 0.6rem; }
+
+.tc-edit-steps-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-block-end: 0.5rem;
+}
+
+.tc-add-step-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.75rem; font-weight: 600; color: #0d6efd;
+  background: rgb(13 110 253 / 6%); border: 1px solid rgb(13 110 253 / 20%);
+  border-radius: 7px; padding: 4px 10px; cursor: pointer; transition: background 0.15s;
+}
+.tc-add-step-btn:hover { background: rgb(13 110 253 / 12%); }
+
+.tc-edit-step-list { display: flex; flex-direction: column; gap: 6px; }
+
+.tc-edit-step-card {
+  border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;
+}
+
+.tc-edit-step-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; background: #f8fafc;
+}
+
+.tc-edit-step-num {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; border: 1px solid #e2e8f0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem; font-weight: 700; color: #475569; flex-shrink: 0;
+}
+
+.tc-edit-step-input {
+  flex: 1; border: none; background: transparent;
+  font-size: 0.8rem; color: #1e293b; padding: 2px 0; outline: none;
+}
+
+.tc-edit-step-remove {
+  width: 22px; height: 22px; border: none; background: none;
+  color: #94a3b8; cursor: pointer; flex-shrink: 0; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+}
+.tc-edit-step-remove:hover { color: #ef4444; background: rgb(239 68 68 / 8%); }
+
+.tc-edit-step-expected {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px 8px 36px; background: rgb(16 185 129 / 4%);
+  border-block-start: 1px solid rgb(16 185 129 / 15%);
+  color: #059669;
+}
+
+.tc-edit-step-expected-input {
+  flex: 1; border: none; background: transparent;
+  font-size: 0.76rem; color: #065f46; padding: 2px 0; outline: none;
+}
+
+.tc-edit-step-empty {
+  border: 1px dashed #cbd5e1; border-radius: 8px;
+  padding: 0.9rem; text-align: center; color: #94a3b8; font-size: 0.8rem;
+}
+
+:host-context([data-bs-theme='dark']) .tc-edit-step-card { border-color: rgb(255 255 255 / 10%); }
+:host-context([data-bs-theme='dark']) .tc-edit-step-row { background: #0f172a; }
+:host-context([data-bs-theme='dark']) .tc-edit-step-input { color: #e2e8f0; }
+:host-context([data-bs-theme='dark']) .tc-edit-step-num { background: #1e293b; border-color: rgb(255 255 255 / 10%); color: #94a3b8; }

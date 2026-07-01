@@ -818,6 +818,32 @@ await this.router.navigate(['/execution', testCase.id], {
   console.log("✅ Navigation DONE");
 }
 
+// Add this method right after onRunTestCaseFromModal
+async onRunPlanFromModal(plan: TestPlanDto): Promise<void> {
+  const suite = this.detailsModalSuite;
+  if (!suite) return;
+
+  const suiteId = String(suite._id || '').trim();
+  const planId = String(plan.id || '').trim();
+  if (!suiteId || !planId) return;
+
+  const projectName = this.detailsModalProjectName;
+  const suiteName = this.getSuiteDisplayName(suite);
+  const planName = plan.title || planId;
+
+  this.closeDetailsModal();
+
+  await this.router.navigate(['/execution/Execution-Management'], {
+    queryParams: {
+      suiteId,
+      planId,
+      projectName,
+      suiteName,
+      planName,
+    },
+  });
+}
+
   getExecutionEntries(planId: string, caseId: string): ExecutionEntryDto[] {
     return this.detailsModalExecutionHistory[this.getExecutionHistoryKey(planId, caseId)] ?? []
   }

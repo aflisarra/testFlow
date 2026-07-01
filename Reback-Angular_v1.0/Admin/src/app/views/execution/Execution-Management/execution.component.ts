@@ -18,7 +18,6 @@ import { firstValueFrom, interval, Subscription } from 'rxjs';
 import type {
   ExecutionStep,
   LogLine,
-  NodeMetrics,
   StepStatus,
   TestScenario,
   TestStatus,
@@ -68,11 +67,12 @@ export class ExecutionComponent implements OnInit {
   private api = inject(ApiService);
 
   activeTab: 'timeline' | 'logs' | 'screenshot' = 'timeline';
-
-  metrics: NodeMetrics = { cpu: 24, memory: 1.2, latency: 42, threads: 8 };
+private isAborted = false;
+  /*metrics: NodeMetrics = { cpu: 24, memory: 1.2, latency: 42, threads: 8 };*/
 
   streamedLogs: LogLine[] = [];
   streamIndex = 0;
+private currentExecutionId: string | null = null;
 
   scenario: TestScenario = this.buildPassScenario();
   isStreaming = false;
@@ -80,6 +80,7 @@ export class ExecutionComponent implements OnInit {
   private planId = '';
   private testCaseId = '';
   private loadedTestCase: LoadedExecutionTestCase | null = null;
+  private loadedPlanTestCases: LoadedExecutionTestCase[] = [];
   recentRuns: TestExecutionDto[] = [];
   liveRun: TestExecutionDto | null = null;
   recentRunsPage = 1;
@@ -89,6 +90,8 @@ export class ExecutionComponent implements OnInit {
   executionModelSummary = 'execution-model/v1 pending';
   currentScreenshotIndex = 0;
   currentScreenshots: string[] = [];
+  snackbarMessage: string | null = null;
+private snackbarTimer?: ReturnType<typeof setTimeout>;
 
   private readonly PASS_LOGS: LogLine[] = [
     { index: 1, level: 'INFO', message: 'Initializing remote driver session' },
@@ -118,37 +121,44 @@ export class ExecutionComponent implements OnInit {
     { index: 8, level: 'INFO', message: 'Session terminated. Clean-up complete' },
   ];
 
-  ngOnInit(): void {
-    this.route.queryParamMap.subscribe((qp) => {
-      const suiteId = String(qp.get('suiteId') || '').trim();
-      const planId = String(qp.get('planId') || '').trim();
-      const projectName = qp.get('projectName');
-      const suiteName = qp.get('suiteName');
-      const planName = qp.get('planName');
-      const testCaseName = qp.get('testCaseName');
+ngOnInit(): void {
+  this.route.queryParamMap.subscribe((qp) => {
+    const suiteId = String(qp.get('suiteId') || '').trim();
+    const planId = String(qp.get('planId') || '').trim();
+    const projectName = qp.get('projectName');
+    const suiteName = qp.get('suiteName');
+    const planName = qp.get('planName');
+    const testCaseName = qp.get('testCaseName');
 
-      this.route.paramMap.subscribe((pp) => {
-        const testCaseId = String(pp.get('id') || '').trim();
-        this.suiteId = suiteId;
-        this.planId = planId;
-        this.testCaseId = testCaseId;
+    this.route.paramMap.subscribe((pp) => {
+      const testCaseId = String(pp.get('id') || '').trim();
+      this.suiteId = suiteId;
+      this.planId = planId;
+      this.testCaseId = testCaseId;
 
-        if (projectName || suiteName || planName || testCaseName) {
-          this.scenario = {
-            ...this.scenario,
-            projectName: projectName || this.scenario.projectName,
-            suiteName: suiteName || this.scenario.suiteName,
-            planName: planName || this.scenario.planName,
-            caseName: testCaseName || this.scenario.caseName,
-          };
-        }
+      if (projectName || suiteName || planName || testCaseName) {
+        this.scenario = {
+          ...this.scenario,
+          projectName: projectName || this.scenario.projectName,
+          suiteName: suiteName || this.scenario.suiteName,
+          planName: planName || this.scenario.planName,
+          caseName: testCaseName || this.scenario.caseName,
+        };
+      }
 
-        this.cdr.markForCheck();
+      this.cdr.markForCheck();
+
+      // ─── MODE PLAN : suiteId + planId, pas de testCaseId ───
+      if (suiteId && planId && !testCaseId) {
+        void this.loadAndRunPlan();
+      } else {
         void this.loadAndRun();
-        void this.loadRecentRuns();
-      });
+      }
+
+      void this.loadRecentRuns();
     });
-  }
+  });
+}
 
   // ─── Public actions ────────────────────────────────────────────────────────
 
@@ -159,15 +169,43 @@ export class ExecutionComponent implements OnInit {
     void this.executeLoadedTestCase();
   }
 
-  abort(): void {
+  runPlan(): void {
     this.stopAll();
-    this.scenario = {
-      ...this.scenario,
-      status: 'aborted',
-      activeStepLabel: '■ Aborted',
-    };
-    this.cdr.markForCheck();
+    void this.executeLoadedPlan();
   }
+
+abort(): void {
+  this.isAborted = true;
+  this.stopAll();
+
+  const executionId = this.currentExecutionId;  // ← toujours EX-...
+
+  this.scenario = {
+    ...this.scenario,
+    status: 'aborted',
+    activeStepLabel: '■ Aborted',
+    progressLabel: 'Execution aborted',
+    progressPercent: 100,
+  };
+
+  if (this.liveRun) {
+    this.liveRun = { ...this.liveRun, status: 'aborted' };
+  }
+
+  this.stopLiveRunTimer();
+
+  if (executionId) {
+    this.seleniumRunner.abortExecution(executionId).subscribe({
+      next: () => {
+        console.log('✅ Abort sent for', executionId);
+        setTimeout(() => void this.loadRecentRuns(), 1500);
+      },
+      error: (err) => console.warn('Abort save failed:', err),
+    });
+  }
+
+  this.cdr.markForCheck();
+}
 
   setTab(tab: 'timeline' | 'logs' | 'screenshot'): void {
     this.activeTab = tab;
@@ -182,6 +220,113 @@ export class ExecutionComponent implements OnInit {
     this.selectedScreenshotUrl = url;
   }
 
+
+  showSnackbar(message: string, durationMs = 4000): void {
+  this.snackbarMessage = message;
+  this.cdr.markForCheck();
+  if (this.snackbarTimer) clearTimeout(this.snackbarTimer);
+  this.snackbarTimer = setTimeout(() => {
+    this.snackbarMessage = null;
+    this.cdr.markForCheck();
+  }, durationMs);
+}
+
+private async loadAndRunPlan(): Promise<void> {
+  this.screenshotUrl = null;
+
+  if (!this.suiteId || !this.planId) {
+    this.scenario = {
+      ...this.scenario,
+      status: 'failed',
+      progressPercent: 0,
+      progressLabel: 'Missing suiteId or planId',
+      activeStepLabel: '⚠ Missing parameters',
+      steps: [],
+    };
+    this.streamedLogs = [{ index: 1, level: 'ERROR', message: 'Missing suiteId or planId.' }];
+    this.cdr.markForCheck();
+    return;
+  }
+
+  try {
+    const suite: TestSuiteDto = await firstValueFrom(
+      this.testLabService.getTestSuiteById(this.suiteId)
+    );
+    const planCases = this.getPlanTestCases(suite, this.planId);
+
+    if (!planCases.length) {
+      this.streamedLogs = [{ index: 1, level: 'ERROR', message: 'No test cases found for this plan.' }];
+      this.scenario = {
+        ...this.scenario,
+        status: 'failed',
+        progressPercent: 0,
+        progressLabel: 'No test cases found',
+        activeStepLabel: '⚠ Empty plan',
+        steps: [],
+      };
+      this.cdr.markForCheck();
+      return;
+    }
+
+    const total = planCases.length;
+
+    for (const [index, testCase] of planCases.entries()) {
+      this.loadedTestCase = testCase;
+
+      // update breadcrumb caseName to current test case
+      this.scenario = {
+        ...this.scenario,
+        caseName: testCase.title,
+        progressLabel: `Test case ${index + 1} / ${total} — ${testCase.title}`,
+        activeStepLabel: `▶ Running ${testCase.title}`,
+      };
+      this.cdr.markForCheck();
+
+      await this.executeLoadedTestCase(testCase);
+
+      const caseStatus = this.scenario.status;
+      const emoji = caseStatus === 'passed' ? '✓' : '✕';
+      const label = caseStatus === 'passed' ? 'passed' : 'failed';
+
+      // ── Snackbar intermédiaire ──────────────────────────────────────────
+      if (index < total - 1) {
+        this.showSnackbar(
+          `${emoji} Test case ${index + 1}/${total} "${testCase.title}" ${label} — starting next...`,
+          3500
+        );
+        // small pause so the user sees the snackbar before next case starts
+        await new Promise<void>(r => setTimeout(r, 1200));
+      }
+
+      if (caseStatus === 'aborted') {
+  this.showSnackbar('■ Execution aborted by user.', 4000);
+  break;
+}
+if (caseStatus === 'failed') break;
+    }
+
+    // ── Snackbar final ─────────────────────────────────────────────────────
+    const finalStatus = this.scenario.status;
+    if (finalStatus === 'passed') {
+      this.showSnackbar(`🎉 Test plan completed — all ${total} test cases passed!`, 6000);
+    } else {
+      this.showSnackbar(`✕ Test plan finished with failures.`, 6000);
+    }
+
+    void this.loadRecentRuns();
+
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    this.streamedLogs = [{ index: 1, level: 'ERROR', message: msg || 'Unable to execute plan.' }];
+    this.scenario = {
+      ...this.scenario,
+      status: 'failed',
+      progressLabel: 'Plan execution failed',
+      activeStepLabel: '⚠ Unable to execute test plan',
+    };
+    this.cdr.markForCheck();
+  }
+}
   nextScreenshot(): void {
     if (!this.currentScreenshots.length) return;
     this.currentScreenshotIndex =
@@ -415,7 +560,7 @@ element.click()`;
     this.streamIndex = 0;
     this.isStreaming = true;
     this.cdr.markForCheck();
-    this.startMetricsAnimation();
+    /*this.startMetricsAnimation();*/
 
     const steps = [
       { delay: 800,  progress: 40,  label: '40% — 2 / 5 steps completed',  active: '● Navigating to Login Page' },
@@ -441,7 +586,7 @@ element.click()`;
 
   private finalizePassScenario(): void {
     this.isStreaming = false;
-    this.stopMetrics();
+    /*this.stopMetrics();*/
     this.scenario = {
       ...this.scenario,
       status: 'passed',
@@ -454,7 +599,7 @@ element.click()`;
         { id: 5, name: 'Assert Dashboard Loaded', subtitle: 'Completed in 0.9s', status: 'pass', timestamp: '14:29:09' },
       ],
     };
-    this.metrics = { cpu: 8, memory: 1.0, latency: 18, threads: 4 };
+    /*this.metrics = { cpu: 8, memory: 1.0, latency: 18, threads: 4 };*/
     this.cdr.markForCheck();
   }
 
@@ -474,7 +619,7 @@ element.click()`;
       });
   }
 
-  private startMetricsAnimation(): void {
+  /*private startMetricsAnimation(): void {
     this.metricsSubscription = interval(1200)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
@@ -486,13 +631,13 @@ element.click()`;
         };
         this.cdr.markForCheck();
       });
-  }
+  }*/
 
-  private stopMetrics(): void { this.metricsSubscription?.unsubscribe(); }
+  /*private stopMetrics(): void { this.metricsSubscription?.unsubscribe(); }*/
 
   private stopAll(): void {
     this.isStreaming = false;
-    this.stopMetrics();
+    /*this.stopMetrics();*/
     this.logStreamSubscription?.unsubscribe();
     this.runSubscription?.unsubscribe();
     this.fakeTimelineSubscription?.unsubscribe();
@@ -628,6 +773,39 @@ element.click()`;
     return testCase.steps;
   }
 
+  private getPlanTestCases(suite: TestSuiteDto, planId: string): LoadedExecutionTestCase[] {
+    const plan = (suite.testCasesByPlan || []).find((p: any) => String(p.id || p._id || p.planId || '').trim() === planId) || null;
+    const urlCible = String(suite.urlCible || '').trim();
+    if (!plan || !urlCible) return [];
+
+    return (plan.testCases || []).map((tc: TestCaseDto) => {
+      const executionModel = this.coerceExecutionModel((tc as any).executionModel || (tc as any).execution_model);
+      const credentials = this.resolveExecutionCredentials(tc, suite);
+      const testData = (tc as any).test_data ?? (tc as any).testData ?? (tc as any).data ?? null;
+      return this.normalizeTestCase(tc, urlCible, executionModel, credentials, testData);
+    });
+  }
+
+  private normalizeTestCase(
+    tc: TestCaseDto,
+    urlCible: string,
+    executionModel: ExecutionModelDto | null,
+    credentials: LoadedExecutionTestCase['credentials'] | undefined,
+    testData: unknown,
+  ): LoadedExecutionTestCase {
+    return {
+      id: String(tc.id || '').trim(),
+      title: String(tc.title || (tc as any).nom || (tc as any).name || 'Untitled test case').trim(),
+
+      urlCible,
+      steps: Array.isArray(tc.steps) ? tc.steps.map(s => String(s)) : [],
+      stepDetails: Array.isArray(tc.stepDetails) ? tc.stepDetails : undefined,
+      executionModel,
+      ...(testData ? { test_data: testData } : {}),
+      credentials,
+    };
+  }
+
   private describeExecutionModel(model: ExecutionModelDto | null | undefined, fallbackSteps: number): string {
     if (!model?.steps?.length) return `local fallback pending · ${fallbackSteps} steps`;
     const channels = new Set(model.steps.map(s => String(s.channel || 'unknown').trim()).filter(Boolean));
@@ -745,16 +923,18 @@ element.click()`;
     return 'http://localhost:3000' + path;
   }
 
-  private async executeLoadedTestCase(): Promise<void> {
-    if (!this.loadedTestCase) return;
+  private async executeLoadedTestCase(testCase: LoadedExecutionTestCase | null = this.loadedTestCase): Promise<void> {
+    if (!testCase) return;
+this.isAborted = false; 
+  this.currentExecutionId = `EX-${Date.now()}`;  // ← génère ici
 
     this.stopAll();
     this.isStreaming = true;
     this.screenshotUrl = null;
-    this.metrics = { cpu: 24, memory: 1.2, latency: 42, threads: 8 };
-    this.startMetricsAnimation();
+    /*this.metrics = { cpu: 24, memory: 1.2, latency: 42, threads: 8 };
+    this.startMetricsAnimation();*/
 
-    const timelineSource = this.getTimelineSource(this.loadedTestCase);
+    const timelineSource = this.getTimelineSource(testCase);
     const steps = this.buildTimelineSteps(timelineSource);
     this.scenario = {
       ...this.scenario,
@@ -773,16 +953,17 @@ element.click()`;
 
     const startedAt = Date.now();
     const payload = {
-      id: this.loadedTestCase.id,
-      title: this.loadedTestCase.title,
+      id: testCase.id,
+      title: testCase.title,
+      executionId: this.currentExecutionId,
       testSuiteId: this.suiteId,
       planId: this.planId,
-      url: this.loadedTestCase.urlCible,
-      steps: this.loadedTestCase.steps,
-      ...(Array.isArray(this.loadedTestCase.stepDetails) ? { stepDetails: this.loadedTestCase.stepDetails } : {}),
-      ...(this.loadedTestCase.executionModel ? { executionModel: this.loadedTestCase.executionModel } : {}),
-      ...(this.loadedTestCase.test_data ? { test_data: this.loadedTestCase.test_data } : {}),
-      ...(this.loadedTestCase.credentials ? { credentials: this.loadedTestCase.credentials } : {}),
+      url: testCase.urlCible,
+      steps: testCase.steps,
+      ...(Array.isArray(testCase.stepDetails) ? { stepDetails: testCase.stepDetails } : {}),
+      ...(testCase.executionModel ? { executionModel: testCase.executionModel } : {}),
+      ...(testCase.test_data ? { test_data: testCase.test_data } : {}),
+      ...(testCase.credentials ? { credentials: testCase.credentials } : {}),
     };
 
     this.runSubscription = this.seleniumRunner
@@ -790,6 +971,10 @@ element.click()`;
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (resp) => {
+           if (this.isAborted) {
+          this.cdr.markForCheck();
+          return;
+        }
           const elapsed = Math.max(0, Date.now() - startedAt);
           const secs = `${Math.max(1, Math.round(elapsed / 1000))}s`;
           const respPayload: any = (resp as any)?.data ?? resp;
@@ -798,7 +983,7 @@ element.click()`;
           if (!respPayload || (typeof respPayload === 'object' && !Array.isArray(respPayload) && Object.keys(respPayload).length === 0)) {
             this.isStreaming = false;
             this.fakeTimelineSubscription?.unsubscribe();
-            this.stopMetrics();
+            /*this.stopMetrics();*/
             this.stopLiveRunTimer();
             this.scenario = {
               ...this.scenario,
@@ -839,7 +1024,7 @@ element.click()`;
           this.screenshotUrl = this.resolveScreenshotUrl(screenshotPath);
           this.isStreaming = false;
           this.fakeTimelineSubscription?.unsubscribe();
-          this.stopMetrics();
+          /*this.stopMetrics();*/
 
           this.scenario = {
             ...this.scenario,
@@ -863,10 +1048,14 @@ element.click()`;
           this.cdr.markForCheck();
         },
         error: (err: unknown) => {
+          if (this.isAborted) {
+          this.cdr.markForCheck();
+          return;
+        }
           const msg = err instanceof Error ? err.message : String(err);
           this.isStreaming = false;
           this.fakeTimelineSubscription?.unsubscribe();
-          this.stopMetrics();
+          /*this.stopMetrics();*/
           this.scenario = {
             ...this.scenario,
             status: 'failed',
@@ -914,6 +1103,46 @@ element.click()`;
     if (this.liveRunTimer) {
       clearInterval(this.liveRunTimer);
       this.liveRunTimer = undefined;
+    }
+  }
+
+  private async executeLoadedPlan(): Promise<void> {
+    if (!this.suiteId || !this.planId) return;
+
+    try {
+      const suite: TestSuiteDto = await firstValueFrom(this.testLabService.getTestSuiteById(this.suiteId));
+      const planCases = this.getPlanTestCases(suite, this.planId);
+
+      if (!planCases.length) {
+        this.streamedLogs = [{ index: 1, level: 'ERROR', message: 'No test cases found for this test plan.' }];
+        this.cdr.markForCheck();
+        return;
+      }
+
+      for (const [index, testCase] of planCases.entries()) {
+        this.loadedTestCase = testCase;
+        this.scenario = {
+          ...this.scenario,
+          caseName: testCase.title,
+          progressLabel: `Executing test case ${index + 1}/${planCases.length}`,
+          activeStepLabel: `Running ${testCase.title}`,
+        };
+        this.cdr.markForCheck();
+        await this.executeLoadedTestCase(testCase);
+        if (this.scenario.status === 'failed' || this.scenario.status === 'aborted') {
+          break;
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.streamedLogs = [{ index: 1, level: 'ERROR', message: msg || 'Unable to execute plan.' }];
+      this.scenario = {
+        ...this.scenario,
+        status: 'failed',
+        progressLabel: 'Plan execution failed',
+        activeStepLabel: '⚠ Unable to execute test plan',
+      };
+      this.cdr.markForCheck();
     }
   }
 }

@@ -100,4 +100,9 @@ getTestCasesByPlan(planId: string) {
 getExecutionDetail(id: string) {
   return this.api.get(`/api/selenium/executions/${id}`)
 }
+
+
+abortExecution(id: string) {
+  return this.api.patch(`/api/selenium/executions/${id}/abort`, {})
+}
 }

@@ -2,6 +2,7 @@ const mongoose = require('mongoose')
 const TestExecution = require('../models/TestExecution.model')
 const User = require('../models/user.model')
 const { runTestCase } = require('../services/selenium/selenium.service')
+const { cancelExecution } = require('../services/selenium/cancellation.manager')
 
 // ✅ AJOUT
 const testCaseService = require('../services/testcase.service')
@@ -9,7 +10,13 @@ const testCaseService = require('../services/testcase.service')
 function normalizeUserPreview(user) {
   if (!user) return null
   const source = user?.user && typeof user.user === 'object' ? user.user : user
-  const name = String(source?.name || source?.nom || source?.username || source?.firstName || '').trim()
+  const firstName = String(source?.firstName || '').trim()
+  const lastName = String(source?.lastName || '').trim()
+  const fullName = String(source?.fullName || source?.name || source?.nom || '').trim()
+  const name =
+    fullName ||
+    [firstName, lastName].filter(Boolean).join(' ').trim() ||
+    String(source?.username || source?.email || '').trim()
   const picture = String(source?.picture || source?.avatar || '').trim()
   const userId = String(source?.userId || source?.id || source?._id || source?.sub || '').trim()
 
@@ -44,11 +51,15 @@ function normalizeScreenshotEntry(screenshot) {
 
 function getActorName(actor) {
   if (!actor) return ''
+  const firstName = String(actor?.firstName || '').trim()
+  const lastName = String(actor?.lastName || '').trim()
   return String(
+    actor?.fullName ||
     actor?.name ||
     actor?.nom ||
     actor?.username ||
-    actor?.fullName ||
+    [firstName, lastName].filter(Boolean).join(' ').trim() ||
+    actor?.email ||
     ''
   ).trim()
 }
@@ -74,79 +85,46 @@ async function resolveActor(req) {
 }
 
 async function runTestCaseHandler(req, res) {
-
   try {
-
     const body = req.body || {}
-
-    console.log("🔥 REQUEST BODY:", body)
+        const generatedExecutionId = body.executionId || `EX-${Date.now()}`
+ // ← généré ICI
 
     let testCase = body.testCase || body
-    console.log("🧪 EXECUTION INPUT testCase:", {
-      hasTestCase: Boolean(testCase),
-      id: testCase?.id || '',
-      planId: testCase?.planId || '',
-      testSuiteId: testCase?.testSuiteId || '',
-      test_data: testCase?.test_data || testCase?.testData || testCase?.data || [],
-    })
-    let result
 
     const startedAt = Date.now()
     const executedBy = await resolveActor(req)
 
-    // ✅ ✅ ✅ CAS 1 : EXECUTION PAR planId (CORRECT)
     if (body.planId) {
-
-      console.log("📥 Loading test cases from DB using planId:", body.planId)
-
       const casesFromDB = await testCaseService.getByPlan(body.planId)
-
       if (!casesFromDB.length) {
-        return res.status(404).json({
-          status: 'error',
-          message: 'No test cases found for this plan'
-        })
+        return res.status(404).json({ status: 'error', message: 'No test cases found for this plan' })
       }
-
       testCase = casesFromDB[0]
-
-      console.log("✅ TEST CASE FROM DB:", testCase)
     }
 
-    // ✅ ✅ ✅ VALIDATION
     if (!testCase || !Array.isArray(testCase.steps) || !testCase.steps.length) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'testCase.steps is required'
-      })
+      return res.status(400).json({ status: 'error', message: 'testCase.steps is required' })
     }
 
-    // ✅ ✅ ✅ EXECUTION
-    result = await runTestCase(testCase)
+    // ─── Passe l'executionId au service ────────────────────────────────────
+    const result = await runTestCase({ ...testCase, executionId: generatedExecutionId })
 
-    const safeResult = result || {
-      status: 'failed_execution',
-      logs: [],
-      stepResults: []
-    }
-
+    const safeResult = result || { status: 'failed_execution', logs: [], stepResults: [] }
     const finishedAt = new Date()
     const duration = Math.round((Date.now() - startedAt) / 1000)
-
     const suiteId = testCase?.testSuiteId || null
     const isValidSuite = suiteId && mongoose.Types.ObjectId.isValid(suiteId)
 
     const executionData = {
-      executionId: `EX-${Date.now()}`,
-      testCaseTitle: testCase.title || "",
+      executionId: generatedExecutionId,   // ← même ID
+      testCaseTitle: testCase.title || '',
       planKey: testCase.planId ? String(testCase.planId) : '',
       planTitle: testCase.planTitle || '',
-      status:
-        safeResult.status === 'passed'
-          ? 'passed'
-          : safeResult.status === 'failed_assertion'
-            ? 'failed_assertion'
-            : 'failed_execution',
+      status: safeResult.status === 'passed' ? 'passed'
+        : safeResult.status === 'aborted' ? 'aborted'       // ← ajoute aborted
+        : safeResult.status === 'failed_assertion' ? 'failed_assertion'
+        : 'failed_execution',
       duration,
       startedAt: new Date(startedAt),
       finishedAt,
@@ -158,43 +136,31 @@ async function runTestCaseHandler(req, res) {
       executionData.executedBy = executedBy
       executionData.createdBy = executedBy
     }
-
-    if (testCase.id) {
-      executionData.testCaseKey = String(testCase.id)
-    }
+    if (testCase.id) executionData.testCaseKey = String(testCase.id)
 
     if (isValidSuite) {
-
       executionData.testSuiteId = new mongoose.Types.ObjectId(suiteId)
-
       if (testCase.planId && mongoose.Types.ObjectId.isValid(testCase.planId)) {
         executionData.planId = new mongoose.Types.ObjectId(testCase.planId)
       }
-
       try {
         await TestExecution.create(executionData)
-        console.log("✅ Execution saved")
       } catch (dbErr) {
-        console.error("⚠️ Execution save failed:", dbErr)
+        console.error('⚠️ Execution save failed:', dbErr)
       }
     }
 
-    return res.json({
-      status: safeResult.status,
-      data: safeResult
-    })
+    return res.json({ 
+  status: safeResult.status, 
+  data: safeResult,
+  executionId: generatedExecutionId,  // ← ajoute cette ligne
+})
 
   } catch (err) {
-
-    console.error("❌ CONTROLLER ERROR:", err)
-
-    return res.status(500).json({
-      status: 'error',
-      message: err.message
-    })
+    console.error('❌ CONTROLLER ERROR:', err)
+    return res.status(500).json({ status: 'error', message: err.message })
   }
 }
-
 async function getExecutions(req, res) {
   try {
     let {
@@ -305,8 +271,9 @@ async function getExecutions(req, res) {
       executedByName:
         getActorName(row.executedBy) ||
         getActorName(row.createdBy) ||
+        getActorName(row.user) ||
         String(row.userName || '').trim() ||
-        'Unknown user',
+        '',
 
          // ✅ AJOUTE CES DEUX LIGNES
   executedBy: row.executedBy || row.createdBy || null,
@@ -402,8 +369,9 @@ exports.getExecutionDetail = async (req, res) => {
       executedByName:
         getActorName(execution.executedBy) ||
         getActorName(execution.createdBy) ||
+        getActorName(execution.user) ||
         String(execution.userName || '').trim() ||
-        'Unknown user',
+        '',
       executedBy: execution.executedBy || execution.createdBy || null,
       status: execution.status,
       duration: execution.duration,
@@ -421,8 +389,44 @@ exports.getExecutionDetail = async (req, res) => {
   }
 }
 
+// Ajoute cette fonction
+async function abortExecution(req, res) {
+  try {
+    const { executionId } = req.params
+
+    if (!executionId) {
+      return res.status(400).json({ message: 'executionId required' })
+    }
+
+    // ─── Annule le process Selenium en cours ───────────────────────────────
+    const wasCancelled = cancelExecution(executionId)
+    console.log(`🛑 Abort requested for ${executionId} — cancelled: ${wasCancelled}`)
+
+    // ─── Met à jour le statut en DB ────────────────────────────────────────
+    const updated = await TestExecution.findOneAndUpdate(
+      { executionId },
+      { $set: { status: 'aborted', finishedAt: new Date() } },
+      { new: true }
+    ).lean()
+
+    return res.json({
+      success: true,
+      status: 'aborted',
+      executionId,
+      found: Boolean(updated),
+    })
+  } catch (err) {
+    console.error('❌ abortExecution:', err)
+    return res.status(500).json({ message: err.message })
+  }
+}
+
+// Ajoute à module.exports
 module.exports = {
   runTestCaseHandler,
   getExecutions,
-  getExecutionDetail: exports.getExecutionDetail
+  getExecutionDetail: exports.getExecutionDetail,
+  abortExecution,   // ← ajoute ici
 }
+
+

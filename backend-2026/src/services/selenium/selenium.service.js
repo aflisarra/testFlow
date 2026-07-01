@@ -1,6 +1,11 @@
 const { createDriver } = require('./driver.factory')
 const { runStructuredUiStep } = require('./ui.executor')
 const { addLog } = require('../../utils/logger')
+/*const {
+  createExecutionController,
+  isExecutionCancelled,
+  cleanupExecution,
+} = require('../../controllers/selenium.controller')*/
 
 function normalizeText(value) {
   return String(value || '')
@@ -362,16 +367,20 @@ async function buildActualResultForStep(driver, stepText, stepIndex, stepRunResu
 // Nouvelle fonction utilitaire appelée après les steps de type click/submit
 // pour laisser le DOM se stabiliser avant de capturer l'état
 // ─────────────────────────────────────────────────────────────────────────────
-async function waitForPageReaction(driver, timeoutMs = 5000) {
+async function waitForPageReactionWithAbort(driver, executionId, timeoutMs = 5000) {
+  const { isExecutionCancelled } = require('./cancellation.manager')
   const start = Date.now()
+  
   while (Date.now() - start < timeoutMs) {
+    // ─── Check abort toutes les 300ms ─────────────────────────────────────
+    if (isExecutionCancelled(executionId)) {
+      return
+    }
+
     const reacted = await driver.executeScript(() => {
       const errorSelectors = [
-        '.oxd-alert-content-text',
-        '[role="alert"]',
-        '.alert',
-        '[class*="error"]',
-        '.oxd-toast-content',
+        '.oxd-alert-content-text', '[role="alert"]', '.alert',
+        '[class*="error"]', '.oxd-toast-content',
       ]
       const hasError = errorSelectors.some(sel => {
         const el = document.querySelector(sel)
@@ -388,11 +397,29 @@ async function waitForPageReaction(driver, timeoutMs = 5000) {
 
 async function runTestCase(testCase) {
 
+ const {
+    createExecutionController,
+    isExecutionCancelled,
+    cleanupExecution,
+    registerAbortCallback,
+    registerDriver,  // ← ajoute
+  } = require('./cancellation.manager')
+
+ const executionId = testCase.executionId || `EX-${Date.now()}`
+  createExecutionController(executionId)
+
   const driver = await createDriver()
+
+  registerDriver(executionId, driver)
+
+  registerAbortCallback(executionId, async () => {
+    console.log(`🛑 Abort callback fired for ${executionId}`)
+    try { await driver.quit() } catch {}
+  })
   const logs = []
   const stepResults = []
 
-  addLog(logs, 0, "INFO", "Execution started")
+  addLog(logs, 0, 'INFO', 'Execution started')
 
   const baseUrl =
     testCase?.url ||
@@ -405,76 +432,88 @@ async function runTestCase(testCase) {
     baseUrl,
     testCase: {
       ...testCase,
-      test_data: Array.isArray(testCase?.test_data) ? testCase.test_data : []
+      test_data: Array.isArray(testCase?.test_data) ? testCase.test_data : [],
     },
-    logs
+    logs,
   }
 
-  console.log("🧪 TEST DATA RECEIVED IN EXECUTOR:", ctx.testCase?.test_data)
-
   if (!ctx.baseUrl) {
-    addLog(logs, 0, "ERROR", "Missing target URL (url/urlCible/baseUrl).")
+    addLog(logs, 0, 'ERROR', 'Missing target URL.')
     try { await driver.quit() } catch {}
+    cleanupExecution(executionId)
     return {
       status: 'failed_execution',
       logs,
-      stepResults: [{
-        index: 0,
-        step: '',
-        status: 'failed_execution',
-        error: 'Missing target URL (url/urlCible/baseUrl).'
-      }]
+      stepResults: [{ index: 0, step: '', status: 'failed_execution', error: 'Missing target URL.' }],
     }
   }
 
   try {
-
     const steps = getStepDefinitions(testCase)
     const expectedResult = resolveExpectedResult(testCase)
     let encounteredFailure = false
 
     for (let i = 0; i < steps.length; i++) {
 
+      // ─── CHECK ABORT avant chaque step ──────────────────────────────────
+      if (isExecutionCancelled(executionId)) {
+        addLog(logs, i + 1, 'WARN', `Execution aborted before step ${i + 1}`)
+        stepResults.push({
+          index: i + 1,
+          step: steps[i].raw || `Step ${i + 1}`,
+          status: 'aborted',
+          error: 'Execution aborted by user',
+        })
+        // marque les steps restants comme skipped
+        for (let j = i + 1; j < steps.length; j++) {
+          stepResults.push({
+            index: j + 1,
+            step: steps[j].raw || `Step ${j + 1}`,
+            status: 'skipped',
+            error: 'Skipped — execution aborted',
+          })
+        }
+        return {
+          status: 'aborted',
+          logs,
+          stepResults,
+        }
+      }
+
       const step = steps[i]
       const stepText = step.raw || `Step ${i + 1}`
       const stepExpectedResult = step.expectedResult || expectedResult
 
-      console.log(`➡️ STEP ${i + 1}: ${stepText}`)
-      addLog(logs, i + 1, "INFO", `Step ${i + 1} started: ${stepText}`)
+      addLog(logs, i + 1, 'INFO', `Step ${i + 1} started: ${stepText}`)
 
       try {
-
-        console.log("🧪 TEST DATA BEFORE STEP:", ctx.testCase?.test_data)
-
         const result = await runStructuredUiStep(driver, stepText, ctx, i + 1)
 
-        console.log("🧪 TEST DATA AFTER STEP:", ctx.testCase?.test_data)
-
-        // ── FIX 3 : attendre la réaction DOM après click/submit ─────────────
-        const isInteractiveStep = /click|submit|login|sign.?in/i.test(stepText)
-        if (isInteractiveStep) {
-          await waitForPageReaction(driver)
+        // ─── CHECK ABORT après chaque step ────────────────────────────────
+        if (isExecutionCancelled(executionId)) {
+          addLog(logs, i + 1, 'WARN', `Aborted after step ${i + 1}`)
+          stepResults.push({
+            index: i + 1,
+            step: stepText,
+            status: 'aborted',
+            error: 'Execution aborted by user',
+          })
+          return { status: 'aborted', logs, stepResults }
         }
+
+        const isInteractiveStep = /click|submit|login|sign.?in/i.test(stepText)
+        if (isInteractiveStep) await waitForPageReactionWithAbort(driver, executionId)
+
 
         const actualResultObject = await buildActualResultForStep(driver, stepText, i + 1, result)
         const actualResult = JSON.stringify(actualResultObject || {})
         const comparison = compareStepExpectedResult(actualResultObject || {}, stepExpectedResult)
+        const finalStepStatus = result.status !== 'passed' ? result.status : comparison.status
 
-        const finalStepStatus =
-          result.status !== 'passed'
-            ? result.status
-            : comparison.status
+        if (finalStepStatus !== 'passed') encounteredFailure = true
 
-        if (finalStepStatus !== 'passed') {
-          encounteredFailure = true
-        }
-
-        addLog(
-          logs,
-          i + 1,
-          finalStepStatus === 'passed' ? "SUCCESS" : "ERROR",
-          `Step ${i + 1} ${finalStepStatus}: ${comparison.reason}`
-        )
+        addLog(logs, i + 1, finalStepStatus === 'passed' ? 'SUCCESS' : 'ERROR',
+          `Step ${i + 1} ${finalStepStatus}: ${comparison.reason}`)
 
         stepResults.push({
           index: i + 1,
@@ -485,30 +524,38 @@ async function runTestCase(testCase) {
           comparison: { matched: comparison.matched, reason: comparison.reason },
           screenshot: (result.screenshots && result.screenshots[0]) || null,
           allScreenshots: result.screenshots || [],
-          error: result.error || "",
+          error: result.error || '',
           startedAt: new Date(),
-          finishedAt: new Date()
+          finishedAt: new Date(),
         })
 
       } catch (err) {
+        // ─── Si l'erreur vient d'un abort signal ──────────────────────────
+        if (isExecutionCancelled(executionId)) {
+          addLog(logs, i + 1, 'WARN', `Step ${i + 1} interrupted by abort`)
+          stepResults.push({
+            index: i + 1,
+            step: stepText,
+            status: 'aborted',
+            error: 'Interrupted by abort',
+          })
+          return { status: 'aborted', logs, stepResults }
+        }
 
-        console.log("❌ STEP ERROR:", err.message)
         stepResults.push({
           index: i + 1,
           step: stepText,
           status: 'failed_execution',
-          error: err.message
+          error: err.message,
         })
         encounteredFailure = true
       }
     }
 
-    const hasAssertionFailure = stepResults.some((s) => s.status === 'failed_assertion')
-    const hasExecutionFailure = stepResults.some((s) => s.status === 'failed_execution')
+    const hasAssertionFailure = stepResults.some(s => s.status === 'failed_assertion')
+    const hasExecutionFailure = stepResults.some(s => s.status === 'failed_execution')
     const finalComparison = compareExpectedResult(
-      stepResults.length
-        ? JSON.parse(stepResults[stepResults.length - 1].actualResult || '{}')
-        : {},
+      stepResults.length ? JSON.parse(stepResults[stepResults.length - 1].actualResult || '{}') : {},
       expectedResult,
       stepResults
     )
@@ -516,24 +563,24 @@ async function runTestCase(testCase) {
     return {
       status: hasExecutionFailure
         ? 'failed_execution'
-        : (hasAssertionFailure || finalComparison.status !== 'passed' || encounteredFailure)
+        : hasAssertionFailure || finalComparison.status !== 'passed' || encounteredFailure
           ? 'failed_assertion'
           : 'passed',
       logs,
       stepResults,
-      actualResult: stepResults.length
-        ? stepResults[stepResults.length - 1].actualResult
-        : '',
+      actualResult: stepResults.length ? stepResults[stepResults.length - 1].actualResult : '',
       expectedResult,
-      comparison: finalComparison
+      comparison: finalComparison,
     }
 
   } catch (err) {
-
-    console.log("❌ TEST CASE ERROR:", err.message)
+    if (isExecutionCancelled(executionId)) {
+      return { status: 'aborted', logs, stepResults }
+    }
     return { status: 'failed', logs, stepResults }
 
   } finally {
+    cleanupExecution(executionId)
     await driver.quit()
   }
 }

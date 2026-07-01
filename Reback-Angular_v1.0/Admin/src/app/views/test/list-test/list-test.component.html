@@ -456,17 +456,39 @@
       </div>
 
       @for (plan of vm.detailsModalPlans; track plan.id) {
-        <button
-          type="button"
-          style="display:flex; flex-direction:column; gap:1px; padding:9px 14px; border:none; background:transparent; cursor:pointer; text-align:left; border-bottom:1px solid #f1f5f9; transition:background .15s;"
-          [style.background]="vm.detailsModalSelectedPlanId === plan.id ? '#eff6ff' : 'transparent'"
-          [style.borderLeft]="vm.detailsModalSelectedPlanId === plan.id ? '3px solid #3b82f6' : '3px solid transparent'"
-          (click)="vm.selectDetailsModalPlan(plan.id)"
-        >
-          <span style="font-size:10px; color:#94a3b8; font-family:monospace;">#{{ plan.id }}</span>
-          <span style="font-size:12px; color:#1e293b; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px;">{{ plan.title || plan.id }}</span>
-        </button>
-      }
+  <div
+    style="border-bottom:1px solid #f1f5f9;"
+    [style.background]="vm.detailsModalSelectedPlanId === plan.id ? '#eff6ff' : 'transparent'"
+    [style.borderLeft]="vm.detailsModalSelectedPlanId === plan.id ? '3px solid #3b82f6' : '3px solid transparent'"
+  >
+    <!-- Plan selector -->
+    <button
+      type="button"
+      style="display:flex; flex-direction:column; gap:1px; padding:9px 14px; border:none; background:transparent; cursor:pointer; text-align:left; width:100%;"
+      (click)="vm.selectDetailsModalPlan(plan.id)"
+    >
+      <span style="font-size:10px; color:#94a3b8; font-family:monospace;">#{{ plan.id }}</span>
+      <span style="font-size:12px; color:#1e293b; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px;">
+        {{ plan.title || plan.id }}
+      </span>
+    </button>
+
+    <!-- Run plan button -->
+    <div style="padding:0 10px 8px;">
+      <button
+        type="button"
+        style="display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:3px 10px; border:none; border-radius:6px; background:#0244ad; color:#fff; font-size:10px; font-weight:600; cursor:pointer; width:100%; transition:opacity .15s;"
+        onmouseenter="this.style.opacity='.85'"
+        onmouseleave="this.style.opacity='1'"
+        (click)="vm.onRunPlanFromModal(plan)"
+        title="Run all test cases in this plan"
+      >
+        <iconify-icon icon="mdi:play-circle-outline"></iconify-icon>
+        Run
+      </button>
+    </div>
+  </div>
+}
 
       @if (!vm.detailsModalPlans.length) {
         <div style="padding:20px 14px; font-size:12px; color:#94a3b8; text-align:center;">No test plans.</div>

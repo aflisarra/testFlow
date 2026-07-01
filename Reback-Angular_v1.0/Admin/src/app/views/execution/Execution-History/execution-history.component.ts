@@ -167,15 +167,23 @@ export class ExecutionHistoryComponent implements OnInit {
     this.seleniumRunnerService.getExecutions(query).subscribe((res: any) => {
       this.totalRuns = res.total ?? 0
       this.filteredRuns = (res.data ?? []).map((r: any): ExecutionRun => ({
-  id:                 r.executionId,
-  testCaseName:       r.testCaseTitle ?? r.testCaseKey ?? 'Untitled test case',
-  executedBy:         r.executedByName ?? r.executedBy?.name ?? 'Unknown user',
-  executedByPicture:  r.executedBy?.picture ?? r.createdBy?.picture ?? null,  // ✅ AJOUTE
-  status:             r.status,
-  executionDate:      r.startedAt ? new Date(r.startedAt).toLocaleDateString() : '—',
-  executionTime:      r.startedAt ? new Date(r.startedAt).toLocaleTimeString() : '—',
-  duration:           `${r.duration ?? 0}s`,
-}))
+        id: r.executionId,
+        testCaseName: r.testCaseTitle ?? r.testCaseKey ?? 'Untitled test case',
+        executedBy:
+          r.executedByName ||
+          r.executedBy?.name ||
+          r.executedBy?.fullName ||
+          r.executedBy?.username ||
+          r.createdBy?.name ||
+          r.createdBy?.fullName ||
+          r.createdBy?.username ||
+          '',
+        executedByPicture: r.executedBy?.picture ?? r.createdBy?.picture ?? null,
+        status: r.status,
+        executionDate: r.startedAt ? new Date(r.startedAt).toLocaleDateString() : '—',
+        executionTime: r.startedAt ? new Date(r.startedAt).toLocaleTimeString() : '—',
+        duration: `${r.duration ?? 0}s`,
+      }))
     })
   }
 

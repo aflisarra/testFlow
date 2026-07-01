@@ -228,6 +228,24 @@ def _ensure_step_details_expected(step_details: List[Dict[str, Any]]) -> None:
         )
 
 
+def _extract_cases_payload(data: Any) -> List[Dict[str, Any]] | None:
+    """
+    Accept common JSON shapes produced by LLMs and remain backward compatible.
+    """
+    if isinstance(data, list):
+        return data
+
+    if not isinstance(data, dict):
+        return None
+
+    for key in ("test_cases", "testCases", "cases", "data"):
+        value = data.get(key)
+        if isinstance(value, list):
+            return value
+
+    return None
+
+
 def generate_test_cases(
     *,
     plan_id: str,
@@ -264,9 +282,11 @@ def generate_test_cases(
         log_error(logger, "generate_cases_ai_failed", error=str(exc))
         raise
 
-    cases_raw = data.get("test_cases") if isinstance(data, dict) else data
+    cases_raw = _extract_cases_payload(data)
     if not isinstance(cases_raw, list):
-        raise ValueError("AI did not return a list of test cases")
+        raise ValueError(
+            "AI did not return a list of test cases (expected test_cases/testCases/cases/data array)"
+        )
 
     prefix = _tc_prefix(plan_id)
     normalized: List[Dict[str, Any]] = []

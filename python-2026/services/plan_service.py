@@ -111,6 +111,25 @@ def _dedupe_plans(plans: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
+def _extract_plans_payload(data: Any) -> List[Dict[str, Any]] | None:
+    """
+    Accept the most common JSON shapes produced by LLMs and keep backward
+    compatibility with older payloads.
+    """
+    if isinstance(data, list):
+        return data
+
+    if not isinstance(data, dict):
+        return None
+
+    for key in ("test_plans", "testPlans", "plans", "data"):
+        value = data.get(key)
+        if isinstance(value, list):
+            return value
+
+    return None
+
+
 def _mock_plans(modules: List[str]) -> List[Dict[str, Any]]:
     base = modules[: max(DEFAULT_TEST_PLANS_MIN, min(len(modules), DEFAULT_TEST_PLANS_MAX))]
     if len(base) < DEFAULT_TEST_PLANS_MIN:
@@ -158,10 +177,12 @@ def generate_test_plans(*, spec_text: str, style_config: str, project_title: str
         log_error(logger, "generate_plans_ai_failed", error=str(exc))
         raise
 
-    # Accept both {"test_plans":[...]} and direct array (backward tolerance)
-    plans_raw = data.get("test_plans") if isinstance(data, dict) else data
+    # Accept the canonical payload and a few legacy/LLM variants.
+    plans_raw = _extract_plans_payload(data)
     if not isinstance(plans_raw, list):
-        raise ValueError("AI did not return a list of test plans")
+        raise ValueError(
+            "AI did not return a list of test plans (expected test_plans/plans/data array)"
+        )
 
     normalized: List[Dict[str, Any]] = []
     for i, item in enumerate(plans_raw, start=1):

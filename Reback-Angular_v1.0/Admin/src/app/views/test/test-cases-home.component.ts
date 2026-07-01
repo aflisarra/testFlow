@@ -807,6 +807,28 @@ export class TestCasesHomeComponent implements OnInit {
       .filter(Boolean)
   }
 
+  private syncStepDetailsWithSteps(tc: TestCaseDto, nextSteps: string[]): TestCaseDto {
+    const currentDetails = Array.isArray(tc.stepDetails) ? tc.stepDetails : []
+    const stepDetails = nextSteps.map((step, index) => {
+      const existingDetail = currentDetails[index] || {}
+      return {
+        ...existingDetail,
+        step: String(step || existingDetail.step || '').trim(),
+        expected_result: String(
+          existingDetail.expected_result ||
+          tc.expected_result ||
+          ''
+        ).trim(),
+      }
+    })
+
+    return {
+      ...tc,
+      steps: nextSteps,
+      stepDetails,
+    }
+  }
+
   onEditCaseTestData(caseId: string, value: string) {
     const test_data = this.parseTestDataLines(value)
     console.log('[TestCasesHome] edit test_data', {
@@ -823,7 +845,7 @@ export class TestCasesHomeComponent implements OnInit {
       .split(/\r?\n/)
       .map((s) => s.trim())
       .filter(Boolean)
-    this.updateModalCase(caseId, (tc) => ({ ...tc, steps }))
+    this.updateModalCase(caseId, (tc) => this.syncStepDetailsWithSteps(tc, steps))
   }
 
   private updateModalCase(caseId: string, updater: (tc: TestCaseDto) => TestCaseDto) {
@@ -1381,4 +1403,59 @@ export class TestCasesHomeComponent implements OnInit {
     void suite
     return true
   }
+
+
+  openManualAddCase(plan: TestPlanDto, event?: Event): void {
+  event?.stopPropagation()
+  if (!this.canEditGenerateForSelectedProject) {
+    this.toastr.warning('You must accept this project before adding test cases.', 'Project Access')
+    return
+  }
+  if (!this.testSuiteId) {
+    const inferred = this.resolveSuiteIdForPlan(plan.id)
+    if (inferred) this.testSuiteId = inferred
+  }
+
+  const existing = this.testCasesByPlan[plan.id] || []
+  const newCase: TestCaseDto = {
+    id: `TC-${existing.length + 1}`,
+    title: '',
+    steps: [],
+    stepDetails: [],
+    expected_result: '',
+    test_data: [],
+    preconditions: [],
+    requirements: [],
+  } as TestCaseDto
+
+  this.modalPlan = plan
+  this.modalAllCases = [...existing, newCase]
+  this.modalCases = [newCase]
+  this.editingSingleCase = true
+  this.modalGenerating = false
+  this.modalOpen = true
+  this.editingCaseIds = { [newCase.id]: true }
+}
+
+onAddStep(caseId: string): void {
+  this.updateModalCase(caseId, (tc) => {
+    const steps = [...(tc.steps || []), '']
+    return this.syncStepDetailsWithSteps(tc, steps)
+  })
+}
+
+onRemoveStep(caseId: string, index: number): void {
+  this.updateModalCase(caseId, (tc) => {
+    const steps = (tc.steps || []).filter((_, i) => i !== index)
+    return this.syncStepDetailsWithSteps(tc, steps)
+  })
+}
+
+onEditSingleStep(caseId: string, index: number, value: string): void {
+  this.updateModalCase(caseId, (tc) => {
+    const steps = [...(tc.steps || [])]
+    steps[index] = value
+    return this.syncStepDetailsWithSteps(tc, steps)
+  })
+}
 }

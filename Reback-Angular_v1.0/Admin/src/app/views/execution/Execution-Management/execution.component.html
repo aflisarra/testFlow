@@ -1,6 +1,6 @@
 <div class="execution-shell">
 
-  <!-- ─── Topbar ──────────────────────────────────────────────────────────── -->
+  <!-- ─── Topbar ──────────────────────────────────────────────────────────────── -->
   <header class="topbar">
     <nav class="breadcrumb" aria-label="Navigation">
       <span class="breadcrumb__item">{{ scenario.projectName }}</span>
@@ -13,7 +13,6 @@
     </nav>
 
     <div class="topbar__right">
-      <span class="exec-id-chip">{{ scenario.executionId }}</span>
       <div class="topbar__actions">
         <button class="btn btn--rerun" (click)="rerun()">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -32,22 +31,31 @@
     </div>
   </header>
 
-  <!-- ─── Exec header ─────────────────────────────────────────────────────── -->
+  <!-- ─── Exec header ─────────────────────────────────────────────────────────── -->
   <section class="exec-header">
     <div class="exec-header__title-row">
       <h1 class="exec-header__title">{{ scenario.caseName }}</h1>
-      <span class="badge" [ngClass]="getStatusBadgeClass()">{{ getStatusLabel() }}</span>
+      <span class="badge" [ngClass]="getStatusBadgeClass()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="opacity: 0.8;">
+          <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
+          <path d="M6 8l1.5 1.5 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        {{ getStatusLabel() }}
+      </span>
     </div>
     <p class="exec-header__meta">
-      Environment: <strong>{{ scenario.environment }}</strong>
-      &nbsp;·&nbsp; Started: <strong>{{ scenario.executionId }}</strong>
-      @if (scenario.executionTime !== '—') {
-        &nbsp;·&nbsp; Duration: <strong>{{ scenario.executionTime }}</strong>
+      <span>Environment: <strong>{{ scenario.environment }}</strong></span>
+      <span class="exec-header__meta-sep">·</span>
+      <span>Duration: <strong>{{ scenario.executionTime }}</strong></span>
+      @if (scenario.executionId) {
+        <span class="exec-header__meta-sep">·</span>
+        <span>ID: <strong>{{ scenario.executionId }}</strong></span>
       }
     </p>
   </section>
 
-  <!-- ─── Progress bar ─────────────────────────────────────────────────────── -->
+  <!-- ─── Progress bar ───────────────────────────────────────────────────────── -->
+  @if (scenario.status === 'in-progress') {
   <div class="progress-track">
     <div
       class="progress-fill"
@@ -58,8 +66,9 @@
   <div class="progress-label">
     <span class="progress-label__text">{{ scenario.progressLabel }}</span>
   </div>
+  }
 
-  <!-- ─── Body ─────────────────────────────────────────────────────────────── -->
+  <!-- ─── Body ─────────────────────────────────────────────────────────────────── -->
   <div class="exec-body">
 
     <!-- LEFT column -->
@@ -74,10 +83,40 @@
             <span class="card__dot card__dot--green"></span>
             <span class="card__head-title">Execution adapter view</span>
           </div>
-          <span
-            class="active-step-label"
-            [class.active-step-label--fail]="scenario.status === 'failed'"
-          >{{ scenario.activeStepLabel }}</span>
+          @switch(scenario.status) {
+            @case('passed') {
+              <span class="card__head-status card__head-status--pass">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
+                  <path d="M6 8l1.5 1.5 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Completed
+              </span>
+            }
+            @case('failed') {
+              <span class="card__head-status card__head-status--fail">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
+                  <path d="M6 6l4 4M10 6l-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                Failed
+              </span>
+            }
+            @case('in-progress') {
+              <span class="card__head-status card__head-status--running">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3" opacity="0.3"/>
+                  <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3" stroke-dasharray="10 10" style="animation: spin 1s linear infinite;"/>
+                </svg>
+                Running
+              </span>
+            }
+            @default {
+              <span class="card__head-status card__head-status--aborted">
+                Aborted
+              </span>
+            }
+          }
         </div>
 
         <div class="tabs">
@@ -97,10 +136,29 @@
                     <span class="dot" [ngClass]="getDotClass(step.status)"></span>
                   </div>
                   <div class="timeline__info">
-                    <div class="timeline__name">{{ step.name }}</div>
-                    <div class="timeline__status" [ngClass]="'timeline__status--' + step.status">
-                      {{ getStepStatusLabel(step.status) }}
+                    <div class="timeline__text">
+                      <div class="timeline__name">{{ step.name }}</div>
+                      @if (step.subtitle) {
+                        <div class="timeline__subtitle">{{ step.subtitle }}</div>
+                      }
                     </div>
+                    @switch(step.status) {
+                      @case('pass') {
+                        <span class="timeline__status timeline__status--pass">PASSED</span>
+                      }
+                      @case('fail') {
+                        <span class="timeline__status timeline__status--fail">FAILED</span>
+                      }
+                      @case('running') {
+                        <span class="timeline__status timeline__status--running">RUNNING</span>
+                      }
+                      @case('waiting') {
+                        <span class="timeline__status timeline__status--waiting">WAITING</span>
+                      }
+                      @case('skipped') {
+                        <span class="timeline__status timeline__status--skipped">SKIPPED</span>
+                      }
+                    }
                   </div>
                 </div>
               }
@@ -196,8 +254,8 @@
             <tbody>
               @for (run of paginatedRecentRuns; track run.executionId) {
                 <tr>
-                  <td>{{ run.planTitle || run.planKey || run.planId }}</td>
-                  <td class="td--mono">{{ run.testCaseTitle || run.testCaseKey || run.testCaseId }}</td>
+                  <td class="td--link">{{ run.planTitle || run.planKey || run.planId }}</td>
+                  <td class="td--mono td--link">{{ run.testCaseTitle || run.testCaseKey || run.testCaseId }}</td>
                   <td>
                     <span class="status-pill" [ngClass]="getRunStatusClass(run.status)">
                       {{ getRunStatusLabel(run.status) }}
@@ -222,6 +280,33 @@
               <button class="table-pagination__btn" (click)="goToRecentRunsPreviousPage()" [disabled]="recentRunsPage === 1">Prev</button>
               <button class="table-pagination__btn" (click)="goToRecentRunsNextPage()" [disabled]="recentRunsPage === recentRunsTotalPages">Next</button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detector AI with fix (static for now) -->
+      <div class="detector-card">
+        <div class="detector-card__glow"></div>
+        <div class="detector-card__head">
+          <span class="detector-card__icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+            </svg>
+          </span>
+          <span class="detector-card__title">Detector AI with fix</span>
+        </div>
+        <p class="detector-card__desc">
+          This test case has a <span class="detector-card__highlight">98% reliability score</span>. The last 20 executions showed zero performance regressions in the persistence layer.
+        </p>
+        <div class="detector-card__action">
+          <span class="detector-card__action-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+            </svg>
+          </span>
+          <div>
+            <div class="detector-card__action-label">Recommended Action</div>
+            <div class="detector-card__action-text">Consider optimizing this test to the Core regression suite.</div>
           </div>
         </div>
       </div>
@@ -277,25 +362,22 @@
     <!-- RIGHT column -->
     <aside class="exec-right">
 
-      <!-- Node metrics -->
+      <!-- Collector status -->
       <div>
-        <div class="section-label">Node metrics</div>
-        <div class="metric-grid">
-          <div class="metric">
-            <div class="metric__label">CPU load</div>
-            <div class="metric__value">{{ metrics.cpu }}%</div>
-          </div>
-          <div class="metric">
-            <div class="metric__label">Memory</div>
-            <div class="metric__value">{{ metrics.memory }} GB</div>
-          </div>
-          <div class="metric">
-            <div class="metric__label">Latency</div>
-            <div class="metric__value">{{ metrics.latency }}ms</div>
-          </div>
-          <div class="metric">
-            <div class="metric__label">Threads</div>
-            <div class="metric__value">{{ metrics.threads }}</div>
+        <div class="section-label">Collector status</div>
+        <div class="card">
+          <div class="card__body card__body--compact">
+            <div class="meta-row">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span class="collector-dot collector-dot--online"></span>
+                <span class="collector-status">Online</span>
+              </div>
+              <span class="collector-version">v4.12.8-rc.3</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-row__label">Last synced</span>
+              <span class="meta-row__value">2 min ago</span>
+            </div>
           </div>
         </div>
       </div>
@@ -305,9 +387,23 @@
         <div class="section-label">Execution model</div>
         <div class="card">
           <div class="card__body card__body--compact">
-            <div class="meta-row">
-              <span class="meta-row__label">Model</span>
-              <span class="meta-row__value">{{ executionModelSummary }}</span>
+            <div class="exec-model-box">
+              <div class="exec-model-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="#185fa5" stroke-width="1.8" aria-hidden="true">
+                  <rect x="3" y="3" width="7" height="7" rx="1"/>
+                  <rect x="14" y="3" width="7" height="7" rx="1"/>
+                  <rect x="3" y="14" width="7" height="7" rx="1"/>
+                  <rect x="14" y="14" width="7" height="7" rx="1"/>
+                </svg>
+              </div>
+              <div class="exec-model-info">
+                <div>
+                  <div class="exec-model-name">{{ executionModelSummary }}</div>
+                  <div class="exec-model-ver">v1.0.4-stable · pending</div>
+                </div>
+                <span class="exec-model-badge">3 steps</span>
+              </div>
             </div>
           </div>
         </div>
@@ -343,6 +439,21 @@
     </aside><!-- /exec-right -->
 
   </div><!-- /exec-body -->
+
+  <!-- ─── Snackbar ──────────────────────────────────────────────────────────────── -->
+  @if (snackbarMessage) {
+    <div
+      style="
+        position:fixed; bottom:28px; left:50%; transform:translateX(-50%);
+        background:#1e293b; color:#f8fafc; padding:12px 22px; border-radius:10px;
+        font-size:13px; font-weight:500; box-shadow:0 4px 20px rgba(0,0,0,.25);
+        z-index:9999; display:flex; align-items:center; gap:10px;
+        animation: snack-in .25s ease;
+      "
+    >
+      {{ snackbarMessage }}
+    </div>
+  }
 
 </div><!-- /execution-shell -->
 

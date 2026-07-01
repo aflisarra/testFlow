@@ -191,29 +191,32 @@
       } @else {
 
       <div class="tc-right-header">
-        <div>
-          <span class="tc-right-plan-id">{{ livePlanId }}</span>
-          <h5 class="tc-right-plan-title mb-0">{{ livePlan?.title }}</h5>
-          <p class="tc-right-plan-desc mb-0">{{ livePlan?.description }}</p>
-        </div>
-        <div class="d-flex gap-2 align-items-center">
-          @if (livePlan) {
-         <button class="btn btn-sm btn-brand tc-generate-main-btn" (click)="openModal(livePlan, $event)">
-  <iconify-icon
-    [icon]="(testCasesByPlan[livePlanId] || []).length 
-      ? 'iconamoon:eye-thin' 
-      : 'iconamoon:sparkles-duotone'"
-    width="15"
-    height="15"
-  ></iconify-icon>
-  <span>{{ (testCasesByPlan[livePlanId] || []).length ? 'View' : 'Generate' }}</span>
-  @if ((testCasesByPlan[livePlanId] || []).length) {
-    <span class="tc-btn-count">({{ (testCasesByPlan[livePlanId] || []).length }})</span>
-  }
-</button>
-          }
-        </div>
-      </div>
+  <div>
+    <span class="tc-right-plan-id">{{ livePlanId }}</span>
+    <h5 class="tc-right-plan-title mb-0">{{ livePlan?.title }}</h5>
+    <p class="tc-right-plan-desc mb-0">{{ livePlan?.description }}</p>
+  </div>
+  <div class="d-flex gap-2 align-items-center">
+    @if (livePlan) {
+    <button class="btn btn-sm btn-outline-secondary" (click)="openManualAddCase(livePlan, $event)" title="Add test case manually">
+      <iconify-icon icon="mdi:plus" width="16" height="16"></iconify-icon>
+    </button>
+    <button class="btn btn-sm btn-brand tc-generate-main-btn" (click)="openModal(livePlan, $event)">
+      <iconify-icon
+        [icon]="(testCasesByPlan[livePlanId] || []).length 
+          ? 'iconamoon:eye-thin' 
+          : 'iconamoon:sparkles-duotone'"
+        width="15"
+        height="15"
+      ></iconify-icon>
+      <span>{{ (testCasesByPlan[livePlanId] || []).length ? 'View' : 'Generate' }}</span>
+      @if ((testCasesByPlan[livePlanId] || []).length) {
+        <span class="tc-btn-count">({{ (testCasesByPlan[livePlanId] || []).length }})</span>
+      }
+    </button>
+    }
+  </div>
+</div>
 
       @if (getPlanStatus(livePlanId) === 'generating') {
       <div class="tc-live-generating">
@@ -412,37 +415,49 @@
 
   @if (isEditingCase(tc.id)) {
     <!-- mode édition — inchangé -->
-    <div class="tc-case-steps">
-      <span class="tc-case-label">Steps</span>
-      <textarea
-        class="tc-case-textarea" rows="4"
-        [value]="(tc.steps || []).join('\n')"
-        (input)="onEditCaseSteps(tc.id, ($any($event.target).value || ''))"
-        placeholder="One step per line"
-      ></textarea>
-      @if (tc.steps?.length) {
-      <div class="tc-case-step-edit-list">
-        @for (step of tc.steps; track $index) {
-        <div class="tc-case-step-edit-item">
-          <div class="tc-case-step-edit-title">
-            <span class="tc-case-step-index">{{ $index + 1 }}</span>
-            <span class="tc-case-step-text">{{ step }}</span>
-          </div>
-          <div class="tc-case-expected mt-2">
-            <span class="tc-case-label text-success">Expected Result</span>
-            <textarea
-              class="tc-case-textarea"
-              rows="2"
-              [value]="tc.stepDetails?.[$index]?.expected_result || tc.expected_result || ''"
-              (input)="onEditCaseStepExpected(tc.id, $index, ($any($event.target).value || ''))"
-              placeholder="Expected result for this step"
-            ></textarea>
-          </div>
-        </div>
-        }
+    <div class="tc-edit-steps">
+  <div class="tc-edit-steps-head">
+    <span class="tc-case-label">Steps</span>
+    <button type="button" class="tc-add-step-btn" (click)="onAddStep(tc.id)">
+      <iconify-icon icon="mdi:plus" width="14" height="14"></iconify-icon>Add step
+    </button>
+  </div>
+
+  @if (tc.steps?.length) {
+  <div class="tc-edit-step-list">
+    @for (step of tc.steps; track $index) {
+    <div class="tc-edit-step-card">
+      <div class="tc-edit-step-row">
+        <span class="tc-edit-step-num">{{ $index + 1 }}</span>
+        <input
+          type="text"
+          class="tc-edit-step-input"
+          [value]="step"
+          (input)="onEditSingleStep(tc.id, $index, ($any($event.target).value || ''))"
+          placeholder="Describe this step"
+        />
+        <button type="button" class="tc-edit-step-remove" (click)="onRemoveStep(tc.id, $index)" aria-label="Remove step">
+          <iconify-icon icon="mdi:trash-can-outline" width="14" height="14"></iconify-icon>
+        </button>
       </div>
-      }
+      <div class="tc-edit-step-expected">
+        <iconify-icon icon="mdi:check-circle-outline" width="13" height="13"></iconify-icon>
+        <input
+          type="text"
+          class="tc-edit-step-expected-input"
+          [value]="tc.stepDetails?.[$index]?.expected_result || ''"
+          (input)="onEditCaseStepExpected(tc.id, $index, ($any($event.target).value || ''))"
+          placeholder="Expected result for this step"
+        />
+      </div>
     </div>
+    }
+  </div>
+  } @else {
+  <div class="tc-edit-step-empty">No steps yet. Click "Add step" to start.</div>
+  }
+</div>
+
     <div class="tc-case-expected">
       <span class="tc-case-label text-success">Global Expected Result</span>
       <textarea

@@ -130,6 +130,147 @@ def _extract_test_data_source(test_case):
     return []
 
 
+def _extract_execution_memory(test_case):
+    if not isinstance(test_case, dict):
+        return {}
+    memory = test_case.get("execution_memory") or test_case.get("executionMemory") or {}
+    return memory if isinstance(memory, dict) else {}
+
+
+def _normalize_text(value):
+    return " ".join(str(value or "").replace("\n", " ").replace("\r", " ").split()).strip().lower()
+
+
+def _classify_test_data_value(value):
+    text = str(value or "").strip()
+    normalized = _normalize_text(text)
+
+    if not text:
+        return None
+
+    email_pattern = r"^[^\s@]+@[^\s@]+\.[^\s@]+$"
+    phone_pattern = r"^\+?[0-9][0-9\s().-]{6,}$"
+    password_pattern = r"(?=.{8,})(?=.*[a-z])(?=.*[A-Z])(?=.*\d)"
+
+    import re
+
+    if re.match(email_pattern, text):
+        return "email"
+    if re.match(password_pattern, text):
+        return "password"
+    if re.match(phone_pattern, text):
+        return "phone"
+
+    first_like = {"john", "sarra", "mohamed", "ahmed", "ali", "fatma", "amine", "amina"}
+    last_like = {"afli", "ben", "khaled", "hamdi", "saidi", "cherif"}
+
+    tokens = normalized.split()
+    if len(tokens) == 1 and tokens[0] in first_like:
+        return "firstname"
+    if len(tokens) == 1 and tokens[0] in last_like:
+        return "lastname"
+    if len(tokens) == 1 and normalized.isalpha() and len(normalized) <= 15:
+        return "username"
+
+    return "username"
+
+
+def _classify_test_data(raw_values):
+    classified = {
+        "email": [],
+        "password": [],
+        "username": [],
+        "phone": [],
+        "firstname": [],
+        "lastname": [],
+        "other": [],
+    }
+
+    for item in raw_values or []:
+        field_type = _classify_test_data_value(item)
+        if field_type in classified:
+            classified[field_type].append(str(item).strip())
+        else:
+            classified["other"].append(str(item).strip())
+
+    return classified
+
+
+def _get_field_type(el):
+    tag = str(el.get("tag") or "").lower().strip()
+    input_type = str(el.get("type") or "").lower().strip()
+    field_id = _normalize_text(el.get("id"))
+    name = _normalize_text(el.get("name"))
+    placeholder = _normalize_text(el.get("placeholder"))
+    aria = _normalize_text(el.get("ariaLabel"))
+    title = _normalize_text(el.get("title"))
+    text = _normalize_text(el.get("text"))
+    role = _normalize_text(el.get("role"))
+    classes = _normalize_text(el.get("class") or el.get("classes"))
+    haystack = " ".join([field_id, name, placeholder, aria, title, text, role, classes])
+
+    if tag == "select" or "country" in haystack:
+        return "country"
+    if input_type == "password" or "password" in haystack:
+        return "password"
+    if input_type == "email" or "email" in haystack:
+        return "email"
+    if input_type in {"tel", "phone"} or "phone" in haystack or "mobile" in haystack:
+        return "phone"
+    if any(token in haystack for token in ("first name", "firstname", "first_name", "given name")):
+        return "firstname"
+    if any(token in haystack for token in ("last name", "lastname", "last_name", "surname", "family name")):
+        return "lastname"
+    if any(token in haystack for token in ("user", "username", "login", "account", "nickname")):
+        return "username"
+    if tag == "input" and input_type == "text":
+        return "username"
+    return None
+
+
+def _field_selector_priority(el):
+    el_id = str(el.get("id") or "").strip()
+    if el_id:
+        return f"#{el_id}"
+    name = str(el.get("name") or "").strip()
+    if name:
+        return f'[name="{name}"]'
+    test_id = str(el.get("testId") or "").strip()
+    if test_id:
+        return f'[data-testid="{test_id}"]'
+    aria = str(el.get("ariaLabel") or "").strip()
+    if aria:
+        return f'[aria-label="{aria}"]'
+    placeholder = str(el.get("placeholder") or "").strip()
+    if placeholder:
+        return f'[placeholder="{placeholder}"]'
+    text = str(el.get("text") or "").strip()
+    if text:
+        return f'text={text}'
+    return ""
+
+
+def _get_label_text(dom, target):
+    target_id = str(target.get("id") or "").strip()
+    if not target_id:
+        return ""
+
+    for el in dom:
+        if not isinstance(el, dict):
+            continue
+        text = str(el.get("text") or "").strip()
+        if not text:
+            continue
+        text_lower = text.lower()
+        if target_id in str(el.get("ariaControls") or ""):
+            continue
+        if text_lower in {"skip to content", "sign in →"}:
+            continue
+        if any(keyword in text_lower for keyword in ("email", "password", "username", "phone", "country", "first name", "last name")):
+            return text
+    return ""
+
+
 def _make_default_values():
     return {
         "first": "John",
@@ -139,6 +280,7 @@ def _make_default_values():
         "password": "John@test123",
         "phone": "1234567890",
         "date": "2000-01-01",
+        "country": "Tunisia",
         "subject": "Maths",
         "address": "123 Main Street",
         "city": "Tunis",
@@ -277,6 +419,7 @@ def _dom_to_fill_actions(dom, test_case):
             "values": raw_values,
         },
     )
+    classified_data = _classify_test_data(raw_values)
     defaults = _make_default_values()
     if not raw_values:
         logger.warning("⚠️ No test_data → using default values")
@@ -293,8 +436,17 @@ def _dom_to_fill_actions(dom, test_case):
             ]
 
     logger.info(f"✅ Values used: {raw_values}")
+    logger.info(
+        "🧩 classified test_data",
+        extra={k: v for k, v in classified_data.items()},
+    )
 
     def selector_for(el):
+        role = str(el.get("role") or "").strip().lower()
+        visible = bool(el.get("visible"))
+        text = str(el.get("text") or "").strip()
+        if role == "option" and visible and text:
+            return f"text={text}"
         el_id = str(el.get("id") or "").strip()
         if el_id:
             return f"#{el_id}"
@@ -304,44 +456,9 @@ def _dom_to_fill_actions(dom, test_case):
         placeholder = str(el.get("placeholder") or "").strip()
         if placeholder:
             return f'[placeholder="{placeholder}"]'
-        if isinstance(el.get("index"), int):
+        if role != "option" and isinstance(el.get("index"), int):
             return f"__index:{el['index']}"
         return ""
-
-    def semantic_value(el, cursor):
-        tag = str(el.get("tag") or "").lower()
-        input_type = str(el.get("type") or "").lower().strip()
-        field_id = str(el.get("id") or "").lower()
-        name = str(el.get("name") or "").lower()
-        placeholder = str(el.get("placeholder") or "").lower()
-        haystack = " ".join([field_id, name, placeholder, str(el.get("ariaLabel") or "").lower(), str(el.get("text") or "").lower()])
-
-        # Login forms frequently expose username/email and password fields
-        # with minimal metadata; treat them explicitly before consuming the
-        # generic ordered test data cursor.
-        if "password" in haystack or input_type == "password":
-            return raw_values[cursor] if cursor < len(raw_values) else defaults["password"]
-        if any(token in haystack for token in ("user", "login", "email", "username")):
-            return raw_values[cursor] if cursor < len(raw_values) else defaults["email"]
-        if "subjects" in haystack:
-            return defaults["subject"]
-        if "birth" in haystack or "dateofbirth" in haystack or "dob" in haystack:
-            return defaults["date"]
-        if "email" in haystack:
-            return raw_values[cursor] if cursor < len(raw_values) else defaults["email"]
-        if "phone" in haystack or "mobile" in haystack or input_type == "tel":
-            return raw_values[cursor] if cursor < len(raw_values) else defaults["phone"]
-        if "first" in haystack and "name" in haystack:
-            return raw_values[cursor] if cursor < len(raw_values) else defaults["first"]
-        if "last" in haystack and "name" in haystack:
-            return raw_values[cursor] if cursor < len(raw_values) else defaults["last"]
-        if "address" in haystack or "currentaddress" in haystack:
-            return defaults["address"]
-        if tag == "textarea":
-            return defaults["address"]
-        if input_type == "date":
-            return defaults["date"]
-        return raw_values[cursor] if cursor < len(raw_values) else ""
 
     actions = []
     used_selectors = set()
@@ -365,6 +482,9 @@ def _dom_to_fill_actions(dom, test_case):
 
         tag = str(el.get("tag") or "").lower()
         input_type = str(el.get("type") or "").lower().strip()
+        field_type = _get_field_type(el)
+        label_text = _get_label_text(dom, el)
+
         field_id = str(el.get("id") or "").strip().lower()
         name = str(el.get("name") or "").strip().lower()
         placeholder = str(el.get("placeholder") or "").strip().lower()
@@ -407,13 +527,31 @@ def _dom_to_fill_actions(dom, test_case):
         if tag not in {"input", "textarea", "select"}:
             continue
 
-        value = semantic_value(el, value_cursor)
-        if value_cursor < len(raw_values):
-            value_cursor += 1
-        elif not value:
-            value = defaults["subject"] if "subject" in selector.lower() else ""
+        value = ""
+        if field_type and classified_data.get(field_type):
+            value = classified_data[field_type][0]
+        elif field_type == "country":
+            value = defaults["country"]
 
-        logger.info(f"✏️ Filling {selector} → {value}")
+        if not value:
+            if value_cursor < len(raw_values):
+                value = raw_values[value_cursor]
+                value_cursor += 1
+            elif label_text:
+                logger.info("ℹ️ No classified value, keeping empty for label: %s", label_text)
+                value = ""
+            else:
+                value = defaults["subject"] if "subject" in selector.lower() else ""
+
+        classified_value_type = _classify_test_data_value(value)
+        if field_type == "password" and classified_value_type == "email":
+            logger.info("⏭️ Preventing email assignment to password field: %s", selector)
+            continue
+        if field_type == "username" and classified_value_type == "password":
+            logger.info("⏭️ Preventing password assignment to username field: %s", selector)
+            continue
+
+        logger.info("Mapped field: %s -> %s", selector, value)
         actions.append({"type": "type", "selector": selector, "value": value})
         used_selectors.add(selector)
         used_buckets.add(bucket)
@@ -471,6 +609,31 @@ def _dom_submit_action(dom):
     return None
 
 
+def _dedupe_actions(actions, memory):
+    if not isinstance(actions, list):
+        return []
+
+    executed = set()
+    for key in ("executed_actions", "executedActions"):
+        for item in memory.get(key, []) or []:
+            if isinstance(item, dict):
+                selector = str(item.get("selector") or "").strip()
+                action = str(item.get("type") or item.get("action") or "").strip().lower()
+                value = str(item.get("value") or "").strip()
+                if selector or action or value:
+                    executed.add(f"{action}::{selector}::{value}")
+
+    deduped = []
+    for action in actions:
+        if not isinstance(action, dict):
+            continue
+        key = f"{str(action.get('type') or '').lower()}::{str(action.get('selector') or '').strip()}::{str(action.get('value') or '').strip()}"
+        if key in executed:
+            continue
+        deduped.append(action)
+    return deduped
+
+
 # ✅ extract AI response safely
 def _extract_actions(result):
     if isinstance(result, list):
@@ -493,14 +656,20 @@ def decide(payload: AIDecisionPayload):
 
     logger.info(f"➡️ STEP: {step}")
 
-    # ✅ build prompt
     resolved_test_case = test_case if isinstance(test_case, dict) else {}
+    execution_memory = _extract_execution_memory(resolved_test_case)
+
+    # ✅ build prompt
     if resolved_test_case.get("test_data") is None and not resolved_test_case.get("testData"):
         inferred = _infer_test_data_from_dom(dom, step)
         if inferred:
             resolved_test_case = dict(resolved_test_case)
             resolved_test_case["test_data"] = inferred
             logger.info("🧩 Inferred test_data from DOM", extra={"count": len(inferred)})
+
+    if execution_memory:
+        resolved_test_case = dict(resolved_test_case)
+        resolved_test_case["execution_memory"] = execution_memory
 
     prompt = build_ai_decision_prompt(step, dom, resolved_test_case)
     print("🧠 PROMPT:", prompt[:1500])
@@ -521,7 +690,7 @@ def decide(payload: AIDecisionPayload):
             logger.info("✅ Fill step detected → using fallback")
             fill_actions = _dom_to_fill_actions(dom, resolved_test_case)
             if fill_actions:
-                return {"data": fill_actions}
+                return {"data": _dedupe_actions(fill_actions, execution_memory)}
 
         # ✅ ANTI WRONG CLICK
         if extracted.get("data"):
@@ -538,16 +707,17 @@ def decide(payload: AIDecisionPayload):
                     logger.info("✅ Click step detected → keep click semantics")
                     submit_action = _dom_submit_action(dom)
                     if submit_action:
-                        return {"data": [submit_action]}
-                    return extracted
+                        return {"data": _dedupe_actions([submit_action], execution_memory)}
+                    return {"data": _dedupe_actions(extracted.get("data", []), execution_memory)}
 
                 logger.warning("⚠️ Non-click step with inputs → fallback to fill actions")
                 fill_actions = _dom_to_fill_actions(dom, resolved_test_case)
                 if fill_actions:
-                    return {"data": fill_actions}
+                    return {"data": _dedupe_actions(fill_actions, execution_memory)}
 
         # ✅ return AI if valid
         if extracted.get("data"):
+            extracted["data"] = _dedupe_actions(extracted["data"], execution_memory)
             return extracted
 
     except Exception as e:

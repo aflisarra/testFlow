@@ -25,7 +25,7 @@ def build_test_case_prompt(
         )
 
     chunk_lines: List[str] = []
-    for ch in spec_chunks[:3]:
+    for ch in spec_chunks:
         chunk_lines.append(
             f"## {ch.get('title')}\n{ch.get('text')[:500]}"
         )
@@ -38,6 +38,12 @@ def build_test_case_prompt(
     '      "id": "TC-1.1",\n'
     '      "title": "Login with valid credentials",\n'
     '      "objective": "Verify that a user can login successfully",\n'
+    
+
+'          "preconditions": [\n'
+'           "Login page is accessible",\n'
+'           "User is not authenticated"\n'
+'            ],\n'
     '      "steps": [\n'
     '        "Open login page",\n'
     '        "Enter valid credentials",\n'
@@ -71,84 +77,209 @@ def build_test_case_prompt(
 
 
     return (
-        "<s>[INST]\n"
+      
+    "<s>[INST]\n"
 
-        "You are a Senior QA Engineer.\n"
-        "Follow ISTQB principles.\n"
-        "Generate realistic and executable test cases.\n"
-        "Use ONLY provided specification.\n"
-        "Do NOT invent pages, APIs, buttons, or fields.\n\n"
+    "You are a Senior QA Engineer and Test Analyst.\n"
+    "Follow ISTQB principles.\n"
+    "Generate realistic, executable, and business-oriented test cases.\n\n"
 
+    "### SOURCE TRACEABILITY\n"
+    "Test cases must be generated ONLY from:\n"
+    "1. Specification chunks linked to this test plan\n"
+    "2. Linked requirements\n\n"
 
-        "### Task\n"
-        "Generate exactly 3 test cases only.\n"
-"Each test case must have 3-5 steps maximum.\n"
-"Do not generate extra test cases.\n"
-"Keep JSON small and concise.\n\n"
+    "Never use common application assumptions.\n\n"
 
+    "Do not invent:\n"
+    "- pages\n"
+    "- buttons\n"
+    "- fields\n"
+    "- workflows\n"
+    "- validation rules\n"
+    "- API calls\n"
+    "- business rules\n\n"
 
-        "### Required mix (MANDATORY)\n"
-"- TC-1 must be Positive.\n"
-"- TC-2 must be Negative.\n"
-"- TC-3 must be Boundary.\n"
-"- Use Validation or Error handling only if relevant.\n\n"
+    "The specification is the only source of truth.\n\n"
 
+    "### TASK\n"
+    "Generate enough test cases to cover all major business workflows, validation rules, required fields, and error scenarios described in the specification.\n"
+    "Avoid redundant test cases.\n"
+    "Keep only meaningful and unique scenarios.\n\n"
 
-        "### Hard rules\n"
-        "- No duplicates.\n"
-        "- Steps must be executable by a tester.\n"
-        "- expected_result must be precise.\n"
-        "- stepDetails is required and must contain one object per step.\n"
-        "- Each stepDetails item must include: step, expected_result.\n"
-        "- Keep the step text identical between steps[] and stepDetails[].\n"
-        "- priority values only: Critical, High, Medium, Low.\n"
-        "- severity values only: Blocker, Critical, Major, Minor, Trivial.\n"
-        "- type values only: Positive, Negative, Boundary, Permission, Validation, Error handling.\n\n"
+    "### QA TEST DESIGN RULES\n"
+    "Apply ISTQB test design techniques.\n\n"
 
+    "Generate:\n"
+    "- Happy path scenarios\n"
+    "- Validation scenarios\n"
+    "- Required field scenarios\n"
+    "- Boundary scenarios when supported by the specification\n"
+    "- Error handling scenarios when supported by the specification\n\n"
 
-        "### Output format STRICT\n"
-        "- Output ONLY valid JSON.\n"
-        "- No markdown.\n"
-        "- No explanation.\n"
-        "- JSON object must contain ONLY key: test_cases.\n"
-        "- Each test case MUST contain exactly:"
-        "id, title, objective, steps, stepDetails, expected_result, test_data, priority, severity, type, requirements.\n"
-        "- requirements must reference linked requirement ids whenever available.\n"
-        "- do not invent requirements; use only the provided context.\n\n"
+    "Avoid:\n"
+    "- Duplicate test cases\n"
+    "- Redundant scenarios\n"
+    "- Artificial scenarios\n"
+    "- Single-field scenarios that cannot be executed independently\n\n"
 
+    "### BUSINESS WORKFLOW RULE\n"
+    "Test cases must represent complete user workflows.\n"
+    "Do not create isolated field validation scenarios when the application requires multiple mandatory fields.\n"
+    "Every test case must contain all prerequisite actions required to reach the validation point.\n\n"
 
-        "### Navigation rule\n"
-        "- Steps containing open/navigate/go to must only mention pages.\n"
-        "- Never include URLs.\n"
-        "Examples:\n"
-        "Open application\n"
-        "Open login page\n"
-        "Navigate to dashboard\n\n"
+    "### VALIDATION TESTING RULE\n"
+    "When testing a specific field validation:\n"
+    "- All other mandatory fields must contain valid values.\n"
+    "- Only the target field may contain invalid or boundary data.\n"
+    "- Test cases must isolate the validation being tested.\n"
+    "- Validation failures must be attributable to a single field.\n\n"
 
+    "Example:\n"
+    "Invalid Email Test:\n"
+    "- Email = invalid\n"
+    "- Password = valid\n"
+    "- Username = valid\n"
+    "- Country = valid\n\n"
 
-        "### Example\n"
-        f"{example}\n\n"
+    "Weak Password Test:\n"
+    "- Email = valid\n"
+    "- Password = weak\n"
+    "- Username = valid\n"
+    "- Country = valid\n\n"
 
+    "### WORKFLOW COMPLETENESS RULE\n"
+    "For registration, signup, checkout, payment, booking, profile creation, account creation, or any multi-field workflow:\n"
+    "- Include all mandatory fields.\n"
+    "- Include all mandatory steps.\n"
+    "- Generate complete test data.\n"
+    "- Do not omit required fields.\n"
+    "- Do not assume missing data.\n\n"
 
-        "### Test plan\n"
-        f"- id: {plan_id}\n"
-        f"- title: {plan_title}\n"
-        f"- description: {plan_description}\n\n"
+    
+"### Preconditions Rule\n"
+"Every test case MUST include preconditions.\n"
+"Preconditions describe the required application state before execution.\n"
+"Preconditions must be realistic and directly related to the workflow.\n"
+"Do not generate empty preconditions.\n"
+"At least one precondition is required.\n\n"
 
+    "Preconditions describe the required state before execution.\n\n"
 
-        "### Context\n"
-        f"- Project: {project_block}\n"
-        f"- UI Style: {style_block}\n\n"
+    "Examples:\n"
+    "- Registration page is accessible\n"
+    "- User is not authenticated\n"
+    "- User is on the login page\n"
+    "- Internet connection is available\n\n"
 
+    "### TEST DATA RULE\n"
+    "Generate complete, realistic, and executable test data.\n"
+    "Never generate partial test data when multiple mandatory fields exist.\n\n"
 
-        "### Linked requirements (context only)\n"
-        + "\n".join(req_lines)
-        + "\n\n"
+    "Avoid:\n"
+    "- test@test.com\n"
+    "- valid@test.com\n"
+    "- user123\n"
+    "- abc123\n\n"
 
+    "Prefer:\n"
+    "- john.doe@example.com\n"
+    "- sarah.smith@example.com\n"
+    "- john-doe-2026\n"
+    "- ValidPass123!\n"
+    "- Tunisia\n"
+    "- Romania\n\n"
 
-        "### Spec chunks\n"
-        + "\n\n".join(chunk_lines)
-        + "\n\n"
+    "### TEST DATA COMPLETENESS RULE\n"
+    "The test_data object must contain all data required to execute the test case.\n"
+    "If the workflow contains email, password, username, and country fields, all values must be provided.\n\n"
 
-        "[/INST]"
-    )
+    "### REDUNDANCY RULE\n"
+    "Do not generate separate test cases that validate the same workflow.\n"
+    "Merge related validations whenever appropriate.\n\n"
+
+    "Prefer:\n"
+    "- Successful Registration\n"
+    "- Invalid Email During Registration\n"
+    "- Weak Password During Registration\n"
+    "- Invalid Username During Registration\n"
+    "- Missing Required Field During Registration\n\n"
+
+    "Instead of:\n"
+    "- Verify Email Field\n"
+    "- Verify Password Field\n"
+    "- Verify Username Field\n\n"
+
+    "### EXPECTED RESULT RULE\n"
+    "Expected results must validate business behavior.\n"
+    "Do not validate only UI interactions.\n\n"
+
+    "Bad examples:\n"
+    "- Button clicked successfully\n"
+    "- Value entered successfully\n\n"
+
+    "Good examples:\n"
+    "- Registration proceeds to the next step\n"
+    "- Email validation error is displayed\n"
+    "- Account is created successfully\n"
+    "- Username is rejected because it already exists\n\n"
+
+    "### OUTPUT FORMAT STRICT\n"
+    "Output ONLY valid JSON.\n"
+    "No markdown.\n"
+    "No explanation.\n\n"
+
+    "Return:\n"
+    "{ \"test_cases\": [] }\n\n"
+
+    "Each test case MUST contain EXACTLY:\n"
+"- id\n"
+"- title\n"
+"- objective\n"
+"- preconditions\n"
+"- steps\n"
+"- stepDetails\n"
+"- expected_result\n"
+"- test_data\n"
+"- priority\n"
+"- severity\n"
+"- type\n"
+"- requirements\n\n"
+
+    "### PRIORITY VALUES\n"
+    "Critical | High | Medium | Low\n\n"
+
+    "### SEVERITY VALUES\n"
+    "Blocker | Critical | Major | Minor | Trivial\n\n"
+
+    "### TYPE VALUES\n"
+    "Positive | Negative | Boundary | Validation | Error handling | Permission\n\n"
+
+    "### NAVIGATION RULE\n"
+    "Steps containing open, navigate, go to, access must only reference pages.\n"
+    "Never include URLs.\n\n"
+
+    "### EXAMPLE\n"
+    f"{example}\n\n"
+
+    "### TEST PLAN\n"
+    f"- id: {plan_id}\n"
+    f"- title: {plan_title}\n"
+    f"- description: {plan_description}\n\n"
+
+    "### PROJECT\n"
+    f"{project_block}\n\n"
+
+    "### UI STYLE\n"
+    f"{style_block}\n\n"
+
+    "### LINKED REQUIREMENTS\n"
+    + "\n".join(req_lines)
+    + "\n\n"
+
+    "### SPECIFICATION\n"
+    + "\n\n".join(chunk_lines)
+    + "\n\n"
+
+    "[/INST]"
+)

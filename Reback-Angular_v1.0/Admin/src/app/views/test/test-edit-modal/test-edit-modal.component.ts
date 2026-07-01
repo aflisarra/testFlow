@@ -25,7 +25,22 @@ export class TestEditModalComponent {
       .split(/\r?\n/)
       .map((s) => s.trim())
       .filter(Boolean)
-    this.testCase = { ...this.testCase, steps }
+    const currentDetails = Array.isArray(this.testCase?.stepDetails) ? this.testCase.stepDetails : []
+    const stepDetails = steps.map((step, index) => {
+      const existingDetail = currentDetails[index] || {}
+      return {
+        ...existingDetail,
+        step: String(step || existingDetail.step || '').trim(),
+        expected_result: String(
+          existingDetail.expected_result ||
+          existingDetail.expectedResult ||
+          this.testCase?.expected_result ||
+          ''
+        ).trim(),
+      }
+    })
+
+    this.testCase = { ...this.testCase, steps, stepDetails }
   }
 
   get testDataText(): string {
@@ -74,6 +89,7 @@ export class TestEditModalComponent {
       title: String(this.testCase?.title || '').trim(),
       expected_result: String(this.testCase?.expected_result || '').trim(),
       steps: Array.isArray(this.testCase?.steps) ? this.testCase.steps : [],
+      stepDetails: Array.isArray(this.testCase?.stepDetails) ? this.testCase.stepDetails : [],
       test_data: Array.isArray(this.testCase?.test_data)
         ? this.testCase.test_data
         : this.parseTestDataLines(this.testDataText),

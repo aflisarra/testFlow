@@ -1,13 +1,13 @@
-import { Directive, Input, TemplateRef, ViewContainerRef, inject, OnDestroy } from '@angular/core'
+import { Directive, inject, Input, OnDestroy, TemplateRef, ViewContainerRef } from '@angular/core'
 import { Store } from '@ngrx/store'
 import { Subscription } from 'rxjs'
 
 import { getUser } from '@/app/store/authentication/authentication.selector'
 
-/* eslint-disable @angular-eslint/directive-selector -- Keep selector name for backward compatibility. */
 type PermissionInput = number | number[] | null | undefined
 
 @Directive({
+  // eslint-disable-next-line @angular-eslint/directive-selector
   selector: '[hasPermission]',
   standalone: true,
 })

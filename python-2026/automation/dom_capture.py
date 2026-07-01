@@ -20,20 +20,39 @@ from selenium.webdriver.support import expected_conditions as EC
 # NOTE: the tags captured here must stay in sync with the ones used in
 # resolve_indexed_selector() below (same document order => same indices
 # between capture and selector resolution).
-_CAPTURED_TAGS_CSS = "input, button, a, textarea, select, [role=\"button\"], [role=\"link\"]"
-
+_CAPTURED_TAGS_CSS = """
+input,
+button,
+a,
+textarea,
+select,
+[role="button"],
+[role="link"],
+[role="option"],
+[role="combobox"]
+"""
 _CAPTURE_JS_TEMPLATE = r"""
 return (function () {
     const LIMIT = %(limit)d;
     const results = [];
     let index = 0;
 
-    function isVisible(el) {
-        const style = window.getComputedStyle(el);
-        if (style.display === 'none' || style.visibility === 'hidden') return false;
-        const rect = el.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0;
-    }
+function isVisible(el) {
+ const style = window.getComputedStyle(el);
+ const rect = el.getBoundingClientRect();
+
+ return (
+   style.display !== 'none' &&
+   style.visibility !== 'hidden' &&
+   style.opacity !== '0' &&
+   rect.width > 0 &&
+   rect.height > 0 &&
+   rect.bottom >= 0 &&
+   rect.right >= 0 &&
+   rect.top <= window.innerHeight &&
+   rect.left <= window.innerWidth
+ );
+}
 
     function shortText(el) {
         const t = (el.innerText || el.textContent || '').trim();
@@ -49,22 +68,37 @@ return (function () {
         const type = (el.getAttribute('type') || '').toLowerCase();
 
         if (type === 'hidden') continue;
-        if (!isVisible(el)) continue;
+        const visible = isVisible(el);
+        if (!visible) continue;
 
         const entry = {
             index: index,
             tag: tag,
+            class: el.className || null,
+            role: el.getAttribute('role') || null,
+            visible: visible,
+            rect: {
+                x: Math.round(el.getBoundingClientRect().x),
+                y: Math.round(el.getBoundingClientRect().y),
+                width: Math.round(el.getBoundingClientRect().width),
+                height: Math.round(el.getBoundingClientRect().height),
+            },
             type: type || null,
             id: el.id || null,
             name: el.getAttribute('name') || null,
             placeholder: el.getAttribute('placeholder') || null,
             ariaLabel: el.getAttribute('aria-label') || null,
+            ariaExpanded: el.getAttribute('aria-expanded') || null,
+            ariaHaspopup: el.getAttribute('aria-haspopup') || null,
+            ariaControls: el.getAttribute('aria-controls') || null,
+            ariaOwns: el.getAttribute('aria-owns') || null,
             title: el.getAttribute('title') || null,
             testId: el.getAttribute('data-testid') || null,
             text: shortText(el),
             value: (el.value !== undefined && el.value !== '') ? String(el.value).slice(0, 80) : null,
             disabled: !!el.disabled,
             checked: (tag === 'input' && (type === 'checkbox' || type === 'radio')) ? !!el.checked : null,
+            selected: (tag === 'option' || tag === 'select') ? !!el.selected : null,
         };
 
         if (tag === 'select') {
@@ -72,6 +106,7 @@ return (function () {
                 value: o.value,
                 text: (o.textContent || '').trim().slice(0, 60),
                 selected: !!o.selected,
+                disabled: !!o.disabled,
             }));
         }
 
@@ -117,9 +152,9 @@ def resolve_indexed_selector(driver, selector: str, wait_seconds: int = 5):
     idx = int(selector.split(":", 1)[1])
     xpath = (
         f"(//input | //button | //a | //textarea | //select | "
-        f"//*[@role='button'] | //*[@role='link'])[{idx + 1}]"
+        f"//*[@role='button'] | //*[@role='link'] | //*[@role='option'] | //*[@role='combobox'])[{idx + 1}]"
     )
 
     return WebDriverWait(driver, wait_seconds).until(
-        EC.presence_of_element_located((By.XPATH, xpath))
+        EC.element_to_be_clickable((By.XPATH, xpath))
     )
