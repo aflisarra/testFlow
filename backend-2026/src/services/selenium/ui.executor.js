@@ -370,18 +370,41 @@ for (const item of elements) {
       return driver.findElement(By.css(normalized))
     }
 
-    const resolveTextSelector = async (driverInstance, selector) => {
-      const value = String(selector || "").replace(/^text=/, "").trim()
-      if (!value) return null
+   const resolveTextSelector = async (driverInstance, selector) => {
+  const value = String(selector || "").replace(/^text=/, "").trim()
+  if (!value) return null
 
-      const xpath = `//*[contains(normalize-space(.), ${JSON.stringify(value)})]`
-      const candidates = await driverInstance.findElements(By.xpath(xpath))
-      for (const candidate of candidates) {
-        const visible = await isVisibleElement(candidate)
-        if (visible) return candidate
-      }
-      return null
-    }
+  const xpath = `//*[contains(normalize-space(.), ${JSON.stringify(value)})]`
+  const candidates = await driverInstance.findElements(By.xpath(xpath))
+
+  // ✅ Prefer genuinely interactive, leaf-level elements (button, link,
+  // input, role=button) whose OWN text matches exactly, over generic
+  // wrapper containers that only match because a descendant contains
+  // the text (ancestors come first in XPath document order, so without
+  // this we'd click a <div> wrapper instead of the real <button>).
+  const interactiveTags = new Set(['button', 'a', 'input'])
+  const scored = []
+
+  for (const candidate of candidates) {
+    if (!(await isVisibleElement(candidate))) continue
+
+    const tag = String(await candidate.getTagName().catch(() => '') || '').toLowerCase()
+    const role = String(await candidate.getAttribute('role').catch(() => '') || '').toLowerCase()
+    const ownText = normalizeValue(await candidate.getText().catch(() => ''))
+    const isInteractive = interactiveTags.has(tag) || role === 'button' || role === 'link'
+    const isExactMatch = ownText === normalizeValue(value)
+
+    let score = 0
+    if (isInteractive) score += 100
+    if (isExactMatch) score += 50
+    scored.push({ el: candidate, score })
+  }
+
+  if (!scored.length) return null
+
+  scored.sort((a, b) => b.score - a.score)
+  return scored[0].el
+}
 
     const normalizeValue = (v) => String(v || "").trim()
     const isSubmitLikeSelector = (selector) => {
@@ -435,6 +458,66 @@ for (const item of elements) {
       }
     }
 
+    const classifyElement = async (el) => {
+  const tag = String(
+    await el.getTagName().catch(() => '')
+  ).toLowerCase()
+
+  const role = String(
+    await el.getAttribute('role').catch(() => '')
+  ).toLowerCase()
+
+  const type = String(
+    await el.getAttribute('type').catch(() => '')
+  ).toLowerCase()
+
+  const ariaHaspopup = String(
+    await el.getAttribute('aria-haspopup').catch(() => '')
+  ).toLowerCase()
+
+  const ariaExpanded = String(
+    await el.getAttribute('aria-expanded').catch(() => '')
+  ).toLowerCase()
+
+  const insideForm = await driver.executeScript(
+    element => !!element.closest('form'),
+    el
+  ).catch(() => false)
+
+ const isDropdown =
+  tag === 'select' ||
+  role === 'combobox' ||
+  role === 'listbox' ||
+  ['listbox', 'dialog', 'menu']
+    .includes(ariaHaspopup) 
+    
+
+  const isSubmit =
+    type === 'submit' ||
+    (
+      tag === 'button' &&
+      insideForm &&
+      !isDropdown
+    )
+
+  const isCheckbox =
+    tag === 'input' &&
+    type === 'checkbox'
+
+  const isRadio =
+    tag === 'input' &&
+    type === 'radio'
+
+  return {
+    isDropdown,
+    isSubmit,
+    isCheckbox,
+    isRadio,
+    tag,
+    role,
+    type
+  }
+}
     const getDropdownText = async (el) => {
       if (!el) return ''
       try {
@@ -474,12 +557,12 @@ for (const item of elements) {
       if (!wanted) return 0
 
       const tag = String(await candidate.getTagName().catch(() => '') || '').toLowerCase()
-      const role = String(await candidate.getAttribute('role').catch(() => '') || '').toLowerCase()
-      const ariaHaspopup = String(await candidate.getAttribute('aria-haspopup').catch(() => '') || '').toLowerCase()
-      const ariaExpanded = String(await candidate.getAttribute('aria-expanded').catch(() => '') || '').toLowerCase()
-      const type = String(await candidate.getAttribute('type').catch(() => '') || '').toLowerCase()
-      const text = normalizeValue(await getDropdownText(candidate))
-      const hint = normalizeValue(await getDropdownHint(candidate))
+  const role = String(await candidate.getAttribute('role').catch(() => '') || '').toLowerCase()
+  const ariaHaspopup = String(await candidate.getAttribute('aria-haspopup').catch(() => '') || '').toLowerCase()
+  const ariaExpanded = String(await candidate.getAttribute('aria-expanded').catch(() => '') || '').toLowerCase()
+  const type = String(await candidate.getAttribute('type').catch(() => '') || '').toLowerCase()
+  const text = normalizeValue(await getDropdownText(candidate))
+  const hint = normalizeValue(await getDropdownHint(candidate))
 
       let score = 0
 
@@ -652,43 +735,48 @@ const openDropdown = async (preferredEl, label) => {
 }
 
 
-const selectViaSearchDialog = async (wanted) => {
-  // 1. Chercher le search input dans le dialog ouvert
-  const searchSelectors = [
-    '[role="dialog"] input[type="search"]',
-    '[role="dialog"] input[type="text"]',
+const getSearchInputInDialog = async (timeoutMs = 3000) => {
+  const selectors = [
     '[role="dialog"] input',
     '[aria-modal="true"] input',
+    'input[type="search"]',
+    'input[role="searchbox"]',
+    'input[aria-label*="search" i]',
     'input[placeholder*="Search" i]',
     'input[placeholder*="Find" i]',
     'input[placeholder*="Filter" i]',
+    'input[placeholder*="Type" i]',
   ]
-
-  let searchInput = null
-  for (const sel of searchSelectors) {
-    const inputs = await driver.findElements(By.css(sel))
-    for (const input of inputs) {
-      if (await isVisibleElement(input)) {
-        searchInput = input
-        break
+  const started = Date.now()
+  while (Date.now() - started < timeoutMs) {
+    for (const sel of selectors) {
+      const inputs = await driver.findElements(By.css(sel))
+      for (const input of inputs) {
+        if (await isVisibleElement(input)) return input
       }
     }
-    if (searchInput) break
+    await sleep(200)
   }
+  return null
+}
+
+const selectViaSearchDialog = async (wanted) => {
+  console.log("🔍 Looking for search input for:", wanted)
+  const searchInput = await getSearchInputInDialog(3000)
 
   if (searchInput) {
-    console.log("🔍 Search input found, typing:", wanted)
+    console.log("✅ Search input found, typing:", wanted)
     await driver.executeScript((el) => el.focus(), searchInput)
     await sleep(200)
     await searchInput.clear().catch(() => {})
     await searchInput.sendKeys(wanted)
     await sleep(800) // laisser le filtre s'appliquer
-    console.log("✅ Typed in search input")
   } else {
-    console.log("⚠️ No search input found in dialog")
+    console.log("⚠️ No search input found → will scroll and search visually")
   }
 
-  // 2. Chercher l'option filtrée
+  // Que la recherche ait été utilisée ou non, on cherche ensuite
+  // l'option correspondant exactement au texte recherché.
   let option = await findOptionByText(wanted)
   if (!option) option = await findGenericDropdownOptionByText(wanted)
   if (!option) option = await waitForOptionText(wanted, 5000)
@@ -1074,106 +1162,174 @@ if (hasValidationError) {
         }
 
 if (action === "click") {
+
   await sleep(400)
 
-  let clickTarget = el
-  const optionValue = selector.startsWith("text=")
-    ? normalizeValue(selector.replace(/^text=/, ""))
-    : normalizeValue(value)
+  const clickTarget = el
 
-  // ✅ Une seule déclaration de chaque variable
-  const tag = String(await clickTarget.getTagName().catch(() => '')).toLowerCase()
-  const role = String(await clickTarget.getAttribute('role').catch(() => '')).toLowerCase()
-  const ariaHaspopup = String(await clickTarget.getAttribute('aria-haspopup').catch(() => '')).toLowerCase()
-  const ariaExpanded = String(await clickTarget.getAttribute('aria-expanded').catch(() => '')).toLowerCase()
-  const classList = String(await clickTarget.getAttribute('class').catch(() => '')).toLowerCase()
+  const optionValue =
+    selector.startsWith("text=")
+      ? normalizeValue(
+          selector.replace(/^text=/, "")
+        )
+      : normalizeValue(value)
 
-  const isDropdownSelection =
-    action === "click" &&
-    (
-      selector.toLowerCase().includes("dropdown") ||
-      selector.toLowerCase().includes("country") ||
-      selector.toLowerCase().includes("select") ||
-      ariaHaspopup !== '' ||
-      ariaExpanded !== '' ||
-      role === 'combobox' ||
-      role === 'listbox' ||
-      classList.includes('dropdown') ||
-      classList.includes('select') ||
-      classList.includes('filter') ||
-      (tag === 'button' && (
-        classList.includes('tv-filter') ||
-        classList.includes('tv-dd') ||
-        classList.includes('ng-select')
-      ))
+  const info = await classifyElement(clickTarget)
+
+  if (info.isSubmit) {
+
+    console.log(
+      "✅ SUBMIT BUTTON DETECTED"
     )
 
-  // ✅ Un seul bloc isDropdownSelection, un seul openDropdown
-if (isDropdownSelection) {
-  const wanted = optionValue || value || ''
-
-  if (!wanted) {
-    console.log("⚠️ No dropdown value, simple click")
     await safeClick(clickTarget)
+
+    ctx.executionMemory.executed_actions.push({
+      action: "click",
+      selector
+    })
+
+    break
+  }
+
+  const isDropdownSelection =
+    info.isDropdown
+
+  if (isDropdownSelection) {
+
+    const wanted =
+      optionValue || value || ""
+
+    if (!wanted) {
+      console.log(
+        "⚠️ No dropdown value, simple click"
+      )
+
+      await safeClick(clickTarget)
+      continue
+    }
+
+    console.log(
+      "🎯 DROPDOWN VALUE:",
+      wanted
+    )
+
+    const trigger =
+      await openDropdown(
+        clickTarget,
+        wanted
+      )
+
+    if (!trigger) {
+      throw new Error(
+        "Dropdown trigger not found"
+      )
+    }
+
+    await sleep(1000)
+
+    let option =
+      await selectViaSearchDialog(
+        wanted
+      )
+
+    if (!option)
+      option =
+        await findOptionByText(
+          wanted
+        )
+
+    if (!option)
+      option =
+        await findGenericDropdownOptionByText(
+          wanted
+        )
+
+    if (!option)
+      option =
+        await waitForOptionText(
+          wanted,
+          5000
+        )
+
+    if (!option) {
+      throw new Error(
+        `Dropdown option "${wanted}" not found`
+      )
+    }
+
+    await driver.executeScript(
+      el => {
+        el.scrollIntoView({
+          block: "center"
+        })
+      },
+      option
+    )
+
+    await safeClick(option)
+
+    ctx.executionMemory.executed_actions.push({
+      action: "select",
+      selector,
+      value: wanted
+    })
+
+    console.log(
+      "✅ OPTION SELECTED:",
+      wanted
+    )
+
     continue
   }
 
-  console.log("🎯 DROPDOWN VALUE:", wanted)
+  // clic normal
 
-  const trigger = await openDropdown(clickTarget, wanted)
-  console.log("🔄 DROPDOWN OPENED")
-
-  if (!trigger) {
-    throw new Error("Dropdown trigger not found")
-  }
-
-  await sleep(1000)
-
-  // ✅ Essayer d'abord via search dialog (GitHub, custom dropdowns)
-  let option = await selectViaSearchDialog(wanted)
-
-  // ✅ Fallback options classiques
-  if (!option) option = await findOptionByText(wanted)
-  if (!option) option = await findGenericDropdownOptionByText(wanted)
-  if (!option) option = await waitForOptionText(wanted, 5000)
-
-  if (!option) {
-    throw new Error(`Dropdown option "${wanted}" not found`)
-  }
-
-  await driver.executeScript((el) => {
-    el.scrollIntoView({ block: 'center' })
-  }, option)
-
-  await safeClick(option)
-
-  ctx.executionMemory.executed_actions.push({
-    action: "select",
-    selector,
-    value: wanted
-  })
-
-  console.log("✅ OPTION SELECTED:", wanted)
-  continue
-}
-
-  // ✅ Clic normal (non-dropdown)
   await safeClick(clickTarget)
 
-  addLog(ctx.logs, stepIndex, "INFO", "Click dispatched", { selector })
+  addLog(
+    ctx.logs,
+    stepIndex,
+    "INFO",
+    "Click dispatched",
+    { selector }
+  )
 
   try {
-    await driver.wait(async () => {
-      const url = await driver.getCurrentUrl()
-      return !String(url || "").includes('/auth/login')
-    }, 18000)
+
+    await driver.wait(
+      async () => {
+
+        const url =
+          await driver.getCurrentUrl()
+
+        return !String(url || "")
+          .includes("/auth/login")
+
+      },
+      18000
+    )
+
   } catch (_) {
+
     try {
-      await driver.wait(until.stalenessOf(clickTarget), 8000)
+
+      await driver.wait(
+        until.stalenessOf(
+          clickTarget
+        ),
+        8000
+      )
+
     } catch (_) {}
+
   }
 
-  if (isSubmitLikeSelector(selector)) {
+  if (
+    isSubmitLikeSelector(
+      selector
+    )
+  ) {
     break
   }
 }
@@ -1232,22 +1388,32 @@ ctx.executionMemory.executed_actions.push({
           screenshot: shot
         })
 
-      } catch (err) {
+      }  catch (err) {
+  console.log("❌ ACTION ERROR:", err.message)
+  console.log("❌ ACTION ERROR STACK:", err.stack)
 
-        console.log("❌ ACTION ERROR:", err.message)
-
-        addLog(ctx.logs, stepIndex, "ERROR", "Action failed", {
-          selector,
-          error: err.message,
-          elapsedMs: Date.now() - actionStartedAt
-        })
-        return {
-          status: 'failed_execution',
-          error: err.message,
-          screenshots
-        }
-      }
-    }
+  addLog(ctx.logs, stepIndex, "ERROR", "Action failed", {
+    selector,
+    action,
+    value,
+    error: err.message,
+    stack: err.stack,
+    elapsedMs: Date.now() - actionStartedAt
+  })
+  return {
+    status: 'failed_execution',
+    error: err.message,
+    errorDetails: {
+      message: err.message,
+      stack: err.stack,
+      selector,
+      action,
+      value,
+    },
+    screenshots
+  }
+}
+}
 
     // ✅ VALIDATION
     const pageState = await driver.executeScript(() => {

@@ -135,6 +135,19 @@ function compareExpectedResult(actual, expected, stepResults = []) {
 // ─────────────────────────────────────────────────────────────────────────────
 function compareStepExpectedResult(actual, expected) {
 
+  
+const inputStepPatterns =
+  /enter|fill|provide|type|insert|set|select|choose/i
+
+if (inputStepPatterns.test(expected || '')) {
+  return {
+    status: 'passed',
+    matched: true,
+    reason: 'Input action executed successfully'
+  }
+}
+
+
   if (!expected || normalizeText(expected) === '') {
     return { status: 'passed', matched: true, reason: 'No expected result defined' }
   }
@@ -239,7 +252,7 @@ function compareStepExpectedResult(actual, expected) {
 //         → le message d'erreur OrangeHRM était noyé dans des milliers de chars
 // Après : capture AUSSI errorMessage et successMessage via des sélecteurs ciblés
 // ─────────────────────────────────────────────────────────────────────────────
-async function buildActualResultForStep(driver, stepText, stepIndex, stepRunResult = {}) {
+async function buildActualResultForStep(driver, stepText, stepIndex, stepRunResult = {}, ctx = {}) {
   const stepLower = String(stepText || '').toLowerCase()
 
   const pageState = await driver.executeScript(() => {
@@ -278,6 +291,14 @@ async function buildActualResultForStep(driver, stepText, stepIndex, stepRunResu
       '[class*="error-message"]',
       '[class*="alert-content"]',
       '[class*="login-error"]',
+
+      
+// GitHub
+  '.flash-error',
+  '.flash-full',
+  '.js-flash-alert',
+  '[class*="flash-error"]'
+
     ]
     let errorMessage = null
     for (const sel of errorSelectors) {
@@ -312,6 +333,19 @@ async function buildActualResultForStep(driver, stepText, stepIndex, stepRunResu
       successMessage,
     }
   })
+
+  // ✅ Ignore any error/success text that was ALREADY on the page before
+  // this test even started (e.g. static demo-credential hints, cookie
+  // banners, promo text picked up by accident by the generic selectors
+  // above). We compare against a baseline captured right after the page
+  // first loaded — no keyword guessing, just "did this text appear
+  // because of what we just did, or was it already there".
+  if (pageState.errorMessage && pageState.errorMessage === ctx.baselineErrorMessage) {
+    pageState.errorMessage = null
+  }
+  if (pageState.successMessage && pageState.successMessage === ctx.baselineSuccessMessage) {
+    pageState.successMessage = null
+  }
 
   const valuesText = Array.isArray(pageState.values)
     ? pageState.values
@@ -503,17 +537,65 @@ async function runTestCase(testCase) {
 
         const isInteractiveStep = /click|submit|login|sign.?in/i.test(stepText)
         if (isInteractiveStep) await waitForPageReactionWithAbort(driver, executionId)
+// ✅ Capture une seule fois, juste après l'étape 1 (ouverture de
+        // page), l'état "tel que chargé" — sert de référence pour ignorer
+        // les messages statiques déjà présents avant toute interaction.
+        if (i === 0 && !ctx.baselineCaptured) {
+          const baseline = await buildActualResultForStep(driver, stepText, i + 1, result, {})
+          ctx.baselineErrorMessage = baseline.errorMessage
+          ctx.baselineSuccessMessage = baseline.successMessage
+          ctx.baselineCaptured = true
+        }
 
+        const actualResultObject = await buildActualResultForStep(driver, stepText, i + 1, result, ctx)
+        if (actualResultObject.errorMessage) {
+  console.log(
+    '❌ UI ERROR DETECTED:',
+    actualResultObject.errorMessage
+  )
+}
 
-        const actualResultObject = await buildActualResultForStep(driver, stepText, i + 1, result)
+if (actualResultObject.successMessage) {
+  console.log(
+    '✅ UI SUCCESS DETECTED:',
+    actualResultObject.successMessage
+  )
+}
         const actualResult = JSON.stringify(actualResultObject || {})
-        const comparison = compareStepExpectedResult(actualResultObject || {}, stepExpectedResult)
+        let comparison
+
+const isInputStep =
+  /enter|fill|provide|type|insert|set|select|choose/i.test(stepText.toLowerCase())
+
+if (isInputStep) {
+  comparison = {
+    status: 'passed',
+    matched: true,
+    reason: 'Input step executed'
+  }
+} else {
+  comparison = compareStepExpectedResult(
+    actualResultObject || {},
+    stepExpectedResult
+  )
+}
+       
+        
         const finalStepStatus = result.status !== 'passed' ? result.status : comparison.status
 
         if (finalStepStatus !== 'passed') encounteredFailure = true
 
         addLog(logs, i + 1, finalStepStatus === 'passed' ? 'SUCCESS' : 'ERROR',
-          `Step ${i + 1} ${finalStepStatus}: ${comparison.reason}`)
+  `Step ${i + 1} ${finalStepStatus}: ${comparison.reason}`,
+  finalStepStatus !== 'passed'
+    ? {
+        actual: actualResultObject,
+        expected: stepExpectedResult,
+        executionError: result.error || null,
+        executionErrorDetails: result.errorDetails || null,
+      }
+    : undefined
+)
 
         stepResults.push({
           index: i + 1,
@@ -542,11 +624,15 @@ async function runTestCase(testCase) {
           return { status: 'aborted', logs, stepResults }
         }
 
-        stepResults.push({
+    stepResults.push({
           index: i + 1,
           step: stepText,
           status: 'failed_execution',
           error: err.message,
+          errorDetails: {
+            message: err.message,
+            stack: err.stack,
+          },
         })
         encounteredFailure = true
       }

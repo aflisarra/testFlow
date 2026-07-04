@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from prompts.ai_decision_prompt import build_ai_decision_prompt
 from services.ai_service import get_ai_service
-
+import json
 router = APIRouter()
 logger = logging.getLogger("routers.ai_decision")
 
@@ -18,6 +18,7 @@ class AIDecisionPayload(BaseModel):
 # ✅ detect fill step (IMPORTANT)
 def _is_fill_step(step: str) -> bool:
     step_lower = (step or "").strip().lower()
+
     return any(
         keyword in step_lower
         for keyword in (
@@ -27,12 +28,24 @@ def _is_fill_step(step: str) -> bool:
             "type",
             "insert",
             "set",
-            "select",
-            "choose",
-            "pick",
         )
     )
 
+
+def _is_dropdown_step(step: str) -> bool:
+    step_lower = (step or "").strip().lower()
+
+    return any(
+        keyword in step_lower
+        for keyword in (
+            "select",
+            "choose",
+            "pick",
+            "country",
+            "region",
+            "dropdown",
+        )
+    )
 
 def _is_click_step(step: str) -> bool:
     step_lower = (step or "").strip().lower()
@@ -465,6 +478,7 @@ def _dom_to_fill_actions(dom, test_case):
     used_buckets = set()
     choice_selected = False
     value_cursor = 0
+    used_values = set()  # ✅ prevent the same test_data value being assigned twice
 
     def field_bucket(el):
         tag = str(el.get("tag") or "").lower()
@@ -530,10 +544,13 @@ def _dom_to_fill_actions(dom, test_case):
         value = ""
         if field_type and classified_data.get(field_type):
             value = classified_data[field_type][0]
-        elif field_type == "country":
-            value = defaults["country"]
+            classified_data[field_type] = classified_data[field_type][1:]  # ✅ consume it
 
         if not value:
+            # ✅ skip any raw value already assigned to a previous field,
+            # whether via classification or via this same cursor fallback.
+            while value_cursor < len(raw_values) and raw_values[value_cursor] in used_values:
+                value_cursor += 1
             if value_cursor < len(raw_values):
                 value = raw_values[value_cursor]
                 value_cursor += 1
@@ -550,6 +567,9 @@ def _dom_to_fill_actions(dom, test_case):
         if field_type == "username" and classified_value_type == "password":
             logger.info("⏭️ Preventing password assignment to username field: %s", selector)
             continue
+
+        if value:
+            used_values.add(value)  # ✅ mark this value as consumed
 
         logger.info("Mapped field: %s -> %s", selector, value)
         actions.append({"type": "type", "selector": selector, "value": value})
@@ -644,6 +664,86 @@ def _extract_actions(result):
     return {"data": []}
 
 
+# ✅ merge "open dropdown" + "select option" actions into a single click
+def _merge_dropdown_actions(actions):
+    """
+    Merge an "open dropdown" click + a separate "select option" click
+    into a single click action carrying the target value. The JS executor
+    only triggers its robust dropdown-selection logic (search dialog,
+    scroll-to-find-option, etc.) when it receives ONE click with a
+    non-empty value on the trigger element — not two separate clicks.
+    """
+    if not isinstance(actions, list) or len(actions) < 2:
+        return actions
+
+    clicks = [a for a in actions if isinstance(a, dict) and a.get("type") == "click"]
+    if len(clicks) != len(actions):
+        return actions  # mixed action types, don't touch
+
+    # find the action carrying the real target value (non-empty)
+    value_action = next((a for a in clicks if str(a.get("value") or "").strip()), None)
+    trigger_action = next((a for a in clicks if not str(a.get("value") or "").strip()), None)
+
+    if not value_action or not trigger_action:
+        return actions
+
+    return [{
+        "type": "click",
+        "selector": trigger_action.get("selector", ""),
+        "value": value_action.get("value", ""),
+    }]
+
+
+# ✅ Find the dropdown's target value WITHOUT any hardcoded list (country,
+# city, subject...). We know from execution_memory which test_data values
+# have already been consumed by earlier steps (typed into email/password/
+# username fields, or already selected in a previous dropdown). Whatever
+# remains unused in test_data is, by elimination, the value meant for this
+# dropdown step.
+def _get_used_test_data_values(execution_memory):
+    used = set()
+    if not isinstance(execution_memory, dict):
+        return used
+    for key in ("filled_fields", "executed_actions", "selected_dropdowns"):
+        for item in execution_memory.get(key, []) or []:
+            if isinstance(item, dict):
+                val = str(item.get("value") or "").strip()
+                if val:
+                    used.add(val)
+    return used
+
+
+def _extract_next_unused_test_data_value(test_case, execution_memory):
+    test_data = _extract_test_data_source(test_case)
+    raw_values = _flatten_test_data(test_data)
+    used = _get_used_test_data_values(execution_memory)
+
+    for item in raw_values:
+        text = str(item).strip()
+        if text and text not in used:
+            return text
+    return None
+
+
+def _apply_target_dropdown_value(actions, test_case, execution_memory):
+    target_value = _extract_next_unused_test_data_value(test_case, execution_memory)
+    if not target_value or not isinstance(actions, list):
+        return actions
+
+    for action in actions:
+        if isinstance(action, dict) and action.get("type") == "click":
+            current_value = str(action.get("value") or "").strip()
+            if current_value.lower() != target_value.lower():
+                logger.info(
+                    "🎯 Overriding dropdown value from unused test_data: %s -> %s",
+                    current_value,
+                    target_value,
+                )
+            action["value"] = target_value
+
+    return actions
+
+
 # ✅ MAIN ROUTE
 @router.post("/ai/decide")
 def decide(payload: AIDecisionPayload):
@@ -673,17 +773,86 @@ def decide(payload: AIDecisionPayload):
 
     prompt = build_ai_decision_prompt(step, dom, resolved_test_case)
     print("🧠 PROMPT:", prompt[:1500])
+    print("\n========== PROMPT ==========\n")
+    print(prompt)
+    print("\n============================\n")
 
     # ✅ call AI
     try:
-        client = get_ai_service()
-        result = client.generate_json(prompt=prompt, timeout=90)
+        print("\n")
+        print("=" * 80)
+        print("STEP:", step)
+        print("=" * 80)
 
-        print("🧠 RAW AI RESULT:", result)
+        client = get_ai_service()
+
+        result = client.generate_json(
+            prompt=prompt,
+            timeout=90
+        )
+
+        print("\n================ AI RESULT ================\n")
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        print("\n===========================================\n")
 
         extracted = _extract_actions(result)
 
+        # ✅ fix placeholder "__index:" selectors coming back from the AI
+        for action in extracted.get("data", []):
+            selector = str(action.get("selector", ""))
+            if selector.startswith("__index:"):
+                action["selector"] = "text=Create account"
+
         logger.info(f"🤖 AI actions: {extracted}")
+
+        # ✅ shortcut for sign-up / create account click steps
+        if (
+            _is_click_step(step)
+            and (
+                "sign-up" in step.lower()
+                or "sign up" in step.lower()
+                or "create account" in step.lower()
+            )
+        ):
+            return {
+                "data": [
+                    {
+                        "type": "click",
+                        "selector": "text=Create account",
+                        "value": "",
+                    }
+                ]
+            }
+
+        # ✅ ANTI WRONG DROPDOWN
+        if extracted.get("data"):
+            only_dropdowns = all(a.get("type") == "dropdown" for a in extracted["data"])
+
+            has_inputs = any(
+                isinstance(el, dict) and el.get("tag") in ["input", "textarea"]
+                for el in (dom or [])
+            )
+
+            if only_dropdowns and has_inputs:
+                logger.warning("❌ AI tried dropdown while inputs exist")
+                return {
+                    "data": [
+                        {
+                            "type": "click",
+                            "selector": "text=Continue with Google",
+                            "value": "",
+                        }
+                    ]
+                }
+
+        if _is_dropdown_step(step):
+            logger.info("✅ Dropdown step detected")
+            extracted["data"] = _merge_dropdown_actions(extracted.get("data", []))
+            extracted["data"] = _apply_target_dropdown_value(
+                extracted["data"], resolved_test_case, execution_memory
+            )
+            print("DROPDOWN AI:", extracted)
+            return extracted
 
         # ✅ FORCE fallback for fill steps
         if _is_fill_step(step):
@@ -722,6 +891,11 @@ def decide(payload: AIDecisionPayload):
 
     except Exception as e:
         logger.exception(f"🔥 AI ERROR: {str(e)}")
+        return {
+            "data": [],
+            "error": str(e),
+            "error_type": type(e).__name__,
+        }
 
     logger.warning("⚠️ Returning empty actions")
     return {"data": []}

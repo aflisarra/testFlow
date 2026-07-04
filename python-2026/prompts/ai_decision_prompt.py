@@ -95,6 +95,12 @@ def build_ai_decision_prompt(step: str, dom, test_case) -> str:
     "visible",
     "rect",
     "options",
+    
+  # NEW
+    "ariaInvalid",
+    "required",
+    "validity",
+
 
 }
         compacted = []
@@ -252,7 +258,33 @@ Never select OAuth or social authentication buttons:
 - Sign in with Apple
 
 These buttons are not form submission buttons.
+If an element has visible text:
 
+Create account
+Register
+Submit
+Sign up
+Continue
+
+the selector MUST be:
+
+text=VISIBLE_TEXT
+
+Example:
+
+Correct:
+
+{{
+  "type":"click",
+  "selector":"text=Create account"
+}}
+
+Incorrect:
+
+{{
+  "type":"click",
+  "selector":"__index:8"
+}}
 
 Never use __index selector when a stable selector exists.
 
@@ -532,6 +564,34 @@ use:
 text=ElementText
 
 
+================================================
+FIELD VALIDATION RULES
+================================================
+
+Some applications validate fields immediately after typing.
+
+Indicators:
+
+- validity=true
+- ariaInvalid=false
+- success icon
+- validation message
+
+If a field is already valid:
+
+- do not retype it
+- consider the field completed
+
+Do not generate unnecessary actions on validated fields.
+
+Some applications validate only after submit.
+
+Do not assume a form is invalid simply because
+the URL has not changed.
+
+Typing a value into a field is considered successful
+if the value exists in the field and there is no visible
+validation error.
 ================================================
 TEST DATA RULES
 ================================================

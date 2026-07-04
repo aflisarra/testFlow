@@ -2,7 +2,7 @@
 [
     {
         "type":"click",
-        "selector":"text=Create account",
+        "selector":"text=Login",
         "value":""
     }
 ]

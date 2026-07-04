@@ -5,23 +5,18 @@
 
 <div class="modal-body">
   <div class="mb-3">
-    <label class="form-label" for="tcTitle">Title</label>
-    <input id="tcTitle" class="form-control" [(ngModel)]="testCase.title" placeholder="Title" />
+    <label class="form-label" for="title">Title</label>
+    <input class="form-control" [(ngModel)]="testCase.title" placeholder="Title" />
   </div>
 
   <div class="mb-3">
-    <label class="form-label" for="tcSteps">Steps (one per line)</label>
-    <textarea id="tcSteps" class="form-control" rows="6" [(ngModel)]="stepsText" placeholder="Step 1&#10;Step 2"></textarea>
+    <label class="form-label" for="steps">Steps (one per line)</label>
+    <textarea class="form-control" rows="6" [(ngModel)]="stepsText" placeholder="Step 1&#10;Step 2"></textarea>
   </div>
 
   <div class="mb-3">
-    <label class="form-label" for="tcTestData">Test Data (one line per value)</label>
-    <textarea id="tcTestData" class="form-control" rows="5" [(ngModel)]="testDataText" placeholder="email: valid@test.com&#10;password: Valid123!"></textarea>
-  </div>
-
-  <div class="mb-3">
-    <label class="form-label" for="tcExpected">Expected Result</label>
-    <textarea id="tcExpected" class="form-control" rows="3" [(ngModel)]="testCase.expected_result" placeholder="Expected result"></textarea>
+    <label class="form-label" for="expectedResult">Expected Result</label>
+    <textarea class="form-control" rows="3" [(ngModel)]="testCase.expected_result" placeholder="Expected result"></textarea>
   </div>
 </div>
 
@@ -29,3 +24,4 @@
   <button type="button" class="btn btn-outline-secondary" (click)="onCancel()">Cancel</button>
   <button type="button" class="btn btn-primary" (click)="onSave()">Save</button>
 </div>
+
