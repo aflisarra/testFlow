@@ -103,15 +103,45 @@ async function runStructuredUiStep(driver, step, ctx, stepIndex) {
           visible: isVisible(el),
           rect: getRect(el),
           href: el.getAttribute('href') || "",
-          form: el.form?.getAttribute('id') || el.form?.getAttribute('name') || ""
+          form: el.form?.getAttribute('id') || el.form?.getAttribute('name') || "",
+          businessRole: (() => {
+
+  const metadata = [
+    el.id,
+    el.name,
+    el.placeholder,
+    el.getAttribute('aria-label'),
+    el.getAttribute('title')
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+
+  const rules = [
+    { key: 'email', role: 'email' },
+    { key: 'password', role: 'password' },
+    { key: 'country', role: 'country' },
+    { key: 'username', role: 'username' },
+    { key: 'login', role: 'username' },
+    { key: 'phone', role: 'phone' },
+    { key: 'mobile', role: 'phone' },
+  ]
+
+  const match = rules.find(r => metadata.includes(r.key))
+
+  return match?.role || null
+
+})(),
         }))
         .filter(el => el.visible)
     })
 
     console.log("📦 DOM:", elements)
+    const domSourceUrl = await driver.getCurrentUrl().catch(() => '')
     addLog(ctx.logs, stepIndex, "INFO", "DOM captured", {
       elements: elements.length,
-      sample: elements.slice(0, 12)
+      dom: elements,
+      sourceUrl: domSourceUrl
     })
 
     // ✅ stop if empty DOM
@@ -181,6 +211,9 @@ console.log(
     }
 
     const payload = resp?.data ?? {}
+    ctx.seleniumCode =
+       payload?.selenium_code || ''
+
     const decisions = Array.isArray(payload?.data)
       ? payload.data
       : Array.isArray(payload)
@@ -252,6 +285,26 @@ console.log(
       a.selector.trim().length > 0
     )
 
+    const overrideActions = Array.isArray(ctx.actionOverrides?.[stepIndex])
+      ? ctx.actionOverrides[stepIndex]
+      : []
+
+    if (overrideActions.length) {
+      actions = overrideActions
+        .map((a) => ({
+          type: String(a?.type || a?.action || '').trim(),
+          selector: String(a?.selector || '').trim(),
+          value: String(a?.value || '').trim(),
+        }))
+        .filter((a) => a.type && a.selector)
+
+      addLog(ctx.logs, stepIndex, "INFO", "AI actions overridden by user", {
+        source: "backend-2026:user_override",
+        actions,
+        originalActions: decisions
+      })
+    }
+
     if (actions.length === 0) {
       console.log("⚠️ AI RETURNED EMPTY → FAIL")
       return {
@@ -262,7 +315,10 @@ console.log(
     }
 
     console.log("🧠 ACTIONS:", actions)
-    addLog(ctx.logs, stepIndex, "INFO", "AI actions received", { actions })
+    addLog(ctx.logs, stepIndex, "INFO", "AI actions received", {
+      source: overrideActions.length ? "backend-2026:user_override" : "python-2026:/ai/decide",
+      actions
+    })
 
     const screenshots = []
     const indexedElementsSelector = 'input, button, a, textarea, select, [role="button"], [role="link"]'
@@ -986,6 +1042,7 @@ console.log(
       let value = String(act.value || "").trim()
       const actionStartedAt = Date.now()
       const actionKey = `${action}::${selector}::${value}`
+      const isDropdownStep = /select|choose|pick|country|region|dropdown/i.test(String(step || ""))
 
       if (executedActionKeys.has(actionKey)) {
         addLog(ctx.logs, stepIndex, "INFO", "Skipping duplicate action", {
@@ -1013,9 +1070,57 @@ console.log(
         await sleep(500)
 
         // ✅ FIND ELEMENT BY CSS SELECTOR or DOM index fallback
-        const el = await resolveElementBySelector(selector)
+        let el = await resolveElementBySelector(selector).catch(() => null)
 
         if (!el) {
+          const wantedText = selector.startsWith("text=")
+            ? normalizeValue(selector.replace(/^text=/, ""))
+            : normalizeValue(value)
+
+          if (action === "click" && wantedText && isDropdownStep) {
+            addLog(ctx.logs, stepIndex, "INFO", "Option not visible before dropdown open; opening dropdown first", {
+              selector,
+              value: wantedText
+            })
+
+            const trigger = await openDropdown(null, wantedText)
+            if (!trigger) {
+              throw new Error("Dropdown trigger not found for option: " + wantedText)
+            }
+
+            await sleep(1000)
+
+            let option = await selectViaSearchDialog(wantedText)
+            if (!option) option = await findOptionByText(wantedText)
+            if (!option) option = await findGenericDropdownOptionByText(wantedText)
+            if (!option) option = await waitForOptionText(wantedText, 5000)
+
+            if (!option) {
+              throw new Error(`Dropdown option "${wantedText}" not found`)
+            }
+
+            await driver.executeScript((optionEl) => {
+              optionEl.scrollIntoView({ block: "center" })
+            }, option)
+            await safeClick(option)
+
+            ctx.executionMemory.executed_actions.push({
+              action: "select",
+              selector,
+              value: wantedText
+            })
+            ctx.executionMemory.selected_dropdowns.push({
+              selector,
+              value: wantedText
+            })
+
+            addLog(ctx.logs, stepIndex, "SUCCESS", "Dropdown option selected", {
+              selector,
+              value: wantedText
+            })
+            continue
+          }
+
           throw new Error("Element not found by selector: " + selector)
         }
 
@@ -1287,13 +1392,19 @@ if (action === "click") {
 
   await safeClick(clickTarget)
 
-  addLog(
-    ctx.logs,
-    stepIndex,
-    "INFO",
-    "Click dispatched",
-    { selector }
-  )
+
+addLog(
+  ctx.logs,
+  stepIndex,
+  'INFO',
+  'AI response',
+  {
+    actions,
+    seleniumCode:
+      payload?.selenium_code || ''
+  }
+)
+
 
   try {
 

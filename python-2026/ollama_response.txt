@@ -1,9 +1,170 @@
 ```json
-[
+{
+  "test_cases": [
     {
-        "type":"click",
-        "selector":"text=Login",
-        "value":""
+      "id": "TC-2.1",
+      "title": "Create a new record",
+      "objective": "Verify that a user can create a new record successfully",
+      "preconditions": [
+        "User is authenticated and has the necessary permissions"
+      ],
+      "steps": [
+        "Navigate to the records page",
+        "Click on the 'Add New Record' button",
+        "Fill in all required fields with valid data",
+        "Click on the 'Save' button"
+      ],
+      "stepDetails": [
+        {
+          "step": "Navigate to the records page",
+          "expected_result": "Records page is displayed"
+        },
+        {
+          "step": "Click on the 'Add New Record' button",
+          "expected_result": "Form for adding a new record is displayed"
+        },
+        {
+          "step": "Fill in all required fields with valid data",
+          "expected_result": "All required fields accept the provided values"
+        },
+        {
+          "step": "Click on the 'Save' button",
+          "expected_result": "New record is created and saved successfully"
+        }
+      ],
+      "expected_result": "New record is created and saved successfully",
+      "test_data": {
+        "field1": "Value1",
+        "field2": "Value2",
+        "field3": "Value3"
+      },
+      "priority": "High",
+      "severity": "Critical",
+      "type": "Positive"
+    },
+    {
+      "id": "TC-2.2",
+      "title": "Read a record",
+      "objective": "Verify that a user can read an existing record successfully",
+      "preconditions": [
+        "User is authenticated and has the necessary permissions",
+        "A record exists in the system"
+      ],
+      "steps": [
+        "Navigate to the records page",
+        "Search for the record using valid criteria",
+        "Click on the 'View' button for the selected record"
+      ],
+      "stepDetails": [
+        {
+          "step": "Navigate to the records page",
+          "expected_result": "Records page is displayed"
+        },
+        {
+          "step": "Search for the record using valid criteria",
+          "expected_result": "Record matching the search criteria is found and displayed"
+        },
+        {
+          "step": "Click on the 'View' button for the selected record",
+          "expected_result": "Details of the selected record are displayed"
+        }
+      ],
+      "expected_result": "Details of the selected record are displayed",
+      "test_data": {
+        "search_criteria": "Record123"
+      },
+      "priority": "High",
+      "severity": "Critical",
+      "type": "Positive"
+    },
+    {
+      "id": "TC-2.3",
+      "title": "Update a record",
+      "objective": "Verify that a user can update an existing record successfully",
+      "preconditions": [
+        "User is authenticated and has the necessary permissions",
+        "A record exists in the system"
+      ],
+      "steps": [
+        "Navigate to the records page",
+        "Search for the record using valid criteria",
+        "Click on the 'Edit' button for the selected record",
+        "Modify all required fields with new valid data",
+        "Click on the 'Save' button"
+      ],
+      "stepDetails": [
+        {
+          "step": "Navigate to the records page",
+          "expected_result": "Records page is displayed"
+        },
+        {
+          "step": "Search for the record using valid criteria",
+          "expected_result": "Record matching the search criteria is found and displayed"
+        },
+        {
+          "step": "Click on the 'Edit' button for the selected record",
+          "expected_result": "Form for editing the selected record is displayed"
+        },
+        {
+          "step": "Modify all required fields with new valid data",
+          "expected_result": "All required fields accept the provided values"
+        },
+        {
+          "step": "Click on the 'Save' button",
+          "expected_result": "Record is updated and saved successfully"
+        }
+      ],
+      "expected_result": "Record is updated and saved successfully",
+      "test_data": {
+        "search_criteria": "Record123",
+        "new_field1": "NewValue1",
+        "new_field2": "NewValue2",
+        "new_field3": "NewValue3"
+      },
+      "priority": "High",
+      "severity": "Critical",
+      "type": "Positive"
+    },
+    {
+      "id": "TC-2.4",
+      "title": "Delete a record",
+      "objective": "Verify that a user can delete an existing record successfully",
+      "preconditions": [
+        "User is authenticated and has the necessary permissions",
+        "A record exists in the system"
+      ],
+      "steps": [
+        "Navigate to the records page",
+        "Search for the record using valid criteria",
+        "Click on the 'Delete' button for the selected record",
+        "Confirm deletion"
+      ],
+      "stepDetails": [
+        {
+          "step": "Navigate to the records page",
+          "expected_result": "Records page is displayed"
+        },
+        {
+          "step": "Search for the record using valid criteria",
+          "expected_result": "Record matching the search criteria is found and displayed"
+        },
+        {
+          "step": "Click on the 'Delete' button for the selected record",
+          "expected_result": "Confirmation dialog for deletion is displayed"
+        },
+        {
+          "step": "Confirm deletion",
+          "expected_result": "Record is deleted successfully"
+        }
+      ],
+      "expected_result": "Record is deleted successfully",
+      "test_data": {
+        "search_criteria": "Record123"
+      },
+      "priority": "High",
+      "severity": "Critical",
+      "type": "Positive"
     }
-]
+  ]
+}
 ```

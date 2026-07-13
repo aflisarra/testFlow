@@ -1,9 +1,19 @@
 const { Builder } = require('selenium-webdriver')
-require('chromedriver')
-
 const chrome = require('selenium-webdriver/chrome')
 
+function tryRegisterChromeDriver() {
+  try {
+    // Optional dependency: if chromedriver is installed locally, load it.
+    // selenium-webdriver can also fall back to Selenium Manager when available,
+    // so missing chromedriver should not crash the backend at startup.
+    require('chromedriver')
+  } catch (error) {
+    if (error?.code !== 'MODULE_NOT_FOUND') throw error
+  }
+}
+
 async function createDriver() {
+  tryRegisterChromeDriver()
 
   const options = new chrome.Options()
 

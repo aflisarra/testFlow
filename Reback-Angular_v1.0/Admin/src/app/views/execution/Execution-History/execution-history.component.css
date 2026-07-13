@@ -52,6 +52,26 @@
   white-space: nowrap;
 }
 
+.btn-export--pdf {
+  background: linear-gradient(135deg, #0A3D91 0%, #124a83 100%);
+  color: #ffffff;
+  border-color: #0A3D91;
+  box-shadow: 0 1px 3px rgb(10 61 145 / 22%);
+}
+
+.btn-export--pdf:hover:not(:disabled) {
+  background: linear-gradient(135deg, #124a83 0%, #0A3D91 100%);
+  border-color: #082F6D;
+  box-shadow: 0 4px 14px rgb(10 61 145 / 28%);
+  transform: translateY(-1px);
+}
+
+.btn-export--pdf:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .btn-export:hover {
   border-color: #d1d5db;
   background: #f9fafb;
@@ -496,4 +516,9 @@
   object-fit: cover;
   border: 1.5px solid #dde8f5;
   flex-shrink: 0;
+}
+
+.metric-value:empty::before,
+.metric-value.is-dash {
+  color: #d1d5db;
 }

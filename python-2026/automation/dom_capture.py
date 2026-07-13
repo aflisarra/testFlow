@@ -99,8 +99,21 @@ function isVisible(el) {
             disabled: !!el.disabled,
             checked: (tag === 'input' && (type === 'checkbox' || type === 'radio')) ? !!el.checked : null,
             selected: (tag === 'option' || tag === 'select') ? !!el.selected : null,
-        };
+            businessRole: (() => {
+                const text = (
+                    (el.id || '') + ' ' +
+                    (el.name || '') + ' ' +
+                    (el.placeholder || '') + ' ' +
+                    (el.getAttribute('aria-label') || '')
+                ).toLowerCase();
 
+                if (text.includes('email')) return 'email';
+                if (text.includes('password')) return 'password';
+                if (text.includes('country')) return 'country';
+                if (text.includes('username') || text.includes('login')) return 'username';
+                return null;
+            })(),
+        };
         if (tag === 'select') {
             entry.options = Array.from(el.options || []).slice(0, 20).map(o => ({
                 value: o.value,

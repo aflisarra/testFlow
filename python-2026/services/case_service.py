@@ -303,13 +303,23 @@ def generate_test_cases(
             str(item.get("expected_result") or "").strip(),
         )
         _ensure_step_details_expected(step_details)
-        normalized.append(
+        test_data = item.get(
+    "test_data",
+    item.get("testData", {})
+)
+
+    if not isinstance(test_data, dict):
+        raise ValueError(
+        "test_data must be a JSON object"
+    )
+
+    normalized.append(
             {
                 "id": str(item.get("id") or f"{prefix}.{i}").strip() or f"{prefix}.{i}",
                 "title": str(item.get("title") or f"Test Case {i}").strip(),
                 "objective": str(item.get("objective") or f"Verify {item.get('title') or f'Test Case {i}'}").strip(),
                 "preconditions": _string_list(item.get("preconditions")),
-                "test_data": item.get("test_data", item.get("testData", None)),
+                "test_data": test_data,
                 "steps": clean_steps,
                 "stepDetails": step_details,
                 "expected_result": str(item.get("expected_result") or "").strip(),

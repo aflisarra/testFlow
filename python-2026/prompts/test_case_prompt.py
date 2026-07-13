@@ -65,14 +65,19 @@ def build_test_case_prompt(
     '      ],\n'
     '      "expected_result": "User is redirected to dashboard",\n'
     '      "test_data": {\n'
-    '        "email": "valid@test.com"\n'
-    '      },\n'
+'        "email": "john.doe@example.com",\n'
+'        "password": "ValidPass123!",\n'
+'        "username": "john-doe-2026",\n'
+'        "country": "Tunisia"\n'
+'      },\n'
     '      "priority": "High",\n'
     '      "severity": "Critical",\n'
     '      "type": "Positive"\n'
     '    }\n'
     '  ]\n'
     '}'
+
+
 )
 
 
@@ -90,6 +95,8 @@ def build_test_case_prompt(
     "2. Linked requirements\n\n"
 
     "Never use common application assumptions.\n\n"
+    "Never infer common software features.\n"
+"Do not invent CRUD operations, authentication failures, rejected login, locked account, disabled account, search, filter, export, import, permissions, security tests or performance tests unless they are explicitly described in the specification.\n\n"
 
     "Do not invent:\n"
     "- pages\n"
@@ -107,15 +114,21 @@ def build_test_case_prompt(
     "Avoid redundant test cases.\n"
     "Keep only meaningful and unique scenarios.\n\n"
 
-    "### QA TEST DESIGN RULES\n"
-    "Apply ISTQB test design techniques.\n\n"
+   "### QA TEST DESIGN RULES\n"
+"Apply ISTQB test design techniques.\n\n"
 
-    "Generate:\n"
-    "- Happy path scenarios\n"
-    "- Validation scenarios\n"
-    "- Required field scenarios\n"
-    "- Boundary scenarios when supported by the specification\n"
-    "- Error handling scenarios when supported by the specification\n\n"
+"Generate ONLY the test categories explicitly supported by the specification.\n"
+"If the specification does not describe validation, boundary, error handling, or negative scenarios, do NOT generate them.\n"
+"If the specification only describes the normal workflow, generate only Positive test cases.\n\n"
+
+"Possible categories:\n"
+"- Happy Path\n"
+"- Validation\n"
+"- Boundary\n"
+"- Error Handling\n"
+"- Negative\n\n"
+
+"Only generate a category when it is explicitly described in the specification.\n\n"
 
     "Avoid:\n"
     "- Duplicate test cases\n"
@@ -193,7 +206,68 @@ def build_test_case_prompt(
     "### TEST DATA COMPLETENESS RULE\n"
     "The test_data object must contain all data required to execute the test case.\n"
     "If the workflow contains email, password, username, and country fields, all values must be provided.\n\n"
+    "### JSON STRICT RULE\n"
+"test_data MUST be a JSON object.\n\n"
 
+"Allowed:\n"
+
+"{\n"
+"  \"email\": \"john@example.com\",\n"
+"  \"password\": \"ValidPass123!\",\n"
+"  \"username\": \"john-doe\",\n"
+"  \"country\": \"Tunisia\"\n"
+"}\n\n"
+
+"Forbidden:\n"
+
+"[\"email\",\"password\"]\n\n"
+
+"Forbidden:\n"
+
+"{\n"
+"  \"values\": [\"john@example.com\"]\n"
+"}\n\n"
+
+"The AI must always use named fields.\n"
+"Never return arrays for test_data.\n\n"
+"### CRITICAL TEST DATA MAPPING RULE\n"
+"The AI must NEVER return test_data as:\n"
+
+"[\n"
+"  \"john@example.com\",\n"
+"  \"password123\"\n"
+"]\n\n"
+
+"or\n\n"
+
+"[\n"
+"  \"value1\",\n"
+"  \"value2\"\n"
+"]\n\n"
+
+"or\n\n"
+
+"{\n"
+"  \"data\": [\"john@example.com\"]\n"
+"}\n\n"
+
+"The AI must ALWAYS return named fields.\n\n"
+
+"Correct:\n\n"
+
+"{\n"
+"  \"email\": \"john@example.com\",\n"
+"  \"password\": \"ValidPass123!\",\n"
+"  \"username\": \"john-doe\",\n"
+"  \"country\": \"Tunisia\"\n"
+"}\n\n"
+
+"Incorrect:\n\n"
+
+"[\n"
+"  \"john@example.com\",\n"
+"  \"ValidPass123!\"\n"
+"]\n\n"
     "### REDUNDANCY RULE\n"
     "Do not generate separate test cases that validate the same workflow.\n"
     "Merge related validations whenever appropriate.\n\n"

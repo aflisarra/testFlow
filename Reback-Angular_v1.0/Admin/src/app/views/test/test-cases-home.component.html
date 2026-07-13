@@ -198,9 +198,14 @@
   </div>
   <div class="d-flex gap-2 align-items-center">
     @if (livePlan) {
-    <button class="btn btn-sm btn-outline-secondary" (click)="openManualAddCase(livePlan, $event)" title="Add test case manually">
-      <iconify-icon icon="mdi:plus" width="16" height="16"></iconify-icon>
+<button type="button"
+  class="btn-add-plan"
+ (click)="openManualAddCase(livePlan, $event)" >
+      <iconify-icon icon="mdi:plus-circle-outline" width="18" height="18"></iconify-icon>
+  <span>Add Test Case</span>
     </button>
+
+
     <button class="btn btn-sm btn-brand tc-generate-main-btn" (click)="openModal(livePlan, $event)">
       <iconify-icon
         [icon]="(testCasesByPlan[livePlanId] || []).length 
@@ -214,6 +219,12 @@
         <span class="tc-btn-count">({{ (testCasesByPlan[livePlanId] || []).length }})</span>
       }
     </button>
+    <button type="button"
+  class="btn-abandon-red"
+  (click)="openAbandonModal()">
+  <iconify-icon icon="mdi:cancel"></iconify-icon>
+  Abandon
+</button>
     }
   </div>
 </div>
@@ -615,4 +626,114 @@
     </div>
   </button>
 </button>
+}
+@if (abandonModalOpen) {
+
+<div class="tc-modal-backdrop">
+  <div class="tc-modal">
+
+    <div class="tc-modal-header">
+      <h5>Abandon Test Case</h5>
+    </div>
+
+    <div class="tc-modal-body">
+
+      <label>Test Plan</label>
+
+      <select
+        class="form-select"
+        [(ngModel)]="selectedAbandonPlanId">
+
+        <option value="">
+          Select Test Plan
+        </option>
+
+        @for (plan of allPlans; track plan.id) {
+          <option [value]="plan.id">
+            {{ plan.id }} - {{ plan.title }}
+          </option>
+        }
+
+      </select>
+
+      <label class="mt-3">
+        Test Case
+      </label>
+
+      <select
+        class="form-select"
+        [(ngModel)]="selectedAbandonCaseId">
+
+        <option value="">
+          Select Test Case
+        </option>
+
+        @for (tc of abandonCases; track tc.id) {
+          <option [value]="tc.id">
+            {{ tc.id }} - {{ tc.title }}
+          </option>
+        }
+
+      </select>
+
+    </div>
+
+    <div class="tc-modal-actions-bottom">
+
+      <button
+        class="btn btn-cancel"
+        (click)="abandonModalOpen=false">
+
+        Cancel
+      </button>
+
+      <button
+        class="btn-confirm-abandon"
+        (click)="openConfirmAbandon()">
+
+        Abandon
+      </button>
+
+    </div>
+
+  </div>
+</div>
+
+}
+@if (confirmAbandonModalOpen) {
+
+<div class="tc-modal-backdrop">
+  <div class="tc-modal">
+
+    <div class="tc-modal-header">
+      <h5>Confirm Abandon</h5>
+    </div>
+
+    <div class="tc-modal-body">
+
+      Are you sure you want to abandon this test case?
+
+    </div>
+
+    <div class="tc-modal-actions-bottom">
+
+      <button
+        class="btn btn-cancel"
+        (click)="confirmAbandonModalOpen=false">
+
+        No
+      </button>
+
+      <button
+        class="btn-confirm-abandon"
+        (click)="confirmAbandon()">
+
+        Yes, Abandon
+      </button>
+
+    </div>
+
+  </div>
+</div>
+
 }

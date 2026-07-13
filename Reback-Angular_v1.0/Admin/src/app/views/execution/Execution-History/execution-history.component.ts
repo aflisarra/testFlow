@@ -1,11 +1,10 @@
 import { CommonModule } from '@angular/common'
 import { Component, OnInit } from '@angular/core'
+import { forkJoin } from 'rxjs'
 import { SeleniumRunnerService } from '../../../core/services/selenium-runner.service'
 import { ExecutionDetailModalComponent } from '../Execution-details/execution-details.component'
 import {
   MinPipe,
-  PassRatePipe,
-  StatusCountPipe,
   StatusLabelPipe,
   UserInitialsPipe,
 } from './execution-history.pipes'
@@ -14,6 +13,7 @@ export interface ExecutionRun {
   id: string
   testCaseName: string
   executedBy: string
+  executedByPicture: string | null
   status:
     | 'passed'
     | 'failed'
@@ -25,18 +25,6 @@ export interface ExecutionRun {
   executionTime: string
   duration: string
 }
-export interface ExecutionRun {
-  id: string
-  testCaseName: string
-  executedBy: string
-  executedByPicture: string | null  // ✅ AJOUTE
-  status: 'passed' | 'failed' | 'failed_execution' | 'failed_assertion' | 'aborted' | 'running'
-  executionDate: string
-  executionTime: string
-  duration: string
-}
-
-
 
 @Component({
   selector: 'app-execution-history',
@@ -48,8 +36,6 @@ export interface ExecutionRun {
     ExecutionDetailModalComponent,
     StatusLabelPipe,
     UserInitialsPipe,
-    PassRatePipe,
-    StatusCountPipe,
     MinPipe,
   ],
 })
@@ -80,11 +66,31 @@ export class ExecutionHistoryComponent implements OnInit {
   projects: any[] = []
   suites: any[] = []
   plans: any[] = []
+  isExportingReport = false
+
+  // ─── Aggregate metrics (independent of table pagination) ────────────────────
+  // Restent à null tant que l'utilisateur n'a pas cliqué sur "Apply filters" ;
+  // le template affiche alors "—" au lieu d'un chiffre.
+  stats: {
+    total: number | null
+    passed: number | null
+    failed: number | null
+    passRate: number | null
+  } = {
+    total: null,
+    passed: null,
+    failed: null,
+    passRate: null,
+  }
+  statsComputed = false
 
   // ─── Lifecycle ──────────────────────────────────────────────────────────────
   ngOnInit(): void {
     this.loadProjects()
-    this.applyFilters()
+    // Charge uniquement le tableau au démarrage — les cartes de métriques
+    // restent à "—" tant qu'aucun "Apply filters" n'a été déclenché.
+    this.currentPage = 1
+    this.fetchExecutions()
   }
 
   // ─── Page numbers for pagination ────────────────────────────────────────────
@@ -144,9 +150,37 @@ export class ExecutionHistoryComponent implements OnInit {
     }
   }
 
+  get canExportReport(): boolean {
+    return Boolean(this.filters.project && this.filters.suite && !this.isExportingReport)
+  }
+
   applyFilters(): void {
     this.currentPage = 1
     this.fetchExecutions()
+    this.fetchStats()
+  }
+
+  exportReport(): void {
+    if (!this.filters.project || !this.filters.suite || this.isExportingReport) return
+    this.isExportingReport = true
+
+    this.seleniumRunnerService.getExecutionHistoryReport(this.filters.suite).subscribe({
+      next: (blob: Blob) => {
+        const url = window.URL.createObjectURL(blob)
+        const projectName = this.projects.find((project) => project._id === this.filters.project)?.title || 'project'
+        const suiteName = this.suites.find((suite) => suite._id === this.filters.suite)?.nom || this.suites.find((suite) => suite._id === this.filters.suite)?.nametest || 'suite'
+        const fileName = `${String(projectName).replace(/[^\w\-]+/g, '_')}_${String(suiteName).replace(/[^\w\-]+/g, '_')}_execution_history.pdf`
+        const anchor = document.createElement('a')
+        anchor.href = url
+        anchor.download = fileName
+        anchor.click()
+        window.URL.revokeObjectURL(url)
+        this.isExportingReport = false
+      },
+      error: () => {
+        this.isExportingReport = false
+      },
+    })
   }
 
   private fetchExecutions(): void {
@@ -187,6 +221,48 @@ export class ExecutionHistoryComponent implements OnInit {
     })
   }
 
+  // ─── Aggregate stats (Total / Passed / Failed / Pass rate) ──────────────────
+  // Volontairement indépendant du filtre "status" : les 4 cartes montrent
+  // la répartition complète pour project/suite/plan/date, quel que soit le
+  // statut sélectionné dans le tableau en dessous. Ne se déclenche que sur
+  // un clic explicite sur "Apply filters" (voir applyFilters()).
+  private fetchStats(): void {
+    const baseQuery: any = { page: 1, limit: 1 }
+
+    const dayMap: Record<string, number> = {
+      '1day': 1, '2days': 2, '3days': 3, '7days': 7, '30days': 30,
+    }
+    if (this.filters.dateRange && dayMap[this.filters.dateRange]) {
+      baseQuery.days = dayMap[this.filters.dateRange]
+    }
+    if (this.filters.project)  baseQuery.project     = this.filters.project
+    if (this.filters.suite)    baseQuery.testSuiteId = this.filters.suite
+    if (this.filters.testPlan) baseQuery.planId      = this.filters.testPlan
+
+    forkJoin({
+      total:           this.seleniumRunnerService.getExecutions({ ...baseQuery }),
+      passed:          this.seleniumRunnerService.getExecutions({ ...baseQuery, status: 'passed' }),
+      failed:          this.seleniumRunnerService.getExecutions({ ...baseQuery, status: 'failed' }),
+      failedExecution: this.seleniumRunnerService.getExecutions({ ...baseQuery, status: 'failed_execution' }),
+      failedAssertion: this.seleniumRunnerService.getExecutions({ ...baseQuery, status: 'failed_assertion' }),
+    }).subscribe(({ total, passed, failed, failedExecution, failedAssertion }: any) => {
+      const totalCount  = total?.total ?? 0
+      const passedCount = passed?.total ?? 0
+      const failedCount =
+        (failed?.total ?? 0) +
+        (failedExecution?.total ?? 0) +
+        (failedAssertion?.total ?? 0)
+
+      this.stats = {
+        total: totalCount,
+        passed: passedCount,
+        failed: failedCount,
+        passRate: totalCount ? Math.round((passedCount / totalCount) * 100) : 0,
+      }
+      this.statsComputed = true
+    })
+  }
+
   // ─── Modal ──────────────────────────────────────────────────────────────────
   openExecution(run: ExecutionRun): void {
     this.selectedExecution = {
@@ -202,7 +278,7 @@ export class ExecutionHistoryComponent implements OnInit {
   }
 
   onAvatarError(event: Event): void {
-  const img = event.target as HTMLImageElement
-  img.style.display = 'none'
-}
+    const img = event.target as HTMLImageElement
+    img.style.display = 'none'
+  }
 }

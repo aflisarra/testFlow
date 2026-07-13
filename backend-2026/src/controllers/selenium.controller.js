@@ -3,6 +3,7 @@ const TestExecution = require('../models/TestExecution.model')
 const User = require('../models/user.model')
 const { runTestCase } = require('../services/selenium/selenium.service')
 const { cancelExecution } = require('../services/selenium/cancellation.manager')
+const { buildTestSuiteReportPdf } = require('../services/selenium/report.service')
 
 // ✅ AJOUT
 const testCaseService = require('../services/testcase.service')
@@ -95,7 +96,14 @@ async function runTestCaseHandler(req, res) {
     const startedAt = Date.now()
     const executedBy = await resolveActor(req)
 
-    if (body.planId) {
+    if (body.testCaseId) {
+      const requestedCaseId = String(body.testCaseId || '').trim()
+      const allCases = await testCaseService.getByPlan(body.planId)
+      const matchedCase = allCases.find((tc) => String(tc?._id || tc?.id || '').trim() === requestedCaseId)
+      if (matchedCase) {
+        testCase = matchedCase
+      }
+    } else if (body.planId) {
       const casesFromDB = await testCaseService.getByPlan(body.planId)
       if (!casesFromDB.length) {
         return res.status(404).json({ status: 'error', message: 'No test cases found for this plan' })
@@ -421,12 +429,30 @@ async function abortExecution(req, res) {
   }
 }
 
+async function downloadTestSuiteReport(req, res) {
+  try {
+    const testSuiteId = String(req.params.testSuiteId || '').trim()
+    if (!mongoose.Types.ObjectId.isValid(testSuiteId)) {
+      return res.status(400).json({ message: 'Valid testSuiteId required' })
+    }
+
+    const pdfBuffer = await buildTestSuiteReportPdf(testSuiteId)
+    const fileName = `test-suite-report-${testSuiteId}.pdf`
+
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`)
+    return res.status(200).send(pdfBuffer)
+  } catch (error) {
+    const status = error?.statusCode || 500
+    return res.status(status).json({ message: error.message || 'Failed to generate report' })
+  }
+}
+
 // Ajoute à module.exports
 module.exports = {
   runTestCaseHandler,
   getExecutions,
   getExecutionDetail: exports.getExecutionDetail,
   abortExecution,   // ← ajoute ici
+  downloadTestSuiteReport,
 }
-
-

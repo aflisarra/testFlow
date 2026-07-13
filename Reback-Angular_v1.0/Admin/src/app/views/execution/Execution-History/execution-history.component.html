@@ -6,43 +6,40 @@
       <h1>Execution history</h1>
       <p>Track and review all test run results across your projects</p>
     </div>
-    <button class="btn-export">
+    <button class="btn-export btn-export--pdf"
+      [disabled]="!canExportReport"
+      [title]="!filters.project || !filters.suite ? 'Select a project and test suite to export the report' : (isExportingReport ? 'Exporting report...' : 'Export PDF report')"
+      (click)="exportReport()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-        <polyline points="7 10 12 15 17 10"/>
-        <line x1="12" y1="15" x2="12" y2="3"/>
+        <path d="M12 3v12"/>
+        <path d="M8 11l4 4 4-4"/>
+        <path d="M5 21h14"/>
       </svg>
-      Export CSV
+      {{ isExportingReport ? 'Exporting...' : 'Export PDF' }}
     </button>
   </div>
 
-  <!-- ─── Metrics ────────────────────────────────────────────── -->
+<!-- ─── Metrics ────────────────────────────────────────────── -->
   <div class="metrics-row">
     <div class="metric-card">
       <span class="metric-label">Total runs</span>
-      <span class="metric-value">{{ totalRuns }}</span>
+      <span class="metric-value">{{ statsComputed ? stats.total : '—' }}</span>
       <span class="metric-trend">All time</span>
     </div>
     <div class="metric-card">
       <span class="metric-label">Passed</span>
-      <span class="metric-value m-pass">
-        {{ filteredRuns | statusCount:'passed' }}
-      </span>
+      <span class="metric-value m-pass">{{ statsComputed ? stats.passed : '—' }}</span>
       <span class="metric-trend">This period</span>
     </div>
     <div class="metric-card">
       <span class="metric-label">Failed</span>
-      <span class="metric-value m-fail">
-        {{ filteredRuns | statusCount:'failed' }}
-      </span>
+      <span class="metric-value m-fail">{{ statsComputed ? stats.failed : '—' }}</span>
       <span class="metric-trend">This period</span>
     </div>
     <div class="metric-card">
       <span class="metric-label">Pass rate</span>
-      <span class="metric-value m-warn">
-        {{ filteredRuns | passRate }}%
-      </span>
+      <span class="metric-value m-warn">{{ statsComputed ? (stats.passRate + '%') : '—' }}</span>
       <span class="metric-trend">This period</span>
     </div>
   </div>

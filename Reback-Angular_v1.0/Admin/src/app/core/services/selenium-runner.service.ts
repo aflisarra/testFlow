@@ -70,12 +70,16 @@ export class SeleniumRunnerService {
     return this.api.get('/api/selenium/executions', filters)
   }*/
  
+/*getExecutions(filters: any) {
+  return this.api.get('/api/selenium/executions', {
+    params: { ...filters }
+  })
+}*/
 getExecutions(filters: any) {
   return this.api.get('/api/selenium/executions', {
     params: { ...filters }
   })
 }
-
 
   
 getProjects() {
@@ -99,6 +103,10 @@ getTestCasesByPlan(planId: string) {
 
 getExecutionDetail(id: string) {
   return this.api.get(`/api/selenium/executions/${id}`)
+}
+
+getExecutionHistoryReport(testSuiteId: string) {
+  return this.api.getBlob(`/api/selenium/reports/test-suites/${encodeURIComponent(testSuiteId)}`)
 }
 
 

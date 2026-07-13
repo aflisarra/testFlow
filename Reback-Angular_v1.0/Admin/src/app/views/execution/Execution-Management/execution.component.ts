@@ -3,6 +3,8 @@ import { SeleniumRunnerService, type SeleniumStepResultDto } from '@/app/core/se
 import type { ExecutionModelDto, ExecutionModelStepDto, TestCaseDto, TestExecutionDto, TestSuiteDto } from '@/app/core/services/testlab.service';
 import { TestLabService } from '@/app/core/services/testlab.service';
 import { CommonModule } from '@angular/common';
+
+
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -12,6 +14,7 @@ import {
   OnInit,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom, interval, Subscription } from 'rxjs';
 
@@ -45,10 +48,93 @@ type LoadedExecutionTestCase = {
   }
 }
 
+type RawExecutionLog = {
+  stepIndex?: number
+  level?: string
+  message?: string
+  data?: Record<string, unknown>
+}
+type DetectorRecommendation = {
+  error: string
+  rootCause?: string
+  fix: string
+}
+type DetectFailureData = {
+  title?: string;
+  description?: string;
+  rootCause?: string;
+  confidence?: number;
+  failedStepName?: string;
+  aiActionSummary?: string;
+  actionLabel?: string;
+  actionText?: string;
+  recommendations?: DetectorRecommendation[];
+  diagnosticTips?: string[];
+  suggestedSelectors?: string[];
+}
+type DetectFailureResponse = {
+  data?: DetectFailureData;
+} & DetectFailureData;
+
+type DetectorInsight = {
+  title: string
+  description: string
+  actionLabel: string
+  actionText: string
+  recommendations: DetectorRecommendation[]
+  rootCause?: string
+  confidence?: number
+  failedStepName?: string
+  aiActionSummary?: string
+  diagnosticTips?: string[]
+  suggestedSelectors?: string[]
+}
+
+type DOMElement = {
+  ariaExpanded?: string
+  ariaHaspopup?: string
+  ariaLabel?: string
+  classes?: string
+  disabled?: boolean
+  form?: string
+  href?: string
+  id?: string
+  index?: number
+  name?: string
+  placeholder?: string
+  rect?: { height: number; width: number; x: number; y: number }
+  role?: string
+  tag: string
+  testId?: string
+  text?: string
+  title?: string
+  type?: string
+  value?: string
+  visible: boolean
+}
+type EditableAiAction = {
+  uid: string
+  stepIndex: number
+  type: string
+  selector: string
+  value: string
+  originalType: string
+  originalSelector: string
+  originalValue: string
+  isEdited: boolean
+}
+
+type ExecutionFilters = {
+  project: string
+  suite: string
+  testPlan: string
+  testCase: string
+}
+
 @Component({
   selector: 'app-execution',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule , FormsModule],
   templateUrl: './execution.component.html',
   styleUrls: ['./execution.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -59,18 +145,27 @@ export class ExecutionComponent implements OnInit {
   private runSubscription?: Subscription;
   private fakeTimelineSubscription?: Subscription;
   private liveRunTimer?: ReturnType<typeof setInterval>;
+  private domExtractionInterval?: ReturnType<typeof setInterval>;
   private cdr = inject(ChangeDetectorRef);
   private destroyRef = inject(DestroyRef);
   private route = inject(ActivatedRoute);
   private testLabService = inject(TestLabService);
   private seleniumRunner = inject(SeleniumRunnerService);
   private api = inject(ApiService);
+  private seleniumRunnerService = inject(SeleniumRunnerService);
+  private autoAnalysisRequestedForExecutionId: string | null = null;
 
   activeTab: 'timeline' | 'logs' | 'screenshot' = 'timeline';
 private isAborted = false;
   /*metrics: NodeMetrics = { cpu: 24, memory: 1.2, latency: 42, threads: 8 };*/
 
   streamedLogs: LogLine[] = [];
+  private rawExecutionLogs: RawExecutionLog[] = [];
+  detectorInsight: DetectorInsight | null = null;
+  isAnalyzingFailure = false;
+  domElements: DOMElement[] = [];
+  domSourceUrl = '';
+  selectedDomElement: DOMElement | null = null;
   streamIndex = 0;
 private currentExecutionId: string | null = null;
 
@@ -81,6 +176,7 @@ private currentExecutionId: string | null = null;
   private testCaseId = '';
   private loadedTestCase: LoadedExecutionTestCase | null = null;
   private loadedPlanTestCases: LoadedExecutionTestCase[] = [];
+  private pendingActionOverrides: EditableAiAction[] = [];
   recentRuns: TestExecutionDto[] = [];
   liveRun: TestExecutionDto | null = null;
   recentRunsPage = 1;
@@ -91,6 +187,8 @@ private currentExecutionId: string | null = null;
   currentScreenshotIndex = 0;
   currentScreenshots: string[] = [];
   snackbarMessage: string | null = null;
+  isExportingReport = false;
+
 private snackbarTimer?: ReturnType<typeof setTimeout>;
 
   private readonly PASS_LOGS: LogLine[] = [
@@ -129,6 +227,7 @@ ngOnInit(): void {
     const suiteName = qp.get('suiteName');
     const planName = qp.get('planName');
     const testCaseName = qp.get('testCaseName');
+    this.loadProjects();
 
     this.route.paramMap.subscribe((pp) => {
       const testCaseId = String(pp.get('id') || '').trim();
@@ -174,7 +273,7 @@ ngOnInit(): void {
     void this.executeLoadedPlan();
   }
 
-abort(): void {
+  abort(): void {
   this.isAborted = true;
   this.stopAll();
 
@@ -211,6 +310,283 @@ abort(): void {
     this.activeTab = tab;
   }
 
+  /**
+   * Request AI analysis of test failure
+   */
+  async requestAIAnalysis(): Promise<void> {
+    if (this.scenario.status !== 'failed' && this.scenario.status !== 'aborted') {
+      this.showSnackbar('Analysis only available for failed or aborted tests', 3000);
+      return;
+    }
+
+    this.isAnalyzingFailure = true;
+    this.detectorInsight = null;
+    this.refreshDomFromExecutionLogs();
+    this.cdr.markForCheck();
+
+    try {
+      // Get the failed step index
+      const failedStepIndex = this.scenario.steps.findIndex(s => s.status === 'fail');
+      const failedStep = failedStepIndex >= 0 ? this.scenario.steps[failedStepIndex] : null;
+      const analysisLogs = this.buildFailureAnalysisLogs();
+      const rawErrorText = analysisLogs
+        .map((log) => log.message)
+        .find((message) => /failed_assertion|failed_execution|expected success|not detected|not available|not found|something went wrong|no results found/i.test(message))
+        || failedStep?.subtitle
+        || this.scenario.activeStepLabel
+        || 'Unknown error';
+
+      // Prepare payload for AI analysis
+      const payload = {
+        failedStep: failedStep ? {
+          id: failedStep.id,
+          name: failedStep.name,
+          subtitle: failedStep.subtitle,
+          timestamp: failedStep.timestamp,
+        } : null,
+        logs: analysisLogs,
+        testCase: this.loadedTestCase ? {
+          id: this.loadedTestCase.id,
+          title: this.loadedTestCase.title,
+          steps: this.loadedTestCase.steps,
+          urlCible: this.loadedTestCase.urlCible,
+          test_data: this.loadedTestCase.test_data,
+          stepDetails: this.loadedTestCase.stepDetails,
+        } : null,
+        errorMessage: rawErrorText,
+        errorType: this.extractErrorType(rawErrorText),
+        stepIndex: failedStepIndex,
+        domState: {
+          sourceUrl: this.domSourceUrl,
+          elements: this.compactDomForAnalysis(),
+        },
+        aiActions: this.extractAiActions(this.rawExecutionLogs),
+        screenshotUrl: this.screenshotUrl || this.selectedScreenshotUrl || '',
+        executionId: this.scenario.executionId,
+      };
+
+      console.log('[AI Analysis] Sending payload:', payload);
+
+      const response = await firstValueFrom(
+        this.api.post<DetectFailureResponse>('/api/ai/detect-failure', payload)
+      );
+      const analysis = response?.data ?? response;
+
+      if (analysis?.title || analysis?.description || analysis?.actionText) {
+        const recommendations = Array.isArray(analysis.recommendations)
+          ? analysis.recommendations.filter((item) => item?.fix)
+          : [];
+        const specificInsight = this.makeSpecificInsightIfGeneric(analysis, recommendations, analysisLogs);
+  this.detectorInsight = specificInsight || {
+    title: analysis.title || 'Failure Detected',
+    description: analysis.description || 'Unable to determine cause',
+    actionLabel: analysis.actionLabel || 'Recommended Fix',
+    actionText: analysis.actionText || 'Review logs and adjust test configuration',
+    recommendations: recommendations.length
+      ? recommendations
+      : [{
+          error: analysis.description || 'Failure detected',
+          rootCause: analysis.rootCause,
+          fix: analysis.actionText || 'Review logs and adjust test configuration',
+        }],
+    rootCause: analysis.rootCause,
+    confidence: analysis.confidence,
+    failedStepName: analysis.failedStepName,
+    aiActionSummary: analysis.aiActionSummary,
+    diagnosticTips: analysis.diagnosticTips,
+    suggestedSelectors: analysis.suggestedSelectors,
+  };
+        console.log('[AI Analysis] ✅ Insight received:', this.detectorInsight);
+        this.showSnackbar('✅ AI analysis complete', 2000);
+      } else {
+        this.detectorInsight = {
+          title: 'Analysis Failed',
+          description: 'Unable to analyze the failure',
+          actionLabel: 'Retry',
+          actionText: 'Please try again',
+          recommendations: [],
+        };
+        this.showSnackbar('⚠ Analysis failed, please try again', 3000);
+      }
+
+      this.cdr.markForCheck();
+    } catch (error) {
+      console.error('[AI Analysis] Error:', error);
+      this.detectorInsight = {
+        title: 'Analysis Error',
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        actionLabel: 'Retry',
+        actionText: 'Check your connection and try again',
+        recommendations: [],
+      };
+      this.showSnackbar('❌ Analysis failed: ' + (error instanceof Error ? error.message : 'Unknown error'), 4000);
+      this.cdr.markForCheck();
+    } finally {
+      this.isAnalyzingFailure = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  /**
+   * Extract error type from error message
+   */
+  private extractErrorType(message: string): string {
+    const msg = message.toLowerCase();
+    if (msg.includes('failed_assertion') || msg.includes('expected success') || msg.includes('not detected')) return 'assertion_failed';
+    if (msg.includes('not available') || msg.includes('data mismatch')) return 'data_mismatch';
+    if (msg.includes('timeout') || msg.includes('awaiting')) return 'timing_timeout';
+    if (msg.includes('not interactable') || msg.includes('interactableexception')) return 'element_not_interactable';
+    if (msg.includes('not found') || msg.includes('nosuchelement')) return 'selector_not_found';
+    if (msg.includes('assertion')) return 'assertion_failed';
+    if (msg.includes('navigate') || msg.includes('navigation')) return 'navigation_failed';
+    if (msg.includes('error') || msg.includes('exception')) return 'application_error';
+    return 'unknown';
+  }
+
+  private buildFailureAnalysisLogs(): LogLine[] {
+    const rawLogs = this.mapRunResponseToLogs({ logs: this.rawExecutionLogs });
+    const merged = [...rawLogs, ...this.streamedLogs];
+    const seen = new Set<string>();
+    const normalizeLevel = (level: string): LogLine['level'] => {
+      const upper = String(level || 'INFO').toUpperCase();
+      return ['INFO', 'WARN', 'ERROR', 'SUCCESS', 'FAIL', 'TRACE'].includes(upper)
+        ? upper as LogLine['level']
+        : 'INFO';
+    };
+
+    return merged
+      .map((log, index) => ({
+        index: Number(log.index) || index + 1,
+        level: normalizeLevel(String(log.level || 'INFO')),
+        message: this.compactFailureLogMessage(String(log.message || '')).slice(0, 900),
+      }))
+      .filter((log) => /fail|error|warn|assert|expected|actual|dropdown|country|region|not available|not found|timeout|exception|ai actions/i.test(log.message))
+      .filter((log) => {
+        const key = `${log.level}::${log.message}`;
+        if (!log.message || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(-14);
+  }
+
+  private compactFailureLogMessage(message: string): string {
+    return message
+      .replace(/\s+/g, ' ')
+      .replace(/(Afghanistan|Albania|Algeria|American Samoa|Andorra|Angola|Argentina|Armenia|Australia|Austria|Azerbaijan|Bahamas|Bahrain|Bangladesh|Belgium|Brazil|Bulgaria|Canada|China|Denmark|Egypt|France|Germany|India|Italy|Japan|Mexico|Netherlands|Norway|Poland|Portugal|Spain|Tunisia|Türkiye|United Kingdom|United States of America|Zimbabwe)(\s+\1){2,}/gi, '$1')
+      .trim();
+  }
+
+  private compactDomForAnalysis(): Partial<DOMElement>[] {
+    const important = this.domElements.filter((element) => {
+      const text = [
+        element.text,
+        element.ariaLabel,
+        element.name,
+        element.id,
+        element.placeholder,
+        element.role,
+        element.type,
+      ].join(' ');
+      return /country|region|tunisia|username|email|password|create account|copilot|error|invalid|combobox|listbox|option|submit/i.test(text);
+    });
+
+    return important.slice(0, 35).map((element) => ({
+      index: element.index,
+      tag: element.tag,
+      role: element.role,
+      type: element.type,
+      id: element.id,
+      name: element.name,
+      ariaLabel: element.ariaLabel,
+      ariaExpanded: element.ariaExpanded,
+      ariaHaspopup: element.ariaHaspopup,
+      text: element.text?.slice(0, 140),
+      value: element.value?.slice(0, 120),
+      placeholder: element.placeholder,
+      visible: element.visible,
+      disabled: element.disabled,
+    }));
+  }
+
+  private makeSpecificInsightIfGeneric(
+    analysis: DetectFailureData,
+    recommendations: DetectorRecommendation[],
+    logs: LogLine[],
+  ): DetectorInsight | null {
+    const combined = logs.map((log) => log.message).join('\n');
+    const generic =
+      /unable to determine failure cause/i.test(String(analysis.description || '')) ||
+      /review logs and adjust selectors or timing/i.test(String(analysis.actionText || '')) ||
+      !recommendations.length;
+
+    if (!generic) return null;
+
+    if (/username .*not available|username.*is not available/i.test(combined)) {
+      const fix = 'Use an available username suggested by the page, or generate a unique username before clicking Create account. The country dropdown already shows Tunisia, so the blocking failure is the unavailable username and the expected success redirect cannot happen.';
+      return {
+        title: 'Registration blocked by username',
+        description: 'The final assertion expected a successful registration, but GitHub reports that the selected username is not available.',
+        actionLabel: 'Recommended Fix',
+        actionText: fix,
+        recommendations: [{
+          error: 'Username is not available',
+          rootCause: 'data_mismatch',
+          fix,
+        }],
+        rootCause: 'data_mismatch',
+        confidence: 0.9,
+        diagnosticTips: [
+          'Check the generated username before submitting the form.',
+          'Keep the country dropdown value Tunisia, then retry with one of the suggested usernames.',
+        ],
+      };
+    }
+
+    if (/country\/region|select country|no results found|sorry, something went wrong/i.test(combined)) {
+      const fix = 'Use the Country/Region dropdown trigger, type Tunisia in the dropdown filter if it opens a searchable dialog, then click the visible Tunisia option before submitting.';
+      return {
+        title: 'Country dropdown selection failed',
+        description: 'The failure context contains dropdown filtering errors around Country/Region, so the dropdown interaction needs a more specific trigger and option selection.',
+        actionLabel: 'Recommended Fix',
+        actionText: fix,
+        recommendations: [{
+          error: 'Country/Region dropdown did not resolve cleanly',
+          rootCause: 'ai_logic_error',
+          fix,
+        }],
+        rootCause: 'ai_logic_error',
+        confidence: 0.78,
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Start polling the live DOM (iframe or main document) while Selenium is running,
+   * so the "DOM Elements" panel reflects the page in real time instead of only
+   * being populated when the user clicks "AI Analysis".
+   */
+  private startDomExtraction(): void {
+    this.stopDomExtraction();
+    this.refreshDomFromExecutionLogs();
+  }
+
+  private stopDomExtraction(): void {
+    if (this.domExtractionInterval) {
+      clearInterval(this.domExtractionInterval);
+      this.domExtractionInterval = undefined;
+    }
+  }
+
+  /**
+   * Extract and organize DOM elements from the current application state
+   */
+  private extractDOMElements(): void {
+    this.refreshDomFromExecutionLogs();
+  }
+
   openScreenshot(url: string | null | undefined): void {
     if (!url) return;
     this.currentScreenshots = this.stepsWithScreenshots
@@ -237,33 +613,34 @@ private async loadAndRunPlan(): Promise<void> {
   if (!this.suiteId || !this.planId) {
     this.scenario = {
       ...this.scenario,
-      status: 'failed',
+      status: 'in-progress',
       progressPercent: 0,
-      progressLabel: 'Missing suiteId or planId',
-      activeStepLabel: '⚠ Missing parameters',
+      progressLabel: 'Select a suite and test plan to continue',
+      activeStepLabel: '● Waiting for selection',
       steps: [],
     };
-    this.streamedLogs = [{ index: 1, level: 'ERROR', message: 'Missing suiteId or planId.' }];
+    this.streamedLogs = [{ index: 1, level: 'INFO', message: 'Waiting for suite and test plan selection.' }];
     this.cdr.markForCheck();
     return;
   }
 
   try {
+    console.log("GET SUITE...");
     const suite: TestSuiteDto = await firstValueFrom(
       this.testLabService.getTestSuiteById(this.suiteId)
-    );
+    );console.log("SUITE RECEIVED", suite);
     const planCases = this.getPlanTestCases(suite, this.planId);
 
     if (!planCases.length) {
-      this.streamedLogs = [{ index: 1, level: 'ERROR', message: 'No test cases found for this plan.' }];
       this.scenario = {
         ...this.scenario,
-        status: 'failed',
+        status: 'in-progress',
         progressPercent: 0,
-        progressLabel: 'No test cases found',
-        activeStepLabel: '⚠ Empty plan',
+        progressLabel: 'Select a test case to continue',
+        activeStepLabel: '● Waiting for test case',
         steps: [],
       };
+      this.streamedLogs = [{ index: 1, level: 'INFO', message: 'Waiting for a test case selection.' }];
       this.cdr.markForCheck();
       return;
     }
@@ -327,6 +704,39 @@ if (caseStatus === 'failed') break;
     this.cdr.markForCheck();
   }
 }
+
+  get canExportReport(): boolean {
+    return Boolean(this.scenario.projectName?.trim() && this.scenario.suiteName?.trim());
+  }
+
+  async exportReport(): Promise<void> {
+    if (!this.canExportReport || !this.suiteId || this.isExportingReport) return;
+
+    this.isExportingReport = true;
+    this.cdr.markForCheck();
+
+    try {
+      const blob = await firstValueFrom(
+        this.api.getBlob(`/api/selenium/reports/test-suites/${encodeURIComponent(this.suiteId)}`)
+      );
+
+      const url = window.URL.createObjectURL(blob);
+      const fileName = `${(this.scenario.projectName || 'project').replace(/[^\w\-]+/g, '_')}_${(this.scenario.suiteName || 'suite').replace(/[^\w\-]+/g, '_')}_report.pdf`;
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = fileName;
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+      this.showSnackbar('Report exported successfully', 2500);
+    } catch (error) {
+      console.error('Export report failed:', error);
+      this.showSnackbar('Unable to export the report', 3000);
+    } finally {
+      this.isExportingReport = false;
+      this.cdr.markForCheck();
+    }
+  }
+
   nextScreenshot(): void {
     if (!this.currentScreenshots.length) return;
     this.currentScreenshotIndex =
@@ -346,7 +756,7 @@ if (caseStatus === 'failed') break;
     this.selectedScreenshotUrl = null;
   }
 
-  copySnippet(): void {
+/*  copySnippet(): void {
     const snippet = `from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -355,7 +765,15 @@ wait = WebDriverWait(driver, 15)
 element = wait.until(EC.element_to_be_clickable((By.ID, "submit-btn")))
 element.click()`;
     navigator.clipboard?.writeText(snippet);
+  }*/
+
+    copySnippet(text?: string): void {
+  const content = text?.trim() || this.detectorInsight?.actionText?.trim() || '';
+  if (content) {
+    navigator.clipboard?.writeText(content);
+    this.showSnackbar('✅ Copied to clipboard', 1800);
   }
+}
 
   // ─── Template helpers ──────────────────────────────────────────────────────
 
@@ -492,65 +910,42 @@ element.click()`;
 
   // ─── Scenario builders ─────────────────────────────────────────────────────
 
-  private buildPassScenario(): TestScenario {
-    return {
-      projectName: 'Phoenix Nexus',
-      suiteName: 'E2E Regression Suite',
-      planName: 'Checkout Flow Validation',
-      caseName: 'TC-1.1',
-      executionId: 'TX-B8402',
-      environment: 'Staging',
-      executionTime: '—',
-      status: 'in-progress',
-      progressPercent: 0,
-      progressLabel: '0% — 0 / 5 steps completed',
-      activeStepLabel: '● Initializing...',
-      steps: [
-        { id: 1, name: 'Initialize WebDriver Session', subtitle: 'Completed in 1.4s', status: 'pass', timestamp: '14:29:01' },
-        { id: 2, name: 'Set Viewport Dimensions (1920×1080)', subtitle: 'Completed in 0.7s', status: 'pass', timestamp: '14:29:02' },
-        { id: 3, name: 'Navigate to Login Page', subtitle: 'Attempting connection...', status: 'running', timestamp: '14:29:06' },
-        { id: 4, name: 'Submit Credentials', subtitle: 'Waiting...', status: 'waiting', timestamp: '—' },
-        { id: 5, name: 'Assert Dashboard Loaded', subtitle: 'Waiting...', status: 'waiting', timestamp: '—' },
-      ],
-      logs: [],
-    };
-  }
+private buildPassScenario(): TestScenario {
+  return {
+    projectName: '',
+    suiteName: '',
+    planName: '',
+    caseName: '',
+    executionId: '-',
+    environment: '-',
+    executionTime: '-',
+    status: 'in-progress',
+    progressPercent: 0,
+    progressLabel: '-',
+    activeStepLabel: '-',
+    steps: [],
+    logs: [],
+  };
+}
 
-  private buildFailScenario(): TestScenario {
-    return {
-      projectName: 'Synthetik Core v2.4',
-      suiteName: 'Authentication Suite',
-      planName: 'Authentication Flux',
-      caseName: 'Auth Flow Validation',
-      executionId: 'SR-9421',
-      environment: 'Production-Mirror',
-      executionTime: '42s',
-      status: 'failed',
-      progressPercent: 60,
-      progressLabel: '100% — failed at step 3 / 5',
-      activeStepLabel: '✕ ElementNotInteractable',
-      steps: [
-        { id: 1, name: 'Initialize WebDriver Session', subtitle: 'Completed in 1.1s', status: 'pass', timestamp: '14:26:01' },
-        { id: 2, name: 'Set Viewport Dimensions (1920×1080)', subtitle: 'Completed in 0.5s', status: 'pass', timestamp: '14:26:02' },
-        { id: 3, name: 'Login Form Submission', subtitle: 'FAILED: ElementNotInteractableException', status: 'fail', timestamp: '14:26:06' },
-        { id: 4, name: 'Submit Credentials', subtitle: 'Skipped (prior step failed)', status: 'skipped', timestamp: '—' },
-        { id: 5, name: 'Assert Dashboard Loaded', subtitle: 'Skipped (prior step failed)', status: 'skipped', timestamp: '—' },
-      ],
-      logs: this.FAIL_LOGS,
-      aiRecommendation: {
-        element: '#submit-btn',
-        description: 'was detected in the DOM but was not yet interactable when the click action was dispatched.',
-        suggestedFix: 'Implement an explicit wait for element_to_be_clickable before the action. Current implicit timeout (5s) may be insufficient for this dynamic form.',
-      },
-      errorMeta: {
-        errorType: 'ElementNotInteractable',
-        stepName: 'Login Form Submission',
-        screenshot: 'capture_fail.png',
-        duration: '42s',
-      },
-      failureSnapshot: `Element: #submit-btn\nAction: click()\nState: ElementNotInteractableException\nDOM: rendered, partially obstructed\nViewport: (742, 460) — outside clickable region\nScreenshot: /artifacts/shots/fail_9421.png`,
-    };
-  }
+
+private buildFailScenario(): TestScenario {
+  return {
+    projectName: '',
+    suiteName: '',
+    planName: '',
+    caseName: '',
+    executionId: '-',
+    environment: '-',
+    executionTime: '-',
+    status: 'failed',
+    progressPercent: 0,
+    progressLabel: '-',
+    activeStepLabel: '-',
+    steps: [],
+    logs: [],
+  };
+}
 
   // ─── Execution simulation ──────────────────────────────────────────────────
 
@@ -642,23 +1037,25 @@ element.click()`;
     this.runSubscription?.unsubscribe();
     this.fakeTimelineSubscription?.unsubscribe();
     this.stopLiveRunTimer();
+    this.stopDomExtraction();
   }
 
   // ─── Real execution flow ───────────────────────────────────────────────────
 
   private async loadAndRun(): Promise<void> {
+    console.log("LOAD AND RUN START");
     this.screenshotUrl = null;
 
     if (!this.suiteId || !this.planId || !this.testCaseId) {
       this.scenario = {
         ...this.scenario,
-        status: 'failed',
+        status: 'in-progress',
         progressPercent: 0,
-        progressLabel: 'Missing navigation parameters',
-        activeStepLabel: '⚠ Missing suiteId/planId/testCaseId',
+        progressLabel: 'Select project, suite, plan and test case',
+        activeStepLabel: '● Waiting for complete selection',
         steps: [],
       };
-      this.streamedLogs = [{ index: 1, level: 'ERROR', message: 'Missing suiteId, planId or testCaseId.' }];
+      this.streamedLogs = [{ index: 1, level: 'INFO', message: 'Waiting for project, suite, plan and test case selection.' }];
       this.cdr.markForCheck();
       return;
     }
@@ -671,7 +1068,12 @@ element.click()`;
       const allCases: TestCaseDto[] =
         (suite.testCasesByPlan || []).flatMap(p => p.testCases || []);
 
-      const tc = allCases.find(c => String(c.id || '').trim() === this.testCaseId) || null;
+      const tc = allCases.find(c =>
+  String(
+    (c as any)._id ||
+    (c as any).id ||
+    ''
+  ).trim() === this.testCaseId) || null;
       if (!tc) throw new Error(`Test case "${this.testCaseId}" not found.`);
 
       const steps = Array.isArray(tc.steps) ? tc.steps.map(s => String(s)) : [];
@@ -704,7 +1106,9 @@ element.click()`;
       };
 
       this.cdr.markForCheck();
+      console.log("BEFORE executeLoadedTestCase");
       await this.executeLoadedTestCase();
+      console.log("AFTER executeLoadedTestCase");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.scenario = {
@@ -773,18 +1177,80 @@ element.click()`;
     return testCase.steps;
   }
 
-  private getPlanTestCases(suite: TestSuiteDto, planId: string): LoadedExecutionTestCase[] {
-    const plan = (suite.testCasesByPlan || []).find((p: any) => String(p.id || p._id || p.planId || '').trim() === planId) || null;
-    const urlCible = String(suite.urlCible || '').trim();
-    if (!plan || !urlCible) return [];
+private getPlanTestCases(
+  suite: TestSuiteDto,
+  planId: string
+): LoadedExecutionTestCase[] {
 
-    return (plan.testCases || []).map((tc: TestCaseDto) => {
-      const executionModel = this.coerceExecutionModel((tc as any).executionModel || (tc as any).execution_model);
-      const credentials = this.resolveExecutionCredentials(tc, suite);
-      const testData = (tc as any).test_data ?? (tc as any).testData ?? (tc as any).data ?? null;
-      return this.normalizeTestCase(tc, urlCible, executionModel, credentials, testData);
-    });
+  console.log("SELECTED PLAN ID =", planId);
+
+  const selectedPlan =
+    (suite.testPlans || []).find(
+      (p: any) =>
+        String(p._id || '').trim() ===
+        String(planId).trim()
+    );
+
+  console.log(
+    "SELECTED PLAN FOUND =",
+    selectedPlan
+  );
+
+  if (!selectedPlan) {
+    console.log("PLAN NOT FOUND");
+    return [];
   }
+
+  const planCases =
+    (suite.testCasesByPlan || []).find(
+      (p: any) =>
+        String(p.planId || '').trim() ===
+        String(selectedPlan.id || '').trim()
+    );
+
+  console.log(
+    "PLAN CASES =",
+    planCases
+  );
+
+  const urlCible =
+    String(suite.urlCible || '').trim();
+
+  if (!planCases || !urlCible) {
+    return [];
+  }
+
+  return (planCases.testCases || []).map(
+    (tc: TestCaseDto) => {
+
+      const executionModel =
+        this.coerceExecutionModel(
+          (tc as any).executionModel ||
+          (tc as any).execution_model
+        );
+
+      const credentials =
+        this.resolveExecutionCredentials(
+          tc,
+          suite
+        );
+
+      const testData =
+        (tc as any).test_data ??
+        (tc as any).testData ??
+        (tc as any).data ??
+        null;
+
+      return this.normalizeTestCase(
+        tc,
+        urlCible,
+        executionModel,
+        credentials,
+        testData
+      );
+    }
+  );
+}
 
   private normalizeTestCase(
     tc: TestCaseDto,
@@ -901,12 +1367,23 @@ element.click()`;
   private mapRunResponseToLogs(resp: any): LogLine[] {
     const data = resp?.data ?? resp;
     const logs = Array.isArray(data?.logs) ? data.logs : [];
+    const formatLogValue = (value: unknown): string => {
+      if (value && typeof value === 'object' && 'publicUrl' in value) {
+        return String((value as any).publicUrl || '');
+      }
+      if (value && typeof value === 'object') {
+        try {
+          return JSON.stringify(value);
+        } catch {
+          return '[unserializable object]';
+        }
+      }
+      return String(value);
+    };
     return logs.map((log: any, i: number) => {
       const details = log?.data
-        ? Object.entries(log.data).map(([k, v]) =>
-            typeof v === 'object' && v !== null && 'publicUrl' in v
-              ? `${k}: ${(v as any).publicUrl}`
-              : `${k}: ${String(v)}`
+        ? Object.entries(log.data).filter(([k]) => k !== 'dom').map(([k, v]) =>
+            `${k}: ${formatLogValue(v)}`
           ).join(' | ')
         : '';
       return {
@@ -915,6 +1392,113 @@ element.click()`;
         message: details ? `${log.message} → ${details}` : String(log?.message || ''),
       };
     });
+  }
+
+  private getRawRunLogs(resp: any): RawExecutionLog[] {
+    const data = resp?.data ?? resp;
+    return Array.isArray(data?.logs) ? data.logs : [];
+  }
+
+  private refreshDomFromExecutionLogs(): void {
+    const domLog = [...this.rawExecutionLogs].reverse().find((log) => {
+      const data = log?.data || {};
+      return Array.isArray(data['dom']) || Array.isArray(data['sample']);
+    });
+    const data = domLog?.data || {};
+    const dom = Array.isArray(data['dom'])
+      ? data['dom']
+      : Array.isArray(data['sample'])
+        ? data['sample']
+        : [];
+
+    this.domElements = dom
+      .filter((element): element is DOMElement => Boolean(element && typeof element === 'object' && 'tag' in element))
+      .map((element) => element as DOMElement);
+    this.domSourceUrl = String(data['sourceUrl'] || '');
+    this.cdr.markForCheck();
+  }
+
+  private buildDetectorInsight(failedStep: SeleniumStepResultDto | null, rawLogs: RawExecutionLog[]): DetectorInsight | null {
+    if (!failedStep) return null;
+
+    const failedStepIndex = Number(failedStep.index) || 0;
+    const relatedLogs = rawLogs.filter((log) => Number(log?.stepIndex) === failedStepIndex);
+    const sourceLogs = relatedLogs.length ? relatedLogs : rawLogs;
+    const aiActions = this.extractAiActions(sourceLogs);
+    const lastErrorLog = [...sourceLogs].reverse().find((log) => {
+      const level = String(log?.level || '').toUpperCase();
+      const message = String(log?.message || '');
+      return ['FAIL', 'ERROR', 'WARN'].includes(level) || /fail|error|exception|timeout/i.test(message);
+    });
+
+    const actionSummary = aiActions.length
+      ? aiActions.map((action) => this.formatAiAction(action)).join(' | ')
+      : 'No AI action was returned before the failure.';
+    const errorText = String(failedStep.error || failedStep.message || lastErrorLog?.message || 'Selenium step failed').trim();
+    const fix = this.suggestDetectorFix(errorText, aiActions);
+
+    return {
+      title: `Failed step #${failedStepIndex || '?'}: ${String(failedStep.name || 'Unnamed step')}`,
+      description: `${errorText}. AI decision action: ${actionSummary}`,
+      actionLabel: 'Recommended Fix',
+      actionText: fix,
+      recommendations: [{ error: errorText, fix }],
+    };
+  }
+
+  private extractAiActions(logs: RawExecutionLog[]): Array<Record<string, unknown>> {
+    const actions: Array<Record<string, unknown>> = [];
+    for (const log of logs) {
+      const message = String(log?.message || '');
+      if (message !== 'AI actions received' && message !== 'AI actions overridden by user') {
+        continue;
+      }
+      const data = log?.data || {};
+      const directActions = Array.isArray(data['actions']) ? data['actions'] : [];
+      for (const action of directActions) {
+        if (action && typeof action === 'object') {
+          actions.push({ ...(action as Record<string, unknown>), stepIndex: log.stepIndex });
+        }
+      }
+    }
+
+    const seen = new Set<string>();
+    return actions.filter((action) => {
+      const key = this.formatAiAction(action);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  private formatAiAction(action: Record<string, unknown>): string {
+    const type = String(action['type'] || action['action'] || 'action').trim();
+    const selector = String(action['selector'] || '').trim();
+    const value = String(action['value'] || '').trim();
+    return [type, selector, value ? `value="${value}"` : ''].filter(Boolean).join(' ');
+  }
+
+  private suggestDetectorFix(errorText: string, actions: Array<Record<string, unknown>>): string {
+    const text = errorText.toLowerCase();
+    const selector = String(actions[actions.length - 1]?.['selector'] || '').trim();
+    const target = selector ? ` for ${selector}` : '';
+
+    if (text.includes('not interactable') || text.includes('click intercepted')) {
+      return `Add an explicit wait until the element is visible and clickable${target}, then scroll it into view before executing the AI action.`;
+    }
+    if (text.includes('no such element') || text.includes('unable to locate')) {
+      return `Refresh the selector used by AI decision${target}. Prefer data-testid/name attributes or rerun DOM capture just before the action.`;
+    }
+    if (text.includes('timeout')) {
+      return `Increase the wait condition around the AI action${target} and wait for the page or async request to finish before continuing.`;
+    }
+    if (text.includes('assert')) {
+      return 'Compare the expected result with the actual UI state and update the assertion target or expected text for this test case.';
+    }
+    if (!actions.length) {
+      return 'AI decision returned no executable action. Check the captured DOM and enrich the test data or selectors for this step.';
+    }
+    return `Review the AI action${target} against the captured DOM and add a guard wait before retrying this step.`;
   }
 
   private resolveScreenshotUrl(path: string): string | null {
@@ -931,6 +1515,7 @@ this.isAborted = false;
     this.stopAll();
     this.isStreaming = true;
     this.screenshotUrl = null;
+    this.domElements = [];
     /*this.metrics = { cpu: 24, memory: 1.2, latency: 42, threads: 8 };
     this.startMetricsAnimation();*/
 
@@ -946,10 +1531,15 @@ this.isAborted = false;
       activeStepLabel: '▶ Starting',
     };
     this.streamedLogs = [{ index: 1, level: 'INFO', message: 'Preparing execution...' }];
+    this.rawExecutionLogs = [];
+    this.detectorInsight = null;
     this.cdr.markForCheck();
 
     this.startLiveRun();
     this.startFakeTimeline(steps.length);
+    // Live DOM capture: refresh the "DOM Elements" panel continuously while Selenium runs,
+    // instead of only capturing it when the user clicks "AI Analysis".
+    this.startDomExtraction();
 
     const startedAt = Date.now();
     const payload = {
@@ -958,14 +1548,24 @@ this.isAborted = false;
       executionId: this.currentExecutionId,
       testSuiteId: this.suiteId,
       planId: this.planId,
+      testCaseId: this.testCaseId,
       url: testCase.urlCible,
       steps: testCase.steps,
       ...(Array.isArray(testCase.stepDetails) ? { stepDetails: testCase.stepDetails } : {}),
       ...(testCase.executionModel ? { executionModel: testCase.executionModel } : {}),
       ...(testCase.test_data ? { test_data: testCase.test_data } : {}),
       ...(testCase.credentials ? { credentials: testCase.credentials } : {}),
+      ...(this.pendingActionOverrides.length ? { actionOverrides: this.pendingActionOverrides.map((action) => ({
+        stepIndex: action.stepIndex,
+        type: action.type,
+        selector: action.selector,
+        value: action.value,
+      })) } : {}),
     };
-
+console.log(
+  "PAYLOAD SENT",
+  payload
+);
     this.runSubscription = this.seleniumRunner
       .runSingleTestCase(payload)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -974,7 +1574,11 @@ this.isAborted = false;
            if (this.isAborted) {
           this.cdr.markForCheck();
           return;
-        }
+        }console.log(
+  "RUN RESPONSE",
+  resp
+);
+
           const elapsed = Math.max(0, Date.now() - startedAt);
           const secs = `${Math.max(1, Math.round(elapsed / 1000))}s`;
           const respPayload: any = (resp as any)?.data ?? resp;
@@ -983,6 +1587,7 @@ this.isAborted = false;
           if (!respPayload || (typeof respPayload === 'object' && !Array.isArray(respPayload) && Object.keys(respPayload).length === 0)) {
             this.isStreaming = false;
             this.fakeTimelineSubscription?.unsubscribe();
+            this.stopDomExtraction();
             /*this.stopMetrics();*/
             this.stopLiveRunTimer();
             this.scenario = {
@@ -993,6 +1598,7 @@ this.isAborted = false;
               activeStepLabel: '✖ Empty response',
             };
             this.streamedLogs = [{ index: 1, level: 'ERROR', message: 'Selenium runner returned an empty response body.' }];
+            void this.maybeAutoAnalyzeFailure();
             this.cdr.markForCheck();
             return;
           }
@@ -1003,6 +1609,7 @@ this.isAborted = false;
           }
 
           const stepResults = Array.isArray(innerData?.stepResults) ? innerData.stepResults : [];
+          const rawLogs = this.getRawRunLogs(respPayload);
           const mappedSteps = stepResults.length
             ? this.mapStepResultsToScenarioSteps(stepResults)
             : this.scenario.steps;
@@ -1024,6 +1631,7 @@ this.isAborted = false;
           this.screenshotUrl = this.resolveScreenshotUrl(screenshotPath);
           this.isStreaming = false;
           this.fakeTimelineSubscription?.unsubscribe();
+          this.stopDomExtraction();
           /*this.stopMetrics();*/
 
           this.scenario = {
@@ -1042,7 +1650,11 @@ this.isAborted = false;
             } : undefined,
           };
 
+          this.rawExecutionLogs = rawLogs;
+          this.refreshDomFromExecutionLogs();
+          this.detectorInsight = null;
           this.startLogStream(this.mapRunResponseToLogs(respPayload));
+          void this.maybeAutoAnalyzeFailure();
           void this.loadRecentRuns();
           this.stopLiveRunTimer();
           this.cdr.markForCheck();
@@ -1055,6 +1667,7 @@ this.isAborted = false;
           const msg = err instanceof Error ? err.message : String(err);
           this.isStreaming = false;
           this.fakeTimelineSubscription?.unsubscribe();
+          this.stopDomExtraction();
           /*this.stopMetrics();*/
           this.scenario = {
             ...this.scenario,
@@ -1064,6 +1677,7 @@ this.isAborted = false;
             activeStepLabel: '✖ Failed',
           };
           this.streamedLogs = [{ index: 1, level: 'ERROR', message: msg || 'Selenium request failed.' }];
+          void this.maybeAutoAnalyzeFailure();
           this.stopLiveRunTimer();
           void this.loadRecentRuns();
           this.cdr.markForCheck();
@@ -1106,43 +1720,560 @@ this.isAborted = false;
     }
   }
 
-  private async executeLoadedPlan(): Promise<void> {
-    if (!this.suiteId || !this.planId) return;
+private async executeLoadedPlan(): Promise<void> {
 
-    try {
-      const suite: TestSuiteDto = await firstValueFrom(this.testLabService.getTestSuiteById(this.suiteId));
-      const planCases = this.getPlanTestCases(suite, this.planId);
+  console.log('=== executeLoadedPlan START ===');
 
-      if (!planCases.length) {
-        this.streamedLogs = [{ index: 1, level: 'ERROR', message: 'No test cases found for this test plan.' }];
-        this.cdr.markForCheck();
+  console.log('suiteId =', this.suiteId);
+  console.log('planId =', this.planId);
+
+  if (!this.suiteId || !this.planId) {
+    console.log('❌ suiteId ou planId manquant');
+    return;
+  }
+
+  try {
+
+    console.log('🚀 AVANT getTestSuiteById');
+
+    const suite: TestSuiteDto =
+      await firstValueFrom(
+        this.testLabService.getTestSuiteById(
+          this.suiteId
+        )
+      );
+
+    console.log('✅ SUITE RECUE');
+    console.log(suite);
+
+    const planCases =
+      this.getPlanTestCases(
+        suite,
+        this.planId
+      );
+
+    console.log(
+      '📦 planCases =',
+      planCases
+    );
+
+    if (!planCases.length) {
+
+      console.log(
+        '❌ Aucun testcase trouvé'
+      );
+
+      this.streamedLogs = [
+        {
+          index: 1,
+          level: 'ERROR',
+          message:
+            'No test cases found for this test plan.'
+        }
+      ];
+
+      this.cdr.markForCheck();
+      return;
+    }
+
+    for (const [index, testCase] of planCases.entries()) {
+
+      console.log(
+        '▶️ EXECUTION TESTCASE',
+        index,
+        testCase
+      );
+
+      this.loadedTestCase = testCase;
+
+      await this.executeLoadedTestCase(
+        testCase
+      );
+
+      console.log(
+        '✅ FIN TESTCASE',
+        index
+      );
+
+      if (
+        this.scenario.status === 'failed' ||
+        this.scenario.status === 'aborted'
+      ) {
+
+        console.log(
+          '⛔ STOP PLAN',
+          this.scenario.status
+        );
+
+        break;
+      }
+    }
+
+  } catch (err) {
+
+    console.error(
+      '🔥 executeLoadedPlan ERROR',
+      err
+    );
+
+    const msg =
+      err instanceof Error
+        ? err.message
+        : String(err);
+
+    console.error(
+      '🔥 MESSAGE =',
+      msg
+    );
+  }
+}
+
+  showDomModal = false;
+  domModalTab: 'dom' | 'actions' = 'dom';
+  actionTab: 'simple' | 'selenium' = 'simple';
+  aiActions: EditableAiAction[] = [];
+  seleniumCode = '';
+
+  
+  setActionTab(
+  tab: 'simple' | 'selenium'
+): void {
+
+  this.actionTab = tab;
+
+  this.cdr.markForCheck();
+
+}
+private extractSeleniumCode(): string {
+
+  const log = [...this.rawExecutionLogs]
+    .reverse()
+    .find(x => {
+
+      const data = x?.data || {};
+
+      return !!data['seleniumCode'];
+
+    });
+
+  return String(
+    log?.data?.['seleniumCode'] || ''
+  );
+
+}
+
+  // À ajouter avec les autres méthodes publiques
+  openDomModal(): void {
+
+    this.domModalTab = 'dom';
+
+    this.aiActions =
+      this.buildEditableActions();
+
+    this.seleniumCode =
+      this.extractSeleniumCode();
+
+    this.showDomModal = true;
+  }
+
+  closeDomModal(): void {
+    this.showDomModal = false;
+  }
+
+  setDomModalTab(tab: 'dom' | 'actions'): void {
+    this.domModalTab = tab;
+    if (tab === 'actions' && !this.aiActions.length) {
+      this.aiActions = this.buildEditableActions();
+    }
+    this.cdr.markForCheck();
+  }
+
+  private buildEditableActions(): EditableAiAction[] {
+    const result: EditableAiAction[] = [];
+
+    this.rawExecutionLogs.forEach((log) => {
+      const message = String(log?.message || '');
+      if (message !== 'AI actions received' && message !== 'AI actions overridden by user') {
         return;
       }
+      const data = (log?.data || {}) as Record<string, unknown>;
+      const stepIndex = Number(log?.stepIndex) || 0;
 
-      for (const [index, testCase] of planCases.entries()) {
-        this.loadedTestCase = testCase;
-        this.scenario = {
-          ...this.scenario,
-          caseName: testCase.title,
-          progressLabel: `Executing test case ${index + 1}/${planCases.length}`,
-          activeStepLabel: `Running ${testCase.title}`,
-        };
-        this.cdr.markForCheck();
-        await this.executeLoadedTestCase(testCase);
-        if (this.scenario.status === 'failed' || this.scenario.status === 'aborted') {
-          break;
+      const directActions = Array.isArray(data['actions']) ? data['actions'] : [];
+      directActions.forEach((action, i) => {
+        if (action && typeof action === 'object') {
+          result.push(this.toEditableAction(action as Record<string, unknown>, stepIndex, i));
         }
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      this.streamedLogs = [{ index: 1, level: 'ERROR', message: msg || 'Unable to execute plan.' }];
-      this.scenario = {
-        ...this.scenario,
-        status: 'failed',
-        progressLabel: 'Plan execution failed',
-        activeStepLabel: '⚠ Unable to execute test plan',
-      };
+      });
+    });
+
+    // dédoublonne par step + type + selector + value
+    const seen = new Set<string>();
+    return result.filter((a) => {
+      const key = `${a.stepIndex}::${a.originalType}::${a.originalSelector}::${a.originalValue}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  private toEditableAction(action: Record<string, unknown>, stepIndex: number, i: number): EditableAiAction {
+    const type = String(action['type'] || action['action'] || '').trim();
+    const selector = String(action['selector'] || '').trim();
+    const value = String(action['value'] || '').trim();
+    return {
+      uid: `${stepIndex}-${i}-${selector || 'na'}-${Math.random().toString(36).slice(2, 7)}`,
+      stepIndex,
+      type,
+      selector,
+      value,
+      originalType: type,
+      originalSelector: selector,
+      originalValue: value,
+      isEdited: false,
+    };
+  }
+
+  updateAction(action: EditableAiAction, field: 'type' | 'selector' | 'value', newValue: string): void {
+    (action as unknown as Record<string, string>)[field] = newValue;
+    action.isEdited =
+      action.type !== action.originalType ||
+      action.selector !== action.originalSelector ||
+      action.value !== action.originalValue;
+    this.cdr.markForCheck();
+  }
+
+  resetAction(action: EditableAiAction): void {
+    action.type = action.originalType;
+    action.selector = action.originalSelector;
+    action.value = action.originalValue;
+    action.isEdited = false;
+    this.cdr.markForCheck();
+  }
+
+  copyActionJson(action: EditableAiAction): void {
+    const json = JSON.stringify({ type: action.type, selector: action.selector, value: action.value }, null, 2);
+    navigator.clipboard?.writeText(json);
+    this.showSnackbar('✅ Action copiée dans le presse-papiers', 1800);
+  }
+
+  applyEditedActions(): void {
+    if (this.actionTab === 'selenium') {
+      this.showSnackbar('Selenium code updated', 2000);
+      this.closeDomModal();
+      return;
+    }
+
+    const edited = this.aiActions.filter((a) => a.isEdited);
+    if (!edited.length) {
+      this.showSnackbar('Aucune modification à appliquer', 2000);
+      return;
+    }
+    const editedByUid = new Map(edited.map((action) => [action.uid, action]));
+    this.pendingActionOverrides = this.aiActions
+      .filter((action) => edited.some((item) => item.stepIndex === action.stepIndex))
+      .map((action) => ({ ...(editedByUid.get(action.uid) || action) }));
+    this.closeDomModal();
+    this.showSnackbar(`${edited.length} action(s) appliquée(s) — relance Selenium...`, 2500);
+    this.rerun();
+  }
+
+
+
+projects: any[] = []
+suites: any[] = []
+plans: any[] = []
+testCases: any[] = []
+
+filters: ExecutionFilters = {
+  project: '',
+  suite: '',
+  testPlan: '',
+  testCase: '',
+}
+
+
+   /*loadProjects(): void {
+    this.seleniumRunnerService.getProjects().subscribe((res: any) => {
+      this.projects = Array.isArray(res) ? res : res?.data ?? []
+    })
+  }*/
+
+  
+selectedProjectName = '';
+selectedSuiteName = '';
+selectedPlanName = '';
+selectedTestCaseName = '';
+
+
+onFilterChange(key: string, event: any): void {
+
+  const value = event.target.value;
+
+this.filters = {
+  ...this.filters,
+  [key]: value
+};
+if (value) {
+
+  console.log('PROJECT ID =', value);
+
+  this.seleniumRunnerService
+    .getSuitesByProject(value)
+    .subscribe((res: any) => {
+
+      console.log('SUITES RESPONSE =', res);
+
+      this.suites = Array.isArray(res)
+        ? res
+        : (res?.data ?? []);
+
+      console.log('SUITES ARRAY =', this.suites);
+
       this.cdr.markForCheck();
+    });
+}
+  // PROJECT
+  if (key === 'project') {
+
+   const project = this.projects.find(
+  p => p._id === value
+);
+
+  this.scenario = {
+    ...this.scenario,
+    projectName: project?.title ?? '',
+    suiteName: '',
+    planName: '',
+    caseName: ''
+  };
+
+
+    this.filters.suite = '';
+    this.filters.testPlan = '';
+    this.filters.testCase = '';
+
+    this.suites = [];
+    this.plans = [];
+    this.testCases = [];
+
+    if (value) {
+      
+      this.seleniumRunnerService
+        .getSuitesByProject(value)
+       
+        .subscribe((res: any) => {
+
+          this.suites = Array.isArray(res)
+            ? res
+            : (res?.data ?? []);
+        });
     }
   }
+
+
+
+  
+if (key === 'suite') {
+
+  console.log('SUITE SELECTED =', value);
+
+this.seleniumRunnerService
+  .getPlansBySuite(value)
+  .subscribe({
+    next: (res: any) => {
+
+      console.log('PLANS RESPONSE =', res);
+
+      this.plans = res?.testPlans ?? [];
+
+      console.log('PLANS ARRAY =', this.plans);
+
+      this.cdr.markForCheck();
+    },
+
+    error: err => {
+      console.error('PLANS ERROR =', err);
+    }
+  });console.log('FIRST PLAN =', this.plans[0]);
+}
+
+
+  // SUITE
+/*if (key === 'suite') {
+
+  console.log('SUITE ID =', value);
+
+  this.seleniumRunnerService
+    .getPlansBySuite(value)
+    .subscribe({
+      next: (res: any) => {
+
+        console.log('PLANS RESPONSE =', res);
+
+        this.plans = Array.isArray(res)
+          ? res
+          : (res?.data ?? []);
+
+        console.log('PLANS ARRAY =', this.plans);
+
+        this.cdr.markForCheck();
+      },
+
+      error: err => {
+        console.error('PLANS ERROR =', err);
+      }
+    });
+}*/
+
+console.log('KEY =', key);
+console.log('VALUE =', value);
+console.log('FILTERS =', this.filters);
+
+  // PLAN
+if (key === 'testPlan') {
+
+  const plan = this.plans.find(
+    p => p._id === value
+  );
+
+  this.scenario = {
+    ...this.scenario,
+    planName: plan?.title ?? '',
+    caseName: ''
+  };
+
+  this.filters.testCase = '';
+
+  this.testCases = [];
+
+  this.seleniumRunnerService
+    .getTestCasesByPlan(value)
+    .subscribe({
+      next: (res: any) => {
+
+        console.log('TEST CASES RESPONSE =', res);
+
+        this.testCases = Array.isArray(res)
+          ? res
+          : (res?.testCases ?? res?.data ?? []);
+
+        console.log('TEST CASES ARRAY =', this.testCases);
+        console.log('FIRST TEST CASE =', this.testCases[0]);
+
+        this.cdr.markForCheck();
+      },
+      error: err => {
+        console.error('TEST CASES ERROR =', err);
+      }
+    });
+}
+
+  /*if (key === 'testPlan') {
+
+  console.log('PLAN SELECTED =', value);
+
+  const plan = this.plans.find(
+    p => p._id === value
+  );
+
+  console.log('PLAN FOUND =', plan);
+
+  this.seleniumRunnerService
+    .getTestCasesByPlan(value)
+    .subscribe({
+      next: (res: any) => {
+
+        console.log('TEST CASES RESPONSE =', res);
+
+        this.testCases =
+          res?.testCases ??
+          res?.data ??
+          [];
+
+        console.log('TEST CASES ARRAY =', this.testCases);
+        console.log('FIRST TEST CASE =', this.testCases[0]);
+
+        this.cdr.markForCheck();
+      },
+      error: err => {
+        console.error('TEST CASES ERROR =', err);
+      }
+    });
+}*/
+
+  this.cdr.markForCheck();
+}
+
+
+
+onTestCaseChange(event: any): void {
+
+  const value = event.target.value;
+
+  this.filters.testCase = value;
+
+  const testCase = this.testCases.find(
+    t => t._id === value
+  );
+
+  this.scenario = {
+    ...this.scenario,
+    caseName: testCase?.title ?? ''
+  };
+
+  this.cdr.markForCheck();
+}
+
+loadProjects(): void {
+
+  this.seleniumRunnerService.getProjects().subscribe({
+    next: (res: any) => {
+
+      console.log('API PROJECTS RESPONSE =', res);
+
+      this.projects = Array.isArray(res)
+        ? res
+        : (res?.data ?? []);
+
+      console.log('PROJECTS ARRAY =', this.projects);
+
+      this.cdr.markForCheck();
+    },
+
+    error: err => {
+      console.error('PROJECTS ERROR', err);
+    }
+  });
+}
+
+get canRunSelectedCascade(): boolean {
+  console.log('filters', this.filters);
+  console.log('isStreaming', this.isStreaming);
+
+  return Boolean(
+    this.filters.project &&
+    this.filters.suite &&
+    this.filters.testPlan &&
+    this.filters.testCase &&
+    !this.isStreaming
+  );
+}
+
+private async maybeAutoAnalyzeFailure(): Promise<void> {
+  if (this.scenario.status !== 'failed' && this.scenario.status !== 'aborted') return;
+  const executionKey = String(this.scenario.executionId || this.currentExecutionId || '').trim();
+  if (!executionKey || this.autoAnalysisRequestedForExecutionId === executionKey || this.isAnalyzingFailure) return;
+  this.autoAnalysisRequestedForExecutionId = executionKey;
+  await this.requestAIAnalysis();
+}
+async runSelectedCascade(): Promise<void> {
+  console.log('RUN CLICKED');
+
+  this.suiteId = this.filters.suite;
+  this.planId = this.filters.testPlan;
+  this.testCaseId = this.filters.testCase;
+
+  await this.loadAndRun();
+}
 }

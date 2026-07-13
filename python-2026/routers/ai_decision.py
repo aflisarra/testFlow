@@ -4,7 +4,10 @@ from pydantic import BaseModel
 
 from prompts.ai_decision_prompt import build_ai_decision_prompt
 from services.ai_service import get_ai_service
+from utils.selenium_generator import generate_selenium_code
 import json
+import re
+
 router = APIRouter()
 logger = logging.getLogger("routers.ai_decision")
 
@@ -46,6 +49,7 @@ def _is_dropdown_step(step: str) -> bool:
             "dropdown",
         )
     )
+
 
 def _is_click_step(step: str) -> bool:
     step_lower = (step or "").strip().lower()
@@ -143,6 +147,107 @@ def _extract_test_data_source(test_case):
     return []
 
 
+def get_test_data_map(test_case):
+    return extract_test_data(test_case)
+
+
+def _find_matching_test_data(el, test_data_map):
+    if not isinstance(test_data_map, dict):
+        return None
+
+    business_role = str(el.get("businessRole") or "").lower().strip()
+    if business_role and business_role in test_data_map:
+        return test_data_map[business_role]
+
+    searchable = " ".join(
+        [
+            str(el.get("id") or ""),
+            str(el.get("name") or ""),
+            str(el.get("placeholder") or ""),
+            str(el.get("ariaLabel") or ""),
+            str(el.get("title") or ""),
+            str(el.get("text") or ""),
+        ]
+    ).lower()
+
+    best_value = None
+    best_score = 0
+
+    for key, value in test_data_map.items():
+        key = str(key).lower()
+
+        score = 0
+
+        if key == searchable:
+            score = 100
+
+        elif key in searchable:
+            score = 80
+
+        elif any(part in searchable for part in key.split("_")):
+            score = 60
+
+        if score > best_score:
+            best_score = score
+            best_value = value
+
+    return best_value
+
+
+def _action_label_from_selector(selector: str, dom) -> str:
+    selector_text = str(selector or "").strip()
+    if selector_text.startswith("text="):
+        return selector_text[5:].strip()
+    if not isinstance(dom, list):
+        return ""
+
+    for el in dom:
+        if not isinstance(el, dict):
+            continue
+        candidates = {
+            f"#{str(el.get('id') or '').strip()}",
+            f'[name="{str(el.get("name") or "").strip()}"]',
+            f'[data-testid="{str(el.get("testId") or "").strip()}"]',
+            f'[aria-label="{str(el.get("ariaLabel") or "").strip()}"]',
+            f'[placeholder="{str(el.get("placeholder") or "").strip()}"]',
+        }
+        if selector_text in candidates:
+            return str(
+                el.get("businessRole")
+                or el.get("ariaLabel")
+                or el.get("placeholder")
+                or el.get("name")
+                or el.get("text")
+                or ""
+            ).strip()
+    return ""
+
+
+def _enrich_actions(actions, dom):
+    enriched = []
+    for action in actions or []:
+        if not isinstance(action, dict):
+            continue
+        item = dict(action)
+        item_type = str(item.get("type") or item.get("action") or "").strip().lower()
+        if item_type:
+            item["type"] = item_type
+        if not str(item.get("label") or "").strip():
+            label = _action_label_from_selector(str(item.get("selector") or ""), dom)
+            if label:
+                item["label"] = label
+        enriched.append(item)
+    return enriched
+
+
+def _decision_response(actions, dom=None):
+    enriched = _enrich_actions(actions, dom)
+    return {
+        "data": enriched,
+        "selenium_code": generate_selenium_code(enriched),
+    }
+
+
 def _extract_execution_memory(test_case):
     if not isinstance(test_case, dict):
         return {}
@@ -210,8 +315,18 @@ def _classify_test_data(raw_values):
 
 
 def _get_field_type(el):
+
+    # ✅ priorité absolue au businessRole enrichi côté DOM
+    business_role = str(
+        el.get("businessRole") or ""
+    ).strip().lower()
+
+    if business_role:
+        return business_role
+
     tag = str(el.get("tag") or "").lower().strip()
     input_type = str(el.get("type") or "").lower().strip()
+
     field_id = _normalize_text(el.get("id"))
     name = _normalize_text(el.get("name"))
     placeholder = _normalize_text(el.get("placeholder"))
@@ -219,25 +334,97 @@ def _get_field_type(el):
     title = _normalize_text(el.get("title"))
     text = _normalize_text(el.get("text"))
     role = _normalize_text(el.get("role"))
-    classes = _normalize_text(el.get("class") or el.get("classes"))
-    haystack = " ".join([field_id, name, placeholder, aria, title, text, role, classes])
+    classes = _normalize_text(
+        el.get("class") or el.get("classes")
+    )
 
-    if tag == "select" or "country" in haystack:
-        return "country"
+    haystack = " ".join([
+        field_id,
+        name,
+        placeholder,
+        aria,
+        title,
+        text,
+        role,
+        classes,
+    ])
+
+    # ✅ dropdowns
+    if tag == "select":
+        return "select"
+
+    # ✅ password
     if input_type == "password" or "password" in haystack:
         return "password"
+
+    # ✅ email
     if input_type == "email" or "email" in haystack:
         return "email"
-    if input_type in {"tel", "phone"} or "phone" in haystack or "mobile" in haystack:
+
+    # ✅ phone
+    if (
+        input_type in {"tel", "phone"}
+        or "phone" in haystack
+        or "mobile" in haystack
+    ):
         return "phone"
-    if any(token in haystack for token in ("first name", "firstname", "first_name", "given name")):
+
+    # ✅ first name
+    if any(
+        token in haystack
+        for token in (
+            "first name",
+            "firstname",
+            "first_name",
+            "given name",
+        )
+    ):
         return "firstname"
-    if any(token in haystack for token in ("last name", "lastname", "last_name", "surname", "family name")):
+
+    # ✅ last name
+    if any(
+        token in haystack
+        for token in (
+            "last name",
+            "lastname",
+            "last_name",
+            "surname",
+            "family name",
+        )
+    ):
         return "lastname"
-    if any(token in haystack for token in ("user", "username", "login", "account", "nickname")):
+
+    # ✅ username
+    if any(
+        token in haystack
+        for token in (
+            "username",
+            "user name",
+            "login",
+            "user",
+        )
+    ):
         return "username"
-    if tag == "input" and input_type == "text":
-        return "username"
+
+    # ✅ country / region
+    if any(
+        token in haystack
+        for token in (
+            "country",
+            "region",
+            "nationality",
+        )
+    ):
+        return "country"
+
+    # ✅ generic text field
+    if tag == "input" and input_type in (
+        "",
+        "text",
+        "search",
+    ):
+        return "text"
+
     return None
 
 
@@ -300,6 +487,233 @@ def _make_default_values():
         "state": "NCR",
         "zip": "10001",
     }
+
+
+FIELD_SYNONYMS = {
+    "email": ("email", "e-mail", "mail"),
+    "password": ("password", "passwd", "pass word"),
+    "username": ("username", "user name", "login", "user"),
+    "phone": ("phone", "mobile", "telephone", "tel"),
+    "country": ("country", "region", "nationality"),
+    "firstname": ("firstname", "first_name", "first name", "given_name", "given name", "prenom", "prénom"),
+    "lastname": ("lastname", "last_name", "last name", "surname", "family_name", "family name", "nom"),
+    "address": ("address", "street", "adresse"),
+    "city": ("city", "town", "ville"),
+    "postal_code": ("postalcode", "postal_code", "postal code", "zip", "zipcode", "zip code"),
+}
+
+TEST_DATA_KEY_ALIASES = {
+    "first_name": "firstname",
+    "firstName": "firstname",
+    "given_name": "firstname",
+    "givenName": "firstname",
+    "last_name": "lastname",
+    "lastName": "lastname",
+    "family_name": "lastname",
+    "familyName": "lastname",
+    "surname": "lastname",
+    "postal": "postal_code",
+    "postalCode": "postal_code",
+    "postal_code": "postal_code",
+    "zip": "postal_code",
+    "zipCode": "postal_code",
+    "zipcode": "postal_code",
+    "mobile": "phone",
+    "telephone": "phone",
+    "tel": "phone",
+    "login": "username",
+    "user": "username",
+    "user_name": "username",
+    "userName": "username",
+    "passwd": "password",
+}
+
+
+def _canonical_key(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    compact = re.sub(r"[^a-z0-9]+", "_", raw.lower()).strip("_")
+    if compact in TEST_DATA_KEY_ALIASES:
+        return TEST_DATA_KEY_ALIASES[compact]
+    for field, synonyms in FIELD_SYNONYMS.items():
+        normalized_synonyms = {re.sub(r"[^a-z0-9]+", "_", s.lower()).strip("_") for s in synonyms}
+        if compact == field or compact in normalized_synonyms:
+            return field
+    return compact
+
+
+def extract_test_data(test_case):
+    """
+    Normalize test_data into a field -> value dictionary.
+
+    Supported input shapes:
+    - [{"field": "email", "value": "john@test.com"}]
+    - [{"name": "email", "value": "john@test.com"}]
+    - {"email": "john@test.com", "password": "123456"}
+    - [{"email": "john@test.com", "password": "123456"}]
+    """
+    source = _extract_test_data_source(test_case)
+    normalized = {}
+
+    def put(key, value):
+        canonical = _canonical_key(key)
+        if not canonical:
+            return
+        if value in (None, ""):
+            return
+        if isinstance(value, (dict, list)):
+            return
+        normalized[canonical] = str(value).strip()
+
+    def consume(value):
+        if value in (None, "", []):
+            return
+        if isinstance(value, dict):
+            field_name = value.get("field") or value.get("name") or value.get("key")
+            if field_name and "value" in value:
+                put(field_name, value.get("value"))
+                return
+            for key, item in value.items():
+                put(key, item)
+            return
+        if isinstance(value, list):
+            for item in value:
+                consume(item)
+            return
+
+    consume(source)
+    return normalized
+
+
+def _step_requested_fields(step):
+    text = _normalize_text(step)
+    fields = []
+    for field, synonyms in FIELD_SYNONYMS.items():
+        if any(_normalize_text(synonym) in text for synonym in synonyms):
+            fields.append(field)
+    return fields
+
+
+def _score_dom_element_for_field(el, field):
+    if not isinstance(el, dict) or el.get("disabled"):
+        return 0
+
+    tag = str(el.get("tag") or "").lower().strip()
+    input_type = str(el.get("type") or "").lower().strip()
+    if input_type == "hidden":
+        return 0
+
+    is_fillable = tag in {"input", "textarea", "select"} or str(el.get("role") or "").lower() in {"combobox", "listbox"}
+    if not is_fillable:
+        return 0
+
+    synonyms = FIELD_SYNONYMS.get(field, ())
+    business_role = _canonical_key(el.get("businessRole"))
+    score = 0
+    if business_role == field:
+        score += 120
+
+    weighted_fields = (
+        ("id", 45),
+        ("name", 40),
+        ("placeholder", 34),
+        ("ariaLabel", 34),
+        ("title", 24),
+        ("type", 28),
+    )
+    for key, weight in weighted_fields:
+        value = _normalize_text(el.get(key))
+        if not value:
+            continue
+        for synonym in synonyms:
+            if _normalize_text(synonym) in value:
+                score += weight
+        if _canonical_key(value) == field:
+            score += weight
+
+    if field == "password" and input_type == "password":
+        score += 100
+    if field == "email" and input_type == "email":
+        score += 90
+    if field == "phone" and input_type in {"tel", "phone"}:
+        score += 70
+    if field == "country" and (tag == "select" or str(el.get("role") or "").lower() in {"combobox", "listbox"}):
+        score += 55
+
+    return score
+
+
+def _best_dom_element_for_field(dom, field):
+    best = None
+    best_score = 0
+    for el in dom or []:
+        score = _score_dom_element_for_field(el, field)
+        if score > best_score:
+            best = el
+            best_score = score
+    return best if best_score >= 35 else None
+
+
+def _deterministic_actions_for_step(step, dom, test_case):
+    if not isinstance(dom, list):
+        return []
+
+    test_data = extract_test_data(test_case)
+    requested_fields = _step_requested_fields(step)
+    if not requested_fields:
+        return []
+
+    actions = []
+    used_selectors = set()
+    logger.info("STEP=%s", step)
+    logger.info("TEST DATA=%s", test_data)
+
+    for field in requested_fields:
+        value = test_data.get(field)
+        if not value:
+            continue
+
+        el = _best_dom_element_for_field(dom, field)
+        if not el:
+            continue
+
+        selector = _field_selector_priority(el)
+        if not selector or selector in used_selectors:
+            continue
+
+        tag = str(el.get("tag") or "").lower().strip()
+        role = str(el.get("role") or "").lower().strip()
+        action_type = "click" if field == "country" and tag != "select" and role in {"combobox", "listbox", "button"} else "type"
+
+        action = {
+            "type": action_type,
+            "selector": selector,
+            "value": value,
+            "label": field,
+        }
+        actions.append(action)
+        used_selectors.add(selector)
+
+        logger.info("MATCHED FIELD=%s", field)
+        logger.info("SELECTOR=%s", selector)
+        logger.info("VALUE=%s", value)
+
+    logger.info("GENERATED ACTIONS=%s", actions)
+    return actions
+
+
+def _infer_actions_when_empty(step, dom, test_case):
+    actions = _deterministic_actions_for_step(step, dom, test_case)
+    if actions:
+        return actions
+    if _is_fill_step(step):
+        return _dom_to_fill_actions(dom, test_case)
+    if _is_dropdown_step(step):
+        value = _extract_next_unused_test_data_value(test_case, _extract_execution_memory(test_case))
+        action = _dom_dropdown_action(dom, value)
+        return [action] if action else []
+    return []
 
 
 def _infer_test_data_from_dom(dom, step=""):
@@ -421,7 +835,6 @@ def _dom_to_fill_actions(dom, test_case):
         },
     )
     logger.info("🧪 test_data raw source", extra={"test_data": test_data})
-
     logger.info(f"📊 Raw test_data: {test_data}")
 
     raw_values = _flatten_test_data(test_data)
@@ -432,7 +845,7 @@ def _dom_to_fill_actions(dom, test_case):
             "values": raw_values,
         },
     )
-    classified_data = _classify_test_data(raw_values)
+    test_data_map = get_test_data_map(test_case)
     defaults = _make_default_values()
     if not raw_values:
         logger.warning("⚠️ No test_data → using default values")
@@ -449,10 +862,7 @@ def _dom_to_fill_actions(dom, test_case):
             ]
 
     logger.info(f"✅ Values used: {raw_values}")
-    logger.info(
-        "🧩 classified test_data",
-        extra={k: v for k, v in classified_data.items()},
-    )
+    logger.info("🧩 test_data_map", extra=test_data_map)
 
     def selector_for(el):
         role = str(el.get("role") or "").strip().lower()
@@ -524,10 +934,25 @@ def _dom_to_fill_actions(dom, test_case):
         if bucket in used_buckets:
             continue
 
+        # ── FIX: checkbox/radio ne référence plus une variable `value`
+        # qui n'existait pas encore à ce stade — on clique simplement
+        # dessus (une case à cocher n'a pas de "valeur texte" à taper).
         if tag == "input" and input_type in {"checkbox", "radio"}:
             if choice_selected:
                 continue
-            actions.append({"type": "click", "selector": selector, "value": ""})
+            actions.append({
+                "type": "click",
+                "selector": selector,
+                "label": (
+                    el.get("businessRole")
+                    or el.get("placeholder")
+                    or el.get("ariaLabel")
+                    or el.get("name")
+                    or el.get("id")
+                    or "Field"
+                ),
+                "value": "",
+            })
             used_selectors.add(selector)
             used_buckets.add(bucket)
             choice_selected = True
@@ -541,10 +966,7 @@ def _dom_to_fill_actions(dom, test_case):
         if tag not in {"input", "textarea", "select"}:
             continue
 
-        value = ""
-        if field_type and classified_data.get(field_type):
-            value = classified_data[field_type][0]
-            classified_data[field_type] = classified_data[field_type][1:]  # ✅ consume it
+        value = _find_matching_test_data(el, test_data_map) or ""
 
         if not value:
             # ✅ skip any raw value already assigned to a previous field,
@@ -572,7 +994,19 @@ def _dom_to_fill_actions(dom, test_case):
             used_values.add(value)  # ✅ mark this value as consumed
 
         logger.info("Mapped field: %s -> %s", selector, value)
-        actions.append({"type": "type", "selector": selector, "value": value})
+        actions.append({
+    "type": "type",
+    "selector": selector,
+    "label": (
+        el.get("businessRole")
+        or el.get("placeholder")
+        or el.get("ariaLabel")
+        or el.get("name")
+        or el.get("id")
+        or "Field"
+    ),
+    "value": value
+})
         used_selectors.add(selector)
         used_buckets.add(bucket)
 
@@ -694,6 +1128,84 @@ def _merge_dropdown_actions(actions):
     }]
 
 
+def _selector_for_dom_element(el):
+    if not isinstance(el, dict):
+        return ""
+    for key in ("id", "testId", "name"):
+        value = str(el.get(key) or "").strip()
+        if value:
+            if key == "id":
+                return f"#{value}"
+            if key == "testId":
+                return f'[data-testid="{value}"]'
+            return f'[name="{value}"]'
+    text = str(el.get("text") or el.get("ariaLabel") or el.get("title") or "").strip()
+    if text:
+        return f"text={text[:80]}"
+    index = el.get("index")
+    return f"__index:{index}" if index is not None else ""
+
+
+def _dom_dropdown_action(dom, target_value):
+    if not isinstance(dom, list):
+        return None
+
+    best = None
+    best_score = -1
+    for el in dom:
+        if not isinstance(el, dict) or el.get("visible") is False:
+            continue
+        tag = str(el.get("tag") or "").lower()
+        role = str(el.get("role") or "").lower()
+        el_type = str(el.get("type") or "").lower()
+        text_blob = " ".join(
+            str(el.get(key) or "")
+            for key in ("text", "ariaLabel", "name", "id", "placeholder", "title", "classes")
+        ).lower()
+
+        score = 0
+        if tag in ("button", "select") or role in ("combobox", "listbox", "button") or el.get("ariaHaspopup"):
+            score += 3
+        if "country" in text_blob or "region" in text_blob:
+            score += 8
+        if target_value and str(target_value).lower() in text_blob:
+            score += 5
+        if "copilot" in text_blob or "create account" in text_blob or el_type in ("checkbox", "radio", "submit"):
+            score -= 20
+
+        if score > best_score:
+            best = el
+            best_score = score
+
+    if not best or best_score < 3:
+        return None
+
+    selector = _selector_for_dom_element(best)
+    if not selector:
+        return None
+    return {"type": "click", "selector": selector, "value": target_value or ""}
+
+
+def _dropdown_actions_are_specific(actions):
+    if not isinstance(actions, list) or not actions:
+        return False
+    for action in actions:
+        if not isinstance(action, dict):
+            return False
+        selector = str(action.get("selector") or "").lower()
+        value = str(action.get("value") or "").strip()
+        if not value:
+            return False
+        if (
+            "copilot" in selector
+            or "create account" in selector
+            or "submit" in selector
+            or "checkbox" in selector
+        ):
+            return False
+    return True
+
+
 # ✅ Find the dropdown's target value WITHOUT any hardcoded list (country,
 # city, subject...). We know from execution_memory which test_data values
 # have already been consumed by earlier steps (typed into email/password/
@@ -748,154 +1260,112 @@ def _apply_target_dropdown_value(actions, test_case, execution_memory):
 @router.post("/ai/decide")
 def decide(payload: AIDecisionPayload):
     step = payload.step or ""
-    dom = payload.dom
+    dom = payload.dom if isinstance(payload.dom, list) else []
     test_case = payload.test_case
 
     if not step:
         raise HTTPException(status_code=400, detail="step is required")
 
-    logger.info(f"➡️ STEP: {step}")
+    logger.info("STEP=%s", step)
 
     resolved_test_case = test_case if isinstance(test_case, dict) else {}
     execution_memory = _extract_execution_memory(resolved_test_case)
 
-    # ✅ build prompt
     if resolved_test_case.get("test_data") is None and not resolved_test_case.get("testData"):
         inferred = _infer_test_data_from_dom(dom, step)
         if inferred:
             resolved_test_case = dict(resolved_test_case)
             resolved_test_case["test_data"] = inferred
-            logger.info("🧩 Inferred test_data from DOM", extra={"count": len(inferred)})
+            logger.info("Inferred test_data from DOM count=%s", len(inferred))
 
     if execution_memory:
         resolved_test_case = dict(resolved_test_case)
         resolved_test_case["execution_memory"] = execution_memory
 
-    prompt = build_ai_decision_prompt(step, dom, resolved_test_case)
-    print("🧠 PROMPT:", prompt[:1500])
-    print("\n========== PROMPT ==========\n")
-    print(prompt)
-    print("\n============================\n")
+    deterministic_actions = _deterministic_actions_for_step(step, dom, resolved_test_case)
+    if deterministic_actions:
+        actions = _dedupe_actions(deterministic_actions, execution_memory)
+        logger.info("Returning deterministic actions before LLM: %s", actions)
+        return _decision_response(actions, dom)
 
-    # ✅ call AI
     try:
-        print("\n")
-        print("=" * 80)
-        print("STEP:", step)
-        print("=" * 80)
+        prompt = build_ai_decision_prompt(step, dom, resolved_test_case)
+        logger.debug("PROMPT: %s", prompt[:1500])
 
         client = get_ai_service()
+        result = client.generate_json(prompt=prompt, timeout=90)
 
-        result = client.generate_json(
-            prompt=prompt,
-            timeout=90
-        )
-
-        print("\n================ AI RESULT ================\n")
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-        print("\n===========================================\n")
+        logger.info("================ AI RESULT ================")
+        logger.info(json.dumps(result, indent=2, ensure_ascii=False))
+        logger.info("=============================================")
 
         extracted = _extract_actions(result)
+        ai_actions = extracted.get("data", []) if isinstance(extracted, dict) else []
+        logger.info("AI actions=%s", ai_actions)
 
-        # ✅ fix placeholder "__index:" selectors coming back from the AI
-        for action in extracted.get("data", []):
-            selector = str(action.get("selector", ""))
-            if selector.startswith("__index:"):
-                action["selector"] = "text=Create account"
-
-        logger.info(f"🤖 AI actions: {extracted}")
-
-        # ✅ shortcut for sign-up / create account click steps
-        if (
-            _is_click_step(step)
-            and (
-                "sign-up" in step.lower()
-                or "sign up" in step.lower()
-                or "create account" in step.lower()
-            )
+        if _is_click_step(step) and (
+            "sign-up" in step.lower()
+            or "sign up" in step.lower()
+            or "create account" in step.lower()
         ):
-            return {
-                "data": [
-                    {
-                        "type": "click",
-                        "selector": "text=Create account",
-                        "value": "",
-                    }
-                ]
-            }
-
-        # ✅ ANTI WRONG DROPDOWN
-        if extracted.get("data"):
-            only_dropdowns = all(a.get("type") == "dropdown" for a in extracted["data"])
-
-            has_inputs = any(
-                isinstance(el, dict) and el.get("tag") in ["input", "textarea"]
-                for el in (dom or [])
+            return _decision_response(
+                [{
+                    "type": "click",
+                    "selector": "text=Create account",
+                    "label": "Create account",
+                    "value": "",
+                }],
+                dom,
             )
-
-            if only_dropdowns and has_inputs:
-                logger.warning("❌ AI tried dropdown while inputs exist")
-                return {
-                    "data": [
-                        {
-                            "type": "click",
-                            "selector": "text=Continue with Google",
-                            "value": "",
-                        }
-                    ]
-                }
 
         if _is_dropdown_step(step):
-            logger.info("✅ Dropdown step detected")
-            extracted["data"] = _merge_dropdown_actions(extracted.get("data", []))
-            extracted["data"] = _apply_target_dropdown_value(
-                extracted["data"], resolved_test_case, execution_memory
+            dropdown_actions = _merge_dropdown_actions(ai_actions)
+            dropdown_actions = _apply_target_dropdown_value(
+                dropdown_actions, resolved_test_case, execution_memory
             )
-            print("DROPDOWN AI:", extracted)
-            return extracted
+            target_value = _extract_next_unused_test_data_value(resolved_test_case, execution_memory)
+            if not _dropdown_actions_are_specific(dropdown_actions):
+                fallback_action = _dom_dropdown_action(dom, target_value)
+                if fallback_action:
+                    dropdown_actions = [fallback_action]
+            actions = _dedupe_actions(dropdown_actions, execution_memory)
+            if actions:
+                return _decision_response(actions, dom)
 
-        # ✅ FORCE fallback for fill steps
         if _is_fill_step(step):
-            logger.info("✅ Fill step detected → using fallback")
-            fill_actions = _dom_to_fill_actions(dom, resolved_test_case)
+            fill_actions = _infer_actions_when_empty(step, dom, resolved_test_case)
             if fill_actions:
-                return {"data": _dedupe_actions(fill_actions, execution_memory)}
+                actions = _dedupe_actions(fill_actions, execution_memory)
+                return _decision_response(actions, dom)
 
-        # ✅ ANTI WRONG CLICK
-        if extracted.get("data"):
-            only_clicks = all(a.get("type") == "click" for a in extracted["data"])
-
+        if ai_actions:
+            only_clicks = all(isinstance(a, dict) and a.get("type") == "click" for a in ai_actions)
             has_inputs = any(
-                isinstance(el, dict) and el.get("tag") in ["input", "textarea"]
-                for el in (dom or [])
+                isinstance(el, dict) and el.get("tag") in ["input", "textarea", "select"]
+                for el in dom
             )
+            if only_clicks and has_inputs and not _is_click_step(step):
+                inferred_actions = _infer_actions_when_empty(step, dom, resolved_test_case)
+                if inferred_actions:
+                    actions = _dedupe_actions(inferred_actions, execution_memory)
+                    return _decision_response(actions, dom)
 
-            if only_clicks and has_inputs:
-                logger.warning("❌ AI tried click while inputs exist")
-                if _is_click_step(step):
-                    logger.info("✅ Click step detected → keep click semantics")
-                    submit_action = _dom_submit_action(dom)
-                    if submit_action:
-                        return {"data": _dedupe_actions([submit_action], execution_memory)}
-                    return {"data": _dedupe_actions(extracted.get("data", []), execution_memory)}
+            actions = _dedupe_actions(ai_actions, execution_memory)
+            if actions:
+                return _decision_response(actions, dom)
 
-                logger.warning("⚠️ Non-click step with inputs → fallback to fill actions")
-                fill_actions = _dom_to_fill_actions(dom, resolved_test_case)
-                if fill_actions:
-                    return {"data": _dedupe_actions(fill_actions, execution_memory)}
+        inferred_actions = _infer_actions_when_empty(step, dom, resolved_test_case)
+        if inferred_actions:
+            actions = _dedupe_actions(inferred_actions, execution_memory)
+            logger.warning("AI returned empty actions; inferred actions=%s", actions)
+            return _decision_response(actions, dom)
 
-        # ✅ return AI if valid
-        if extracted.get("data"):
-            extracted["data"] = _dedupe_actions(extracted["data"], execution_memory)
-            return extracted
+        logger.warning("No deterministic, AI, or inferred action matched STEP=%s", step)
+        return _decision_response([], dom)
 
     except Exception as e:
-        logger.exception(f"🔥 AI ERROR: {str(e)}")
-        return {
-            "data": [],
-            "error": str(e),
-            "error_type": type(e).__name__,
-        }
-
-    logger.warning("⚠️ Returning empty actions")
-    return {"data": []}
+        logger.exception("AI ERROR: %s", str(e))
+        fallback_actions = _infer_actions_when_empty(step, dom, resolved_test_case)
+        if fallback_actions:
+            return _decision_response(_dedupe_actions(fallback_actions, execution_memory), dom)
+        return _decision_response([], dom)

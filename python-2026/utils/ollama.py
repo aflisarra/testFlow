@@ -175,7 +175,7 @@ def run_ollama(prompt: str, timeout: int | None = None) -> str:
     url = "http://127.0.0.1:11434/api/generate"
     options: dict[str, object] = {
         "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "2048")),
-    "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.1")),
+    "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.7")),
     "num_predict": int(os.getenv("OLLAMA_NUM_PREDICT", "800")),
     }
     num_predict = os.getenv("OLLAMA_NUM_PREDICT", "").strip()

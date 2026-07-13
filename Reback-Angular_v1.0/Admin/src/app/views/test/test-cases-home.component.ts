@@ -82,6 +82,7 @@ export class TestCasesHomeComponent implements OnInit {
   modalCases: TestCaseDto[] = []
   /** Full plan cases used for saving; modalCases can be a subset when editing a single test case */
   modalAllCases: TestCaseDto[] = []
+  pendingNewCase: TestCaseDto | null = null
   editingSingleCase = false
   editingCaseIds: Record<string, boolean> = {}
   private modalSubscription: Subscription | null = null
@@ -101,6 +102,11 @@ export class TestCasesHomeComponent implements OnInit {
   private pendingBrowserReload = false
   private activeCaseGenerationRequestId = ''
 
+
+abandonModalOpen = false
+selectedAbandonPlanId = ''
+selectedAbandonCaseId = ''
+confirmAbandonModalOpen = false
   livePlanId = ''
   liveCases: TestCaseDto[] = []
   focusedLiveCaseId = ''
@@ -561,23 +567,31 @@ export class TestCasesHomeComponent implements OnInit {
     this.closeModalForce()
   }
 
-  private closeModalForce() {
-    if (this.modalGenerating) {
-      this.modalSubscription?.unsubscribe()
-      this.modalSubscription = null
-      this.modalGenerating = false
-      if (this.modalPlan) {
-        this.planStatuses[this.modalPlan.id] =
-          (this.testCasesByPlan[this.modalPlan.id] || []).length > 0 ? 'reviewing' : 'pending'
-      }
+private closeModalForce() {
+
+  if (this.modalGenerating) {
+    this.modalSubscription?.unsubscribe()
+    this.modalSubscription = null
+    this.modalGenerating = false
+
+    if (this.modalPlan) {
+      this.planStatuses[this.modalPlan.id] =
+        (this.testCasesByPlan[this.modalPlan.id] || []).length > 0
+          ? 'reviewing'
+          : 'pending'
     }
-    this.modalOpen = false
-    this.modalPlan = null
-    this.modalCases = []
-    this.modalAllCases = []
-    this.editingSingleCase = false
-    this.editingCaseIds = {}
   }
+
+  this.modalOpen = false
+  this.modalPlan = null
+  this.modalCases = []
+  this.modalAllCases = []
+  this.editingSingleCase = false
+  this.editingCaseIds = {}
+
+  // AJOUTER
+  this.pendingNewCase = null
+}
 
   onModalGenerate(regenerate = false) {
     if (!this.canEditGenerateForSelectedProject) {
@@ -677,6 +691,21 @@ export class TestCasesHomeComponent implements OnInit {
     }
     const plan = this.modalPlan
     if (!plan) return
+    // Nouveau test case manuel
+if (this.pendingNewCase) {
+  const alreadyExists = this.modalAllCases.some(
+    tc => tc.id === this.pendingNewCase?.id
+  )
+
+  if (!alreadyExists) {
+    this.modalAllCases = [
+      ...this.modalAllCases,
+      this.pendingNewCase,
+    ]
+  }
+
+  this.pendingNewCase = null
+}
     if (!this.testSuiteId) {
       this.toastr.error('Missing test suite id. Please open a test suite before saving.', 'Save')
       return
@@ -719,6 +748,14 @@ export class TestCasesHomeComponent implements OnInit {
   }
 
   onModalDeleteCase(caseId: string) {
+    if (
+  this.pendingNewCase &&
+  this.pendingNewCase.id === caseId
+) {
+  this.pendingNewCase = null
+  this.closeModal()
+  return
+}
     const normalizedId = String(caseId || '').trim()
     if (!normalizedId) return
 
@@ -986,10 +1023,10 @@ export class TestCasesHomeComponent implements OnInit {
     this.generationStopping = true
     const shouldReload = this.pendingBrowserReload
     try {
-      await this.stopCaseGenerationFlow()
       this.pendingBrowserReload = false
       this.allowGenerationNavigation = true
       this.closeGenerationGuardModal(true)
+      await this.stopCaseGenerationFlow()
       if (shouldReload) {
         setTimeout(() => window.location.reload(), 0)
       }
@@ -1057,6 +1094,10 @@ export class TestCasesHomeComponent implements OnInit {
       this.planStatuses[planId] = 'pending'
     }
 
+    // Remove the UI blocking overlay immediately, then cancel the backend
+    // generation in the background so the page is never left blurred.
+    this.closeModalForce()
+
     try {
       await firstValueFrom(this.testLabService.cancelGeneration({
         testSuiteId: suiteId || undefined,
@@ -1069,7 +1110,6 @@ export class TestCasesHomeComponent implements OnInit {
       this.toastr.info('Generation stopped on UI. Backend cancellation endpoint unavailable.', 'Generation')
     } finally {
       this.activeCaseGenerationRequestId = ''
-      this.closeModalForce()
     }
   }
 
@@ -1405,19 +1445,27 @@ export class TestCasesHomeComponent implements OnInit {
   }
 
 
-  openManualAddCase(plan: TestPlanDto, event?: Event): void {
+openManualAddCase(plan: TestPlanDto, event?: Event): void {
   event?.stopPropagation()
+
   if (!this.canEditGenerateForSelectedProject) {
-    this.toastr.warning('You must accept this project before adding test cases.', 'Project Access')
+    this.toastr.warning(
+      'You must accept this project before adding test cases.',
+      'Project Access'
+    )
     return
   }
+
   if (!this.testSuiteId) {
     const inferred = this.resolveSuiteIdForPlan(plan.id)
-    if (inferred) this.testSuiteId = inferred
+    if (inferred) {
+      this.testSuiteId = inferred
+    }
   }
 
   const existing = this.testCasesByPlan[plan.id] || []
-  const newCase: TestCaseDto = {
+
+  this.pendingNewCase = {
     id: `TC-${existing.length + 1}`,
     title: '',
     steps: [],
@@ -1429,12 +1477,21 @@ export class TestCasesHomeComponent implements OnInit {
   } as TestCaseDto
 
   this.modalPlan = plan
-  this.modalAllCases = [...existing, newCase]
-  this.modalCases = [newCase]
+
+  // IMPORTANT :
+  // On ne l'ajoute PAS encore dans la liste
+  this.modalAllCases = [...existing]
+
+  // On affiche seulement le brouillon dans le modal
+  this.modalCases = [this.pendingNewCase]
+
   this.editingSingleCase = true
   this.modalGenerating = false
   this.modalOpen = true
-  this.editingCaseIds = { [newCase.id]: true }
+
+  this.editingCaseIds = {
+    [this.pendingNewCase.id]: true,
+  }
 }
 
 onAddStep(caseId: string): void {
@@ -1458,4 +1515,48 @@ onEditSingleStep(caseId: string, index: number, value: string): void {
     return this.syncStepDetailsWithSteps(tc, steps)
   })
 }
+openAbandonModal(): void {
+this.selectedAbandonPlanId = ''
+this.selectedAbandonCaseId = ''
+this.abandonModalOpen = true
+}
+get abandonCases(): TestCaseDto[] {
+  if (!this.selectedAbandonPlanId) {
+    return []
+  }
+
+  return this.testCasesByPlan[this.selectedAbandonPlanId] || []
+}
+openConfirmAbandon(): void {
+  if (
+    !this.selectedAbandonPlanId ||
+    !this.selectedAbandonCaseId
+  ) {
+    this.toastr.warning('Select a test plan and test case')
+    return
+  }
+
+  this.confirmAbandonModalOpen = true
+}
+confirmAbandon(): void {
+  const planId = this.selectedAbandonPlanId
+  const caseId = this.selectedAbandonCaseId
+
+  this.testCasesByPlan[planId] =
+    (this.testCasesByPlan[planId] || []).filter(
+      tc => tc.id !== caseId
+    )
+
+  if (this.livePlanId === planId) {
+    this.liveCases = [...this.testCasesByPlan[planId]]
+  }
+
+  this.setPlanDirty(planId, true)
+
+  this.confirmAbandonModalOpen = false
+  this.abandonModalOpen = false
+
+  this.toastr.success('Test case abandoned successfully')
+}
+
 }

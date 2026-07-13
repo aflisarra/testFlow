@@ -95,6 +95,7 @@ def build_ai_decision_prompt(step: str, dom, test_case) -> str:
     "visible",
     "rect",
     "options",
+    "businessRole",
     
   # NEW
     "ariaInvalid",
@@ -149,17 +150,17 @@ def build_ai_decision_prompt(step: str, dom, test_case) -> str:
             or {}
         )
 
-    flattened_test_data = flatten_test_data(test_data)
-    test_data_text = "\n".join(
-        f"{idx + 1}. {value}" for idx, value in enumerate(flattened_test_data)
-    ) or "[]"
+    test_data_text = safe(test_data)
+    
+        
     memory_text = safe(execution_memory) if execution_memory else "{}"
 
     return f"""
 You are a Selenium automation planner.
 
 Your task is to convert a TEST STEP into executable Selenium UI actions
-using ONLY the provided DOM and TEST DATA.
+Use the provided DOM and TEST DATA when available.
+If TEST DATA is incomplete, generate missing values based on the TEST CASE.
 
 OUTPUT FORMAT (STRICT JSON ONLY):
 
@@ -596,11 +597,54 @@ validation error.
 TEST DATA RULES
 ================================================
 
-- Use only provided TEST DATA.
-- Do not invent values.
-- Respect order.
-- Empty data only for required fields.
+Use the provided TEST DATA when available.
 
+If TEST DATA is missing, incomplete, empty, or does not contain all required values, generate realistic missing values according to the TEST CASE objective and workflow.
+
+Generated values must:
+
+Respect the field purpose.
+Respect the test scenario type.
+Be realistic and executable.
+Not be random meaningless values.
+
+Examples:
+
+For a valid login test:
+
+Generate valid username and password values.
+
+For an invalid login test:
+
+Generate valid username and an incorrect password value, or invalid credentials according to the scenario.
+
+For registration:
+
+Generate realistic email, username, password, and required fields.
+
+Never leave mandatory fields empty when the workflow requires them.
+
+Never stop execution because TEST DATA is incomplete.
+
+
+TEST OBJECTIVE PRIORITY RULE
+
+When generating missing test data, the TEST CASE objective, title, and type have higher priority than incomplete existing data.
+
+If the test type is Positive:
+
+Generate valid data for all required fields.
+
+If the test type is Negative:
+
+Generate invalid data only for the field or rule being tested.
+Keep all other mandatory fields valid.
+
+If the test type is Validation:
+
+Generate data that triggers the specific validation described in the test case.
+
+Always generate data that allows the test scenario to be executed correctly.
 
 ================================================
 ACTION CONSISTENCY

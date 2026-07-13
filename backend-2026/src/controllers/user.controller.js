@@ -211,14 +211,6 @@ exports.deleteUser = async (req, res) => {
     });
 
   } catch (error) {
-    if (error.code === 'USER_IN_ACTIVE_PROJECT') {
-      return res.status(error.statusCode || 409).json({
-        code: error.code,
-        message: error.message,
-        projects: error.projects || [],
-      });
-    }
-
     console.error(MESSAGES.USER.ERROR, error);
 
     // 400 : ID invalide

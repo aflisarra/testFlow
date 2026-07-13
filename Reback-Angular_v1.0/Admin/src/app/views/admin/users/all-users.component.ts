@@ -327,6 +327,7 @@ private handleCreateUserError(err: HttpErrorResponse): void {
     //ref.componentInstance.details = 'This action cannot be undone.'
     ref.componentInstance.confirmText = 'Delete'
     ref.componentInstance.cancelText = 'Cancel'
+    ref.componentInstance.confirmButtonClass = 'btn-brand'
 
     ref.closed.subscribe(() => {
       this.adminService.deleteUser(user._id).subscribe({
@@ -335,23 +336,7 @@ private handleCreateUserError(err: HttpErrorResponse): void {
           this.loadUsers()
         },
         error: (err) => {
-          if (String(err?.error?.code || '').trim() === 'USER_IN_ACTIVE_PROJECT') {
-            this.uiNotify.accessDenied(
-              'Cannot delete this user because they are assigned to an unfinished project team.'
-            )
-            return
-          }
           const rawMessage = String(err?.error?.message || '').trim()
-          const normalizedMessage = rawMessage.toLowerCase()
-          if (
-            normalizedMessage.includes('cannot delete this user') &&
-            normalizedMessage.includes('unfinished project team')
-          ) {
-            this.uiNotify.accessDenied(
-              'Cannot delete this user because they are assigned to an unfinished project team.'
-            )
-            return
-          }
           this.error = rawMessage || 'Unable to delete user'
         },
       })

@@ -62,6 +62,9 @@ def build_test_plan_prompt(
         "Do not create a plan if no specification section supports it.\n\n"
 
         "BUSINESS FEATURE RULE:\n"
+        "Generate ONLY business features explicitly described in the specification.\n"
+"Do not invent Authentication, CRUD, Registration, Login, Search, Filter, Export, Import, Dashboard, User Management or Settings unless they are explicitly described.\n"
+"If a feature is not clearly documented in the specification, do not generate a test plan for it.\n\n"
         "Create plans only for features explicitly described in the specification.\n"
         "Do not create technical or generic QA plans.\n\n"
 

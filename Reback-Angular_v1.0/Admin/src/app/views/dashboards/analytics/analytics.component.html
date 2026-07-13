@@ -1,85 +1,83 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
     <h4 class="mb-0 fw-semibold">Dashboard Overview</h4>
-    <div class="text-muted">AI Test Ops</div>
   </div>
 
-  <div class="d-flex align-items-center gap-2">
-    <button
-      type="button"
-      class="btn btn-sm btn-soft-secondary d-inline-flex align-items-center justify-content-center"
-      aria-label="Notifications"
-    >
-      <iconify-icon icon="lucide:bell" class="fs-18"></iconify-icon>
-    </button>
+  <div class="d-flex align-items-center gap-3">
+    <div class="search-box">
+      <iconify-icon icon="lucide:search" class="search-box__icon"></iconify-icon>
+      <input type="text" class="form-control form-control-sm search-box__input" placeholder="Search tests, logs..." />
+    </div>
 
-    <button type="button" class="btn btn-primary btn-sm px-3">
-      Run New Test
-    </button>
+    
+
+    
   </div>
 </div>
 
 <div class="row g-3">
   <div class="col-12 col-md-6 col-xl-3">
-    <div class="card shadow-sm rounded-4 mb-0">
+    <div class="card shadow-sm rounded-4 mb-0 kpi-card">
       <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <div class="text-muted">Total Test Runs</div>
-            <div class="display-6 fw-bold mb-0">1,284</div>
-          </div>
-          <span class="badge bg-success-subtle text-success rounded-pill">
-            +12.5%
-          </span>
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div class="text-muted small">Total Test Runs</div>
+          <span class="badge bg-success-subtle text-success rounded-pill">+12.5%</span>
+        </div>
+        <div class="d-flex align-items-end justify-content-between">
+          <div class="display-6 fw-bold mb-0">1,284</div>
+          <iconify-icon icon="lucide:bar-chart-2" class="fs-24 text-body-tertiary"></iconify-icon>
         </div>
       </div>
     </div>
   </div>
 
   <div class="col-12 col-md-6 col-xl-3">
-    <div class="card shadow-sm rounded-4 mb-0">
+    <div class="card shadow-sm rounded-4 mb-0 kpi-card">
       <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <div class="text-muted">Success Rate</div>
-            <div class="display-6 fw-bold mb-0">98.2%</div>
-          </div>
-          <span class="badge bg-success-subtle text-success rounded-pill">
-            +0.4%
-          </span>
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div class="text-muted small">Success Rate</div>
+          <span class="badge bg-success-subtle text-success rounded-pill">+0.4%</span>
+        </div>
+        <div class="d-flex align-items-end justify-content-between mb-2">
+          <div class="display-6 fw-bold mb-0">98.2%</div>
+          <span class="text-muted small">Target: 99%</span>
+        </div>
+        <div class="progress kpi-progress">
+          <div class="progress-bar bg-success" role="progressbar" style="width: 98.2%"></div>
         </div>
       </div>
     </div>
   </div>
 
   <div class="col-12 col-md-6 col-xl-3">
-    <div class="card shadow-sm rounded-4 mb-0">
+    <div class="card shadow-sm rounded-4 mb-0 kpi-card">
       <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <div class="text-muted">Active Deployments</div>
-            <div class="display-6 fw-bold mb-0">14</div>
-          </div>
-          <span class="badge bg-light text-muted rounded-pill">
-            Stable
-          </span>
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div class="text-muted small">Active Deployments</div>
+          <span class="badge bg-light text-muted rounded-pill">STABLE</span>
+        </div>
+        <div class="display-6 fw-bold mb-2">14</div>
+        <div class="d-flex gap-1">
+          <span class="env-pill env-pill--prod">PR</span>
+          <span class="env-pill env-pill--qa">QA</span>
+          <span class="env-pill env-pill--stg">STG</span>
         </div>
       </div>
     </div>
   </div>
 
   <div class="col-12 col-md-6 col-xl-3">
-    <div class="card shadow-sm rounded-4 mb-0">
+    <div class="card shadow-sm rounded-4 mb-0 kpi-card">
       <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <div class="text-muted">AI Anomalies</div>
-            <div class="display-6 fw-bold mb-0 text-warning">3</div>
-          </div>
-          <span class="badge bg-warning-subtle text-warning rounded-pill">
-            Action Required
-          </span>
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div class="text-muted small">AI Anomalies</div>
+          <span class="badge bg-warning text-white rounded-pill">Action Required</span>
         </div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <div class="display-6 fw-bold mb-0 text-warning">3</div>
+          <iconify-icon icon="lucide:triangle-alert" class="text-warning fs-20"></iconify-icon>
+        </div>
+        <div class="text-muted small">Potential memory leak detected in auth service.</div>
       </div>
     </div>
   </div>
@@ -90,8 +88,11 @@
     <div class="card shadow-sm rounded-4 mb-0">
       <div class="card-body">
         <div class="d-flex align-items-center justify-content-between mb-3">
-          <h5 class="mb-0">Test Coverage &amp; Health</h5>
-          <select class="form-select form-select-sm w-auto">
+          <div>
+            <h5 class="mb-0">Test Coverage &amp; Health</h5>
+            <div class="text-muted small">Global performance across all environments</div>
+          </div>
+          <select class="form-select form-select-sm w-auto rounded-pill">
             <option selected>Last 30 Days</option>
             <option>Last 7 Days</option>
           </select>
@@ -133,30 +134,40 @@
         </div>
 
         <div class="d-grid gap-2">
-          <div class="ai-insight ai-insight-warning">
-            <div class="ai-insight-title">REGRESSION WARNING</div>
-            <div class="text-muted">
-              Checkout latency increased by 15% in v2.4.1 build.
+          <div class="ai-insight ai-insight-warning d-flex justify-content-between align-items-start">
+            <div>
+              <div class="ai-insight-title">REGRESSION WARNING</div>
+              <div class="text-muted small">
+                Checkout latency increased by 15% in v2.4.1 build.
+              </div>
             </div>
+            <iconify-icon icon="lucide:triangle-alert" class="text-warning fs-16 flex-shrink-0 ms-2"></iconify-icon>
           </div>
 
-          <div class="ai-insight ai-insight-primary">
-            <div class="ai-insight-title">OPTIMIZATION</div>
-            <div class="text-muted">
-              3 redundant UI tests identified. Estimated 5min run reduction.
+          <div class="ai-insight ai-insight-primary d-flex justify-content-between align-items-start">
+            <div>
+              <div class="ai-insight-title">OPTIMIZATION</div>
+              <div class="text-muted small">
+                3 redundant UI tests identified. Estimated 5min run reduction.
+              </div>
             </div>
+            <iconify-icon icon="lucide:wand-sparkles" class="text-primary fs-16 flex-shrink-0 ms-2"></iconify-icon>
           </div>
 
-          <div class="ai-insight ai-insight-success">
-            <div class="ai-insight-title">SELF-HEALED</div>
-            <div class="text-muted">
-              Login selector updated automatically for staging env.
+          <div class="ai-insight ai-insight-success d-flex justify-content-between align-items-start">
+            <div>
+              <div class="ai-insight-title">SELF-HEALED</div>
+              <div class="text-muted small">
+                Login selector updated automatically for staging env.
+              </div>
             </div>
+            <iconify-icon icon="lucide:check-circle-2" class="text-success fs-16 flex-shrink-0 ms-2"></iconify-icon>
           </div>
         </div>
 
-        <button type="button" class="btn btn-soft-primary w-100 mt-3">
+        <button type="button" class="btn btn-soft-primary w-100 mt-3 d-flex align-items-center justify-content-center gap-1">
           View All Insights
+          <iconify-icon icon="lucide:arrow-right" class="fs-14"></iconify-icon>
         </button>
       </div>
     </div>
@@ -190,14 +201,14 @@
                 <td>Production</td>
                 <td>412 / 412</td>
                 <td>
-                  <span class="badge bg-success-subtle text-success">
-                    Passed
+                  <span class="badge bg-success-subtle text-success status-dot-badge">
+                    <span class="status-dot status-dot--success"></span> Passed
                   </span>
                 </td>
                 <td>12m 45s</td>
                 <td class="text-end">
-                  <a class="btn btn-link btn-sm" href="javascript:void(0);">
-                    Report
+                  <a class="btn btn-icon btn-sm btn-soft-secondary rounded-circle" href="javascript:void(0);" aria-label="View report">
+                    <iconify-icon icon="lucide:file-text"></iconify-icon>
                   </a>
                 </td>
               </tr>
@@ -206,14 +217,14 @@
                 <td>Staging</td>
                 <td>408 / 412</td>
                 <td>
-                  <span class="badge bg-danger-subtle text-danger">
-                    Failed
+                  <span class="badge bg-danger-subtle text-danger status-dot-badge">
+                    <span class="status-dot status-dot--danger"></span> Failed
                   </span>
                 </td>
                 <td>11m 20s</td>
                 <td class="text-end">
-                  <a class="btn btn-link btn-sm" href="javascript:void(0);">
-                    Report
+                  <a class="btn btn-icon btn-sm btn-soft-secondary rounded-circle" href="javascript:void(0);" aria-label="View report">
+                    <iconify-icon icon="lucide:file-text"></iconify-icon>
                   </a>
                 </td>
               </tr>
@@ -222,14 +233,14 @@
                 <td>QA-02</td>
                 <td>156 / 412</td>
                 <td>
-                  <span class="badge bg-primary-subtle text-primary">
-                    Running
+                  <span class="badge bg-primary-subtle text-primary status-dot-badge">
+                    <span class="status-dot status-dot--running"></span> Running
                   </span>
                 </td>
                 <td>--</td>
                 <td class="text-end">
-                  <a class="btn btn-link btn-sm" href="javascript:void(0);">
-                    Report
+                  <a class="btn btn-icon btn-sm btn-soft-secondary rounded-circle" href="javascript:void(0);" aria-label="View report">
+                    <iconify-icon icon="lucide:file-text"></iconify-icon>
                   </a>
                 </td>
               </tr>

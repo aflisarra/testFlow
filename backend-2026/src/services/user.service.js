@@ -116,29 +116,5 @@ exports.updateUser = async (userId, updateData) => {
 // Input: id (String) - the ID of the user to delete
 // Output: deleted user object, or null if not found
 exports.deleteUser = async (id) => {
-  const blockingProjects = await Project.find({
-    assignedUsers: id,
-    $or: [
-      { status: { $ne: 'completed' } },
-      { endDate: null },
-      { endDate: { $exists: false } },
-    ],
-  })
-    .select('title status endDate')
-    .lean();
-
-  if (blockingProjects.length > 0) {
-    const error = new Error(MESSAGES.USER.ACTIVE_PROJECT_TEAM_MEMBER);
-    error.statusCode = 409;
-    error.code = 'USER_IN_ACTIVE_PROJECT';
-    error.projects = blockingProjects.map((project) => ({
-      _id: project._id,
-      title: project.title,
-      status: project.status,
-      endDate: project.endDate,
-    }));
-    throw error;
-  }
-
   return await User.findByIdAndDelete(id);
 };

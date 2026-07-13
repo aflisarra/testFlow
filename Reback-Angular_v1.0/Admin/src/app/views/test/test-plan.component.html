@@ -269,17 +269,28 @@
         <div>
           <h4 class="testlab-result-title mb-1">Generated Test Plans</h4>
         </div>
-        <span class="testlab-pill">{{ testPlans.length }} Plans</span>
+        <div class="d-flex align-items-center gap-2">
+          <button
+  type="button"
+  class="btn-add-plan"
+  [disabled]="generatingPlans || finishing || !!regeneratingPlanId"
+  (click)="openManualAddPlan()"
+>
+  <iconify-icon icon="mdi:plus-circle-outline" width="18" height="18"></iconify-icon>
+  <span>Add Plan</span>
+</button>
+          <span class="testlab-pill">{{ testPlans.length }} Plans</span>
+        </div>
       </div>
 
       <div class="testlab-plan-list">
         @for (plan of testPlans; track plan.id; let i = $index) {
         <div class="testlab-plan-item testlab-plan-item--readonly">
           <div class="testlab-plan-title d-flex align-items-center justify-content-between gap-2">
-            <div>
-              <span class="testlab-plan-badge">#{{ i + 1 }}</span>
-              <span class="testlab-plan-name">{{ plan.title }}</span>
-            </div>
+            <div class="testlab-plan-title-left">
+  <span class="testlab-plan-badge">#{{ i + 1 }}</span>
+  <span class="testlab-plan-name">{{ plan.title }}</span>
+</div>
             <div class="testlab-plan-actions">
               <button type="button" class="btn btn-sm btn-validate testlab-validate-btn"
                 [ngClass]="getValidateButtonClass(plan.id)"
@@ -289,24 +300,8 @@
                 <span>{{ getValidateButtonLabel(plan.id) }}</span>
               </button>
 
-              <button
-                type="button"
-                class="btn-edit-plan"
-                [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
-                (click)="openPlanEditModal(plan)"
-              >
-                <iconify-icon icon="iconamoon:edit-duotone"></iconify-icon>
-                <span>Edit</span>
-              </button>
-              <button
-                type="button"
-                class="btn-edit-plan"
-                [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
-                (click)="onAbandonPlan(plan)"
-              >
-                <iconify-icon icon="iconamoon:trash-duotone"></iconify-icon>
-                <span>Abandon</span>
-              </button>
+            
+              
               <button type="button" class="btn btn-sm btn-regenerate testlab-regenerate-btn"
                 [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
                 (click)="onRegeneratePlan(plan, i)">
@@ -318,6 +313,24 @@
                 <span>Regenerate</span>
                 }
               </button>
+               <button
+  type="button"
+  class="btn-edit-plan"
+  [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
+  (click)="openPlanEditModal(plan)"
+>
+  <iconify-icon icon="iconamoon:edit-duotone"></iconify-icon>
+  <span>Edit</span>
+</button>
+              <button
+  type="button"
+  class="btn-edit-plan btn-abandon-plan"
+  [disabled]="generatingPlans || finishing || regeneratingPlanId === plan.id"
+  (click)="onAbandonPlan(plan)"
+>
+  <iconify-icon icon="iconamoon:trash-duotone"></iconify-icon>
+  <span>Abandon</span>
+</button>
             </div>
           </div>
           <div class="testlab-plan-desc">{{ plan.description }}</div>
@@ -573,13 +586,24 @@
 <div class="tc-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="planEditTitle">
   <div class="tc-modal-card tc-modal-card--plan" (click)="$event.stopPropagation()">
     <div class="tc-modal-head tc-modal-head--plan">
+      <div class="tc-modal-head-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 11l3 3L22 4"/>
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+        </svg>
+      </div>
       <div class="tc-modal-head-copy">
         <span class="tc-modal-plan-id">{{ planEditDraft.id }}</span>
-        <h5 id="planEditTitle" class="tc-modal-title mb-0">Edit Test Plan</h5>
-        <p class="tc-modal-subtitle mb-0">Refine the plan details before saving your updates.</p>
+        <h5 id="planEditTitle" class="tc-modal-title mb-0">
+          {{ planEditMode === 'add' ? 'Add Test Plan' : 'Edit Test Plan' }}
+        </h5>
+        <p class="tc-modal-subtitle mb-0">
+          {{ planEditMode === 'add' ? 'Create a manual test plan before saving your session.' : 'Refine the plan details before saving your updates.' }}
+        </p>
       </div>
       <button class="btn-close confirm-close" type="button" aria-label="Close" (click)="closePlanEditModal()"></button>
     </div>
+
     <div class="tc-modal-body tc-modal-body--plan custom-scrollbar">
       <div class="tc-modal-grid">
         <div class="tc-modal-field tc-modal-field--full">
@@ -609,9 +633,12 @@
         </div>
       </div>
     </div>
+
     <div class="tc-modal-actions tc-modal-actions--plan">
       <button type="button" class="btn btn-cancel px-4" (click)="closePlanEditModal()">Cancel</button>
-      <button type="button" class="btn btn-brand px-4" (click)="savePlanEditModal()">Save changes</button>
+      <button type="button" class="btn btn-brand px-4" (click)="savePlanEditModal()">
+        {{ planEditMode === 'add' ? 'Add plan' : 'Save changes' }}
+      </button>
     </div>
   </div>
 </div>

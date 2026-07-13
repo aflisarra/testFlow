@@ -537,15 +537,13 @@
     color: #fff;
 }
 
-/* Vert → plan validé */
-.testlab-validate-btn--green {
+.testlab-validate-btn.testlab-validate-btn--green {
   background: rgb(16 185 129 / 12%);
   border-color: rgb(16 185 129 / 35%);
   color: #10b981;
 }
 
-/* Orange → plan pas encore validé */
-.testlab-validate-btn--orange {
+.testlab-validate-btn.testlab-validate-btn--orange {
   background: rgb(236 138 0 / 12%);
   border-color: rgb(236 138 0 / 35%);
   color: var(--pm-brand-primary);
@@ -730,12 +728,12 @@
 .btn-edit-plan,
 .testlab-manual-edit-btn {
     min-inline-size: 140px;
-    padding: 0.25rem 0.65rem;
+    padding: 0.4rem 0.8rem;
     border-radius: 8px;
-    border: 1px solid #0ea5e9;
-    background: #0ea5e9;
+    border: 1px solid #3d8adde8;
+    background: #3d8adde8;
     color: #fff;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     font-weight: 500;
     display: inline-flex;
     align-items: center;
@@ -743,12 +741,22 @@
     gap: var(--space-sm);
     white-space: nowrap;
     transition: all 0.2s ease;
+    
 }
+
 
 .btn-edit-plan:hover:not(:disabled),
 .testlab-manual-edit-btn:hover:not(:disabled) {
-    background: #0284c7;
-    border-color: #0284c7;
+    background: #2b76c9;
+    border-color: #2b76c9;
+}
+.btn-abandon-plan {
+    background: #ea321d;
+    border-color: #ef9444;
+}
+.btn-abandon-plan:hover:not(:disabled) {
+    background: #dc2626;
+    border-color: #dc2626;
 }
 
 .btn-edit-plan:disabled,
@@ -756,10 +764,53 @@
     opacity: 0.65;
     cursor: not-allowed;
 }
-
 .testlab-delete-btn {
     padding: 0.35rem 0.6rem;
     border-radius: 8px;
+}
+.btn-add-plan {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+
+    padding: 0.45rem 0.9rem;
+    border: none;
+    border-radius: 10px;
+
+    background: #3d8adde8;
+    color: #fff;
+
+    font-size: 0.65rem;
+    font-weight: 600;
+
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 12px rgba(61, 138, 221, 0.25);
+}
+
+.btn-add-plan:hover:not(:disabled) {
+    background: #2b76c9;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(61, 138, 221, 0.35);
+}
+
+.btn-add-plan:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.btn-add-plan:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.btn-add-plan iconify-icon {
+    font-size: 1.1rem;
+}
+.testlab-plan-title-left {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem; /* ajuste entre 0.4rem et 0.8rem */
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -2139,3 +2190,219 @@ h1 {
 :host-context([data-bs-theme='dark']) .tc-edit-step-row { background: #0f172a; }
 :host-context([data-bs-theme='dark']) .tc-edit-step-input { color: #e2e8f0; }
 :host-context([data-bs-theme='dark']) .tc-edit-step-num { background: #1e293b; border-color: rgb(255 255 255 / 10%); color: #94a3b8; }
+/* ─── Plan edit modal — thème orange (header blanc) ───────────────────────── */
+.tc-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(15 17 23 / 55%);
+  backdrop-filter: blur(3px);
+  z-index: 1000;
+  animation: tc-modal-fade-in 0.15s ease;
+}
+
+@keyframes tc-modal-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.tc-modal-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.tc-modal-card.tc-modal-card--plan {
+  background: #fff;
+  border-radius: 18px;
+ width: min(520px, 92vw);   /* était 680px */
+  max-height: 78vh;          /* était 88vh */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 70px rgb(15 17 23 / 32%);
+  animation: tc-modal-pop 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes tc-modal-pop {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ─── Header (fond blanc, plus de dégradé orange) ──────────────────────────── */
+.tc-modal-head.tc-modal-head--plan {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px 24px;
+  background: #fff !important;
+  color: #1f2430 !important;
+  border-bottom: 1px solid #edf0f4;
+  position: relative;
+}
+
+.tc-modal-head.tc-modal-head--plan .tc-modal-head-icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgb(230 126 34 / 12%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #E67E22;
+}
+
+.tc-modal-head.tc-modal-head--plan .tc-modal-head-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.tc-modal-head.tc-modal-head--plan .tc-modal-plan-id {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgb(230 126 34 / 12%);
+  color: #d3690f;
+  border-radius: 99px;
+  padding: 3px 10px;
+  margin-bottom: 6px;
+}
+
+.tc-modal-head.tc-modal-head--plan .tc-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2430 !important;
+}
+
+.tc-modal-head.tc-modal-head--plan .tc-modal-subtitle {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+/* le bouton close reprend son style normal (plus d'inversion blanc) */
+.tc-modal-head.tc-modal-head--plan .confirm-close {
+  filter: none;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.tc-modal-head.tc-modal-head--plan .confirm-close:hover { opacity: 1; }
+
+/* ─── Body ────────────────────────────────────────────────────────────────── */
+.tc-modal-body.tc-modal-body--plan {
+  padding: 22px 24px;
+  overflow-y: auto;
+}
+
+.tc-modal-body.tc-modal-body--plan .tc-modal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.tc-modal-body.tc-modal-body--plan .tc-modal-field--full {
+  grid-column: 1 / -1;
+}
+
+.tc-modal-body.tc-modal-body--plan .tc-modal-field .form-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #5a5f78;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.tc-modal-body.tc-modal-body--plan .tc-modal-field .form-control,
+.tc-modal-body.tc-modal-body--plan .tc-modal-field .form-select {
+  border: 1.5px solid #e8eaf0;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  color: #1f2430;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.tc-modal-body.tc-modal-body--plan .tc-modal-field .form-control:focus,
+.tc-modal-body.tc-modal-body--plan .tc-modal-field .form-select:focus {
+  border-color: #E67E22 !important;
+  box-shadow: 0 0 0 3px rgb(230 126 34 / 15%) !important;
+  outline: none;
+}
+
+.tc-modal-body.tc-modal-body--plan .tc-modal-textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+/* ─── Actions ─────────────────────────────────────────────────────────────── */
+.tc-modal-actions.tc-modal-actions--plan {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid #edf0f4;
+  background: #fafbfd;
+}
+
+.tc-modal-actions.tc-modal-actions--plan .btn-cancel {
+  background: #fff;
+  border: 1.5px solid #e4e7ec;
+  color: #5a5f78;
+  font-weight: 600;
+  font-size: 13.5px;
+  border-radius: 10px;
+  padding: 9px 18px;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.tc-modal-actions.tc-modal-actions--plan .btn-cancel:hover {
+  background: #f5f6f9;
+  border-color: #d6dae2;
+}
+.tc-modal-actions.tc-modal-actions--plan .btn-cancel:active { transform: translateY(1px); }
+
+.tc-modal-actions.tc-modal-actions--plan .btn-brand {
+  background: #E67E22 !important;
+  border: 1.5px solid #E67E22 !important;
+  color: #fff !important;
+  font-weight: 700;
+  font-size: 13.5px;
+  border-radius: 10px;
+  padding: 9px 18px;
+  box-shadow: 0 2px 8px rgb(230 126 34 / 30%);
+  transition: background 0.15s, box-shadow 0.2s, transform 0.1s;
+}
+.tc-modal-actions.tc-modal-actions--plan .btn-brand:hover {
+  background: #d3690f !important;
+  border-color: #d3690f !important;
+  box-shadow: 0 5px 16px rgb(230 126 34 / 40%);
+  transform: translateY(-1px);
+}
+.tc-modal-actions.tc-modal-actions--plan .btn-brand:active { transform: translateY(0); }
+
+/* ─── Responsive ──────────────────────────────────────────────────────────── */
+@media (width <= 640px) {
+  .tc-modal-body.tc-modal-body--plan .tc-modal-grid {
+    grid-template-columns: 1fr;
+  }
+  .tc-modal-head.tc-modal-head--plan {
+    padding: 18px 18px;
+  }
+  .tc-modal-body.tc-modal-body--plan {
+    padding: 18px;
+  }
+  .tc-modal-actions.tc-modal-actions--plan {
+    padding: 14px 18px;
+    flex-direction: column-reverse;
+  }
+  .tc-modal-actions.tc-modal-actions--plan .btn {
+    width: 100%;
+  }
+}

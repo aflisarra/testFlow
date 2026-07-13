@@ -1,39 +1,126 @@
+/* ─── Search box ─────────────────────────────────────── */
+.search-box {
+  position: relative;
+}
+.search-box__icon {
+  position: absolute;
+  inset-inline-start: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--bs-secondary-color);
+  font-size: 15px;
+}
+.search-box__input {
+  padding-inline-start: 32px;
+  border-radius: 999px;
+  min-width: 220px;
+}
+
+/* ─── Notification dot ───────────────────────────────── */
+.notif-dot {
+  position: absolute;
+  top: 6px;
+  inset-inline-end: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--bs-danger);
+  border: 1.5px solid #fff;
+}
+
+/* ─── User chip ───────────────────────────────────────── */
+.user-chip__avatar {
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+}
+.user-chip__name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.user-chip__role {
+  font-size: 0.6875rem;
+  color: var(--bs-secondary-color);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* ─── KPI cards ───────────────────────────────────────── */
+.kpi-card .display-6 {
+  font-size: 1.75rem;
+}
+.kpi-progress {
+  height: 5px;
+  border-radius: 999px;
+}
+
+/* ─── Env pills (Active Deployments) ─────────────────── */
+.env-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #fff;
+}
+.env-pill--prod { background: #6f77f5; }
+.env-pill--qa   { background: #22c55e; }
+.env-pill--stg  { background: #38bdf8; }
+
+/* ─── AI Insights (existant, inchangé) ───────────────── */
 .ai-insight {
   border-radius: 0.75rem;
   padding: 0.9rem 1rem;
   border-inline-start: 4px solid transparent;
 }
-
 .ai-insight-title {
   font-weight: 700;
   letter-spacing: 0.04em;
   font-size: 0.75rem;
   margin-block-end: 0.25rem;
 }
-
 .ai-insight-warning {
   border-inline-start-color: var(--bs-warning);
   background: rgba(255, 193, 7, 0.1);
 }
-
-.ai-insight-warning .ai-insight-title {
-  color: var(--bs-warning-text-emphasis);
-}
-
+.ai-insight-warning .ai-insight-title { color: var(--bs-warning-text-emphasis); }
 .ai-insight-primary {
   border-inline-start-color: var(--bs-primary);
   background: rgba(13, 110, 253, 0.08);
 }
-
-.ai-insight-primary .ai-insight-title {
-  color: var(--bs-primary-text-emphasis);
-}
-
+.ai-insight-primary .ai-insight-title { color: var(--bs-primary-text-emphasis); }
 .ai-insight-success {
   border-inline-start-color: var(--bs-success);
   background: rgba(25, 135, 84, 0.08);
 }
+.ai-insight-success .ai-insight-title { color: var(--bs-success-text-emphasis); }
 
-.ai-insight-success .ai-insight-title {
-  color: var(--bs-success-text-emphasis);
+/* ─── Status dot badges (table) ───────────────────────── */
+.status-dot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+}
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.status-dot--success { background: var(--bs-success); }
+.status-dot--danger  { background: var(--bs-danger); }
+.status-dot--running { background: var(--bs-primary); }
+
+/* ─── Icon action button ─────────────────────────────── */
+.btn-icon {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }

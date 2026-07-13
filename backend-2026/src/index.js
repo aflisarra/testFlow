@@ -16,6 +16,7 @@ const authMagic = require("./routes/auth.magic.routes");
 // Routes
 const ollamaRoutes = require('./routes/ollama.routes')
 const seleniumRoutes = require('./routes/selenium.routes')
+const aiFixRoutes = require('./routes/ai-fix.routes')
 ///////////////////////////////////////////////
 
 
@@ -130,6 +131,7 @@ app.use('/api/testsuites', testSuiteRoutes);
 //app.use("/api/ai", aiRoutes);
 app.use("/api/ollama", ollamaRoutes);
 app.use('/api/selenium', seleniumRoutes)
+app.use('/api/ai', aiFixRoutes)
 app.use("/auth", authMagic);
 
 

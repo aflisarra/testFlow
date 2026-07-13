@@ -100,6 +100,7 @@ isEditMode = false
   generationStopping = false
   planEditModalOpen = false
   planEditDraft: TestPlanDto | null = null
+  planEditMode: 'edit' | 'add' = 'edit'
   private generationGuardResolve: ((allowed: boolean) => void) | null = null
   private allowGenerationNavigation = false
   private pendingBrowserReload = false
@@ -353,7 +354,7 @@ if (promptToEdit && !this.suppressExistingProjectModal) {
     ref.componentInstance.confirmText = 'Continue'
     ref.componentInstance.cancelText = 'Cancel'
     ref.componentInstance.confirmButtonClass = 'btn-brand'
-    ref.componentInstance.icon = 'iconamoon:document-check-duotone'
+    ref.componentInstance.icon = 'iconamoon:file-document-duotone'
 
     ref.componentInstance.selectLabel = 'Action'
     ref.componentInstance.selectPlaceholder = '-- Choose an action --'
@@ -613,10 +614,10 @@ this.styleConfig = suite.styleConfig || '' // ✅ BONUS
     this.generationStopping = true
     const shouldReload = this.pendingBrowserReload
     try {
-      await this.stopGenerationFlow()
       this.pendingBrowserReload = false
       this.allowGenerationNavigation = true
       this.closeGenerationGuardModal(true)
+      await this.stopGenerationFlow()
       if (shouldReload) {
         setTimeout(() => window.location.reload(), 0)
       }
@@ -646,6 +647,29 @@ onTogglePlanValidation(planId: string) {
 }
 
 
+  openManualAddPlan(): void {
+    if (this.generatingPlans || this.finishing || this.regeneratingPlanId) return
+    if (!this.isSelectedProjectAccepted) {
+      this.toastr.warning('You must accept this project before adding test plans.', 'Project Access')
+      return
+    }
+
+    const nextNumber = this.testPlans.length + 1
+    this.planEditDraft = {
+      id: this.buildManualPlanId(),
+      title: `Test Plan ${nextNumber}`,
+      description: '',
+      objective: '',
+      scope: '',
+      priority: 'Medium',
+      requirements: [],
+      testCases: [],
+      casesCount: 0,
+    }
+    this.planEditMode = 'add'
+    this.planEditModalOpen = true
+  }
+
   openPlanEditModal(plan: TestPlanDto): void {
     this.planEditDraft = {
       ...plan,
@@ -655,17 +679,42 @@ onTogglePlanValidation(planId: string) {
       scope: String(plan.scope || ''),
       priority: String(plan.priority || 'Medium'),
     }
+    this.planEditMode = 'edit'
     this.planEditModalOpen = true
   }
 
   closePlanEditModal(): void {
     this.planEditModalOpen = false
     this.planEditDraft = null
+    this.planEditMode = 'edit'
   }
 
   savePlanEditModal(): void {
     if (!this.planEditDraft?.id) return
     const id = this.planEditDraft.id
+    if (this.planEditMode === 'add') {
+      const newPlan: TestPlanDto = {
+        ...this.planEditDraft,
+        title: String(this.planEditDraft.title || `Test Plan ${this.testPlans.length + 1}`).trim(),
+        description: String(this.planEditDraft.description || '').trim(),
+        objective: String(this.planEditDraft.objective || '').trim(),
+        scope: String(this.planEditDraft.scope || '').trim(),
+        priority: String(this.planEditDraft.priority || 'Medium'),
+        requirements: this.planEditDraft.requirements || [],
+        testCases: this.planEditDraft.testCases || [],
+        casesCount: this.planEditDraft.casesCount || 0,
+      }
+      this.testPlans = [...this.testPlans, newPlan]
+      this.testCasesByPlan[newPlan.id] = this.testCasesByPlan[newPlan.id] || []
+      this.planStatuses[newPlan.id] = 'pending'
+      this.currentPlanIndex = this.testPlans.length - 1
+      this.plansValidated = false
+      this.sessionSaved = false
+      this.closePlanEditModal()
+      this.toastr.success('Test plan added successfully.', 'Test Plan')
+      return
+    }
+
     const idx = this.testPlans.findIndex((p) => p.id === id)
     if (idx < 0) return
     this.testPlans = this.testPlans.map((p) =>
@@ -692,6 +741,17 @@ onTogglePlanValidation(planId: string) {
     }
   }
 
+  private buildManualPlanId(): string {
+    const usedIds = new Set(this.testPlans.map((plan) => String(plan.id || '').trim()))
+    let index = this.testPlans.length + 1
+    let id = `TP-${String(index).padStart(3, '0')}`
+    while (usedIds.has(id)) {
+      index += 1
+      id = `TP-${String(index).padStart(3, '0')}`
+    }
+    return id
+  }
+
   isPlanEditing(planId: string): boolean {
     return Boolean(this.editingPlanIds[String(planId || '').trim()])
   }
@@ -708,8 +768,8 @@ onTogglePlanValidation(planId: string) {
     ref.componentInstance.details = `${plan.title || plan.id} will be removed from the current list.`
     ref.componentInstance.confirmText = 'Abandon'
     ref.componentInstance.cancelText = 'Cancel'
-    ref.componentInstance.confirmButtonClass = 'btn-danger'
-    ref.componentInstance.icon = 'iconamoon:warning-duotone'
+    ref.componentInstance.confirmButtonClass = 'btn-brand'
+    ref.componentInstance.icon = 'iconamoon:attention-circle-duotone'
 
     ref.closed.subscribe((result) => {
       if (!result) return
@@ -1232,6 +1292,7 @@ get canGenerateTestPlan(): boolean {
     this.activePlanGenerationRequestId = requestId
     this.generatingPlans = true
     this.syncProjectIdControlDisabled()
+    this.scrollToPlansResult()
 
     // ✅ reset local
     this.testPlans = []
@@ -1285,6 +1346,8 @@ get canGenerateTestPlan(): boolean {
       this.errorMessage = 'Aucun test plan généré.'
       this.toastr.warning(this.errorMessage, 'Test Plan')
     }
+
+    this.scrollToPlansResult()
 
   } catch (err: unknown) {
     if (currentPlanToken !== this.plansGenerationToken) return
@@ -1396,9 +1459,23 @@ get canGenerateTestPlan(): boolean {
       this.uploadedFileName = fileName
       this.testPlanForm.patchValue({ specDocument: fileName })
     } catch {
-      // Keep existing behavior when backend has only metadata but no physical file.
+      const specText = String(suite?.specText || '').trim()
+      const fileName = String(suite?.specFileName || 'existing-spec.html').trim() || 'existing-spec.html'
+      this.uploadedFileName = String(suite?.specFileName || '').trim() || fileName
+
+      if (specText) {
+        const mime = fileName.endsWith('.md')
+          ? 'text/markdown'
+          : fileName.endsWith('.txt')
+            ? 'text/plain'
+            : 'text/html'
+        const content = specText.startsWith('<') ? specText : `<pre>${specText.replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch] as string))}</pre>`
+        this.selectedFile = new File([content], fileName, { type: mime })
+        this.testPlanForm.patchValue({ specDocument: this.uploadedFileName })
+        return
+      }
+
       this.selectedFile = null
-      this.uploadedFileName = String(suite?.specFileName || '').trim()
       if (this.uploadedFileName) {
         this.testPlanForm.patchValue({ specDocument: this.uploadedFileName })
       }
