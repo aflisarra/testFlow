@@ -1542,21 +1542,35 @@ confirmAbandon(): void {
   const planId = this.selectedAbandonPlanId
   const caseId = this.selectedAbandonCaseId
 
-  this.testCasesByPlan[planId] =
-    (this.testCasesByPlan[planId] || []).filter(
-      tc => tc.id !== caseId
-    )
-
-  if (this.livePlanId === planId) {
-    this.liveCases = [...this.testCasesByPlan[planId]]
+  const testCase = (this.testCasesByPlan[planId] || []).find(tc => tc.id === caseId)
+  if (!testCase) {
+    this.toastr.error('Test case not found')
+    return
   }
 
-  this.setPlanDirty(planId, true)
+  // Utilise le vrai Mongo _id pour l'appel API, pas le champ "id" affiché (TC-1, TC-2...)
+  const mongoId = (testCase as any)._id || testCase.id
 
-  this.confirmAbandonModalOpen = false
-  this.abandonModalOpen = false
+  this.testLabService.deleteTestCase(mongoId).subscribe({
+    next: () => {
+      this.testCasesByPlan[planId] =
+        (this.testCasesByPlan[planId] || []).filter(tc => tc.id !== caseId)
 
-  this.toastr.success('Test case abandoned successfully')
+      if (this.livePlanId === planId) {
+        this.liveCases = [...this.testCasesByPlan[planId]]
+      }
+
+      this.setPlanDirty(planId, true)
+
+      this.confirmAbandonModalOpen = false
+      this.abandonModalOpen = false
+
+      this.toastr.success('Test case abandoned successfully')
+    },
+    error: (err) => {
+      this.toastr.error(err?.error?.message || 'Unable to abandon test case')
+    },
+  })
 }
 
 }

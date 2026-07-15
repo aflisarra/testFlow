@@ -254,6 +254,8 @@ return this.api.post<{ testSuiteId: string }>(
     })
   }
 
-
+deleteTestCase(id: string) {
+  return this.api.delete<{ message: string }>(`/api/testsuites/cases/${id}`)
+}
 
 }

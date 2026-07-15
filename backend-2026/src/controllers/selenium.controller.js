@@ -448,11 +448,86 @@ async function downloadTestSuiteReport(req, res) {
   }
 }
 
-// Ajoute à module.exports
+async function getTrend(req, res) {
+  try {
+    const days = Number(req.query.days) || 7
+    const { project, testSuiteId, planId } = req.query
+
+    const since = new Date()
+    since.setDate(since.getDate() - (days - 1))
+    since.setHours(0, 0, 0, 0)
+
+    const match = { startedAt: { $gte: since } }
+
+    if (testSuiteId && mongoose.Types.ObjectId.isValid(testSuiteId)) {
+      match.testSuiteId = new mongoose.Types.ObjectId(testSuiteId)
+    } else if (project && mongoose.Types.ObjectId.isValid(project)) {
+      const TestSuite = require('../models/testsuite')
+      const suites = await TestSuite.find({ projectId: new mongoose.Types.ObjectId(project) })
+        .select('_id')
+        .lean()
+      match.testSuiteId = { $in: suites.map((s) => s._id) }
+    }
+
+    if (planId && mongoose.Types.ObjectId.isValid(planId)) {
+      match.planId = new mongoose.Types.ObjectId(planId)
+    }
+
+    const raw = await TestExecution.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: {
+            day: { $dateToString: { format: '%Y-%m-%d', date: '$startedAt' } },
+            status: '$status',
+          },
+          count: { $sum: 1 },
+        },
+      },
+    ])
+
+    const dayList = []
+    for (let i = 0; i < days; i++) {
+      const d = new Date(since)
+      d.setDate(d.getDate() + i)
+      dayList.push(d.toISOString().slice(0, 10))
+    }
+
+    const data = dayList.map((day) => {
+      const passed = raw.find((r) => r._id.day === day && r._id.status === 'passed')?.count || 0
+      const failed = raw
+        .filter((r) => r._id.day === day && String(r._id.status || '').includes('fail'))
+        .reduce((sum, r) => sum + r.count, 0)
+      return { day, passed, failed }
+    })
+
+    return res.json({ data })
+  } catch (error) {
+    console.error('❌ getTrend:', error)
+    return res.status(500).json({ message: error.message })
+  }
+}
+
+async function getTypeBreakdown(req, res) {
+  try {
+    const filters = {
+      testSuiteId: req.query.testSuiteId,
+      planId: req.query.planId,
+    }
+    const data = await testCaseService.getTypeBreakdown(filters)
+    return res.json({ data })
+  } catch (error) {
+    console.error('❌ getTypeBreakdown:', error)
+    return res.status(500).json({ message: error.message })
+  }
+}
+
 module.exports = {
   runTestCaseHandler,
   getExecutions,
   getExecutionDetail: exports.getExecutionDetail,
-  abortExecution,   // ← ajoute ici
+  abortExecution,   
   downloadTestSuiteReport,
+  getTypeBreakdown,
+  getTrend
 }

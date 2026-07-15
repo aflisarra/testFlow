@@ -113,4 +113,18 @@ getExecutionHistoryReport(testSuiteId: string) {
 abortExecution(id: string) {
   return this.api.patch(`/api/selenium/executions/${id}/abort`, {})
 }
+
+getExecutionTrend(params: any) {
+  return this.api.get<{ data: { day: string; passed: number; failed: number }[] }>(
+    `/api/selenium/executions/trend`,
+    { params }
+  )
+}
+
+getTypeBreakdown(params: any) {
+  return this.api.get<{ data: { type: string; count: number; percent: number }[] }>(
+    `/api/selenium/testcases/type-breakdown`,
+    { params }
+  )
+}
 }

@@ -273,10 +273,30 @@ const loginUser = async ({ email, password }) => {
   await user.save();
   return true;
 }*/
+/**
+ * Change password d'un utilisateur connecté.
+ * @param {{userId:string, currentPassword:string, newPassword:string}} params
+ */
+const changePassword = async ({ userId, currentPassword, newPassword }) => {
+  const user = await User.findById(userId);
+  if (!user) throw new Error('User not found');
+
+  const isMatch = await bcrypt.compare(currentPassword, user.password);
+  if (!isMatch) throw new Error('Current password is incorrect');
+
+  if (!newPassword || newPassword.length < 6) {
+    throw new Error('New password must be at least 6 characters');
+  }
+
+  user.password = await bcrypt.hash(newPassword, 10);
+  await user.save();
+  return true;
+};
 
 module.exports = {
   registerUser,
   loginUser,
+  changePassword,
   /*resetPassword,*/
   /*forgotPassword,*/
   /*verifyResetCode,*/

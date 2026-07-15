@@ -138,3 +138,18 @@ exports.getSignupRoles = async (req, res) => {
     return res.status(500).json({ message: MESSAGES.ERROR.SERVER });
   }
 };
+exports.changePassword = async (req, res) => {
+  try {
+    const userId = req.user?.userId || req.user?._id || req.body.userId;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'currentPassword et newPassword requis' });
+    }
+
+    await authService.changePassword({ userId, currentPassword, newPassword });
+    res.json({ message: 'Mot de passe modifié avec succès' });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};

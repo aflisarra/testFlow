@@ -101,4 +101,9 @@ export const VIEW_ROUTES: Route[] = [
   data: { title: 'Test Execution' },
 },
 
+  {  path: 'change-password',
+    loadComponent: () =>
+      import('./change-password/change-password.component').then((m) => m.ChangePasswordComponent),
+    data: { title: 'Change Password' },
+  },
 ]
