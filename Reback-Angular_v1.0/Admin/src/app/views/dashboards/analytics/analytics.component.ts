@@ -12,6 +12,9 @@ import {
 export interface ExecutionRun {
   id: string
   testCaseName: string
+  projectName: string
+  suiteName: string
+  planName: string
   executedBy: string
   executedByPicture: string | null
   status:
@@ -67,6 +70,7 @@ export class AnalyticsComponent implements OnInit {
   suites: any[] = []
   plans: any[] = []
   isExportingReport = false
+filtersApplied = false 
 
   // ─── Aggregate metrics (independent of table pagination) ────────────────────
   // Restent à null tant que l'utilisateur n'a pas cliqué sur "Apply filters" ;
@@ -127,7 +131,7 @@ export class AnalyticsComponent implements OnInit {
   onFilterChange(key: string, event: any): void {
     const value = event.target.value
     this.filters = { ...this.filters, [key]: value }
-
+    this.filtersApplied = false 
     if (key === 'project') {
       this.filters.suite = ''
       this.filters.testPlan = ''
@@ -151,16 +155,22 @@ export class AnalyticsComponent implements OnInit {
     }
   }
 
-  get canExportReport(): boolean {
-    return Boolean(this.filters.project && this.filters.suite && !this.isExportingReport)
-  }
+get canExportReport(): boolean {
+  return Boolean(
+    this.filters.project &&
+    this.filters.suite &&
+    this.filtersApplied &&
+    !this.isExportingReport
+  )
+}
 
-  applyFilters(): void {
-    this.currentPage = 1
-    this.fetchExecutions()
-    this.fetchStats()
-    this.fetchInsights()
-  }
+applyFilters(): void {
+  this.currentPage = 1
+  this.filtersApplied = true
+  this.fetchExecutions()
+  this.fetchStats()
+  this.fetchInsights()
+}
 
   exportReport(): void {
     if (!this.filters.project || !this.filters.suite || this.isExportingReport) return
@@ -205,6 +215,9 @@ export class AnalyticsComponent implements OnInit {
       this.filteredRuns = (res.data ?? []).map((r: any): ExecutionRun => ({
         id: r.executionId,
         testCaseName: r.testCaseTitle ?? r.testCaseKey ?? 'Untitled test case',
+        projectName: this.getExecutionProjectName(r),
+        suiteName: r.testSuiteName || r.testSuite?.nom || r.testSuite?.nametest || '—',
+        planName: r.planTitle || r.planKey || '—',
         executedBy:
           r.executedByName ||
           r.executedBy?.name ||
@@ -221,6 +234,19 @@ export class AnalyticsComponent implements OnInit {
         duration: `${r.duration ?? 0}s`,
       }))
     })
+  }
+
+  private getExecutionProjectName(execution: any): string {
+    const project = execution?.project ?? execution?.projectId
+    const embeddedName =
+      execution?.projectName ??
+      execution?.projectTitle ??
+      project?.title ??
+      project?.name
+    if (embeddedName) return String(embeddedName)
+
+    const projectId = typeof project === 'object' ? project?._id : project
+    return String(this.projects.find((item) => item?._id === projectId)?.title || '—')
   }
 
   // ─── Aggregate stats (Total / Passed / Failed / Pass rate) ──────────────────
@@ -270,7 +296,7 @@ export class AnalyticsComponent implements OnInit {
     this.selectedExecution = {
       executionId:   run.id,
       testCaseTitle: run.testCaseName,
-      planTitle:     '',
+      planTitle:     run.planName,
       executedByName: run.executedBy,
       status:        run.status,
       duration:      run.duration,

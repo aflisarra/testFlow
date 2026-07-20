@@ -3,23 +3,23 @@ const mongoose = require('mongoose')
 
 const User = require('../../models/user.model')
 const Role = require('../../models/role.model')
-
+const MESSAGES = require('../../constants/messages')
 function isMongoObjectIdString(value) {
-  return typeof value === 'string' && /^[a-fA-F0-9]{24}$/.test(value.trim())
+  return typeof value === MESSAGES.CONSOLE.STRING && /^[a-fA-F0-9]{24}$/.test(value.trim())
 }
 
 async function main() {
   const uri = process.env.MONGODB_URI || process.env.MONGODB_URL
   if (!uri) {
-    throw new Error('Missing MongoDB URI. Define MONGODB_URI (or MONGODB_URL) in .env')
+    throw new Error(MESSAGES.MONGODB.MISSSING_MONGODB_URI)
   }
 
   await mongoose.connect(uri)
 
-  const roles = await Role.find({}).select('_id name').lean()
+  const roles = await Role.find({}).select(MESSAGES.USER.ID_NAME).lean()
   const byName = new Map(roles.map((r) => [String(r.name || '').trim(), r._id]))
 
-  const users = await User.find({}).select('_id email role roleId').lean()
+  const users = await User.find({}).select(MESSAGES.ROLE.ID_EMAIL).lean()
   let updated = 0
 
   for (const u of users) {
@@ -43,7 +43,7 @@ async function main() {
 }
 
 main().catch(async (err) => {
-  console.error('❌ migrate-user-roleid failed:', err)
+  console.error(MESSAGES.ROLE.MIGRATE_USER_ROLEID_FAILED, err)
   try { await mongoose.disconnect() } catch {}
   process.exit(1)
 })

@@ -2,6 +2,7 @@ const testPlanService = require('../services/testplan.service')
 const TestSuite = require('../models/testsuite')
 const TestPlan = require('../models/testplan.model')
 const TestCase = require('../models/testcase.model')
+const MESSAGES = require('../constants/messages.js')
 exports.create = async (req, res) => {
   try {
     const plan = await testPlanService.createTestPlan(req.body)
@@ -58,7 +59,7 @@ exports.delete = async (req, res) => {
     await testPlanService.deleteTestPlan(req.params.id)
 
     res.status(200).json({
-      message: 'TestPlan deleted successfully',
+      message: MESSAGES.TESTPLAN.DELEDTED,
     })
   } catch (error) {
     res.status(error.statusCode || 500).json({
@@ -83,7 +84,7 @@ exports.generatePreview = async (req, res) => {
     })
 
   } catch (error) {
-    console.error('🔥 CONTROLLER ERROR:', error.message)
+    console.error(MESSAGES.TESTPLAN.CONTROLLER_ERROR, error.message)
 
     res.status(error.statusCode || 500).json({
       message: error.message,
@@ -103,15 +104,15 @@ exports.savePlans = async (req, res) => {
       fileName,
       testSuiteId // ✅ IMPORTANT
     } = req.body
-console.log("TESTPLANS RECEIVED:", testPlans)
-console.log("TYPE:", typeof testPlans)
+console.log(MESSAGES.TESTPLAN.TESTPLAN_RECEIVED, testPlans)
+console.log(MESSAGES.CONSOLE.TYPE, typeof testPlans)
     const userId =
       req.user?.userId ||
       req.user?.id ||
       req.user?._id
 
     // ✅ parse JSON
-    if (typeof testPlans === 'string') {
+    if (typeof testPlans === MESSAGES.CONSOLE.STRING) {
       testPlans = JSON.parse(testPlans)
     }
 
@@ -121,7 +122,7 @@ console.log("TYPE:", typeof testPlans)
 
     if (!projectId || !name || !testPlans.length || !userId) {
       return res.status(400).json({
-        message: 'Missing required fields'
+        message: MESSAGES.CONSOLE.MISSING
       })
     }
 
@@ -148,7 +149,7 @@ console.log("TYPE:", typeof testPlans)
       suite = await TestSuite.findById(testSuiteId)
 
       if (!suite) {
-        return res.status(404).json({ message: 'Suite not found' })
+        return res.status(404).json({ message: MESSAGES.TESTSUITE.NOT_FOUND })
       }
 
       suite.nametest = name
@@ -199,7 +200,7 @@ console.log("TYPE:", typeof testPlans)
     })
 
   } catch (error) {
-    console.error('🔥 savePlans error:', error)
+    console.error(MESSAGES.TESTPLAN.ERROR_SAVE_PLAN, error)
     res.status(error.statusCode || 500).json({ message: error.message })
   }
 }

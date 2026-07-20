@@ -128,8 +128,10 @@ confirmAbandonModalOpen = false
 
   get filteredSuites(): TestSuiteDto[] {
     const projectId = String(this.projectFilterId || '').trim()
-    if (!projectId) return this.suites
-    return this.suites.filter((suite) => this.getSuiteProjectId(suite) === projectId)
+    return this.suites.filter((suite) =>
+      this.isSuiteFromAcceptedProject(suite) &&
+      (!projectId || this.getSuiteProjectId(suite) === projectId)
+    )
   }
 
   get canEditGenerateForSelectedProject(): boolean {
@@ -384,10 +386,8 @@ confirmAbandonModalOpen = false
       if (!userId && token) userId = this.resolveUserIdFromToken(token)
       if (!userId) { this.errorMessage = 'Session expired.'; return }
       const suites = await firstValueFrom(this.testLabService.getTestSuitesByUser(userId))
-      this.suites = (Array.isArray(suites) ? suites : []).filter((suite) => {
-        const projectId = this.getSuiteProjectId(suite)
-        return !projectId || this.acceptedProjectIds.has(projectId)
-      })
+      this.suites = (Array.isArray(suites) ? suites : [])
+        .filter((suite) => this.isSuiteFromAcceptedProject(suite))
     } catch (err: unknown) {
       this.errorMessage = getErrorMessage(err, 'Unable to load test suites')
     } finally {
@@ -1440,8 +1440,24 @@ if (this.pendingNewCase) {
   }
 
   private isSuiteFromAcceptedProject(suite: TestSuiteDto | null | undefined): boolean {
-    void suite
-    return true
+    const projectId = this.getSuiteProjectId(suite)
+    // The API marks suites that the user cannot open with canOpen=false.
+    // Do not render those entries: users should never reach an access-denied page.
+    return Boolean(projectId) && suite?.canOpen !== false && this.acceptedProjectIds.has(projectId)
+  }
+
+  getSuiteProjectTitle(suite: TestSuiteDto): string {
+    const fromSuite = String(suite?.projectTitle || '').trim()
+    if (fromSuite) return fromSuite
+
+    const project = suite?.projectId
+    if (project && typeof project === 'object') {
+      const title = String(project.title || '').trim()
+      if (title) return title
+    }
+
+    const projectId = this.getSuiteProjectId(suite)
+    return String(this.projects.find((item) => item._id === projectId)?.title || '—').trim()
   }
 
 

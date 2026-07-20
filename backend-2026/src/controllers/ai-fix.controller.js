@@ -5,7 +5,7 @@
  */
 
 const aiFixService = require('../services/ai-fix.service')
-
+const MESSAGES = require('../constants/messages')
 /**
  * Detect and analyze a test execution failure
  * POST /ai/detect-failure
@@ -51,11 +51,11 @@ async function detectFailure(req, res) {
     // Validate minimum required data
     if (!payload.failedStep && !payload.logs) {
       return res.status(400).json({
-        message: 'Either failedStep or logs must be provided',
+        message: MESSAGES.FASTAPI.FAILED,
       })
     }
 
-    console.log(`[Controller] Detecting failure for execution: ${payload.executionId || 'unknown'}`)
+    console.log(`[Controller] Detecting failure for execution: ${payload.executionId || MESSAGES.FASTAPI.UNKNOWN}`)
 
     const analysis = await aiFixService.detectFailure(payload)
 
@@ -64,11 +64,11 @@ async function detectFailure(req, res) {
       data: analysis,
     })
   } catch (err) {
-    console.error('[Controller] detectFailure error:', err.message)
+    console.error(MESSAGES.FASTAPI.DETECTION_ERROR, err.message)
     const statusCode = err.statusCode || 500
     return res.status(statusCode).json({
-      message: err.message || 'Failed to detect failure',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+      message: err.message || MESSAGES.FASTAPI.FAILED_TO_DETECT_FAILURE,
+      error: process.env.NODE_ENV === MESSAGES.FASTAPI.DEVLOPMENT ? err.message : undefined,
     })
   }
 }
@@ -118,11 +118,11 @@ async function getFixSuggestion(req, res) {
     // Validate minimum required data
     if (!payload.failedStep && !payload.logs) {
       return res.status(400).json({
-        message: 'Either failedStep or logs must be provided',
+        message: MESSAGES.FASTAPI.FAILED,
       })
     }
 
-    console.log(`[Controller] Getting fix suggestion for execution: ${payload.executionId || 'unknown'}`)
+    console.log(`[Controller] Getting fix suggestion for execution: ${payload.executionId || MESSAGES.FASTAPI.UNKNOWN}`)
 
     const suggestion = await aiFixService.getFixSuggestion(payload)
 
@@ -131,11 +131,11 @@ async function getFixSuggestion(req, res) {
       data: suggestion,
     })
   } catch (err) {
-    console.error('[Controller] getFixSuggestion error:', err.message)
+    console.error(MESSAGES.FASTAPI.GETFIX_ERROR, err.message)
     const statusCode = err.statusCode || 500
     return res.status(statusCode).json({
-      message: err.message || 'Failed to get fix suggestion',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+      message: err.message || MESSAGES.FASTAPI.FAILED_TO_GETFIX,
+      error: process.env.NODE_ENV === MESSAGES.FASTAPI.DEVLOPMENT ? err.message : undefined,
     })
   }
 }

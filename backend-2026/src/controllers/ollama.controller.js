@@ -1,5 +1,5 @@
 const ollamaService = require('../services/ollama.service')
-
+const MESSAGES = require('../constants/messages')
 function statusFromError(err, fallback = 500) {
   const code = Number(err?.statusCode || err?.response?.status || fallback)
   return Number.isFinite(code) ? code : fallback
@@ -21,7 +21,7 @@ async function health(req, res) {
   } catch (error) {
     const status = statusFromError(error, 502)
     return res.status(status).json({
-      error: error?.response?.data || error?.message || 'FastAPI unreachable',
+      error: error?.response?.data || error?.message || MESSAGES.FASTAPI.FASTAPI_ERROR,
     })
   }
 }
@@ -34,7 +34,7 @@ async function chat(req, res) {
   } catch (error) {
     const status = statusFromError(error, 502)
     return res.status(status).json({
-      error: error?.response?.data || error?.message || 'FastAPI chat failed',
+      error: error?.response?.data || error?.message || MESSAGES.FASTAPI.FASTAPI_CHAT_ERROR,
     })
   }
 }
@@ -46,7 +46,7 @@ async function getPlan(req, res) {
     return res.json(data)
   } catch (error) {
     const status = statusFromError(error, 500)
-    return res.status(status).json({ message: messageFromError(error, 'Get plan failed') })
+    return res.status(status).json({ message: messageFromError(error, MESSAGES.FASTAPI.GET_PLAN_ERROR) })
   }
 }
 
@@ -57,7 +57,7 @@ async function getTestPlans(req, res) {
     return res.json(data)
   } catch (error) {
     const status = statusFromError(error, 500)
-    return res.status(status).json({ message: messageFromError(error, 'Get test plans failed') })
+    return res.status(status).json({ message: messageFromError(error, MESSAGES.FASTAPI.GET_TEST_PLANS_ERROR) })
   }
 }
 
@@ -68,7 +68,7 @@ async function getSpecDocument(req, res) {
     return res.download(data.absolutePath, data.fileName)
   } catch (error) {
     const status = statusFromError(error, 500)
-    return res.status(status).json({ message: messageFromError(error, 'Get specification document failed') })
+    return res.status(status).json({ message: messageFromError(error, MESSAGES.FASTAPI.GET_SPECIFICATION_DOCUMENT_ERROR) })
   }
 }
 
@@ -79,7 +79,7 @@ async function generatePlan(req, res) {
   } catch (error) {
     const status = statusFromError(error, 500)
     if (status === 409) {
-      return res.status(409).json({ message: messageFromError(error, 'Generation cancelled by user.') })
+      return res.status(409).json({ message: messageFromError(error, MESSAGES.FASTAPI.GENERATION_CANCELLED_BY_USER) })
     }
 
     const maybeId = String(req.body?.testSuiteId || '').trim()
@@ -87,11 +87,11 @@ async function generatePlan(req, res) {
       // Keep old behavior: mark suite incomplete on failure if id exists.
       const TestSuite = require('../models/testsuite')
       await TestSuite.findByIdAndUpdate(maybeId, {
-        testStatus: 'Incomplete',
+        testStatus: MESSAGES.FASTAPI.INCOMPLETE,
         lastGeneratedAt: new Date(),
       }).catch(() => {})
     }
-    return res.status(status).json({ message: messageFromError(error, 'Generate plan failed') })
+    return res.status(status).json({ message: messageFromError(error, MESSAGES.FASTAPI.GENERATE_PLAN_ERROR) })
   }
 }
 
@@ -102,24 +102,25 @@ async function generateTestCases(req, res) {
   } catch (error) {
     const status = statusFromError(error, 500)
     if (status === 409) {
-      return res.status(409).json({ message: messageFromError(error, 'Generation cancelled by user.') })
+      return res.status(409).json({ message: messageFromError(error, MESSAGES.FASTAPI.GENERATION_CANCELLED_BY_USER) })
     }
-console.log('🔥 RAW stepDetails from Python:', tc.stepDetails)
+console.log(MESSAGES.FASTAPI.STEP_DETAILS, tc.stepDetails)
     const testSuiteId = String(req.body?.testSuiteId || '').trim()
     if (testSuiteId) {
       const TestSuite = require('../models/testsuite')
       await TestSuite.findByIdAndUpdate(testSuiteId, {
-        testStatus: 'Incomplete',
+        testStatus: MESSAGES.FASTAPI.INCOMPLETE,
         lastGeneratedAt: new Date(),
       }).catch(() => {
-        console.error('🔥 CONTROLLER ERROR:', error.message, error.statusCode)
+        console.error(MESSAGES.TESTPLAN.CONTROLLER_ERROR, error.message, error.statusCode)
       })
     }
     return res
       .status(status)
-      .json({ message: messageFromError(error, 'Generate test cases failed') })
+      .json({ message: messageFromError(error, MESSAGES.TESTCASES.GENERATE_ERROR) })
   }
 }
+
 
 async function cancelGeneration(req, res) {
   try {
@@ -128,7 +129,7 @@ async function cancelGeneration(req, res) {
   } catch (error) {
     const status = statusFromError(error, 502)
     return res.status(status).json({
-      message: messageFromError(error, 'Cancel generation failed'),
+      message: messageFromError(error, MESSAGES.TESTCASES.CANCEL_GENERATE),
     })
   }
 }

@@ -1,5 +1,5 @@
 const authMagicService = require('../services/auth.magic.service');
-
+const MESSAGES = require('../constants/messages')
 /**
  * POST /auth/forgot-password
  * Send password reset email with magic link
@@ -10,8 +10,8 @@ exports.forgotPassword = async (req, res) => {
         const result = await authMagicService.sendForgotPasswordEmail(email);
         return res.json(result);
     } catch (err) {
-        console.error('forgotPassword error:', err);
-        return res.status(500).json({ message: 'Erreur serveur' });
+        console.error(MESSAGES.USER.FORGOT_PASSWORD, err);
+        return res.status(500).json({ message: MESSAGES.ERROR.SERVER });
     }
 };
 
@@ -25,8 +25,8 @@ exports.verifyMagicToken = async (req, res) => {
         const result = await authMagicService.verifyMagicToken(token);
         return res.json(result);
     } catch (err) {
-        console.error('verifyMagicToken error:', err);
-        const status = err.message.includes('expiré') ? 400 : 500;
+        console.error(MESSAGES.USER.VERIFY_MAGIC, err);
+        const status = err.message.includes(MESSAGES.USER.EXPIRE) ? 400 : 500;
         return res.status(status).json({ message: err.message });
     }
 };
@@ -41,8 +41,8 @@ exports.verifyOTP = async (req, res) => {
         const result = await authMagicService.verifyOTP(email, code);
         return res.json(result);
     } catch (err) {
-        console.error('verifyOTP error:', err);
-        const status = err.message.includes('invalid') ? 400 : 500;
+        console.error(MESSAGES.USER.VERIFY_OTP, err);
+        const status = err.message.includes(MESSAGES.USER.INVALID) ? 400 : 500;
         return res.status(status).json({ message: err.message });
     }
 };
@@ -57,8 +57,8 @@ exports.resetPassword = async (req, res) => {
         const result = await authMagicService.resetPassword(resetToken, password);
         return res.json(result);
     } catch (err) {
-        console.error('resetPassword error:', err);
-        const status = err.message.includes('expiré') || err.message.includes('Minimum') ? 400 : 500;
+        console.error(MESSAGES.USER.RESET_PASSWORD, err);
+        const status = err.message.includes(MESSAGES.USER.EXPIRE) || err.message.includes(MESSAGES.USER.MINIMUM) ? 400 : 500;
         return res.status(status).json({ message: err.message });
     }
 };

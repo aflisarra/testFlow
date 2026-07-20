@@ -39,7 +39,7 @@
         }
       </select>
       <button class="btn btn-sm btn-brand" (click)="onSaveAll()" [disabled]="!canEditGenerateForSelectedProject">
-        <iconify-icon icon="iconamoon:disk-duotone" class="me-1"></iconify-icon>Save All Changes
+        <iconify-icon icon="mdi:content-save-all" class="me-1"></iconify-icon>Save All Changes
       </button>
     </div>
     }
@@ -115,6 +115,7 @@
             class="tc-tree-chevron"></iconify-icon>
           <iconify-icon icon="lucide:folder-check" class="tc-tree-suite-icon"></iconify-icon>
           <span class="tc-tree-suite-name">{{ suite.nametest || 'Unnamed Suite' }}</span>
+          <!--<span class="tc-tree-suite-project">Project: {{ getSuiteProjectTitle(suite) }}</span>-->
           <span class="badge ms-auto"
             [ngClass]="getSuiteCardStatus(suite) === 'Validated' ? 'text-bg-success' : 'text-bg-warning'">
             {{ getSuiteCardStatus(suite) }}
@@ -222,8 +223,8 @@
     <button type="button"
   class="btn-abandon-red"
   (click)="openAbandonModal()">
-  <iconify-icon icon="mdi:cancel"></iconify-icon>
-  Abandon
+  <iconify-icon icon="mdi:trash-can"></iconify-icon>
+  Delete
 </button>
     }
   </div>
@@ -559,7 +560,9 @@
         <iconify-icon icon="iconamoon:sparkles-duotone" class="me-1"></iconify-icon>Generate Test Cases
       </button>
       } @else if (!modalGenerating && modalCases.length > 0) {
-      <button class="btn btn-cancel px-4" (click)="closeModal()">Cancel</button>
+      <button class="btn btn-cancel px-4" (click)="closeModal()">
+  <iconify-icon icon="mdi:close"></iconify-icon>Cancel
+</button>
       <button class="btn btn-outline-primary px-4" (click)="onModalGenerate(true)">
         <iconify-icon icon="iconamoon:restart-duotone" class="me-1"></iconify-icon>Regenerate
       </button>
@@ -567,7 +570,9 @@
         <iconify-icon icon="iconamoon:check-circle-1-duotone" class="me-1"></iconify-icon>Validate & Save
       </button>
       } @else {
-      <button class="btn btn-outline-danger px-4" (click)="closeModal()">Stop Generation</button>
+      <button class="btn btn-outline-danger px-4" (click)="closeModal()">
+  <iconify-icon icon="mdi:stop-circle-outline"></iconify-icon>Stop Generation
+</button>
       }
     </div>
   </button>
@@ -588,11 +593,14 @@
       </p>
     </div>
     <div class="tc-modal-actions">
-      <button type="button" class="btn btn-validate px-4" (click)="onGenerationGuardYes()">Yes</button>
+      <button type="button" class="btn btn-validate px-4" (click)="onGenerationGuardYes()">
+  <iconify-icon icon="mdi:check"></iconify-icon>Yes
+</button>
       <button type="button" class="btn btn-cancel px-4"
-        [disabled]="generationStopping" (click)="onGenerationGuardNo()">
-        {{ generationStopping ? 'Stopping...' : 'No' }}
-      </button>
+  [disabled]="generationStopping" (click)="onGenerationGuardNo()">
+  <iconify-icon icon="mdi:close"></iconify-icon>
+  {{ generationStopping ? 'Stopping...' : 'No' }}
+</button>
     </div>
   </div>
 </div>
@@ -618,11 +626,17 @@
     </div>
     <div class="tc-modal-actions-bottom">
       <button class="btn btn-brand px-4" [disabled]="unsavedSaving"
-        (click)="onUnsavedSaveAndContinue()">Save and Continue</button>
+  (click)="onUnsavedSaveAndContinue()">
+  <iconify-icon icon="iconamoon:disk-duotone"></iconify-icon>Save and Continue
+</button>
       <button class="btn btn-outline-danger px-4" [disabled]="unsavedSaving"
-        (click)="onUnsavedLeaveWithoutSaving()">Leave Without Saving</button>
+  (click)="onUnsavedLeaveWithoutSaving()">
+  <iconify-icon icon="mdi:exit-run"></iconify-icon>Leave Without Saving
+</button>
       <button class="btn btn-cancel px-4" [disabled]="unsavedSaving"
-        (click)="onUnsavedCancel()">Cancel</button>
+  (click)="onUnsavedCancel()">
+  <iconify-icon icon="mdi:close"></iconify-icon>Cancel
+</button>
     </div>
   </button>
 </button>
@@ -633,7 +647,15 @@
   <div class="tc-modal">
 
     <div class="tc-modal-header">
-      <h5>Abandon Test Case</h5>
+      <div>
+        <h5 class="mb-0">Delete Test Case</h5>
+      </div>
+      <button
+          class="btn-close confirm-close"
+          type="button"
+          aria-label="Close"
+          (click)="abandonModalOpen=false"
+        ></button>
     </div>
 
     <div class="tc-modal-body">
@@ -683,15 +705,13 @@
       <button
         class="btn btn-cancel"
         (click)="abandonModalOpen=false">
-
-        Cancel
+        <iconify-icon icon="mdi:close"></iconify-icon>Cancel
       </button>
 
       <button
         class="btn-confirm-abandon"
         (click)="openConfirmAbandon()">
-
-        Abandon
+        <iconify-icon icon="mdi:trash-can"></iconify-icon>Abandon
       </button>
 
     </div>
@@ -706,13 +726,19 @@
   <div class="tc-modal">
 
     <div class="tc-modal-header">
-      <h5>Confirm Abandon</h5>
+      <div>
+        <h5 class="mb-0">Confirm Delete</h5>
+      </div>
+      <button
+          class="btn-close confirm-close"
+          type="button"
+          aria-label="Close"
+          (click)="confirmAbandonModalOpen=false">
+      </button>
     </div>
 
     <div class="tc-modal-body">
-
       Are you sure you want to abandon this test case?
-
     </div>
 
     <div class="tc-modal-actions-bottom">
@@ -720,15 +746,13 @@
       <button
         class="btn btn-cancel"
         (click)="confirmAbandonModalOpen=false">
-
-        No
+        <iconify-icon icon="mdi:close"></iconify-icon>No
       </button>
 
       <button
         class="btn-confirm-abandon"
         (click)="confirmAbandon()">
-
-        Yes, Abandon
+        <iconify-icon icon="mdi:trash-can"></iconify-icon>Yes, Abandon
       </button>
 
     </div>

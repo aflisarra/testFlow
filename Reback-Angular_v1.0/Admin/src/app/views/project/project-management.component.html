@@ -330,9 +330,9 @@ projectForm.controls.milestoneDate.errors?.['invalidMilestoneRange']) {
               </div>
               <span class="vpc-title">{{ viewProject.title }}</span>
             </div>
-            <span class="vpc-status-badge vpc-status-{{ viewProject.status || 'draft' }}">
+            <!--<span class="vpc-status-badge vpc-status-{{ viewProject.status || 'draft' }}">
               {{ viewProject.status || 'draft' }}
-            </span>
+            </span>-->
           </div>
 
           <!-- Description -->
@@ -497,13 +497,13 @@ projectForm.controls.milestoneDate.errors?.['invalidMilestoneRange']) {
           }
         </div>
         <div class="col-12">
-          <label class="form-label pm-label" for="status">Status</label>
+          <!--<label class="form-label pm-label" for="status">Status</label>
           <select class="form-select" formControlName="status">
             <option value="draft">Draft</option>
             <option value="active">Active</option>
             <option value="paused">Paused</option>
             <option value="completed">Completed</option>
-          </select>
+          </select>-->
         </div>
 
         <!-- Team in Edit -->

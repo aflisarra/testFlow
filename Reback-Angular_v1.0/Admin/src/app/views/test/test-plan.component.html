@@ -370,11 +370,10 @@
           <iconify-icon icon="iconamoon:restart-duotone"></iconify-icon>
           Regenerate (All)
         </button>
-        <button
-          type="button"
-          class="btn btn-validate px-4"
-          [disabled]="!allPlansConfirmed || finishing"
-          (click)="scrollToTop(); onValidateAndGoToCases()">
+       <button type="button" class="btn btn-validate px-4"
+  [ngClass]="{'is-success': allPlansConfirmed}"
+  [disabled]="!allPlansConfirmed || finishing"
+  (click)="scrollToTop(); onValidateAndGoToCases()">
           <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
           Validate &amp; Generate test Case
         </button>

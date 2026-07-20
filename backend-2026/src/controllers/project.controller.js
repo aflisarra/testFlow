@@ -119,10 +119,10 @@ exports.getUsersByProject = async (req, res) => {
     res.status(200).json(users)
 
   } catch (error) {
-    if (error.message === 'PROJECT_NOT_FOUND') {
-      return res.status(404).json({ message: 'Project not found' })
+    if (error.message === MESSAGES.PROJECT.NOT_FOUND) {
+      return res.status(404).json({ message: MESSAGES.PROJECT.NOT_FOUND })
     }
 
-    res.status(500).json({ message: 'Server error' })
+    res.status(500).json({ message: MESSAGES.ERROR.SERVER })
   }
 }
