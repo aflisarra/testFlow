@@ -57,8 +57,11 @@ type RawExecutionLog = {
 type DetectorRecommendation = {
   error: string
   rootCause?: string
+  whatHappened?: string
+  example?: string
   fix: string
 }
+type DetectorTimelineItem = { step?: number; action?: string; result?: string }
 type DetectFailureData = {
   title?: string;
   description?: string;
@@ -71,6 +74,18 @@ type DetectFailureData = {
   recommendations?: DetectorRecommendation[];
   diagnosticTips?: string[];
   suggestedSelectors?: string[];
+  summary?: string;
+  whatHappened?: string;
+  simpleExplanation?: string;
+  example?: string;
+  expectedBehavior?: string;
+  actualBehavior?: string;
+  whyItFailed?: string;
+  severity?: string;
+  evidence?: string[];
+  timeline?: DetectorTimelineItem[];
+  developerFix?: string[];
+  testerFix?: string[];
 }
 type DetectFailureResponse = {
   data?: DetectFailureData;
@@ -88,6 +103,18 @@ type DetectorInsight = {
   aiActionSummary?: string
   diagnosticTips?: string[]
   suggestedSelectors?: string[]
+  summary?: string
+  whatHappened?: string
+  simpleExplanation?: string
+  example?: string
+  expectedBehavior?: string
+  actualBehavior?: string
+  whyItFailed?: string
+  severity?: string
+  evidence?: string[]
+  timeline?: DetectorTimelineItem[]
+  developerFix?: string[]
+  testerFix?: string[]
 }
 
 type DOMElement = {
@@ -376,7 +403,12 @@ ngOnInit(): void {
         const recommendations = Array.isArray(analysis.recommendations)
           ? analysis.recommendations.filter((item) => item?.fix)
           : [];
-        const specificInsight = this.makeSpecificInsightIfGeneric(analysis, recommendations, analysisLogs);
+        const hasDetailedAnalysis = Boolean(
+          analysis.whatHappened || analysis.expectedBehavior || analysis.actualBehavior || analysis.whyItFailed
+        );
+        const specificInsight = hasDetailedAnalysis
+          ? null
+          : this.makeSpecificInsightIfGeneric(analysis, recommendations, analysisLogs);
   this.detectorInsight = specificInsight || {
     title: analysis.title || 'Failure Detected',
     description: analysis.description || 'Unable to determine cause',
@@ -395,6 +427,18 @@ ngOnInit(): void {
     aiActionSummary: analysis.aiActionSummary,
     diagnosticTips: analysis.diagnosticTips,
     suggestedSelectors: analysis.suggestedSelectors,
+    summary: analysis.summary,
+    whatHappened: analysis.whatHappened,
+    simpleExplanation: analysis.simpleExplanation,
+    example: analysis.example,
+    expectedBehavior: analysis.expectedBehavior,
+    actualBehavior: analysis.actualBehavior,
+    whyItFailed: analysis.whyItFailed,
+    severity: analysis.severity,
+    evidence: analysis.evidence,
+    timeline: analysis.timeline,
+    developerFix: analysis.developerFix,
+    testerFix: analysis.testerFix,
   };
         console.log('[AI Analysis] ✅ Insight received:', this.detectorInsight);
         this.showSnackbar('✅ AI analysis complete', 2000);
@@ -2260,13 +2304,32 @@ get canRunSelectedCascade(): boolean {
   );
 }
 
+get canRun(): boolean {
+  return this.canRunSelectedCascade && !this.isStreaming;
+}
+
+get canAbort(): boolean {
+  return this.isStreaming;
+}
+
+get canRerun(): boolean {
+  return (
+    this.canRunSelectedCascade &&
+    !this.isStreaming &&
+    (this.scenario.status === 'passed' ||
+     this.scenario.status === 'failed' ||
+     this.scenario.status === 'aborted')
+  );
+}
+
 private async maybeAutoAnalyzeFailure(): Promise<void> {
   if (this.scenario.status !== 'failed' && this.scenario.status !== 'aborted') return;
-  const executionKey = String(this.scenario.executionId || this.currentExecutionId || '').trim();
+  const executionKey = String(this.currentExecutionId || this.scenario.executionId || '').trim();
   if (!executionKey || this.autoAnalysisRequestedForExecutionId === executionKey || this.isAnalyzingFailure) return;
   this.autoAnalysisRequestedForExecutionId = executionKey;
   await this.requestAIAnalysis();
 }
+
 async runSelectedCascade(): Promise<void> {
   console.log('RUN CLICKED');
 

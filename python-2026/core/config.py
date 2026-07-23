@@ -37,7 +37,7 @@ def get_settings() -> Settings:
     IMPORTANT: keep compatibility with existing env var names used by Node integration.
     """
     ollama_timeout = _get_int("OLLAMA_TIMEOUT", 300)
-    model_name = (os.getenv("MODEL_NAME") or os.getenv("OLLAMA_MODEL") or "mistral").strip() or "mistral"
+    model_name = (os.getenv("MODEL_NAME") or os.getenv("OLLAMA_MODEL") or "qwen2.5:3b-instruct").strip() or "qwen2.5:3b-instruct"
     return Settings(
         model_name=model_name,
         use_mock=_get_bool("USE_MOCK", False),

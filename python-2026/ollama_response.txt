@@ -1,14 +1,34 @@
-```json
 {
-  "test_plans": [
+  "steps": [
     {
-      "id": "TP-1",
-      "title": "User Login",
-      "description": "Verification of the complete user login workflow",
-      "objective": "Verify that a user can successfully log in to the application using valid credentials according to the specification",
-      "scope": "Login page, username and password fields, validation rules, and successful login process",
-      "priority": "High"
+      "action": "click",
+      "selector": "[text=Admin]"
+    },
+    {
+      "action": "type",
+      "selector": "[name=\"username\"]",
+      "value": "Admin"
+    },
+    {
+      "action": "type",
+      "selector": "[name=\"password\"]",
+      "value": "admin123"
+    },
+    {
+      "action": "click",
+      "selector": "text=Login"
     }
-  ]
+  ],
+  "filled_fields": [
+    {
+      "selector": "[name=\"username\"]",
+      "value": "Admin"
+    },
+    {
+      "selector": "[name=\"password\"]",
+      "value": "admin123"
+    }
+  ],
+  "selected_dropdowns": [],
+  "checked_checkboxes": []
 }
-```

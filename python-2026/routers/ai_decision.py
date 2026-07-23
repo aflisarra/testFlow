@@ -707,6 +707,9 @@ def _infer_actions_when_empty(step, dom, test_case):
     actions = _deterministic_actions_for_step(step, dom, test_case)
     if actions:
         return actions
+    if _is_click_step(step):
+        action = _dom_click_action_for_step(step, dom)
+        return [action] if action else []
     if _is_fill_step(step):
         return _dom_to_fill_actions(dom, test_case)
     if _is_dropdown_step(step):
@@ -714,6 +717,58 @@ def _infer_actions_when_empty(step, dom, test_case):
         action = _dom_dropdown_action(dom, value)
         return [action] if action else []
     return []
+
+
+def _dom_click_action_for_step(step, dom):
+    """Return a safe text-based click fallback when the AI returns no action."""
+    if not isinstance(dom, list):
+        return None
+
+    step_text = str(step or "").strip()
+    quoted = re.search(r'["\']([^"\']+)["\']', step_text)
+    if quoted:
+        target = quoted.group(1)
+    else:
+        # Covers instructions such as "Click on the login button" while
+        # discarding any trailing navigation expectation or URL.
+        match = re.search(
+            r"(?:click|press|open)\s+(?:on\s+)?(?:the\s+)?(?:button\s+|link\s+)?(.+?)(?:\s+(?:button|link))?(?:\s+to\b|\s*[:\-]|$)",
+            step_text,
+            flags=re.IGNORECASE,
+        )
+        target = match.group(1) if match else ""
+
+    target = _normalize_text(target)
+    logger.info("CLICK TARGET=%s", target)
+    if not target:
+        return None
+
+    best_element = None
+    best_score = 0
+    for element in dom:
+        if not isinstance(element, dict) or element.get("disabled") or element.get("visible") is False:
+            continue
+        tag = str(element.get("tag") or "").lower()
+        role = str(element.get("role") or "").lower()
+        if tag not in {"button", "a", "input"} and role not in {"button", "link"}:
+            continue
+        label = _normalize_text(
+            element.get("text") or element.get("ariaLabel") or element.get("title") or element.get("value")
+        )
+        if not label:
+            continue
+        score = 100 if label == target else 60 if target in label else 0
+        if score > best_score:
+            best_element, best_score = element, score
+        logger.info(
+    "BEST_ELEMENT=%s BEST_SCORE=%s",
+    best_element,
+    best_score,
+)
+    if not best_element:
+        return None
+    selector = _selector_for_dom_element(best_element)
+    return {"type": "click", "selector": selector, "value": "", "label": target} if selector else None
 
 
 def _infer_test_data_from_dom(dom, step=""):
@@ -1288,13 +1343,21 @@ def decide(payload: AIDecisionPayload):
         logger.info("Returning deterministic actions before LLM: %s", actions)
         return _decision_response(actions, dom)
 
+    logger.info("DOM COUNT=%s", len(dom))
+
+    for el in dom:
+        text = str(el.get("text") or "").strip()
+
+        if text.lower() == "add":
+            logger.info("✅ ADD BUTTON FOUND IN DOM=%s", el)
+
     try:
         prompt = build_ai_decision_prompt(step, dom, resolved_test_case)
         logger.debug("PROMPT: %s", prompt[:1500])
 
         client = get_ai_service()
         result = client.generate_json(prompt=prompt, timeout=90)
-
+        logger.info("RAW AI RESPONSE=%s", result)
         logger.info("================ AI RESULT ================")
         logger.info(json.dumps(result, indent=2, ensure_ascii=False))
         logger.info("=============================================")

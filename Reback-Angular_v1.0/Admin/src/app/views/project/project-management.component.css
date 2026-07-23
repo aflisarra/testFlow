@@ -681,8 +681,7 @@ textarea.form-control {
 .edit-elite-dropdown .exec-actions-box {
   position: absolute;
   inset-block-end: calc(100% + 0.4rem);
-  inset-inline-start: 0;
-  inset-inline-end: 0;
+  inset-inline: 0;
   z-index: 9999;
   box-shadow: 0 -6px 24px rgb(12 40 70 / 15%);
 }

@@ -99,30 +99,40 @@
         </button>
       }-->
 
-      <div class="topbar__actions">
-        
-<button
-  class="btn btn--run"
-  [disabled]="!canRunSelectedCascade"
-  (click)="runSelectedCascade()">
+<div class="topbar__actions">
 
-  Run
-</button>
+  <button
+    class="btn btn--run"
+    [disabled]="!canRun"
+    (click)="runSelectedCascade()">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <path d="M4 2.5v11l9-5.5-9-5.5z"/>
+    </svg>
+    Run
+  </button>
 
-        <button class="btn btn--rerun" (click)="rerun()">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M8 4v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-          Rerun
-        </button>
-        <button class="btn btn--abort" (click)="abort()">
-          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-            <rect x="2" y="2" width="8" height="8" rx="1" fill="currentColor"/>
-          </svg>
-          Abort
-        </button>
-      </div>
+  <button
+    class="btn btn--rerun"
+    [disabled]="!canRerun"
+    (click)="rerun()">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M8 4v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    Rerun
+  </button>
+
+  <button
+    class="btn btn--abort"
+    [disabled]="!canAbort"
+    (click)="abort()">
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+      <rect x="2" y="2" width="8" height="8" rx="1" fill="currentColor"/>
+    </svg>
+    Abort
+  </button>
+
+</div>
     </div>
   </header>
 
@@ -352,6 +362,22 @@
                 {{ detectorInsight.description }}
               </p>
 
+              @if (detectorInsight.severity || detectorInsight.rootCause) {
+                <div class="ai-insight__meta">
+                  @if (detectorInsight.severity) { <span>Severity: {{ detectorInsight.severity }}</span> }
+                  @if (detectorInsight.rootCause) { <span>Cause: {{ detectorInsight.rootCause }}</span> }
+                </div>
+              }
+
+              @if (detectorInsight.whatHappened || detectorInsight.expectedBehavior || detectorInsight.actualBehavior || detectorInsight.whyItFailed) {
+                <div class="ai-insight__details">
+                  @if (detectorInsight.whatHappened) { <p><strong>What happened:</strong> {{ detectorInsight.whatHappened }}</p> }
+                  @if (detectorInsight.expectedBehavior) { <p><strong>Expected:</strong> {{ detectorInsight.expectedBehavior }}</p> }
+                  @if (detectorInsight.actualBehavior) { <p><strong>Actual:</strong> {{ detectorInsight.actualBehavior }}</p> }
+                  @if (detectorInsight.whyItFailed) { <p><strong>Why it failed:</strong> {{ detectorInsight.whyItFailed }}</p> }
+                </div>
+              }
+
               <!-- Recommendations -->
               <div class="ai-insight__recommendations">
                 @for (recommendation of detectorInsight.recommendations; track recommendation.error + recommendation.fix; let idx = $index) {
@@ -361,6 +387,12 @@
                     </div>
                     @if (recommendation.error) {
                       <div class="ai-insight__error">{{ recommendation.error }}</div>
+                    }
+                    @if (recommendation.whatHappened) {
+                      <div class="ai-insight__detail-text">{{ recommendation.whatHappened }}</div>
+                    }
+                    @if (recommendation.example) {
+                      <div class="ai-insight__example">Example: {{ recommendation.example }}</div>
                     }
                     <div class="ai-insight__action-text">
                       {{ recommendation.fix }}
@@ -376,6 +408,21 @@
                   </div>
                 }
               </div>
+
+              @if (detectorInsight.developerFix?.length || detectorInsight.testerFix?.length) {
+                <div class="ai-insight__fix-groups">
+                  @if (detectorInsight.developerFix?.length) {
+                    <div><strong>Developer fix</strong><ul>@for (fix of detectorInsight.developerFix; track fix) { <li>{{ fix }}</li> }</ul></div>
+                  }
+                  @if (detectorInsight.testerFix?.length) {
+                    <div><strong>Tester fix</strong><ul>@for (fix of detectorInsight.testerFix; track fix) { <li>{{ fix }}</li> }</ul></div>
+                  }
+                </div>
+              }
+
+              @if (detectorInsight.evidence?.length) {
+                <div class="ai-insight__evidence"><strong>Evidence</strong><ul>@for (item of detectorInsight.evidence; track item) { <li>{{ item }}</li> }</ul></div>
+              }
 
               @if (detectorInsight.diagnosticTips?.length) {
                 <div class="ai-insight__tips">

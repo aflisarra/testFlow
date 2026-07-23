@@ -170,8 +170,7 @@
 .exec-role-menu {
   position: absolute;
   inset-block-end: calc(100% + 0.4rem);
-  inset-inline-start: 0;
-  inset-inline-end: 0;
+  inset-inline: 0;
   z-index: 40;
   max-block-size: 220px;
   overflow-y: auto;

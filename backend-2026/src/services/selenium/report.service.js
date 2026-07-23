@@ -114,15 +114,18 @@ function resolveScreenshotPath(raw) {
   return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || ''
 }
 
-function collectScreenshots(execution) {
-  const fromExecution = safeArray(execution.screenshots)
-  const fromSteps = getExecutionSteps(execution)
-    .map((step) => step.screenshot || step.screenshotPath)
-    .filter(Boolean)
-  return [...fromExecution, ...fromSteps]
-    .map(resolveScreenshotPath)
-    .filter(Boolean)
-    .filter((value, index, arr) => arr.indexOf(value) === index)
+// Associe chaque step de l'exécution à sa capture d'écran (une ligne de
+// tableau = un step). Ne garde que les steps qui ont réellement une image
+// exploitable sur disque.
+function collectStepScreenshotRows(execution) {
+  return getExecutionSteps(execution)
+    .map((step, index) => {
+      const stepText = text(step.step || step.name || `Step ${index + 1}`)
+      const rawShot = step.screenshot || step.screenshotPath
+      const screenshotPath = resolveScreenshotPath(rawShot)
+      return { stepText, screenshotPath }
+    })
+    .filter((row) => Boolean(row.screenshotPath))
 }
 
 function extractAiAnalysis(execution) {
@@ -185,12 +188,56 @@ class QaReport {
     this.data = data
     this.generatedAt = new Date()
     this.currentSectionTitle = ''
+    this.pageHasContent = []
+    this.currentPageIndex = -1
+    this._suppressContentTracking = false
     this.doc = new PDFDocument({
       size: 'A4',
       margin: 42,
       bufferPages: true,
       autoFirstPage: false,
       compress: true,
+    })
+    this._wrapDrawingMethods()
+    this._wrapAddPage()
+  }
+
+  // PDFKit peut créer des pages tout seul (pagination automatique interne
+  // quand du texte déborde de la marge), en appelant directement sa propre
+  // méthode doc.addPage() — sans jamais passer par notre méthode QaReport.
+  // addPage(). Ces pages échappaient totalement à notre tracking (pas de
+  // bandeau, pas d'entrée dans pageHasContent), donc trimTrailingBlankPages()
+  // ne pouvait ni les identifier ni les nettoyer. En interceptant doc.addPage
+  // lui-même, TOUTE création de page — la nôtre ou celle de PDFKit — passe
+  // par le même tracking cohérent.
+  _wrapAddPage() {
+    const self = this
+    const original = this.doc.addPage.bind(this.doc)
+    this.doc.addPage = (options) => {
+      const result = original(options)
+      const range = self.doc.bufferedPageRange()
+      self.currentPageIndex = range.start + range.count - 1
+      self.pageHasContent[self.currentPageIndex] = false
+      self.header(self.currentSectionTitle)
+      return result
+    }
+  }
+
+  // Intercepte les méthodes de dessin réel de PDFKit pour marquer
+  // automatiquement la page courante comme "non vide", quel que soit
+  // l'endroit du code qui dessine (y compris à l'intérieur d'une boucle
+  // où un saut de page survient au milieu, ce qu'un appel manuel à
+  // markContent() en début de méthode ne peut pas couvrir).
+  _wrapDrawingMethods() {
+    const doc = this.doc
+    const self = this
+    const trackedMethods = ['text', 'rect', 'roundedRect', 'image', 'circle', 'moveTo', 'polygon']
+    trackedMethods.forEach((name) => {
+      const original = doc[name].bind(doc)
+      doc[name] = (...args) => {
+        self.markContent()
+        return original(...args)
+      }
     })
   }
 
@@ -206,6 +253,7 @@ class QaReport {
         this.summary()
         this.plansAndCases()
         this.executionDetails()
+        this.trimTrailingBlankPages()
         this.finalizeFooters()
         this.doc.end()
       } catch (error) {
@@ -219,14 +267,20 @@ class QaReport {
     })
   }
 
-addPage(title = '') {
-  if (title) this.currentSectionTitle = title
-  this.doc.addPage()
-  this.header(this.currentSectionTitle)
-}
+  addPage(title = '') {
+    if (title) this.currentSectionTitle = title
+    this.doc.addPage()
+  }
+
+  markContent() {
+    if (this._suppressContentTracking) return
+    if (this.currentPageIndex >= 0) this.pageHasContent[this.currentPageIndex] = true
+  }
 
   header(title) {
     const { doc } = this
+    const wasSuppressed = this._suppressContentTracking
+    this._suppressContentTracking = true
     doc.save()
     doc.rect(0, 0, doc.page.width, 66).fill(COLORS.blue)
     doc.rect(0, 58, doc.page.width, 8).fill(COLORS.orange)
@@ -235,13 +289,15 @@ addPage(title = '') {
     doc.restore()
     doc.x = 42
     doc.y = 84
+    this._suppressContentTracking = wasSuppressed
   }
 
- ensure(height = 80) {
-  if (this.doc.y + height > this.doc.page.height - 70) this.addPage()
-}
+  ensure(height = 80) {
+    if (this.doc.y + height > this.doc.page.height - 70) this.addPage()
+  }
 
   section(title) {
+    this.markContent()
     this.doc.x = 42
     this.ensure(56)
     this.doc.moveDown(0.5)
@@ -272,6 +328,7 @@ addPage(title = '') {
   }
 
   metricCard(x, y, w, h, label, value, color) {
+    this.markContent()
     const { doc } = this
     doc.roundedRect(x, y, w, h, 10).fillAndStroke(COLORS.white, COLORS.line)
     doc.rect(x, y, 5, h).fill(color)
@@ -281,6 +338,7 @@ addPage(title = '') {
   }
 
   infoGrid(rows, x, y, labelWidth = 150) {
+    this.markContent()
     const { doc } = this
     let cursor = y
     rows.forEach(([label, value]) => {
@@ -293,6 +351,7 @@ addPage(title = '') {
   }
 
   table(rows, widths, headers = null) {
+    this.markContent()
     const { doc } = this
     const startX = 42
     const totalWidth = widths.reduce((a, b) => a + b, 0)
@@ -339,6 +398,7 @@ addPage(title = '') {
     const generatedBy = '-' || text()
 
     doc.addPage()
+
     doc.rect(0, 0, doc.page.width, doc.page.height).fill(COLORS.white)
     doc.rect(0, 0, doc.page.width, 235).fill(COLORS.blue)
     doc.rect(0, 219, doc.page.width, 16).fill(COLORS.orange)
@@ -368,11 +428,9 @@ addPage(title = '') {
     const firstExecution = data.executions[0] || {}
     const totalDuration = data.executions.reduce((sum, execution) => sum + Number(execution.duration || 0), 0)
 
-    /*this.ensure(120)
-    this.section('Executive Summary')*/
     this.currentSectionTitle = 'Executive Summary'
-  this.ensure(120)
-  this.section('Executive Summary')
+    this.ensure(120)
+    this.section('Executive Summary')
 
     const y = this.doc.y
     this.metricCard(42, y, 118, 72, 'Total Cases', totalCases, COLORS.blue)
@@ -435,11 +493,9 @@ addPage(title = '') {
 
   plansAndCases() {
     const { data } = this
-    /*this.ensure(120)
-    this.section('Test Plans and Test Cases')*/
     this.currentSectionTitle = 'Test Plans'
-  this.ensure(120)
-  this.section('Test Plans and Test Cases')
+    this.ensure(120)
+    this.section('Test Plans and Test Cases')
 
     if (!data.plans.length) {
       this.doc.fillColor(COLORS.muted).font('Helvetica').fontSize(10).text('No test plans found for this suite.', 42, this.doc.y)
@@ -487,11 +543,9 @@ addPage(title = '') {
 
   executionDetails() {
     const { data } = this
-   /*this.ensure(120)
-    this.section('Execution History')*/
-     this.currentSectionTitle = 'Execution Details'
-  this.ensure(120)
-  this.section('Execution History')
+    this.currentSectionTitle = 'Execution Details'
+    this.ensure(120)
+    this.section('Execution History')
 
     if (!data.executions.length) {
       this.doc.fillColor(COLORS.muted).font('Helvetica').fontSize(10).text('No execution history found for this suite.', 42, this.doc.y)
@@ -503,41 +557,7 @@ addPage(title = '') {
     })
   }
 
-  /*executionBlock(execution) {
-    this.doc.x = 42
-    this.ensure(180)
-    const { doc } = this
-    const status = statusKind(execution.status)
-    const startY = doc.y
-
-    doc.roundedRect(42, startY, 510, 82, 10).fillAndStroke(COLORS.white, COLORS.line)
-    doc.rect(42, startY, 5, 82).fill(statusColor(status))
-    doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(12).text(text(execution.testCaseTitle || execution.testCaseKey || execution.executionId), 58, startY + 14, { width: 300 })
-    doc.fillColor(COLORS.muted).font('Helvetica').fontSize(9).text(`Execution ID: ${text(execution.executionId)}`, 58, startY + 34)
-    doc.fillColor(COLORS.muted).fontSize(9).text(`Plan: ${text(execution.planTitle || execution.planKey)}`, 58, startY + 50, { width: 290 })
-    doc.fillColor(COLORS.muted).fontSize(9).text(`Duration: ${formatDuration(execution.duration)}`, 58, startY + 66)
-    doc.x = 444
-    doc.y = startY + 16
-    this.pill(statusLabel(status), statusColor(status))
-    doc.fillColor(COLORS.muted).font('Helvetica').fontSize(9).text(formatDate(execution.startedAt), 445, startY + 46, { width: 88, align: 'right' })
-    doc.x = 42
-    doc.y = startY + 104
-
-    this.table([
-      ['Executed By', actorName(execution.executedBy) || actorName(execution.createdBy) || '-'],
-      ['Execution Date', formatDate(execution.startedAt)],
-      ['Finished At', formatDate(execution.finishedAt)],
-      ['Environment', text(execution.environment || 'Staging')],
-      ['Browser', text(execution.browser || 'Chrome')],
-    ], [140, 370])
-
-    // "Execution Steps" retiré du rapport.
-    this.logs(execution)
-    this.failedScreenshots(execution)
-    this.aiAnalysis(execution)
-  }*/
-
-    // Détecte un ObjectId Mongo brut (24 caractères hexadécimaux) pour éviter
+  // Détecte un ObjectId Mongo brut (24 caractères hexadécimaux) pour éviter
   // de l'afficher comme si c'était un nom de plan lisible.
   static isLikelyObjectId(value) {
     return /^[a-f0-9]{24}$/i.test(String(value || '').trim())
@@ -605,55 +625,106 @@ addPage(title = '') {
     ], [140, 370])
 
     this.logs(execution)
-    this.failedScreenshots(execution)
+    this.stepScreenshotsTable(execution)
     this.aiAnalysis(execution)
   }
 
-failedScreenshots(execution) {
-  const screenshots = collectScreenshots(execution).slice(0, 4)
-  if (!screenshots.length) return
+  // Tableau à 2 colonnes : STEPS | SCREENSHOT — une ligne par step, avec
+  // bordure extérieure arrondie, séparateur vertical entre les deux colonnes
+  // et séparateurs horizontaux entre chaque ligne (cf. maquette).
+  stepScreenshotsTable(execution) {
+    const rows = collectStepScreenshotRows(execution)
+    if (!rows.length) return
+    this.markContent()
+    this.section(statusKind(execution.status) === 'failed' ? 'Failed Screenshots' : 'Screenshots')
 
-  this.section(statusKind(execution.status) === 'failed' ? 'Failed Screenshots' : 'Screenshots')
+    const startX = 42
+    const tableWidth = 510
+    const col1Width = 190
+    const col2Width = tableWidth - col1Width
+    const imageHeight = 92
+    const cellPaddingY = 10
+    const cellPaddingX = 10
+    const headerHeight = 26
 
-    const cols = 2
-    const gap = 14
-    const cardWidth = (510 - gap) / cols
-    const imageHeight = 120
-    const cardHeight = imageHeight + 26
+    this.doc.font('Helvetica').fontSize(9)
+    const rowHeights = rows.map((row) => {
+      const textHeight = this.doc.heightOfString(row.stepText, { width: col1Width - cellPaddingX * 2 })
+      return Math.max(imageHeight + cellPaddingY * 2, textHeight + cellPaddingY * 2)
+    })
 
-    screenshots.forEach((filePath, index) => {
-      const col = index % cols
-      if (col === 0) this.ensure(cardHeight + 12)
+    // On calcule si l'ensemble tient encore sur la page courante ; sinon on
+    // saute une page AVANT de dessiner le cadre extérieur, pour ne jamais
+    // couper la bordure arrondie entre deux pages.
+    this.ensure(headerHeight + rowHeights[0] + 20)
 
-      const x = 42 + col * (cardWidth + gap)
-      const y = this.doc.y
+    let cursorY = this.doc.y
+    const tableStartY = cursorY
 
-      this.doc.roundedRect(x, y, cardWidth, cardHeight, 8).fillAndStroke(COLORS.bg, COLORS.line)
+    // ── En-tête ──────────────────────────────────────────────────────────
+    this.doc.roundedRect(startX, cursorY, tableWidth, headerHeight, 6).fill(COLORS.blue)
+    this.doc.fillColor(COLORS.white).font('Helvetica-Bold').fontSize(9)
+      .text('STEPS', startX + cellPaddingX, cursorY + 8, { width: col1Width - cellPaddingX * 2 })
+    this.doc.fillColor(COLORS.white).font('Helvetica-Bold').fontSize(9)
+      .text('SCREENSHOT', startX + col1Width + cellPaddingX, cursorY + 8, { width: col2Width - cellPaddingX * 2 })
+    cursorY += headerHeight
 
+    rows.forEach((row, index) => {
+      const rowHeight = rowHeights[index]
+      this.ensure(rowHeight + 4)
+      // Après un éventuel saut de page dans ensure(), la position réelle du
+      // curseur peut différer de "cursorY + rowHeight" prévu — on relit
+      // this.doc.y pour rester synchronisé.
+      const y = this.doc.y === cursorY ? cursorY : this.doc.y
+      cursorY = y
+
+      // Fond alterné + bordure de cellule
+      this.doc.rect(startX, y, tableWidth, rowHeight)
+        .fillAndStroke(index % 2 ? COLORS.white : COLORS.bg, COLORS.line)
+      // Séparateur vertical entre les deux colonnes
+      this.doc.moveTo(startX + col1Width, y).lineTo(startX + col1Width, y + rowHeight)
+        .strokeColor(COLORS.line).stroke()
+
+      // Colonne "Steps"
+      this.doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(9)
+        .text(row.stepText, startX + cellPaddingX, y + cellPaddingY, { width: col1Width - cellPaddingX * 2 })
+
+      // Colonne "Screenshot"
+      const imgX = startX + col1Width + cellPaddingX
+      const imgY = y + (rowHeight - imageHeight) / 2
+      const imgBoxWidth = col2Width - cellPaddingX * 2
+      this.doc.rect(imgX, imgY, imgBoxWidth, imageHeight).strokeColor(COLORS.line).stroke()
       try {
-        this.doc.image(filePath, x + 6, y + 6, {
-          fit: [cardWidth - 12, imageHeight - 12],
+        this.doc.image(row.screenshotPath, imgX + 4, imgY + 4, {
+          fit: [imgBoxWidth - 8, imageHeight - 8],
           align: 'center',
           valign: 'center',
         })
       } catch (error) {
         this.doc.fillColor(COLORS.danger).font('Helvetica').fontSize(8)
-          .text('Screenshot unavailable', x + 8, y + imageHeight / 2, { width: cardWidth - 16, align: 'center' })
+          .text('Screenshot unavailable', imgX + 6, imgY + imageHeight / 2 - 4, { width: imgBoxWidth - 12, align: 'center' })
       }
 
-      this.doc.fillColor(COLORS.muted).font('Helvetica').fontSize(7.5)
-        .text(path.basename(filePath), x + 6, y + imageHeight, { width: cardWidth - 12 })
-
-      if (col === cols - 1 || index === screenshots.length - 1) {
-        this.doc.x = 42
-        this.doc.y = y + cardHeight + 12
-      }
+      cursorY = y + rowHeight
+      this.doc.x = startX
+      this.doc.y = cursorY
     })
+
+    // Cadre extérieur arrondi englobant l'en-tête + toutes les lignes
+    // dessinées sur CETTE page (si le tableau a été coupé par un saut de
+    // page, on ne referme que la portion visible sur la page courante).
+    this.doc.roundedRect(startX, tableStartY, tableWidth, cursorY - tableStartY, 8)
+      .strokeColor(COLORS.line).stroke()
+
+    this.doc.x = startX
+    this.doc.y = cursorY
+    this.doc.moveDown(0.6)
   }
 
   logs(execution) {
     const logs = collectLogs(execution)
     if (!logs.length) return
+    this.markContent()
     this.section('Execution Logs')
     logs.slice(0, 40).forEach((log) => {
       this.ensure(24)
@@ -667,31 +738,10 @@ failedScreenshots(execution) {
     this.doc.x = 42
   }
 
-  /*failedScreenshots(execution) {
-    if (statusKind(execution.status) !== 'failed') return
-    const screenshots = collectScreenshots(execution)
-    if (!screenshots.length) return
-    this.section('Failed Screenshots')
-    screenshots.slice(0, 4).forEach((filePath) => {
-      this.ensure(190)
-      const y = this.doc.y
-      try {
-        this.doc.image(filePath, 42, y, { fit: [240, 150], align: 'center', valign: 'center' })
-        this.doc.rect(42, y, 240, 150).strokeColor(COLORS.line).stroke()
-        this.doc.fillColor(COLORS.muted).font('Helvetica').fontSize(8).text(path.basename(filePath), 42, y + 156, { width: 240 })
-        this.doc.x = 42
-        this.doc.y = y + 178
-      } catch (error) {
-        this.doc.fillColor(COLORS.danger).font('Helvetica').fontSize(8).text(`Screenshot could not be embedded: ${path.basename(filePath)}`, 42, y)
-        this.doc.x = 42
-        this.doc.y = y + 18
-      }
-    })
-  }*/
-
   aiAnalysis(execution) {
     const analysis = extractAiAnalysis(execution)
     if (!analysis) return
+    this.markContent()
     this.section('AI Failure Analysis')
     const rows = [
       ['Root Cause', analysis.rootCause || analysis.description || analysis.title || '-'],
@@ -711,6 +761,8 @@ failedScreenshots(execution) {
   }
 
   finalizeFooters() {
+    const wasSuppressed = this._suppressContentTracking
+    this._suppressContentTracking = true
     const range = this.doc.bufferedPageRange()
     for (let i = range.start; i < range.start + range.count; i++) {
       this.doc.switchToPage(i)
@@ -722,6 +774,29 @@ failedScreenshots(execution) {
         .text(`Generated ${formatDateShort(this.generatedAt)}`, 42, this.doc.page.height - 28)
         .text(`Page ${pageNo} of ${range.count}`, 450, this.doc.page.height - 28, { width: 100, align: 'right' })
       this.doc.restore()
+    }
+    this._suppressContentTracking = wasSuppressed
+  }
+
+  trimTrailingBlankPages() {
+    const range = this.doc.bufferedPageRange()
+    let lastIndex = range.start + range.count - 1
+
+    while (lastIndex > range.start && this.pageHasContent[lastIndex] === false) {
+      this.removePage(lastIndex)
+      lastIndex -= 1
+    }
+  }
+
+  removePage(pageIndex) {
+    const bufferIndex = pageIndex - this.doc._pageBufferStart
+    if (bufferIndex >= 0 && bufferIndex < this.doc._pageBuffer.length) {
+      this.doc._pageBuffer.splice(bufferIndex, 1)
+    }
+    const pages = this.doc._root.data.Pages.data
+    if (Array.isArray(pages.Kids) && pages.Kids[pageIndex]) {
+      pages.Kids.splice(pageIndex, 1)
+      pages.Count = Math.max(0, (pages.Count || pages.Kids.length + 1) - 1)
     }
   }
 }

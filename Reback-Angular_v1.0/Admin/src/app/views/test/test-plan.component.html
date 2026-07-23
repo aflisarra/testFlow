@@ -257,10 +257,19 @@
         </div>
 
         <div class="testlab-actions mt-4 w-100">
-          <button type="button" class="btn btn-cancel px-4" (click)="onRequestStopGeneration()">Stop</button>
-          <button type="button" class="btn btn-regenerate px-4" disabled>Regenerate</button>
-          <button type="button" class="btn btn-validate px-4" disabled>Validate &amp; Next</button>
-        </div>
+  <button type="button" class="btn btn-cancel px-4" (click)="onRequestStopGeneration()">
+    <iconify-icon icon="mdi:stop-circle-outline"></iconify-icon>
+    Stop
+  </button>
+  <button type="button" class="btn btn-regenerate px-4" disabled>
+    <iconify-icon icon="iconamoon:restart-duotone"></iconify-icon>
+    Regenerate
+  </button>
+  <button type="button" class="btn btn-validate px-4" disabled>
+    <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
+    Validate &amp; Next
+  </button>
+</div>
       </div>
 
       } @else if (testPlans.length) {
@@ -633,12 +642,21 @@
       </div>
     </div>
 
-    <div class="tc-modal-actions tc-modal-actions--plan">
-      <button type="button" class="btn btn-cancel px-4" (click)="closePlanEditModal()">Cancel</button>
-      <button type="button" class="btn btn-brand px-4" (click)="savePlanEditModal()">
-        {{ planEditMode === 'add' ? 'Add plan' : 'Save changes' }}
-      </button>
-    </div>
+   <div class="tc-modal-actions tc-modal-actions--plan">
+  <button type="button" class="btn btn-cancel px-4" (click)="closePlanEditModal()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right: 6px; vertical-align: -3px;">
+      <path d="M18 6L6 18"/>
+      <path d="M6 6l12 12"/>
+    </svg>
+    Cancel
+  </button>
+  <button type="button" class="btn btn-brand px-4" (click)="savePlanEditModal()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right: 6px; vertical-align: -3px;">
+      <path d="M20 6L9 17l-5-5"/>
+    </svg>
+    {{ planEditMode === 'add' ? 'Add plan' : 'Save changes' }}
+  </button>
+</div>
   </div>
 </div>
 }

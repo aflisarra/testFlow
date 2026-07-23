@@ -29,7 +29,7 @@ class AiService:
         )
 
         try:
-            reply = run_ollama(prompt, timeout=timeout)
+            reply = run_ollama(prompt, timeout=timeout, json_mode=True)
 
             with open("ollama_response.txt", "w", encoding="utf-8") as f:
                 f.write(reply)
@@ -54,7 +54,8 @@ class AiService:
 
                 repaired_reply = run_ollama(
                     repair_prompt,
-                    timeout=90
+                    timeout=90,
+                    json_mode=True,
                 )
 
                 with open("ollama_repaired_response.txt", "w", encoding="utf-8") as f:
@@ -87,4 +88,3 @@ class AiService:
 def get_ai_service() -> AiService:
     # Lightweight factory; can be swapped later for DI/container.
     return AiService()
-

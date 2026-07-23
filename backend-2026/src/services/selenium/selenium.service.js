@@ -252,6 +252,21 @@ if (inputStepPatterns.test(expected || '')) {
     }
   }
 
+  // Un "login initié / succès" ne peut pas être détecté en cherchant le mot
+  // "login" sur la page — une fois connecté, on a justement QUITTÉ la page
+  // de login. On considère l'assertion validée si on a navigué hors de
+  // /auth/login et qu'il n'y a pas d'erreur affichée.
+  const expectsLoginKeyword = /\b(login|log in|sign in|signin|authentication)\b/.test(exp)
+  if (expectsLoginKeyword) {
+    const navigatedAwayFromLogin = actual?.url && !String(actual.url).includes('/auth/login')
+    if (navigatedAwayFromLogin && !actual?.errorMessage) {
+      return {
+        status: 'passed',
+        matched: true,
+        reason: 'Navigated away from login page — login succeeded'
+      }
+    }
+  }
   // ─────────────────────────────────────
   // ✅ 2. Détection succès / redirect
   // ─────────────────────────────────────
@@ -312,7 +327,7 @@ async function buildActualResultForStep(driver, stepText, stepIndex, stepRunResu
 
   const pageState = await driver.executeScript(() => {
     // ── Texte brut du body ──────────────────────────────────────────────────
-    const text = Array.from(document.querySelectorAll('body *'))
+   const text = Array.from(document.querySelectorAll('body *:not(style):not(script):not(noscript)'))
       .map((el) => el?.innerText || '')
       .join(' ')
       .replace(/\s+/g, ' ')
@@ -592,7 +607,22 @@ async function runTestCase(testCase) {
         }
 
         const isInteractiveStep = /click|submit|login|sign.?in/i.test(stepText)
-        if (isInteractiveStep) await waitForPageReactionWithAbort(driver, executionId)
+        if (isInteractiveStep) {
+          await waitForPageReactionWithAbort(driver, executionId)
+
+          // Le SPA peut naviguer avant d'avoir fini de s'hydrater : on
+          // attend un vrai contenu rendu avant de capturer le texte.
+          if (/login|sign.?in/i.test(stepText)) {
+            await driver.wait(async () => {
+              const url = await driver.getCurrentUrl().catch(() => '')
+              if (url.includes('/auth/login')) return false
+              const hasRenderedContent = await driver.executeScript(() => {
+                return document.querySelectorAll('body *:not(style):not(script):not(noscript)').length > 20
+              }).catch(() => false)
+              return hasRenderedContent
+            }, 10000).catch(() => {})
+          }
+        }
 // ✅ Capture une seule fois, juste après l'étape 1 (ouverture de
         // page), l'état "tel que chargé" — sert de référence pour ignorer
         // les messages statiques déjà présents avant toute interaction.

@@ -69,8 +69,7 @@
 }
 
 .users-list-card .table thead th {
-  padding-block-start: 0.45rem;
-  padding-block-end: 0.45rem;
+  padding-block: 0.45rem;
 }
 
 .btn-unified {
@@ -120,7 +119,6 @@
 }
 
 .table-pagination {
-  
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -272,7 +270,6 @@
 } */
 
 .exec-button-container {
-  
   display: flex;
   justify-content: flex-end;
   gap: 0.55rem;

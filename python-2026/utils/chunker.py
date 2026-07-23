@@ -64,30 +64,6 @@ def split_by_headings(text: str, max_chunk_chars: int = 2200) -> List[Dict[str, 
     return chunks
 
 
-def detect_modules_from_chunks(chunks: List[Dict[str, str]]) -> List[str]:
-    """
-    Heuristic module detection: uses chunk titles and keyword signals.
-    """
-    keywords = {
-        "Authentication": ("login", "logout", "password", "signin", "signup", "jwt", "session", "role", "permission"),
-        "Users": ("user", "profile", "account", "member"),
-        "CRUD Operations": ("create", "update", "delete", "edit", "save", "form"),
-        "Search & Filtering": ("search", "filter", "sort", "paginate", "pagination"),
-        "Notifications": ("notification", "email", "sms", "toast", "alert"),
-        "Reporting": ("report", "export", "pdf", "csv", "dashboard", "analytics"),
-        "Security": ("security", "csrf", "xss", "encryption", "rate limit", "lockout", "2fa"),
-        "Performance": ("performance", "latency", "timeout", "load", "stress"),
-        "Accessibility": ("accessibility", "a11y", "keyboard", "aria", "contrast"),
-        "Payments": ("payment", "invoice", "billing", "checkout", "stripe"),
-    }
-
-    modules: set[str] = set()
-    for ch in chunks:
-        hay = f"{ch.get('title','')}\n{ch.get('text','')}".lower()
-        for module, keys in keywords.items():
-            if any(k in hay for k in keys):
-                modules.add(module)
-
-    # If nothing detected, return generic module
-    return sorted(modules) if modules else ["Core Functionality"]
+def detect_modules_from_chunks(chunks):
+    return ["Core Functionality"]
 

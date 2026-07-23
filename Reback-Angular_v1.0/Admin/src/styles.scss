@@ -1,8 +1,8 @@
 /* You can add global styles to this file, and also import other style files */
 
-/*body {
+/* body {
   background: red !important;
-}*/
+} */
 
 :root {
   --brand-orange: #ec8a00;
@@ -181,8 +181,7 @@ html[data-bs-theme='dark'] textarea.form-control:focus {
 .col-actions {
   inline-size: 1%;
   white-space: nowrap;
-  padding-inline-start: 0.35rem !important;
-  padding-inline-end: 0.35rem !important;
+  padding-inline: 0.35rem !important;
 }
 
 .confirm-modal-window .modal-content {

@@ -576,6 +576,7 @@
 .tp-results-card .testlab-validate-btn {
     box-shadow: none !important;
 }
+
 .testlab-dropzone::before {
     content: '';
     position: absolute;
@@ -727,15 +728,18 @@
     background: rgb(15 23 42 / 5%);
     border-color: var(--pm-text-secondary);
 }
+
 .testlab-actions .btn-cancel {
     background: #fff;
     border: 1.5px solid #e2e8f0;
     color: #475569;
 }
+
 .testlab-actions .btn-cancel:hover:not(:disabled) {
     background: #f5f6f9;
     border-color: #cbd5e1;
 }
+
 .testlab-actions .btn-regenerate:hover:not(:disabled) {
     background: #2b76c9;
     border-color: #2b76c9;
@@ -748,6 +752,7 @@
     font-size: 0.9rem;
     font-weight: 700;
 }
+
 .testlab-actions .btn-regenerate {
     background: #3d8adde8;
     border: 1px solid #3d8adde8;
@@ -827,11 +832,13 @@
     transform: none;
     box-shadow: none;
 }
+
 .btn-abandon-plan {
     background: #ea321d;
     border-color: #ef9444;
     box-shadow: none;
 }
+
 .btn-abandon-plan:hover:not(:disabled) {
     background: #dc2626;
     border-color: #dc2626;
@@ -844,6 +851,7 @@
     opacity: 0.65;
     cursor: not-allowed;
 }
+
 .testlab-delete-btn {
     padding: 0.35rem 0.6rem;
     border-radius: 8px;
@@ -857,22 +865,19 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-sm);
-
     min-inline-size: 140px;
     padding: 0.4rem 0.8rem;
     border: none;
     border-radius: 8px;
-
     background: #3d8adde8;
     color: #fff;
-
     font-size: 0.9rem;
     font-weight: 400;
-
     cursor: pointer;
     transition: background 0.2s ease;
     box-shadow: none;
 }
+
 .btn-add-plan:hover:not(:disabled) {
     background: #2b76c9;
     transform: none;
@@ -893,6 +898,7 @@
 .btn-add-plan iconify-icon {
     font-size: 1.1rem;
 }
+
 .testlab-plan-title-left {
     display: inline-flex;
     align-items: center;
@@ -907,21 +913,19 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-xs);
-
     min-inline-size: 140px;
     padding: 0.4rem 0.8rem;
     border-radius: 8px;
-
     font-family: var(--font-body);
     font-size: 0.9rem;
     font-weight: 400;
     letter-spacing: normal;
     text-transform: none;
-
     color: #7a4a05;
     background: linear-gradient(135deg, #ffe8c9 0%, #ffd39f 100%);
     border: 1.5px solid #ffc570;
 }
+
 .testlab-pill-processing {
     color: #8ea0b6;
     background: linear-gradient(135deg, #eef2f6 0%, #f3f6fb 100%);
@@ -1664,7 +1668,7 @@
   border: 1.5px solid #e2e8f0;
   border-radius: 14px;
   background: linear-gradient(180deg, #f8fafc, #f1f5f9);
-  min-height: 48px;
+  min-block-size: 48px;
   display: flex;
   align-items: center;
   transition: all 0.25s ease;
@@ -1674,8 +1678,8 @@
 
 .testlab-input-wrapper-url:focus-within {
   border-color: #003A70;
-  background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(0, 58, 112, 0.12);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgb(0 58 112 / 12%);
   transform: scale(1.01);
 }
 
@@ -1683,8 +1687,8 @@
 
 .testlab-url-prefix-inline {
   position: absolute;
-  left: 16px;
-  top: 50%;
+  inset-inline-start: 16px;
+  inset-block-start: 50%;
   transform: translateY(-50%);
   color: #EC8A00;
   font-size: 0.85rem;
@@ -1695,19 +1699,18 @@
 
 
 .testlab-input--url {
-  width: 100%;
+  inline-size: 100%;
   border: none !important;
   background: transparent !important;
   outline: none;
-  padding-left: 100px;
-  padding-right: 42px;
+  padding-inline: 16px 42px;   /* was 100px — no left prefix is rendered in this markup */     /* keeps room for the right-aligned globe icon */
   font-size: 0.9rem;
   transition: all 0.2s ease;
 }
 
 .testlab-url-icon {
   position: absolute;
-  right: 12px;
+  inset-inline-end: 12px;
   color: #94a3b8;
   font-size: 1.1rem;
   transition: color 0.2s ease, transform 0.2s ease;
@@ -1734,6 +1737,7 @@
     opacity: 0;
     transform: translateY(-4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1846,7 +1850,7 @@ h1 {
     max-block-size: min(90vh, 920px);
     display: flex;
     flex-direction: column;
-    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    background: linear-gradient(180deg, #fff 0%, #fbfdff 100%);
     border: 1px solid #dbe3ee;
     border-radius: 20px;
     box-shadow: 0 28px 70px rgb(15 23 42 / 24%);
@@ -1866,8 +1870,8 @@ h1 {
 
 .tc-modal-head {
     padding: 1.2rem 1.4rem 1rem;
-    border-bottom: 1px solid #e2e8f0;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    border-block-end: 1px solid #e2e8f0;
+    background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -1895,7 +1899,7 @@ h1 {
     gap: 0.6rem;
     justify-content: flex-end;
     flex-wrap: wrap;
-    border-top: 1px solid #e2e8f0;
+    border-block-start: 1px solid #e2e8f0;
     background: #f8fafc;
 }
 
@@ -1905,7 +1909,7 @@ h1 {
 
 .tc-modal-plan-id {
     display: inline-flex;
-    width: fit-content;
+    inline-size: fit-content;
     align-items: center;
     padding: 0.3rem 0.65rem;
     border-radius: 999px;
@@ -1932,7 +1936,7 @@ h1 {
 .tc-modal-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem 1rem;
+    gap: 1rem;
 }
 
 .tc-modal-field {
@@ -1945,7 +1949,7 @@ h1 {
 }
 
 .tc-modal-field .form-label {
-    margin-bottom: 0;
+    margin-block-end: 0;
     color: #475569;
     font-weight: 700;
     font-size: 0.92rem;
@@ -1953,7 +1957,7 @@ h1 {
 
 .tc-modal-field .form-control,
 .tc-modal-field .form-select {
-    min-height: 48px;
+    min-block-size: 48px;
     border-radius: 12px;
     border-color: #d8e1ec;
     box-shadow: inset 0 1px 1px rgb(15 23 42 / 3%);
@@ -1961,7 +1965,7 @@ h1 {
 
 .tc-modal-textarea {
     resize: vertical;
-    min-height: 112px;
+    min-block-size: 112px;
 }
 
 .tc-modal-field .form-control:focus,
@@ -1971,7 +1975,7 @@ h1 {
 }
 
 .confirm-close {
-    margin-top: 0.2rem;
+    margin-block-start: 0.2rem;
 }
 
 @keyframes modal-pop {
@@ -1979,13 +1983,14 @@ h1 {
         opacity: 0;
         transform: translateY(10px) scale(0.98);
     }
+
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
     }
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
     .tc-modal-wrap {
         padding: 0.75rem;
         align-items: flex-end;
@@ -2112,6 +2117,7 @@ h1 {
 .tp-generation-btn--link{background:transparent;color:#1267d8}
 .tp-generation-btn--next{background:#ffc08a;color:#fff}
 .tp-generation-btn:disabled{cursor:not-allowed;opacity:.75}
+
 @media (width <= 768px){.tp-generation-card{grid-template-columns:1fr;min-block-size:auto;max-block-size:92vh}.tp-generation-side{display:none}.tp-generation-content{padding-block-start:2.3rem}.tp-generation-footer{flex-wrap:wrap}}
 
 .tp-results-backdrop{position:fixed;inset:0;z-index:1035;background:rgb(248 250 252 / 72%)}
@@ -2134,16 +2140,18 @@ h1 {
 .tp-results-card .btn-edit-plan{background:#18a8df;border-color:#18a8df;color:#fff}
 .tp-results-card .testlab-regenerate-btn{background:#4a90e2;border-color:#1f7af2;color:#fff}
 .tp-results-card .testlab-actions{margin-block-start:1.4rem}
+
 @media (width <= 992px){.tp-results-card .testlab-plan-item{grid-template-columns:1fr}.tp-results-card .testlab-plan-actions{grid-column:1;grid-row:auto;flex-wrap:wrap}.tp-results-card .testlab-plan-desc{grid-column:1}.tp-results-card .testlab-validate-btn,.tp-results-card .testlab-regenerate-btn,.tp-results-card .btn-edit-plan{min-inline-size:0;flex:1 1 150px}}
 
 /* ═══════════════════════════════════════════════════════════════════
    VALIDATE & GENERATE TEST CASE — vert quand actif, texte blanc
    ═══════════════════════════════════════════════════════════════════ */
+
 /* état actif (enabled, pas encore validé) : orange */
 .btn-validate {
     background: linear-gradient(135deg, #ec8a00, #ffb347);
     border: none;
-    color: #ffffff;
+    color: #fff;
     box-shadow: none;
     transition: background 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
 }
@@ -2151,7 +2159,7 @@ h1 {
 /* hover */
 
 .btn-validate:hover:not(:disabled) {
-    box-shadow: 0 10px 20px rgba(236, 138, 0, 0.3);
+    box-shadow: 0 10px 20px rgb(236 138 0 / 30%);
     transform: none;
 }
 
@@ -2160,7 +2168,7 @@ h1 {
 .btn-validate:disabled {
     background: linear-gradient(135deg, #ec8a00, #ffb347);
     border: none;
-    color: #ffffff;
+    color: #fff;
     cursor: not-allowed;
     opacity: 0.55;
     box-shadow: none;
@@ -2171,44 +2179,51 @@ h1 {
 .btn-validate.is-confirmed {
     background: #10b981;
     border: none;
-    color: #ffffff;
+    color: #fff;
     box-shadow: none;
     opacity: 1;
 }
+
 .btn-validate.is-success:hover:not(:disabled),
 .btn-validate.is-confirmed:hover:not(:disabled) {
     background: #0ea371;
     box-shadow: none;
     transform: none;
 }
+
 .testlab-plan-meta {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  border-top: 0.5px solid var(--color-border-tertiary, #e5e5e5);
-  padding-top: 12px;
-  margin-top: 10px;
+  border-block-start: 0.5px solid var(--color-border-tertiary, #e5e5e5);
+  padding-block-start: 12px;
+  margin-block-start: 10px;
 }
+
 .testlab-plan-meta-field {
   background: var(--color-background-secondary, #f8f8f8);
   border-radius: 6px;
   padding: 8px 10px;
 }
+
 .testlab-plan-meta-field--full {
   grid-column: 1 / -1;
 }
+
 .testlab-plan-meta-label {
   display: block;
   font-size: 11px;
   color: var(--color-text-tertiary, #999);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin-bottom: 4px;
+  margin-block-end: 4px;
 }
+
 .testlab-plan-meta-value {
   font-size: 13px;
   color: var(--color-text-primary, #111);
 }
+
 .testlab-plan-meta-badge {
   display: inline-block;
   font-size: 11px;
@@ -2228,9 +2243,9 @@ h1 {
 .testlab-plan-meta-reqs li {
   font-size: 12px;
   color: var(--color-text-secondary, #555);
-  border-left: 2px solid var(--color-border-secondary, #ccc);
-  padding-left: 8px;
-  margin-top: 4px;
+  border-inline-start: 2px solid var(--color-border-secondary, #ccc);
+  padding-inline-start: 8px;
+  margin-block-start: 4px;
 }
 .tc-edit-steps { margin-block-end: 0.6rem; }
 
@@ -2259,7 +2274,7 @@ h1 {
 }
 
 .tc-edit-step-num {
-  width: 18px; height: 18px; border-radius: 50%;
+  inline-size: 18px; block-size: 18px; border-radius: 50%;
   background: #fff; border: 1px solid #e2e8f0;
   display: flex; align-items: center; justify-content: center;
   font-size: 0.6rem; font-weight: 700; color: #475569; flex-shrink: 0;
@@ -2271,7 +2286,7 @@ h1 {
 }
 
 .tc-edit-step-remove {
-  width: 22px; height: 22px; border: none; background: none;
+  inline-size: 22px; block-size: 22px; border: none; background: none;
   color: #94a3b8; cursor: pointer; flex-shrink: 0; border-radius: 5px;
   display: flex; align-items: center; justify-content: center; transition: all 0.15s;
 }
@@ -2298,6 +2313,7 @@ h1 {
 :host-context([data-bs-theme='dark']) .tc-edit-step-row { background: #0f172a; }
 :host-context([data-bs-theme='dark']) .tc-edit-step-input { color: #e2e8f0; }
 :host-context([data-bs-theme='dark']) .tc-edit-step-num { background: #1e293b; border-color: rgb(255 255 255 / 10%); color: #94a3b8; }
+
 /* ─── Plan edit modal — thème orange (header blanc) ───────────────────────── */
 .tc-modal-backdrop {
   position: fixed;
@@ -2326,8 +2342,8 @@ h1 {
 .tc-modal-card.tc-modal-card--plan {
   background: #fff;
   border-radius: 18px;
- width: min(520px, 92vw);   /* était 680px */
-  max-height: 78vh;          /* était 88vh */
+ inline-size: min(520px, 92vw);   /* était 680px */
+  max-block-size: 78vh;          /* était 88vh */
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2348,14 +2364,14 @@ h1 {
   padding: 22px 24px;
   background: #fff !important;
   color: #1f2430 !important;
-  border-bottom: 1px solid #edf0f4;
+  border-block-end: 1px solid #edf0f4;
   position: relative;
 }
 
 .tc-modal-head.tc-modal-head--plan .tc-modal-head-icon {
   flex-shrink: 0;
-  width: 38px;
-  height: 38px;
+  inline-size: 38px;
+  block-size: 38px;
   border-radius: 10px;
   background: rgb(230 126 34 / 12%);
   display: flex;
@@ -2366,7 +2382,7 @@ h1 {
 
 .tc-modal-head.tc-modal-head--plan .tc-modal-head-copy {
   flex: 1;
-  min-width: 0;
+  min-inline-size: 0;
 }
 
 .tc-modal-head.tc-modal-head--plan .tc-modal-plan-id {
@@ -2379,7 +2395,7 @@ h1 {
   color: #d3690f;
   border-radius: 99px;
   padding: 3px 10px;
-  margin-bottom: 6px;
+  margin-block-end: 6px;
 }
 
 .tc-modal-head.tc-modal-head--plan .tc-modal-title {
@@ -2391,7 +2407,7 @@ h1 {
 .tc-modal-head.tc-modal-head--plan .tc-modal-subtitle {
   font-size: 12.5px;
   color: #6b7280;
-  margin-top: 4px;
+  margin-block-start: 4px;
   line-height: 1.5;
 }
 
@@ -2425,7 +2441,7 @@ h1 {
   color: #5a5f78;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin-bottom: 6px;
+  margin-block-end: 6px;
 }
 
 .tc-modal-body.tc-modal-body--plan .tc-modal-field .form-control,
@@ -2447,7 +2463,7 @@ h1 {
 
 .tc-modal-body.tc-modal-body--plan .tc-modal-textarea {
   resize: vertical;
-  min-height: 90px;
+  min-block-size: 90px;
 }
 
 /* ─── Actions ─────────────────────────────────────────────────────────────── */
@@ -2456,7 +2472,7 @@ h1 {
   justify-content: flex-end;
   gap: 10px;
   padding: 16px 24px;
-  border-top: 1px solid #edf0f4;
+  border-block-start: 1px solid #edf0f4;
   background: #fafbfd;
 }
 
@@ -2470,6 +2486,7 @@ h1 {
   padding: 9px 18px;
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
+
 .tc-modal-actions.tc-modal-actions--plan .btn-cancel:hover {
   background: #f5f6f9;
   border-color: #d6dae2;
@@ -2487,6 +2504,7 @@ h1 {
   box-shadow: 0 2px 8px rgb(230 126 34 / 30%);
   transition: background 0.15s, box-shadow 0.2s, transform 0.1s;
 }
+
 .tc-modal-actions.tc-modal-actions--plan .btn-brand:hover {
   background: #d3690f !important;
   border-color: #d3690f !important;
@@ -2496,6 +2514,7 @@ h1 {
 .tc-modal-actions.tc-modal-actions--plan .btn-brand:active { transform: translateY(0); }
 
 /* ─── Responsive ──────────────────────────────────────────────────────────── */
+
 /* ═══════════════════════════════════════════════════════════════════
    VALIDATE/INVALIDATE — suppression totale de l'ombre (tous états)
    ═══════════════════════════════════════════════════════════════════ */
@@ -2510,6 +2529,7 @@ h1 {
     outline: none !important;
     transform: none !important;
 }
+
 .testlab-validate-btn.testlab-validate-btn--orange:hover:not(:disabled) {
   background: rgb(236 138 0 / 22%);
   border-color: rgb(236 138 0 / 55%);

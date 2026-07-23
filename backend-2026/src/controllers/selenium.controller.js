@@ -497,18 +497,19 @@ async function downloadTestSuiteReport(req, res) {
   try {
     const testSuiteId = String(req.params.testSuiteId || '').trim()
     if (!mongoose.Types.ObjectId.isValid(testSuiteId)) {
-      return res.status(400).json({ message: MESSAGES.TESTSUITE.TESTSUITE_ID_REQUIRED})
+      return res.status(400).json({ message: MESSAGES.TESTSUITE.TESTSUITE_ID_REQUIRED })
     }
 
     const pdfBuffer = await buildTestSuiteReportPdf(testSuiteId)
     const fileName = `test-suite-report-${testSuiteId}.pdf`
 
-    res.setHeader(MESSAGES.DOC.CONTENT_TYPE, MESSAGES.DOC.APPLICATION_PDF)
-    res.setHeader(MESSAGES.DOC.CONTENT_DISPOSITION, `attachment; filename="${fileName}"`)
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`)
     return res.status(200).send(pdfBuffer)
   } catch (error) {
+    console.error('downloadTestSuiteReport error:', error)
     const status = error?.statusCode || 500
-    return res.status(status).json({ message: error.message || MESSAGES.DOC.FAILED_GENERATE_REPORT })
+    return res.status(status).json({ message: error.message || 'Failed to generate report' })
   }
 }
 

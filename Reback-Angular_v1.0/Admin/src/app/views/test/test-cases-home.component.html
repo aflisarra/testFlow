@@ -23,12 +23,12 @@
       <p class="tc-header-sub mb-0">Generate and manage test cases per plan.</p>
     </div>
 
-    @if (testSuiteId && allPlans.length) {
-    <div class="d-flex gap-2 align-items-center">
-
+@if (testSuiteId && allPlans.length) {
+  <div class="tc-project-bar">
+    <div class="tc-project-select-wrap">
+      <iconify-icon icon="mdi:folder-outline" class="tc-project-select-icon"></iconify-icon>
       <select
-        class="form-select form-select-sm"
-        style="inline-size: 240px"
+        class="tc-project-select"
         [(ngModel)]="projectFilterId"
         (ngModelChange)="onProjectFilterChange()"
         [disabled]="loadingProjects"
@@ -38,11 +38,15 @@
           <option [value]="p._id">{{ p.title }}</option>
         }
       </select>
-      <button class="btn btn-sm btn-brand" (click)="onSaveAll()" [disabled]="!canEditGenerateForSelectedProject">
-        <iconify-icon icon="mdi:content-save-all" class="me-1"></iconify-icon>Save All Changes
-      </button>
+      <iconify-icon icon="mdi:chevron-down" class="tc-project-select-chevron"></iconify-icon>
     </div>
-    }
+
+    <button class="btn btn-sm btn-brand" (click)="onSaveAll()" [disabled]="!canEditGenerateForSelectedProject">
+      <iconify-icon icon="mdi:content-save-all" class="me-1"></iconify-icon>
+      Save All Changes
+    </button>
+  </div>
+}
   </div>
 
   @if (errorMessage) {
@@ -570,8 +574,9 @@
         <iconify-icon icon="iconamoon:check-circle-1-duotone" class="me-1"></iconify-icon>Validate & Save
       </button>
       } @else {
-      <button class="btn btn-outline-danger px-4" (click)="closeModal()">
-  <iconify-icon icon="mdi:stop-circle-outline"></iconify-icon>Stop Generation
+      <button type="button" class="btn btn-stop-generation px-4" (click)="closeModal()">
+  <iconify-icon icon="mdi:stop-circle-outline"></iconify-icon>
+  <span>Stop Generation</span>
 </button>
       }
     </div>
@@ -580,11 +585,12 @@
 }
 
 @if (generationGuardModalOpen) {
-<div class="tc-modal-backdrop"></div>
-<div class="tc-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="generationGuardTitleCases">
-  <div class="tc-modal-card">
-    <div class="tc-modal-head">
-      <h5 id="generationGuardTitleCases" class="mb-0">Generation In Progress</h5>
+<div class="tc-modal-backdrop">
+  <div class="tc-modal" role="dialog" aria-modal="true" aria-labelledby="generationGuardTitleCases">
+    <div class="tc-modal-header">
+      <div>
+        <h5 id="generationGuardTitleCases" class="tc-modal-title mb-0">Generation In Progress</h5>
+      </div>
     </div>
     <div class="tc-modal-body">
       <p class="mb-0">
@@ -592,15 +598,15 @@
         Do you want to continue test generation?
       </p>
     </div>
-    <div class="tc-modal-actions">
+    <div class="tc-modal-actions-bottom">
       <button type="button" class="btn btn-validate px-4" (click)="onGenerationGuardYes()">
-  <iconify-icon icon="mdi:check"></iconify-icon>Yes
-</button>
+        <iconify-icon icon="mdi:check"></iconify-icon>Yes
+      </button>
       <button type="button" class="btn btn-cancel px-4"
-  [disabled]="generationStopping" (click)="onGenerationGuardNo()">
-  <iconify-icon icon="mdi:close"></iconify-icon>
-  {{ generationStopping ? 'Stopping...' : 'No' }}
-</button>
+        [disabled]="generationStopping" (click)="onGenerationGuardNo()">
+        <iconify-icon icon="mdi:close"></iconify-icon>
+        {{ generationStopping ? 'Stopping...' : 'No' }}
+      </button>
     </div>
   </div>
 </div>
@@ -629,9 +635,9 @@
   (click)="onUnsavedSaveAndContinue()">
   <iconify-icon icon="iconamoon:disk-duotone"></iconify-icon>Save and Continue
 </button>
-      <button class="btn btn-outline-danger px-4" [disabled]="unsavedSaving"
+      <button class="btn btn-leave-without-saving px-4" [disabled]="unsavedSaving"
   (click)="onUnsavedLeaveWithoutSaving()">
-  <iconify-icon icon="mdi:exit-run"></iconify-icon>Leave Without Saving
+  <iconify-icon icon="mdi:logout"></iconify-icon>Leave Without Saving
 </button>
       <button class="btn btn-cancel px-4" [disabled]="unsavedSaving"
   (click)="onUnsavedCancel()">

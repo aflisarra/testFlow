@@ -67,25 +67,59 @@ Context Information:
 - Failed Step Index: {step_index}
 
 Return ONLY valid JSON with this exact shape:
+
 {{
-  "title": "Brief (5-8 words) summary of the failure",
-  "description": "One clear sentence explaining why the test failed, using the exact failed selector/action when available",
-  "rootCause": "One of: selector_not_found | element_not_interactable | timing_timeout | assertion_failed | navigation_failed | data_mismatch | ai_logic_error | element_intercepted | application_error | unknown",
-  "confidence": 0.75,
-  "failedStepIndex": {step_index},
-  "failedStepName": "Name of the failed step",
-  "aiActionSummary": "Exact action(s) the AI/backend attempted, including selector and value when available",
-  "actionLabel": "Recommended Fix",
-  "actionText": "Specific, concrete senior-QA fix to apply: selector/wait/data/assertion change plus where to apply it",
-  "recommendations": [
+  "title": "",
+  "description": "",
+  "summary": "",
+  "whatHappened": "",
+  "simpleExplanation": "",
+  "example": "",
+  "expectedBehavior": "",
+  "actualBehavior": "",
+  "whyItFailed": "",
+  "rootCause": "",
+  "severity": "Low|Medium|High|Critical",
+  "confidence": 0.0,
+
+  "failedStepIndex": 0,
+  "failedStepName": "",
+
+  "aiActionSummary": "",
+
+  "timeline": [
     {{
-      "error": "Exact log error or failure symptom",
-      "rootCause": "selector_not_found | element_not_interactable | timing_timeout | assertion_failed | navigation_failed | data_mismatch | ai_logic_error | element_intercepted | application_error | unknown",
-      "fix": "Specific concrete fix for this error"
+      "step": 0,
+      "action": "",
+      "result": ""
     }}
   ],
-  "diagnosticTips": ["tip1", "tip2", "tip3"],
-  "suggestedSelectors": ["selector1", "selector2"]
+
+  "evidence": [],
+
+  "developerFix": [
+    ""
+  ],
+
+  "testerFix": [
+    ""
+  ],
+
+  "actionLabel": "Recommended Fix",
+  "actionText": "",
+
+  "recommendations": [
+    {{
+      "error": "",
+      "rootCause": "",
+      "whatHappened": "",
+      "example": "",
+      "fix": ""
+    }}
+  ],
+
+  "diagnosticTips": [],
+  "suggestedSelectors": []
 }}
 
 Analysis Rules:
@@ -133,6 +167,167 @@ Analysis Rules:
    - suggestedSelectors: List 1-3 alternative selectors if applicable
    - recommendations: include one item for EACH distinct FAIL/ERROR/WARN/exception/timeout/assertion log entry that represents a separate failure cause. Do not collapse two different errors into one recommendation.
    - actionText can summarize the first/highest priority recommendation, but recommendations must preserve all distinct fixes.
+   - whatHappened (top-level and per-recommendation): write in plain, simple English suitable for both a developer AND a non-technical tester. Avoid jargon like "assertion", "selector", "DOM" when possible — describe what the user would actually SEE happen (e.g. "the test tried to click Save, but the page had not finished loading, so nothing happened").
+   - example (top-level and per-recommendation): always ground the example in the REAL data from this failure (real selector, real URL, real field name, real expected vs actual value) — never a generic placeholder example. If the exact real value isn't available in the logs, say so instead of inventing one.
+
+7. Additional Reporting Rules
+
+You must explain failures in VERY SIMPLE ENGLISH.
+
+Assume the reader is:
+
+- Junior QA Engineer
+- Manual Tester
+- Developer unfamiliar with the application
+
+For every failure explain:
+
+1. What the test wanted to do.
+2. What actually happened.
+3. What the AI clicked or typed.
+4. What page was expected.
+5. What page was opened.
+6. Why the failure occurred.
+7. How a developer should fix it.
+8. How a tester should fix it.
+
+Always use real values from the logs.
+
+Good:
+
+Expected URL:
+/dashboard/index
+
+Actual URL:
+/admin/saveSystemUser
+
+Bad:
+
+Expected page
+Actual page
+
+Never give generic explanations.
+
+Always mention when available:
+
+- selector names
+- URLs
+- page titles
+- button names
+- field names
+- expected values
+- actual values
+
+If the failure is caused by AI behavior:
+
+Explain exactly:
+
+- what decision the AI made
+- why that decision was wrong
+- what action should have been executed instead
+
+Determine whether the failure is:
+
+- AI Decision Error
+- Test Data Error
+- Assertion Error
+- Selector Error
+- Application Bug
+- Timing Issue
+
+Always identify the most likely owner:
+
+- Automation
+- Test Data
+- AI
+- Application
+
+Example:
+
+The login succeeded.
+
+The AI clicked "Admin".
+
+The AI clicked "Add".
+
+The browser navigated to:
+
+/web/index.php/admin/saveSystemUser
+
+The expected page was:
+
+/web/index.php/dashboard/index
+
+Because of these unexpected clicks, the test left the expected flow and the verification failed.
+
+simpleExplanation must be understandable by a non-technical tester.
+
+Avoid technical jargon whenever possible.
+
+7. Timeline Rules
+
+timeline must contain the chronological sequence of important actions
+that led to the failure.
+
+Use real actions from logs whenever available.
+
+Example:
+
+"timeline": [
+  {{
+    "step": 1,
+    "action": "Enter Username",
+    "result": "Success"
+  }},
+  {{
+    "step": 2,
+    "action": "Enter Password",
+    "result": "Success"
+  }},
+  {{
+    "step": 3,
+    "action": "Click Login",
+    "result": "Success"
+  }},
+  {{
+    "step": 4,
+    "action": "Click Admin",
+    "result": "Unexpected Action"
+  }}
+]
+
+Rules:
+- Preserve chronological order.
+- Include only important actions.
+- Mention failed or unexpected actions.
+- Use actual action names from logs.
+- Do not invent actions that are not present in the logs.
+
+9. Evidence Rules
+
+Evidence must contain exact log fragments proving the failure.
+
+Example:
+
+"evidence": [
+  "Expected URL: /dashboard/index",
+  "Actual URL: /admin/saveSystemUser",
+  "AI Action: click Admin",
+  "AI Action: click Add"
+]
+
+Rules:
+- Use exact text from logs whenever possible.
+- Include URLs, selectors, button names, field names and error messages.
+- Never invent evidence.
+- Always prefer real values over summaries.
+
+Use simple English.
+Avoid technical jargon whenever possible.
+
+====================================================
+FAILURE CONTEXT
+====================================================
 
 FAILED STEP DETAILS:
 {_compact(failed_step, 4000)}

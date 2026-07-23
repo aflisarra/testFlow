@@ -2,7 +2,7 @@
 * { box-sizing: border-box; }
 
 .execution-history {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
   background:
     radial-gradient(1000px 400px at 92% -8%, rgb(236 138 0 / 13%), transparent 55%),
     radial-gradient(750px 320px at -8% 8%, rgb(59 130 246 / 9%), transparent 60%),
@@ -43,7 +43,7 @@
   padding: 8px 16px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  background: #ffffff;
+  background: #fff;
   color: #374151;
   font-size: 13px;
   font-weight: 500;
@@ -54,7 +54,7 @@
 
 .btn-export--pdf {
   background: linear-gradient(135deg, #0A3D91 0%, #124a83 100%);
-  color: #ffffff;
+  color: #fff;
   border-color: #0A3D91;
   box-shadow: 0 1px 3px rgb(10 61 145 / 22%);
 }
@@ -91,7 +91,7 @@
 }
 
 .metric-card {
-  background: #ffffff;
+  background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 14px 18px;
@@ -131,7 +131,7 @@
   align-items: flex-end;
   gap: 12px;
   flex-wrap: wrap;
-  background: #ffffff;
+  background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 16px 18px;
@@ -169,7 +169,7 @@
 
 .filter-select-wrapper select {
   appearance: none;
-  -webkit-appearance: none;
+  appearance: none;
   block-size: 36px;
   padding: 0 30px 0 10px;
   border: 1px solid #e5e7eb;
@@ -185,8 +185,8 @@
 
 .filter-select-wrapper select:focus {
   border-color: #6366f1;
-  background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 8%);
 }
 
 .filter-select-wrapper select:disabled {
@@ -218,7 +218,7 @@
   block-size: 36px;
   padding: 0 20px;
   background: #6366f1;
-  color: #ffffff;
+  color: #fff;
   border: none;
   border-radius: 7px;
   font-size: 13px;
@@ -234,7 +234,7 @@
 
 /* ─── Table Wrapper ──────────────────────────────────────────────────────────── */
 .table-wrapper {
-  background: #ffffff;
+  background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   overflow: hidden;
@@ -408,7 +408,7 @@
   padding: 6px 12px;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
-  background: #ffffff;
+  background: #fff;
   color: #6b7280;
   font-size: 12px;
   font-weight: 500;
@@ -467,7 +467,7 @@
   padding: 0 7px;
   border: 1px solid #e5e7eb;
   border-radius: 7px;
-  background: #ffffff;
+  background: #fff;
   color: #374151;
   font-size: 12px;
   font-weight: 500;
@@ -491,7 +491,7 @@
 .page-btn.page-active {
   background: #6366f1;
   border-color: #6366f1;
-  color: #ffffff;
+  color: #fff;
   font-weight: 600;
 }
 
@@ -504,11 +504,12 @@
 }
 
 /* ─── Responsive ─────────────────────────────────────────────────────────────── */
-@media (max-width: 900px) {
+@media (width <= 900px) {
   .execution-history { padding: 16px; }
   .metrics-row { grid-template-columns: repeat(2, 1fr); }
   .filters-bar { gap: 10px; }
 }
+
 .user-avatar--photo {
   width: 28px;
   height: 28px;

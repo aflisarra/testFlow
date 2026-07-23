@@ -17,9 +17,11 @@ from core.config import get_settings
 from schemas.test_case_schema import GenerateTestCasesRequest, TestCasesResponse
 from services.cancellation_service import is_cancelled
 from services.case_service import generate_test_cases
+from utils.logger import get_logger, log_error
 
 
 router = APIRouter()
+logger = get_logger("routers.test_cases")
 
 
 def _error_payload(message: str, detail: Optional[str] = None) -> dict:
@@ -74,7 +76,7 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
             request_id=payload.generation_request_id,
         ):
             return JSONResponse(status_code=409, content={"error": "Generation cancelled by user."})
-        return {"plan_id": plan_id, "plan_title": plan_title, "test_cases": cases}
+        return TestCasesResponse(plan_id=plan_id, plan_title=plan_title, test_cases=cases)
     except FileNotFoundError:
         return JSONResponse(status_code=500, content=_error_payload("Ollama not found. Install from https://ollama.com"))
     except subprocess.TimeoutExpired:
@@ -84,4 +86,5 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
     except RuntimeError as exc:
         return JSONResponse(status_code=502, content=_error_payload("Ollama error.", str(exc)))
     except Exception as exc:
+        log_error(logger, "generate_cases_unexpected_error", error=str(exc), exc_type=type(exc).__name__)
         return JSONResponse(status_code=500, content=_error_payload("Internal error.", str(exc)))
