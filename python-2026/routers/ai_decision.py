@@ -1,4 +1,5 @@
 import logging
+import time
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -1259,6 +1260,8 @@ def _apply_target_dropdown_value(actions, test_case, execution_memory):
 # ✅ MAIN ROUTE
 @router.post("/ai/decide")
 def decide(payload: AIDecisionPayload):
+    t_request_start = time.monotonic()
+
     step = payload.step or ""
     dom = payload.dom if isinstance(payload.dom, list) else []
     test_case = payload.test_case
@@ -1266,11 +1269,17 @@ def decide(payload: AIDecisionPayload):
     if not step:
         raise HTTPException(status_code=400, detail="step is required")
 
-    logger.info("STEP=%s", step)
+    logger.info(f"➡️ STEP: {step}")
+
+    # ── DOM stats ─────────────────────────────────────────────────────────
+    dom_len = len(dom) if isinstance(dom, list) else 0
+    print(f"\n⏱ [ai/decide] step={repr(step[:60])}  dom_elements={dom_len}")
 
     resolved_test_case = test_case if isinstance(test_case, dict) else {}
     execution_memory = _extract_execution_memory(resolved_test_case)
 
+    # ── prompt build ──────────────────────────────────────────────────────
+    t_prompt_start = time.monotonic()
     if resolved_test_case.get("test_data") is None and not resolved_test_case.get("testData"):
         inferred = _infer_test_data_from_dom(dom, step)
         if inferred:
@@ -1282,23 +1291,47 @@ def decide(payload: AIDecisionPayload):
         resolved_test_case = dict(resolved_test_case)
         resolved_test_case["execution_memory"] = execution_memory
 
+    # 🔀 TEAMMATE'S SHORTCUT: Deterministic Action Check
+    # This was added by dev. If the step matches a known rule-based pattern
+    # (like an exact selector match), we return immediately without hitting the LLM.
+    # This saves API costs and completely eliminates AI latency for simple steps.
     deterministic_actions = _deterministic_actions_for_step(step, dom, resolved_test_case)
     if deterministic_actions:
         actions = _dedupe_actions(deterministic_actions, execution_memory)
         logger.info("Returning deterministic actions before LLM: %s", actions)
         return _decision_response(actions, dom)
 
+    prompt = build_ai_decision_prompt(step, dom, resolved_test_case)
+    t_prompt_ms = int((time.monotonic() - t_prompt_start) * 1000)
+    print(f"⏱ [ai/decide] prompt_build_ms={t_prompt_ms}  prompt_chars={len(prompt)}")
+    print("\n========== PROMPT ==========\n")
+    print(prompt)
+    print("\n============================\n")
+
+    # ✅ call AI
     try:
-        prompt = build_ai_decision_prompt(step, dom, resolved_test_case)
-        logger.debug("PROMPT: %s", prompt[:1500])
+        print("\n")
+        print("=" * 80)
+        print("STEP:", step)
+        print("=" * 80)
 
         client = get_ai_service()
-        result = client.generate_json(prompt=prompt, timeout=90)
+
+        t_ai_start = time.monotonic()
+        result = client.generate_json(
+            prompt=prompt,
+            timeout=90
+        )
+        t_ai_ms = int((time.monotonic() - t_ai_start) * 1000)
+        t_total_ms = int((time.monotonic() - t_request_start) * 1000)
+        print(f"⏱ [ai/decide] ai_call_ms={t_ai_ms}  total_so_far_ms={t_total_ms}")
 
         logger.info("================ AI RESULT ================")
         logger.info(json.dumps(result, indent=2, ensure_ascii=False))
         logger.info("=============================================")
 
+        # ── post-processing ───────────────────────────────────────────────
+        t_post_start = time.monotonic()
         extracted = _extract_actions(result)
         ai_actions = extracted.get("data", []) if isinstance(extracted, dict) else []
         logger.info("AI actions=%s", ai_actions)
@@ -1364,8 +1397,25 @@ def decide(payload: AIDecisionPayload):
         return _decision_response([], dom)
 
     except Exception as e:
-        logger.exception("AI ERROR: %s", str(e))
+        # ⏱ YOUR TIMING LOGS
+        # Kept this so you can diagnose large AI latency delays when exceptions occur.
+        t_total_ms = int((time.monotonic() - t_request_start) * 1000)
+        print(f"⏱ [ai/decide] EXCEPTION  total_ms={t_total_ms}")
+        logger.exception(f"🔥 AI ERROR: {str(e)}")
+
+        # 🔄 TEAMMATE'S FALLBACK
+        # Instead of returning a hard error immediately, try to heuristically infer 
+        # an action based on the DOM. This stops the test runner from crashing completely 
+        # if the LLM times out or rate limits.
         fallback_actions = _infer_actions_when_empty(step, dom, resolved_test_case)
         if fallback_actions:
+            logger.warning("AI exception fallback — inferred actions=%s", fallback_actions)
             return _decision_response(_dedupe_actions(fallback_actions, execution_memory), dom)
-        return _decision_response([], dom)
+
+        # 🛑 YOUR ERROR RESPONSE
+        # If the fallback fails, return your clean JSON error object instead of an empty array.
+        return {
+            "data": [],
+            "error": str(e),
+            "error_type": type(e).__name__,
+        }

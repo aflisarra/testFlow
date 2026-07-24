@@ -22,29 +22,55 @@ class Settings:
     model_name: str
     use_mock: bool
     debug_errors: bool
+    openrouter_api_key: str
 
-    ollama_timeout: int
-    ollama_chat_timeout: int
-    ollama_test_plans_timeout: int
-    ollama_test_cases_timeout: int
-    ollama_test_translator_timeout: int
+    # per-operation timeouts (seconds)
+    openrouter_timeout: int
+    openrouter_chat_timeout: int
+    openrouter_test_plans_timeout: int
+    openrouter_test_cases_timeout: int
+    openrouter_test_translator_timeout: int
 
 
 def get_settings() -> Settings:
     """
     Centralized env config.
-
-    IMPORTANT: keep compatibility with existing env var names used by Node integration.
+    Supports OpenRouter variables with fallback to older xAI names.
     """
-    ollama_timeout = _get_int("OLLAMA_TIMEOUT", 300)
-    model_name = (os.getenv("MODEL_NAME") or os.getenv("OLLAMA_MODEL") or "mistral").strip() or "mistral"
+    openrouter_timeout = _get_int("OPENROUTER_TIMEOUT", _get_int("XAI_TIMEOUT", 120))
+    model_name = (
+        os.getenv("OPENROUTER_MODEL")
+        or os.getenv("XAI_MODEL")
+        or os.getenv("MODEL_NAME")
+        or "google/gemini-2.5-flash"
+    ).strip() or "google/gemini-2.5-flash"
+
+    api_key = (
+        os.getenv("OPENROUTER_API_KEY")
+        or os.getenv("XAI_API_KEY")
+        or ""
+    ).strip()
+
     return Settings(
         model_name=model_name,
         use_mock=_get_bool("USE_MOCK", False),
         debug_errors=_get_bool("DEBUG_ERRORS", False),
-        ollama_timeout=ollama_timeout,
-        ollama_chat_timeout=_get_int("OLLAMA_CHAT_TIMEOUT", ollama_timeout),
-        ollama_test_plans_timeout=_get_int("OLLAMA_TEST_PLANS_TIMEOUT", ollama_timeout),
-        ollama_test_cases_timeout=_get_int("OLLAMA_TEST_CASES_TIMEOUT", ollama_timeout),
-        ollama_test_translator_timeout=_get_int("OLLAMA_TEST_TRANSLATOR_TIMEOUT", ollama_timeout),
+        openrouter_api_key=api_key,
+        openrouter_timeout=openrouter_timeout,
+        openrouter_chat_timeout=_get_int(
+            "OPENROUTER_CHAT_TIMEOUT",
+            _get_int("XAI_CHAT_TIMEOUT", openrouter_timeout)
+        ),
+        openrouter_test_plans_timeout=_get_int(
+            "OPENROUTER_TEST_PLANS_TIMEOUT",
+            _get_int("XAI_TEST_PLANS_TIMEOUT", openrouter_timeout)
+        ),
+        openrouter_test_cases_timeout=_get_int(
+            "OPENROUTER_TEST_CASES_TIMEOUT",
+            _get_int("XAI_TEST_CASES_TIMEOUT", openrouter_timeout)
+        ),
+        openrouter_test_translator_timeout=_get_int(
+            "OPENROUTER_TEST_TRANSLATOR_TIMEOUT",
+            _get_int("XAI_TEST_TRANSLATOR_TIMEOUT", openrouter_timeout)
+        ),
     )

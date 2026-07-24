@@ -172,7 +172,7 @@ def generate_test_plans(*, spec_text: str, style_config: str, project_title: str
 
     ai = get_ai_service()
     try:
-        data = ai.generate_json(prompt=prompt, timeout=settings.ollama_test_plans_timeout)
+        data = ai.generate_json(prompt=prompt, timeout=settings.openrouter_test_plans_timeout)
     except Exception as exc:
         log_error(logger, "generate_plans_ai_failed", error=str(exc))
         raise

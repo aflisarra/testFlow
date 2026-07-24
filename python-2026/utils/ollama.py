@@ -194,12 +194,35 @@ def run_ollama(prompt: str, timeout: int | None = None) -> str:
     data = json.dumps(req_body).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
 
+    # ── log prompt dimensions before sending ─────────────────────────────
+    log_event(logger, "ollama_prompt_size",
+              model=get_ollama_model(),
+              prompt_chars=len(prompt),
+              prompt_tokens_est=len(prompt) // 4,
+              payload_bytes=len(data),
+              num_ctx=options["num_ctx"],
+              num_predict=options["num_predict"])
+
     try:
         log_event(logger, "ollama_http_start", timeout=http_timeout)
+        t_http_send = time.monotonic()
         with urllib.request.urlopen(req, timeout=http_timeout) as response:
+            t_http_response = time.monotonic()
             resp_body = response.read().decode("utf-8")
+            t_http_read = time.monotonic()
+
             js = json.loads(resp_body)
-            log_event(logger, "ollama_http_success", elapsed_ms=int((time.monotonic() - start) * 1000))
+
+            # timing breakdown: wait-for-first-byte vs read body
+            log_event(logger, "ollama_http_success",
+                      elapsed_ms=int((time.monotonic() - start) * 1000),
+                      ttfb_ms=int((t_http_response - t_http_send) * 1000),
+                      read_ms=int((t_http_read - t_http_response) * 1000),
+                      reply_chars=len(js.get("response", "")),
+                      eval_count=js.get("eval_count"),
+                      eval_duration_ms=round(js.get("eval_duration", 0) / 1e6),
+                      prompt_eval_count=js.get("prompt_eval_count"),
+                      prompt_eval_duration_ms=round(js.get("prompt_eval_duration", 0) / 1e6))
             return js.get("response", "")
     except Exception as exc:
         msg = str(exc).lower()
