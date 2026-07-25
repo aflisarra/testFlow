@@ -10,6 +10,11 @@
   --bs-modal-border-color: none !important;
 }
 
+body.test-plan-modal-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 .emoji-mart {
   position: absolute;
   bottom: 30px;

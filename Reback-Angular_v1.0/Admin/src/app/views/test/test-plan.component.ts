@@ -15,7 +15,7 @@ import { getUser } from '@/app/store/authentication/authentication.selector'
 import { ConfirmModalComponent } from '@/app/views/admin/shared/confirm-modal.component'
 import type { PlanStatus } from '@/app/views/test/models/status.types'
 import { getErrorMessage, getErrorStatus } from '@/app/views/test/utils/error.utils'
-import { CommonModule } from '@angular/common'
+import { CommonModule, DOCUMENT } from '@angular/common'
 import { Component, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, ElementRef, HostListener, inject, NgZone, ViewChild } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms'
@@ -54,6 +54,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   private zone = inject(NgZone)
   private fb = inject(FormBuilder)
   private destroyRef = inject(DestroyRef)
+  private document = inject(DOCUMENT)
 
   @ViewChild('plansResult') private plansResultRef?: ElementRef<HTMLElement>
 
@@ -135,6 +136,7 @@ isEditMode = false
   }
 
   constructor() {
+    this.destroyRef.onDestroy(() => this.document.body.classList.remove('test-plan-modal-open'))
     void this.loadProjects()
     void this.initializeFromQueryParams()
 
@@ -674,7 +676,7 @@ onTogglePlanValidation(planId: string) {
       casesCount: 0,
     }
     this.planEditMode = 'add'
-    this.planEditModalOpen = true
+    this.setPlanEditModalOpen(true)
   }
 
   openPlanEditModal(plan: TestPlanDto): void {
@@ -687,13 +689,18 @@ onTogglePlanValidation(planId: string) {
       priority: String(plan.priority || 'Medium'),
     }
     this.planEditMode = 'edit'
-    this.planEditModalOpen = true
+    this.setPlanEditModalOpen(true)
   }
 
   closePlanEditModal(): void {
-    this.planEditModalOpen = false
+    this.setPlanEditModalOpen(false)
     this.planEditDraft = null
     this.planEditMode = 'edit'
+  }
+
+  private setPlanEditModalOpen(isOpen: boolean): void {
+    this.planEditModalOpen = isOpen
+    this.document.body.classList.toggle('test-plan-modal-open', isOpen)
   }
 
   savePlanEditModal(): void {

@@ -416,7 +416,7 @@ getStepStatusIcon(status: string): string {
 }
 
 
-  downloadLog(): void {
+  /*downloadLog(): void {
     const text = this.logs.map((l) => `[${l.timestamp}] [${l.level}] ${l.message}`).join('\n');
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -425,7 +425,7 @@ getStepStatusIcon(status: string): string {
     a.download = `execution-${this.execution?.executionId ?? 'log'}.txt`;
     a.click();
     URL.revokeObjectURL(url);
-  }
+  }*/
 
   copyAllLogs(): void {
     const text = this.logs.map((l) => `[${l.timestamp}] [${l.level}] ${l.message}`).join('\n');

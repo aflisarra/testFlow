@@ -2320,7 +2320,7 @@ h1 {
   inset: 0;
   background: rgb(15 17 23 / 55%);
   backdrop-filter: blur(3px);
-  z-index: 1000;
+  z-index: 3000;
   animation: tc-modal-fade-in 0.15s ease;
 }
 
@@ -2332,20 +2332,22 @@ h1 {
 .tc-modal-wrap {
   position: fixed;
   inset: 0;
-  z-index: 1001;
+  z-index: 3010;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
+  overflow: hidden;
 }
 
 .tc-modal-card.tc-modal-card--plan {
   background: #fff;
   border-radius: 18px;
  inline-size: min(520px, 92vw);   /* était 680px */
-  max-block-size: 78vh;          /* était 88vh */
+  max-block-size: min(90dvh, 920px);
   display: flex;
   flex-direction: column;
+  min-block-size: 0;
   overflow: hidden;
   box-shadow: 0 24px 70px rgb(15 17 23 / 32%);
   animation: tc-modal-pop 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -2422,7 +2424,10 @@ h1 {
 /* ─── Body ────────────────────────────────────────────────────────────────── */
 .tc-modal-body.tc-modal-body--plan {
   padding: 22px 24px;
+  flex: 1 1 auto;
+  min-block-size: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .tc-modal-body.tc-modal-body--plan .tc-modal-grid {
@@ -2436,6 +2441,8 @@ h1 {
 }
 
 .tc-modal-body.tc-modal-body--plan .tc-modal-field .form-label {
+  display: block;
+  text-align: left;
   font-size: 12px;
   font-weight: 700;
   color: #5a5f78;
@@ -2451,6 +2458,7 @@ h1 {
   padding: 9px 12px;
   font-size: 13.5px;
   color: #1f2430;
+  text-align: left;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
