@@ -215,8 +215,8 @@
       </div>
 
       @if (vm.detailsModalOpen) {
-        <div class="tv-suite-modal-backdrop" (click)="vm.closeDetailsModal()">
-  <div
+        <button class="tv-suite-modal-backdrop" (click)="vm.closeDetailsModal()">
+  <button
     class="tv-suite-modal"
     role="dialog"
     aria-modal="true"
@@ -318,22 +318,22 @@
     <!-- RIGHT (AVATARS STACK) -->
     <div class="tv-project-members">
       @for (member of vm.safeModalMembers.slice(0, 3); track member.id) {
-        <div 
-          class="tv-avatar" 
-          [title]="member.name"
-          style="cursor: pointer; transition: transform 0.2s ease;"
-          (mouseenter)="$event.target?.style.transform = 'scale(1.1)'"
-          (mouseleave)="$event.target?.style.transform = 'scale(1)'"
-        >
+       <div 
+  class="tv-avatar" 
+  [title]="member.name"
+  style="cursor: pointer; transition: transform 0.2s ease;"
+  (mouseenter)="$any($event.target).style.transform = 'scale(1.1)'"
+  (mouseleave)="$any($event.target).style.transform = 'scale(1)'"
+>
           @if (member.photoUrl && member.photoUrl !== '/assets/images/users/default-user.svg') {
             <img
               [src]="member.photoUrl"
               [alt]="member.name"
               (error)="vm.onAvatarError($event)"
-              style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;"
+              style="inline-size: 100%; block-size: 100%; border-radius: 50%; object-fit: cover;"
             />
           } @else {
-            <span class="tv-avatar-text" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 600; font-size: 11px;">
+            <span class="tv-avatar-text" style="display: flex; align-items: center; justify-content: center; inline-size: 100%; block-size: 100%; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 600; font-size: 11px;">
               {{ member.initials }}
             </span>
           }
@@ -454,29 +454,29 @@
               }
 
               @if (!vm.detailsModalLoading && vm.detailsModalTab === 'execution') {
-  <div style="display:flex; height:100%; min-height:0; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#fff;">
+  <div style="display:flex; block-size:100%; min-block-size:0; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#fff;">
     
     <!-- Sidebar Plans -->
-    <aside style="width:200px; min-width:160px; border-right:1px solid #e2e8f0; background:#f8fafc; display:flex; flex-direction:column; overflow-y:auto;">
-      <div style="padding:10px 14px; font-size:12px; font-weight:600; color:#475569; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; letter-spacing:.04em; text-transform:uppercase;">
+    <aside style="inline-size:200px; min-inline-size:160px; border-inline-end:1px solid #e2e8f0; background:#f8fafc; display:flex; flex-direction:column; overflow-y:auto;">
+      <div style="padding:10px 14px; font-size:12px; font-weight:600; color:#475569; border-block-end:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; letter-spacing:.04em; text-transform:uppercase;">
         Plans
         <span style="background:#e2e8f0; border-radius:99px; padding:1px 7px; font-size:10px; color:#64748b; font-weight:500; text-transform:none; letter-spacing:0;">{{ vm.detailsModalPlans.length }}</span>
       </div>
 
       @for (plan of vm.detailsModalPlans; track plan.id) {
   <div
-    style="border-bottom:1px solid #f1f5f9;"
+    style="border-block-end:1px solid #f1f5f9;"
     [style.background]="vm.detailsModalSelectedPlanId === plan.id ? '#eff6ff' : 'transparent'"
     [style.borderLeft]="vm.detailsModalSelectedPlanId === plan.id ? '3px solid #3b82f6' : '3px solid transparent'"
   >
     <!-- Plan selector -->
     <button
       type="button"
-      style="display:flex; flex-direction:column; gap:1px; padding:9px 14px; border:none; background:transparent; cursor:pointer; text-align:left; width:100%;"
+      style="display:flex; flex-direction:column; gap:1px; padding:9px 14px; border:none; background:transparent; cursor:pointer; text-align:start; inline-size:100%;"
       (click)="vm.selectDetailsModalPlan(plan.id)"
     >
       <span style="font-size:10px; color:#94a3b8; font-family:monospace;">#{{ plan.id }}</span>
-      <span style="font-size:12px; color:#1e293b; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px;">
+      <span style="font-size:12px; color:#1e293b; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-inline-size:150px;">
         {{ plan.title || plan.id }}
       </span>
     </button>
@@ -485,7 +485,7 @@
     <div style="padding:0 10px 8px;">
       <button
         type="button"
-        style="display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:3px 10px; border:none; border-radius:6px; background:#0244ad; color:#fff; font-size:10px; font-weight:600; cursor:pointer; width:100%; transition:opacity .15s;"
+        style="display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:3px 10px; border:none; border-radius:6px; background:#0244ad; color:#fff; font-size:10px; font-weight:600; cursor:pointer; inline-size:100%; transition:opacity .15s;"
         onmouseenter="this.style.opacity='.85'"
         onmouseleave="this.style.opacity='1'"
         (click)="vm.onRunPlanFromModal(plan)"
@@ -504,17 +504,17 @@
     </aside>
 
     <!-- Cases area -->
-    <div style="flex:1; display:flex; flex-direction:column; overflow-y:auto; min-width:0;">
+    <div style="flex:1; display:flex; flex-direction:column; overflow-y:auto; min-inline-size:0;">
       
       <!-- Header -->
-      <div style="display:grid; grid-template-columns:1fr auto 160px; padding:9px 16px; border-bottom:1px solid #e2e8f0; background:#f8fafc; font-size:11px; font-weight:600; color:#64748b; letter-spacing:.04em; text-transform:uppercase; position:sticky; top:0; z-index:1;">
+      <div style="display:grid; grid-template-columns:1fr auto 160px; padding:9px 16px; border-block-end:1px solid #e2e8f0; background:#f8fafc; font-size:11px; font-weight:600; color:#64748b; letter-spacing:.04em; text-transform:uppercase; position:sticky; inset-block-start:0; z-index:1;">
         <span>Test case</span>
         <span></span>
-        <span style="text-align:right;">Actions</span>
+        <span style="text-align:end;">Actions</span>
       </div>
 
       @for (testCase of vm.detailsModalSelectedCases; track testCase.id) {
-        <div style="border-bottom:1px solid #f1f5f9;">
+        <div style="border-block-end:1px solid #f1f5f9;">
           
           <!-- Case row -->
           <div style="display:grid; grid-template-columns:1fr auto 160px; align-items:center; padding:10px 16px; gap:8px; transition:background .12s;"
@@ -554,13 +554,13 @@
 
           <!-- Steps panel -->
           @if (vm.isDetailsModalCaseStepsOpen(vm.detailsModalSelectedPlanId, testCase.id)) {
-            <div style="background:#f8fafc; border-top:1px solid #e2e8f0; padding:12px 20px 14px; margin:0;">
-              <div style="font-size:10px; font-weight:700; color:#64748b; letter-spacing:.06em; text-transform:uppercase; margin-bottom:8px;">Steps</div>
+            <div style="background:#f8fafc; border-block-start:1px solid #e2e8f0; padding:12px 20px 14px; margin:0;">
+              <div style="font-size:10px; font-weight:700; color:#64748b; letter-spacing:.06em; text-transform:uppercase; margin-block-end:8px;">Steps</div>
 
-              @if (testCase.steps?.length) {
+              @if (testCase.steps.length) {
                 @for (step of testCase.steps; track $index) {
                   <div style="display:flex; align-items:flex-start; gap:10px; padding:5px 0;">
-                    <span style="min-width:20px; height:20px; border-radius:50%; background:#0244ad; color:#fff; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;">{{ $index + 1 }}</span>
+                    <span style="min-inline-size:20px; block-size:20px; border-radius:50%; background:#0244ad; color:#fff; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;">{{ $index + 1 }}</span>
                     <span style="font-size:12px; color:#334155; line-height:1.5;">{{ step }}</span>
                   </div>
                 }
@@ -568,8 +568,8 @@
                 <div style="font-size:11px; color:#94a3b8;">No steps available.</div>
               }
 
-              <div style="margin-top:12px; padding-top:10px; border-top:1px dashed #dbe4ee;">
-                <div style="font-size:10px; font-weight:700; color:#64748b; letter-spacing:.06em; text-transform:uppercase; margin-bottom:8px;">Test data</div>
+              <div style="margin-block-start:12px; padding-block-start:10px; border-block-start:1px dashed #dbe4ee;">
+                <div style="font-size:10px; font-weight:700; color:#64748b; letter-spacing:.06em; text-transform:uppercase; margin-block-end:8px;">Test data</div>
                 <pre style="margin:0; padding:10px 12px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; font-size:11px; line-height:1.5; color:#0f172a; white-space:pre-wrap; word-break:break-word;">{{ vm.formatTestData(testCase.test_data) }}</pre>
               </div>
             </div>
@@ -603,8 +603,8 @@
               </div>
             </div>
           
-        </div>
-        </div>
+        </button>
+        </button>
       }
     </div>
   </div>

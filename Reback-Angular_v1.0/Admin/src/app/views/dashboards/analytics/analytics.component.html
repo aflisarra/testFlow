@@ -9,7 +9,7 @@
 
     <!-- Project -->
     <div class="filter-group">
-      <label class="filter-label">Project</label>
+      <div class="filter-label">Project</div>
       <div class="filter-select-wrapper">
         <select [value]="filters.project" (change)="onFilterChange('project', $event)">
           <option value="">All projects</option>
@@ -21,42 +21,43 @@
     </div>
 
     <!-- Suite -->
-    <div class="filter-group">
-      <label class="filter-label">Suite</label>
-      <div class="filter-select-wrapper">
-        <select
-          [value]="filters.suite"
-          [disabled]="!filters.project"
-          (change)="onFilterChange('suite', $event)"
-        >
-          <option value="">All suites</option>
-          @for (s of suites; track s._id) {
-            <option [value]="s._id">{{ s.nom || s.nametest }}</option>
-          }
-        </select>
-      </div>
-    </div>
+<div class="filter-group">
+  <div class="filter-label">Suite</div>
+  <div class="filter-select-wrapper">
+    <select
+      [value]="filters.suite"
+      [disabled]="!filters.project"
+      (change)="onFilterChange('suite', $event)"
+    >
+      <option value="">All suites</option>
+      @for (s of suites; track s._id) {
+        <option [value]="s._id">{{ s.title }}</option>
+      }
+    </select>
+  </div>
+</div>
 
     <!-- Test plan -->
-    <div class="filter-group">
-      <label class="filter-label">Test plan</label>
-      <div class="filter-select-wrapper">
-        <select
-          [value]="filters.testPlan"
-          [disabled]="!filters.suite"
-          (change)="onFilterChange('testPlan', $event)"
-        >
-          <option value="">All plans</option>
-          @for (plan of plans; track plan._id) {
-            <option [value]="plan._id">{{ plan.title }}</option>
-          }
-        </select>
-      </div>
-    </div>
+<!-- Test plan -->
+<div class="filter-group">
+  <div class="filter-label">Test plan</div>
+  <div class="filter-select-wrapper">
+    <select
+      [value]="filters.testPlan"
+      [disabled]="!filters.suite"
+      (change)="onFilterChange('testPlan', $event)"
+    >
+      <option value="">All plans</option>
+      @for (plan of plans; track plan.id) {
+        <option [value]="plan.id">{{ plan.title }}</option>
+      }
+    </select>
+  </div>
+</div>
 
     <!-- Status -->
     <div class="filter-group">
-      <label class="filter-label">Status</label>
+      <div class="filter-label">Status</div>
       <div class="filter-select-wrapper">
         <select [value]="filters.status" (change)="onFilterChange('status', $event)">
           <option value="">All statuses</option>

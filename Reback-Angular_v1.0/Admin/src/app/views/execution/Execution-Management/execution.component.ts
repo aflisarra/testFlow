@@ -2,16 +2,20 @@ import { ApiService } from '@/app/core/services/api.service';
 import { SeleniumRunnerService, type SeleniumStepResultDto } from '@/app/core/services/selenium-runner.service';
 import type { ExecutionModelDto, ExecutionModelStepDto, TestCaseDto, TestExecutionDto, TestSuiteDto } from '@/app/core/services/testlab.service';
 import { TestLabService } from '@/app/core/services/testlab.service';
-import { CommonModule } from '@angular/common';
-
+import type { GetTestPlansResponse } from '@/app/interfaces/testlab.interface';
+import { CommonModule, DOCUMENT } from '@angular/common';
 
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
   DestroyRef,
+  ElementRef,
   inject,
+  OnDestroy,
   OnInit,
+  Renderer2,
+  ViewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -19,154 +23,37 @@ import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom, interval, Subscription } from 'rxjs';
 
 import type {
+  AiActionRecord,
+  DetectFailureData,
+  DetectFailureResponse,
+  DetectorInsight,
+  DetectorRecommendation,
+  DOMElement,
+  EditableAiAction,
+  ExecutionFilters,
   ExecutionStep,
+  ListEnvelope,
+  LoadedExecutionTestCase,
   LogLine,
+  PlanListItemDto,
+  ProjectListItemDto,
+  RawExecutionLog,
   StepStatus,
+  SuiteListItemDto,
+  TestCaseListItemDto,
   TestScenario,
   TestStatus,
 } from '@/app/interfaces/execution.interface';
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
-type LoadedExecutionTestCase = {
-  id: string
-  title: string
-  steps: string[]
-  stepDetails?: Array<{
-    step: string
-    expected_result?: string
-    actual_result?: string
-    status?: string
-  }>
-  urlCible: string
-  executionModel?: ExecutionModelDto | null
-  test_data?: unknown
-  credentials?: {
-    email?: string
-    password?: string
-    apiToken?: string
-    token?: string
-  }
-}
-
-type RawExecutionLog = {
-  stepIndex?: number
-  level?: string
-  message?: string
-  data?: Record<string, unknown>
-}
-type DetectorRecommendation = {
-  error: string
-  rootCause?: string
-  whatHappened?: string
-  example?: string
-  fix: string
-}
-type DetectorTimelineItem = { step?: number; action?: string; result?: string }
-type DetectFailureData = {
-  title?: string;
-  description?: string;
-  rootCause?: string;
-  confidence?: number;
-  failedStepName?: string;
-  aiActionSummary?: string;
-  actionLabel?: string;
-  actionText?: string;
-  recommendations?: DetectorRecommendation[];
-  diagnosticTips?: string[];
-  suggestedSelectors?: string[];
-  summary?: string;
-  whatHappened?: string;
-  simpleExplanation?: string;
-  example?: string;
-  expectedBehavior?: string;
-  actualBehavior?: string;
-  whyItFailed?: string;
-  severity?: string;
-  evidence?: string[];
-  timeline?: DetectorTimelineItem[];
-  developerFix?: string[];
-  testerFix?: string[];
-}
-type DetectFailureResponse = {
-  data?: DetectFailureData;
-} & DetectFailureData;
-
-type DetectorInsight = {
-  title: string
-  description: string
-  actionLabel: string
-  actionText: string
-  recommendations: DetectorRecommendation[]
-  rootCause?: string
-  confidence?: number
-  failedStepName?: string
-  aiActionSummary?: string
-  diagnosticTips?: string[]
-  suggestedSelectors?: string[]
-  summary?: string
-  whatHappened?: string
-  simpleExplanation?: string
-  example?: string
-  expectedBehavior?: string
-  actualBehavior?: string
-  whyItFailed?: string
-  severity?: string
-  evidence?: string[]
-  timeline?: DetectorTimelineItem[]
-  developerFix?: string[]
-  testerFix?: string[]
-}
-
-type DOMElement = {
-  ariaExpanded?: string
-  ariaHaspopup?: string
-  ariaLabel?: string
-  classes?: string
-  disabled?: boolean
-  form?: string
-  href?: string
-  id?: string
-  index?: number
-  name?: string
-  placeholder?: string
-  rect?: { height: number; width: number; x: number; y: number }
-  role?: string
-  tag: string
-  testId?: string
-  text?: string
-  title?: string
-  type?: string
-  value?: string
-  visible: boolean
-}
-type EditableAiAction = {
-  uid: string
-  stepIndex: number
-  type: string
-  selector: string
-  value: string
-  originalType: string
-  originalSelector: string
-  originalValue: string
-  isEdited: boolean
-}
-
-type ExecutionFilters = {
-  project: string
-  suite: string
-  testPlan: string
-  testCase: string
-}
-
 @Component({
   selector: 'app-execution',
   standalone: true,
-  imports: [CommonModule , FormsModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './execution.component.html',
   styleUrls: ['./execution.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ExecutionComponent implements OnInit {
+export class ExecutionComponent implements OnInit, OnDestroy {
   private metricsSubscription?: Subscription;
   private logStreamSubscription?: Subscription;
   private runSubscription?: Subscription;
@@ -180,10 +67,15 @@ export class ExecutionComponent implements OnInit {
   private seleniumRunner = inject(SeleniumRunnerService);
   private api = inject(ApiService);
   private seleniumRunnerService = inject(SeleniumRunnerService);
+  private renderer = inject(Renderer2);
+  private document = inject(DOCUMENT);
   private autoAnalysisRequestedForExecutionId: string | null = null;
 
+  @ViewChild('domModalRoot') domModalRoot?: ElementRef<HTMLElement>;
+  @ViewChild('screenshotModalRoot') screenshotModalRoot?: ElementRef<HTMLElement>;
+
   activeTab: 'timeline' | 'logs' | 'screenshot' = 'timeline';
-private isAborted = false;
+  private isAborted = false;
   /*metrics: NodeMetrics = { cpu: 24, memory: 1.2, latency: 42, threads: 8 };*/
 
   streamedLogs: LogLine[] = [];
@@ -194,7 +86,7 @@ private isAborted = false;
   domSourceUrl = '';
   selectedDomElement: DOMElement | null = null;
   streamIndex = 0;
-private currentExecutionId: string | null = null;
+  private currentExecutionId: string | null = null;
 
   scenario: TestScenario = this.buildPassScenario();
   isStreaming = false;
@@ -216,7 +108,7 @@ private currentExecutionId: string | null = null;
   snackbarMessage: string | null = null;
   isExportingReport = false;
 
-private snackbarTimer?: ReturnType<typeof setTimeout>;
+  private snackbarTimer?: ReturnType<typeof setTimeout>;
 
   private readonly PASS_LOGS: LogLine[] = [
     { index: 1, level: 'INFO', message: 'Initializing remote driver session' },
@@ -246,45 +138,50 @@ private snackbarTimer?: ReturnType<typeof setTimeout>;
     { index: 8, level: 'INFO', message: 'Session terminated. Clean-up complete' },
   ];
 
-ngOnInit(): void {
-  this.route.queryParamMap.subscribe((qp) => {
-    const suiteId = String(qp.get('suiteId') || '').trim();
-    const planId = String(qp.get('planId') || '').trim();
-    const projectName = qp.get('projectName');
-    const suiteName = qp.get('suiteName');
-    const planName = qp.get('planName');
-    const testCaseName = qp.get('testCaseName');
-    this.loadProjects();
+  ngOnInit(): void {
+    this.route.queryParamMap.subscribe((qp) => {
+      const suiteId = String(qp.get('suiteId') || '').trim();
+      const planId = String(qp.get('planId') || '').trim();
+      const projectName = qp.get('projectName');
+      const suiteName = qp.get('suiteName');
+      const planName = qp.get('planName');
+      const testCaseName = qp.get('testCaseName');
+      this.loadProjects();
 
-    this.route.paramMap.subscribe((pp) => {
-      const testCaseId = String(pp.get('id') || '').trim();
-      this.suiteId = suiteId;
-      this.planId = planId;
-      this.testCaseId = testCaseId;
+      this.route.paramMap.subscribe((pp) => {
+        const testCaseId = String(pp.get('id') || '').trim();
+        this.suiteId = suiteId;
+        this.planId = planId;
+        this.testCaseId = testCaseId;
 
-      if (projectName || suiteName || planName || testCaseName) {
-        this.scenario = {
-          ...this.scenario,
-          projectName: projectName || this.scenario.projectName,
-          suiteName: suiteName || this.scenario.suiteName,
-          planName: planName || this.scenario.planName,
-          caseName: testCaseName || this.scenario.caseName,
-        };
-      }
+        if (projectName || suiteName || planName || testCaseName) {
+          this.scenario = {
+            ...this.scenario,
+            projectName: projectName || this.scenario.projectName,
+            suiteName: suiteName || this.scenario.suiteName,
+            planName: planName || this.scenario.planName,
+            caseName: testCaseName || this.scenario.caseName,
+          };
+        }
 
-      this.cdr.markForCheck();
+        this.cdr.markForCheck();
 
-      // ─── MODE PLAN : suiteId + planId, pas de testCaseId ───
-      if (suiteId && planId && !testCaseId) {
-        void this.loadAndRunPlan();
-      } else {
-        void this.loadAndRun();
-      }
+        // ─── MODE PLAN : suiteId + planId, pas de testCaseId ───
+        if (suiteId && planId && !testCaseId) {
+          void this.loadAndRunPlan();
+        } else {
+          void this.loadAndRun();
+        }
 
-      void this.loadRecentRuns();
+        void this.loadRecentRuns();
+      });
     });
-  });
-}
+  }
+
+  ngOnDestroy(): void {
+    this.detachModalFromBody(this.domModalRoot);
+    this.detachModalFromBody(this.screenshotModalRoot);
+  }
 
   // ─── Public actions ────────────────────────────────────────────────────────
 
@@ -301,37 +198,37 @@ ngOnInit(): void {
   }
 
   abort(): void {
-  this.isAborted = true;
-  this.stopAll();
+    this.isAborted = true;
+    this.stopAll();
 
-  const executionId = this.currentExecutionId;  // ← toujours EX-...
+    const executionId = this.currentExecutionId; // ← toujours EX-...
 
-  this.scenario = {
-    ...this.scenario,
-    status: 'aborted',
-    activeStepLabel: '■ Aborted',
-    progressLabel: 'Execution aborted',
-    progressPercent: 100,
-  };
+    this.scenario = {
+      ...this.scenario,
+      status: 'aborted',
+      activeStepLabel: '■ Aborted',
+      progressLabel: 'Execution aborted',
+      progressPercent: 100,
+    };
 
-  if (this.liveRun) {
-    this.liveRun = { ...this.liveRun, status: 'aborted' };
+    if (this.liveRun) {
+      this.liveRun = { ...this.liveRun, status: 'aborted' };
+    }
+
+    this.stopLiveRunTimer();
+
+    if (executionId) {
+      this.seleniumRunner.abortExecution(executionId).subscribe({
+        next: () => {
+          console.log('✅ Abort sent for', executionId);
+          setTimeout(() => void this.loadRecentRuns(), 1500);
+        },
+        error: (err: unknown) => console.warn('Abort save failed:', err),
+      });
+    }
+
+    this.cdr.markForCheck();
   }
-
-  this.stopLiveRunTimer();
-
-  if (executionId) {
-    this.seleniumRunner.abortExecution(executionId).subscribe({
-      next: () => {
-        console.log('✅ Abort sent for', executionId);
-        setTimeout(() => void this.loadRecentRuns(), 1500);
-      },
-      error: (err) => console.warn('Abort save failed:', err),
-    });
-  }
-
-  this.cdr.markForCheck();
-}
 
   setTab(tab: 'timeline' | 'logs' | 'screenshot'): void {
     this.activeTab = tab;
@@ -409,37 +306,37 @@ ngOnInit(): void {
         const specificInsight = hasDetailedAnalysis
           ? null
           : this.makeSpecificInsightIfGeneric(analysis, recommendations, analysisLogs);
-  this.detectorInsight = specificInsight || {
-    title: analysis.title || 'Failure Detected',
-    description: analysis.description || 'Unable to determine cause',
-    actionLabel: analysis.actionLabel || 'Recommended Fix',
-    actionText: analysis.actionText || 'Review logs and adjust test configuration',
-    recommendations: recommendations.length
-      ? recommendations
-      : [{
-          error: analysis.description || 'Failure detected',
+        this.detectorInsight = specificInsight || {
+          title: analysis.title || 'Failure Detected',
+          description: analysis.description || 'Unable to determine cause',
+          actionLabel: analysis.actionLabel || 'Recommended Fix',
+          actionText: analysis.actionText || 'Review logs and adjust test configuration',
+          recommendations: recommendations.length
+            ? recommendations
+            : [{
+                error: analysis.description || 'Failure detected',
+                rootCause: analysis.rootCause,
+                fix: analysis.actionText || 'Review logs and adjust test configuration',
+              }],
           rootCause: analysis.rootCause,
-          fix: analysis.actionText || 'Review logs and adjust test configuration',
-        }],
-    rootCause: analysis.rootCause,
-    confidence: analysis.confidence,
-    failedStepName: analysis.failedStepName,
-    aiActionSummary: analysis.aiActionSummary,
-    diagnosticTips: analysis.diagnosticTips,
-    suggestedSelectors: analysis.suggestedSelectors,
-    summary: analysis.summary,
-    whatHappened: analysis.whatHappened,
-    simpleExplanation: analysis.simpleExplanation,
-    example: analysis.example,
-    expectedBehavior: analysis.expectedBehavior,
-    actualBehavior: analysis.actualBehavior,
-    whyItFailed: analysis.whyItFailed,
-    severity: analysis.severity,
-    evidence: analysis.evidence,
-    timeline: analysis.timeline,
-    developerFix: analysis.developerFix,
-    testerFix: analysis.testerFix,
-  };
+          confidence: analysis.confidence,
+          failedStepName: analysis.failedStepName,
+          aiActionSummary: analysis.aiActionSummary,
+          diagnosticTips: analysis.diagnosticTips,
+          suggestedSelectors: analysis.suggestedSelectors,
+          summary: analysis.summary,
+          whatHappened: analysis.whatHappened,
+          simpleExplanation: analysis.simpleExplanation,
+          example: analysis.example,
+          expectedBehavior: analysis.expectedBehavior,
+          actualBehavior: analysis.actualBehavior,
+          whyItFailed: analysis.whyItFailed,
+          severity: analysis.severity,
+          evidence: analysis.evidence,
+          timeline: analysis.timeline,
+          developerFix: analysis.developerFix,
+          testerFix: analysis.testerFix,
+        };
         console.log('[AI Analysis] ✅ Insight received:', this.detectorInsight);
         this.showSnackbar('✅ AI analysis complete', 2000);
       } else {
@@ -638,116 +535,123 @@ ngOnInit(): void {
       .filter(Boolean);
     this.currentScreenshotIndex = this.currentScreenshots.indexOf(url);
     this.selectedScreenshotUrl = url;
-  }
+    this.cdr.markForCheck();
 
+    // Same containing-block escape as the DOM modal — see openDomModal().
+    setTimeout(() => {
+      if (this.screenshotModalRoot) {
+        this.renderer.appendChild(this.document.body, this.screenshotModalRoot.nativeElement);
+      }
+    });
+  }
 
   showSnackbar(message: string, durationMs = 4000): void {
-  this.snackbarMessage = message;
-  this.cdr.markForCheck();
-  if (this.snackbarTimer) clearTimeout(this.snackbarTimer);
-  this.snackbarTimer = setTimeout(() => {
-    this.snackbarMessage = null;
+    this.snackbarMessage = message;
     this.cdr.markForCheck();
-  }, durationMs);
-}
-
-private async loadAndRunPlan(): Promise<void> {
-  this.screenshotUrl = null;
-
-  if (!this.suiteId || !this.planId) {
-    this.scenario = {
-      ...this.scenario,
-      status: 'in-progress',
-      progressPercent: 0,
-      progressLabel: 'Select a suite and test plan to continue',
-      activeStepLabel: '● Waiting for selection',
-      steps: [],
-    };
-    this.streamedLogs = [{ index: 1, level: 'INFO', message: 'Waiting for suite and test plan selection.' }];
-    this.cdr.markForCheck();
-    return;
+    if (this.snackbarTimer) clearTimeout(this.snackbarTimer);
+    this.snackbarTimer = setTimeout(() => {
+      this.snackbarMessage = null;
+      this.cdr.markForCheck();
+    }, durationMs);
   }
 
-  try {
-    console.log("GET SUITE...");
-    const suite: TestSuiteDto = await firstValueFrom(
-      this.testLabService.getTestSuiteById(this.suiteId)
-    );console.log("SUITE RECEIVED", suite);
-    const planCases = this.getPlanTestCases(suite, this.planId);
+  private async loadAndRunPlan(): Promise<void> {
+    this.screenshotUrl = null;
 
-    if (!planCases.length) {
+    if (!this.suiteId || !this.planId) {
       this.scenario = {
         ...this.scenario,
         status: 'in-progress',
         progressPercent: 0,
-        progressLabel: 'Select a test case to continue',
-        activeStepLabel: '● Waiting for test case',
+        progressLabel: 'Select a suite and test plan to continue',
+        activeStepLabel: '● Waiting for selection',
         steps: [],
       };
-      this.streamedLogs = [{ index: 1, level: 'INFO', message: 'Waiting for a test case selection.' }];
+      this.streamedLogs = [{ index: 1, level: 'INFO', message: 'Waiting for suite and test plan selection.' }];
       this.cdr.markForCheck();
       return;
     }
 
-    const total = planCases.length;
+    try {
+      console.log('GET SUITE...');
+      const suite: TestSuiteDto = await firstValueFrom(
+        this.testLabService.getTestSuiteById(this.suiteId)
+      );
+      console.log('SUITE RECEIVED', suite);
+      const planCases = this.getPlanTestCases(suite, this.planId);
 
-    for (const [index, testCase] of planCases.entries()) {
-      this.loadedTestCase = testCase;
-
-      // update breadcrumb caseName to current test case
-      this.scenario = {
-        ...this.scenario,
-        caseName: testCase.title,
-        progressLabel: `Test case ${index + 1} / ${total} — ${testCase.title}`,
-        activeStepLabel: `▶ Running ${testCase.title}`,
-      };
-      this.cdr.markForCheck();
-
-      await this.executeLoadedTestCase(testCase);
-
-      const caseStatus = this.scenario.status;
-      const emoji = caseStatus === 'passed' ? '✓' : '✕';
-      const label = caseStatus === 'passed' ? 'passed' : 'failed';
-
-      // ── Snackbar intermédiaire ──────────────────────────────────────────
-      if (index < total - 1) {
-        this.showSnackbar(
-          `${emoji} Test case ${index + 1}/${total} "${testCase.title}" ${label} — starting next...`,
-          3500
-        );
-        // small pause so the user sees the snackbar before next case starts
-        await new Promise<void>(r => setTimeout(r, 1200));
+      if (!planCases.length) {
+        this.scenario = {
+          ...this.scenario,
+          status: 'in-progress',
+          progressPercent: 0,
+          progressLabel: 'Select a test case to continue',
+          activeStepLabel: '● Waiting for test case',
+          steps: [],
+        };
+        this.streamedLogs = [{ index: 1, level: 'INFO', message: 'Waiting for a test case selection.' }];
+        this.cdr.markForCheck();
+        return;
       }
 
-      if (caseStatus === 'aborted') {
-  this.showSnackbar('■ Execution aborted by user.', 4000);
-  break;
-}
-if (caseStatus === 'failed') break;
+      const total = planCases.length;
+
+      for (const [index, testCase] of planCases.entries()) {
+        this.loadedTestCase = testCase;
+
+        // update breadcrumb caseName to current test case
+        this.scenario = {
+          ...this.scenario,
+          caseName: testCase.title,
+          progressLabel: `Test case ${index + 1} / ${total} — ${testCase.title}`,
+          activeStepLabel: `▶ Running ${testCase.title}`,
+        };
+        this.cdr.markForCheck();
+
+        await this.executeLoadedTestCase(testCase);
+
+        const caseStatus = this.scenario.status;
+        const emoji = caseStatus === 'passed' ? '✓' : '✕';
+        const label = caseStatus === 'passed' ? 'passed' : 'failed';
+
+        // ── Snackbar intermédiaire ──────────────────────────────────────────
+        if (index < total - 1) {
+          this.showSnackbar(
+            `${emoji} Test case ${index + 1}/${total} "${testCase.title}" ${label} — starting next...`,
+            3500
+          );
+          // small pause so the user sees the snackbar before next case starts
+          await new Promise<void>(r => setTimeout(r, 1200));
+        }
+
+        if (caseStatus === 'aborted') {
+          this.showSnackbar('■ Execution aborted by user.', 4000);
+          break;
+        }
+        if (caseStatus === 'failed') break;
+      }
+
+      // ── Snackbar final ─────────────────────────────────────────────────────
+      const finalStatus = this.scenario.status;
+      if (finalStatus === 'passed') {
+        this.showSnackbar(`🎉 Test plan completed — all ${total} test cases passed!`, 6000);
+      } else {
+        this.showSnackbar('✕ Test plan finished with failures.', 6000);
+      }
+
+      void this.loadRecentRuns();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.streamedLogs = [{ index: 1, level: 'ERROR', message: msg || 'Unable to execute plan.' }];
+      this.scenario = {
+        ...this.scenario,
+        status: 'failed',
+        progressLabel: 'Plan execution failed',
+        activeStepLabel: '⚠ Unable to execute test plan',
+      };
+      this.cdr.markForCheck();
     }
-
-    // ── Snackbar final ─────────────────────────────────────────────────────
-    const finalStatus = this.scenario.status;
-    if (finalStatus === 'passed') {
-      this.showSnackbar(`🎉 Test plan completed — all ${total} test cases passed!`, 6000);
-    } else {
-      this.showSnackbar(`✕ Test plan finished with failures.`, 6000);
-    }
-
-    void this.loadRecentRuns();
-
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    this.streamedLogs = [{ index: 1, level: 'ERROR', message: msg || 'Unable to execute plan.' }];
-    this.scenario = {
-      ...this.scenario,
-      status: 'failed',
-      progressLabel: 'Plan execution failed',
-      activeStepLabel: '⚠ Unable to execute test plan',
-    };
-    this.cdr.markForCheck();
   }
-}
 
   get canExportReport(): boolean {
     return Boolean(this.scenario.projectName?.trim() && this.scenario.suiteName?.trim());
@@ -765,7 +669,7 @@ if (caseStatus === 'failed') break;
       );
 
       const url = window.URL.createObjectURL(blob);
-      const fileName = `${(this.scenario.projectName || 'project').replace(/[^\w\-]+/g, '_')}_${(this.scenario.suiteName || 'suite').replace(/[^\w\-]+/g, '_')}_report.pdf`;
+      const fileName = `${(this.scenario.projectName || 'project').replace(/[^\w-]+/g, '_')}_${(this.scenario.suiteName || 'suite').replace(/[^\w-]+/g, '_')}_report.pdf`;
       const anchor = document.createElement('a');
       anchor.href = url;
       anchor.download = fileName;
@@ -797,27 +701,25 @@ if (caseStatus === 'failed') break;
   }
 
   closeScreenshot(): void {
+    this.detachModalFromBody(this.screenshotModalRoot);
     this.selectedScreenshotUrl = null;
+    this.cdr.markForCheck();
   }
 
-/*  copySnippet(): void {
-    const snippet = `from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-
-wait = WebDriverWait(driver, 15)
-element = wait.until(EC.element_to_be_clickable((By.ID, "submit-btn")))
-element.click()`;
-    navigator.clipboard?.writeText(snippet);
-  }*/
-
-    copySnippet(text?: string): void {
-  const content = text?.trim() || this.detectorInsight?.actionText?.trim() || '';
-  if (content) {
-    navigator.clipboard?.writeText(content);
-    this.showSnackbar('✅ Copied to clipboard', 1800);
+  private detachModalFromBody(ref?: ElementRef<HTMLElement>): void {
+    const el = ref?.nativeElement;
+    if (el?.parentNode === this.document.body) {
+      this.renderer.removeChild(this.document.body, el);
+    }
   }
-}
+
+  copySnippet(text?: string): void {
+    const content = text?.trim() || this.detectorInsight?.actionText?.trim() || '';
+    if (content) {
+      navigator.clipboard?.writeText(content);
+      this.showSnackbar('✅ Copied to clipboard', 1800);
+    }
+  }
 
   // ─── Template helpers ──────────────────────────────────────────────────────
 
@@ -954,42 +856,41 @@ element.click()`;
 
   // ─── Scenario builders ─────────────────────────────────────────────────────
 
-private buildPassScenario(): TestScenario {
-  return {
-    projectName: '',
-    suiteName: '',
-    planName: '',
-    caseName: '',
-    executionId: '-',
-    environment: '-',
-    executionTime: '-',
-    status: 'in-progress',
-    progressPercent: 0,
-    progressLabel: '-',
-    activeStepLabel: '-',
-    steps: [],
-    logs: [],
-  };
-}
+  private buildPassScenario(): TestScenario {
+    return {
+      projectName: '',
+      suiteName: '',
+      planName: '',
+      caseName: '',
+      executionId: '-',
+      environment: '-',
+      executionTime: '-',
+      status: 'in-progress',
+      progressPercent: 0,
+      progressLabel: '-',
+      activeStepLabel: '-',
+      steps: [],
+      logs: [],
+    };
+  }
 
-
-private buildFailScenario(): TestScenario {
-  return {
-    projectName: '',
-    suiteName: '',
-    planName: '',
-    caseName: '',
-    executionId: '-',
-    environment: '-',
-    executionTime: '-',
-    status: 'failed',
-    progressPercent: 0,
-    progressLabel: '-',
-    activeStepLabel: '-',
-    steps: [],
-    logs: [],
-  };
-}
+  private buildFailScenario(): TestScenario {
+    return {
+      projectName: '',
+      suiteName: '',
+      planName: '',
+      caseName: '',
+      executionId: '-',
+      environment: '-',
+      executionTime: '-',
+      status: 'failed',
+      progressPercent: 0,
+      progressLabel: '-',
+      activeStepLabel: '-',
+      steps: [],
+      logs: [],
+    };
+  }
 
   // ─── Execution simulation ──────────────────────────────────────────────────
 
@@ -999,12 +900,11 @@ private buildFailScenario(): TestScenario {
     this.streamIndex = 0;
     this.isStreaming = true;
     this.cdr.markForCheck();
-    /*this.startMetricsAnimation();*/
 
     const steps = [
-      { delay: 800,  progress: 40,  label: '40% — 2 / 5 steps completed',  active: '● Navigating to Login Page' },
-      { delay: 2400, progress: 60,  label: '60% — 3 / 5 steps completed',  active: '● Navigating to Login Page' },
-      { delay: 4000, progress: 80,  label: '80% — 4 / 5 steps completed',  active: '● Submitting credentials' },
+      { delay: 800, progress: 40, label: '40% — 2 / 5 steps completed', active: '● Navigating to Login Page' },
+      { delay: 2400, progress: 60, label: '60% — 3 / 5 steps completed', active: '● Navigating to Login Page' },
+      { delay: 4000, progress: 80, label: '80% — 4 / 5 steps completed', active: '● Submitting credentials' },
       { delay: 6000, progress: 100, label: '100% — 5 / 5 steps completed', active: '✓ All steps passed' },
     ];
 
@@ -1025,7 +925,6 @@ private buildFailScenario(): TestScenario {
 
   private finalizePassScenario(): void {
     this.isStreaming = false;
-    /*this.stopMetrics();*/
     this.scenario = {
       ...this.scenario,
       status: 'passed',
@@ -1038,7 +937,6 @@ private buildFailScenario(): TestScenario {
         { id: 5, name: 'Assert Dashboard Loaded', subtitle: 'Completed in 0.9s', status: 'pass', timestamp: '14:29:09' },
       ],
     };
-    /*this.metrics = { cpu: 8, memory: 1.0, latency: 18, threads: 4 };*/
     this.cdr.markForCheck();
   }
 
@@ -1058,25 +956,8 @@ private buildFailScenario(): TestScenario {
       });
   }
 
-  /*private startMetricsAnimation(): void {
-    this.metricsSubscription = interval(1200)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => {
-        this.metrics = {
-          cpu: Math.round(18 + Math.random() * 20),
-          memory: parseFloat((1.1 + Math.random() * 0.3).toFixed(1)),
-          latency: Math.round(30 + Math.random() * 30),
-          threads: 8,
-        };
-        this.cdr.markForCheck();
-      });
-  }*/
-
-  /*private stopMetrics(): void { this.metricsSubscription?.unsubscribe(); }*/
-
   private stopAll(): void {
     this.isStreaming = false;
-    /*this.stopMetrics();*/
     this.logStreamSubscription?.unsubscribe();
     this.runSubscription?.unsubscribe();
     this.fakeTimelineSubscription?.unsubscribe();
@@ -1087,7 +968,7 @@ private buildFailScenario(): TestScenario {
   // ─── Real execution flow ───────────────────────────────────────────────────
 
   private async loadAndRun(): Promise<void> {
-    console.log("LOAD AND RUN START");
+    console.log('LOAD AND RUN START');
     this.screenshotUrl = null;
 
     if (!this.suiteId || !this.planId || !this.testCaseId) {
@@ -1112,21 +993,20 @@ private buildFailScenario(): TestScenario {
       const allCases: TestCaseDto[] =
         (suite.testCasesByPlan || []).flatMap(p => p.testCases || []);
 
-      const tc = allCases.find(c =>
-  String(
-    (c as any)._id ||
-    (c as any).id ||
-    ''
-  ).trim() === this.testCaseId) || null;
+      const tc = allCases.find(c => {
+        const record = c as unknown as Record<string, unknown>;
+        return String(record['_id'] || record['id'] || '').trim() === this.testCaseId;
+      }) || null;
       if (!tc) throw new Error(`Test case "${this.testCaseId}" not found.`);
 
+      const tcRecord = tc as unknown as Record<string, unknown>;
       const steps = Array.isArray(tc.steps) ? tc.steps.map(s => String(s)) : [];
-      const executionModel = this.coerceExecutionModel((tc as any).executionModel || (tc as any).execution_model);
+      const executionModel = this.coerceExecutionModel(tcRecord['executionModel'] || tcRecord['execution_model']);
       const credentials = this.resolveExecutionCredentials(tc, suite);
-      const testData = (tc as any).test_data ?? (tc as any).testData ?? (tc as any).data ?? null;
-      const stepDetails = Array.isArray((tc as any).stepDetails)
-        ? (tc as any).stepDetails
-        : Array.isArray((tc as any).step_details) ? (tc as any).step_details : [];
+      const testData = tcRecord['test_data'] ?? tcRecord['testData'] ?? tcRecord['data'] ?? null;
+      const stepDetails = Array.isArray(tcRecord['stepDetails'])
+        ? tcRecord['stepDetails']
+        : Array.isArray(tcRecord['step_details']) ? tcRecord['step_details'] : [];
 
       this.loadedTestCase = {
         id: String(tc.id),
@@ -1150,9 +1030,9 @@ private buildFailScenario(): TestScenario {
       };
 
       this.cdr.markForCheck();
-      console.log("BEFORE executeLoadedTestCase");
+      console.log('BEFORE executeLoadedTestCase');
       await this.executeLoadedTestCase();
-      console.log("AFTER executeLoadedTestCase");
+      console.log('AFTER executeLoadedTestCase');
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.scenario = {
@@ -1193,7 +1073,7 @@ private buildFailScenario(): TestScenario {
       id: idx + 1,
       name: s || `Step ${idx + 1}`,
       subtitle: 'Waiting...',
-      status: 'waiting',
+      status: 'waiting' as StepStatus,
       timestamp: ts,
     }));
   }
@@ -1221,80 +1101,53 @@ private buildFailScenario(): TestScenario {
     return testCase.steps;
   }
 
-private getPlanTestCases(
-  suite: TestSuiteDto,
-  planId: string
-): LoadedExecutionTestCase[] {
+  private getPlanTestCases(
+    suite: TestSuiteDto,
+    planId: string
+  ): LoadedExecutionTestCase[] {
+    console.log('SELECTED PLAN ID =', planId);
 
-  console.log("SELECTED PLAN ID =", planId);
+    const selectedPlan = (suite.testPlans || []).find((p) => {
+      const record = p as unknown as Record<string, unknown>;
+      return String(record['_id'] || '').trim() === String(planId).trim();
+    });
 
-  const selectedPlan =
-    (suite.testPlans || []).find(
-      (p: any) =>
-        String(p._id || '').trim() ===
-        String(planId).trim()
-    );
+    console.log('SELECTED PLAN FOUND =', selectedPlan);
 
-  console.log(
-    "SELECTED PLAN FOUND =",
-    selectedPlan
-  );
-
-  if (!selectedPlan) {
-    console.log("PLAN NOT FOUND");
-    return [];
-  }
-
-  const planCases =
-    (suite.testCasesByPlan || []).find(
-      (p: any) =>
-        String(p.planId || '').trim() ===
-        String(selectedPlan.id || '').trim()
-    );
-
-  console.log(
-    "PLAN CASES =",
-    planCases
-  );
-
-  const urlCible =
-    String(suite.urlCible || '').trim();
-
-  if (!planCases || !urlCible) {
-    return [];
-  }
-
-  return (planCases.testCases || []).map(
-    (tc: TestCaseDto) => {
-
-      const executionModel =
-        this.coerceExecutionModel(
-          (tc as any).executionModel ||
-          (tc as any).execution_model
-        );
-
-      const credentials =
-        this.resolveExecutionCredentials(
-          tc,
-          suite
-        );
-
-      const testData =
-        (tc as any).test_data ??
-        (tc as any).testData ??
-        (tc as any).data ??
-        null;
-
-      return this.normalizeTestCase(
-        tc,
-        urlCible,
-        executionModel,
-        credentials,
-        testData
-      );
+    if (!selectedPlan) {
+      console.log('PLAN NOT FOUND');
+      return [];
     }
-  );
-}
+
+    const selectedPlanRecord = selectedPlan as unknown as Record<string, unknown>;
+
+    const planCases = (suite.testCasesByPlan || []).find((p) => {
+      const record = p as unknown as Record<string, unknown>;
+      return String(record['planId'] || '').trim() === String(selectedPlanRecord['id'] || '').trim();
+    });
+
+    console.log('PLAN CASES =', planCases);
+
+    const urlCible = String(suite.urlCible || '').trim();
+
+    if (!planCases || !urlCible) {
+      return [];
+    }
+
+    return (planCases.testCases || []).map((tc: TestCaseDto) => {
+      const tcRecord = tc as unknown as Record<string, unknown>;
+
+      const executionModel = this.coerceExecutionModel(
+        tcRecord['executionModel'] || tcRecord['execution_model']
+      );
+
+      const credentials = this.resolveExecutionCredentials(tc, suite);
+
+      const testData = tcRecord['test_data'] ?? tcRecord['testData'] ?? tcRecord['data'] ?? null;
+
+      return this.normalizeTestCase(tc, urlCible, executionModel, credentials, testData);
+    });
+  }
 
   private normalizeTestCase(
     tc: TestCaseDto,
@@ -1303,10 +1156,10 @@ private getPlanTestCases(
     credentials: LoadedExecutionTestCase['credentials'] | undefined,
     testData: unknown,
   ): LoadedExecutionTestCase {
+    const tcRecord = tc as unknown as Record<string, unknown>;
     return {
       id: String(tc.id || '').trim(),
-      title: String(tc.title || (tc as any).nom || (tc as any).name || 'Untitled test case').trim(),
-
+      title: String(tc.title || tcRecord['nom'] || tcRecord['name'] || 'Untitled test case').trim(),
       urlCible,
       steps: Array.isArray(tc.steps) ? tc.steps.map(s => String(s)) : [],
       stepDetails: Array.isArray(tc.stepDetails) ? tc.stepDetails : undefined,
@@ -1398,7 +1251,7 @@ private getPlanTestCases(
       subtitle: r.status === 'passed' ? 'Passed' : (r.error || r.message || 'Failed'),
       status: r.status === 'passed' ? 'pass'
         : r.status === 'failed_assertion' || r.status === 'failed_execution' ? 'fail'
-        : 'waiting',
+        : 'waiting' as StepStatus,
       timestamp: now,
       screenshotUrl: this.resolveScreenshotUrl(
         r.screenshots?.[0]?.publicUrl || r.screenshots?.[0]?.path ||
@@ -1408,12 +1261,13 @@ private getPlanTestCases(
     }));
   }
 
-  private mapRunResponseToLogs(resp: any): LogLine[] {
-    const data = resp?.data ?? resp;
-    const logs = Array.isArray(data?.logs) ? data.logs : [];
+  private mapRunResponseToLogs(resp: unknown): LogLine[] {
+    const respRecord = resp as Record<string, unknown>;
+    const data = (respRecord?.['data'] ?? respRecord) as Record<string, unknown>;
+    const logs = Array.isArray(data?.['logs']) ? data['logs'] as Record<string, unknown>[] : [];
     const formatLogValue = (value: unknown): string => {
       if (value && typeof value === 'object' && 'publicUrl' in value) {
-        return String((value as any).publicUrl || '');
+        return String((value as Record<string, unknown>)['publicUrl'] || '');
       }
       if (value && typeof value === 'object') {
         try {
@@ -1424,23 +1278,25 @@ private getPlanTestCases(
       }
       return String(value);
     };
-    return logs.map((log: any, i: number) => {
-      const details = log?.data
-        ? Object.entries(log.data).filter(([k]) => k !== 'dom').map(([k, v]) =>
+    return logs.map((log, i) => {
+      const logData = log?.['data'] as Record<string, unknown> | undefined;
+      const details = logData
+        ? Object.entries(logData).filter(([k]) => k !== 'dom').map(([k, v]) =>
             `${k}: ${formatLogValue(v)}`
           ).join(' | ')
         : '';
       return {
         index: i + 1,
-        level: String(log?.level || 'INFO'),
-        message: details ? `${log.message} → ${details}` : String(log?.message || ''),
+        level: String(log?.['level'] || 'INFO') as LogLine['level'],
+        message: details ? `${log['message']} → ${details}` : String(log?.['message'] || ''),
       };
     });
   }
 
-  private getRawRunLogs(resp: any): RawExecutionLog[] {
-    const data = resp?.data ?? resp;
-    return Array.isArray(data?.logs) ? data.logs : [];
+  private getRawRunLogs(resp: unknown): RawExecutionLog[] {
+    const respRecord = resp as Record<string, unknown>;
+    const data = (respRecord?.['data'] ?? respRecord) as Record<string, unknown>;
+    return Array.isArray(data?.['logs']) ? data['logs'] as RawExecutionLog[] : [];
   }
 
   private refreshDomFromExecutionLogs(): void {
@@ -1490,8 +1346,8 @@ private getPlanTestCases(
     };
   }
 
-  private extractAiActions(logs: RawExecutionLog[]): Array<Record<string, unknown>> {
-    const actions: Array<Record<string, unknown>> = [];
+  private extractAiActions(logs: RawExecutionLog[]): AiActionRecord[] {
+    const actions: AiActionRecord[] = [];
     for (const log of logs) {
       const message = String(log?.message || '');
       if (message !== 'AI actions received' && message !== 'AI actions overridden by user') {
@@ -1522,7 +1378,7 @@ private getPlanTestCases(
     return [type, selector, value ? `value="${value}"` : ''].filter(Boolean).join(' ');
   }
 
-  private suggestDetectorFix(errorText: string, actions: Array<Record<string, unknown>>): string {
+  private suggestDetectorFix(errorText: string, actions: AiActionRecord[]): string {
     const text = errorText.toLowerCase();
     const selector = String(actions[actions.length - 1]?.['selector'] || '').trim();
     const target = selector ? ` for ${selector}` : '';
@@ -1553,15 +1409,13 @@ private getPlanTestCases(
 
   private async executeLoadedTestCase(testCase: LoadedExecutionTestCase | null = this.loadedTestCase): Promise<void> {
     if (!testCase) return;
-this.isAborted = false; 
-  this.currentExecutionId = `EX-${Date.now()}`;  // ← génère ici
+    this.isAborted = false;
+    this.currentExecutionId = `EX-${Date.now()}`; // ← génère ici
 
     this.stopAll();
     this.isStreaming = true;
     this.screenshotUrl = null;
     this.domElements = [];
-    /*this.metrics = { cpu: 24, memory: 1.2, latency: 42, threads: 8 };
-    this.startMetricsAnimation();*/
 
     const timelineSource = this.getTimelineSource(testCase);
     const steps = this.buildTimelineSteps(timelineSource);
@@ -1606,33 +1460,29 @@ this.isAborted = false;
         value: action.value,
       })) } : {}),
     };
-console.log(
-  "PAYLOAD SENT",
-  payload
-);
+    console.log('PAYLOAD SENT', payload);
+
     this.runSubscription = this.seleniumRunner
       .runSingleTestCase(payload)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (resp) => {
-           if (this.isAborted) {
-          this.cdr.markForCheck();
-          return;
-        }console.log(
-  "RUN RESPONSE",
-  resp
-);
+          if (this.isAborted) {
+            this.cdr.markForCheck();
+            return;
+          }
+          console.log('RUN RESPONSE', resp);
 
           const elapsed = Math.max(0, Date.now() - startedAt);
           const secs = `${Math.max(1, Math.round(elapsed / 1000))}s`;
-          const respPayload: any = (resp as any)?.data ?? resp;
-          const innerData: any = respPayload?.data ?? respPayload;
+          const respRecord = resp as unknown as Record<string, unknown>;
+          const respPayload = (respRecord?.['data'] ?? resp) as Record<string, unknown>;
+          const innerData = (respPayload?.['data'] ?? respPayload) as Record<string, unknown>;
 
           if (!respPayload || (typeof respPayload === 'object' && !Array.isArray(respPayload) && Object.keys(respPayload).length === 0)) {
             this.isStreaming = false;
             this.fakeTimelineSubscription?.unsubscribe();
             this.stopDomExtraction();
-            /*this.stopMetrics();*/
             this.stopLiveRunTimer();
             this.scenario = {
               ...this.scenario,
@@ -1647,45 +1497,44 @@ console.log(
             return;
           }
 
-          const responseModel = this.coerceExecutionModel(innerData?.executionModel || innerData?.execution_model);
+          const responseModel = this.coerceExecutionModel(innerData?.['executionModel'] || innerData?.['execution_model']);
           if (responseModel) {
             this.executionModelSummary = this.describeExecutionModel(responseModel, this.loadedTestCase?.steps.length || 0);
           }
 
-          const stepResults = Array.isArray(innerData?.stepResults) ? innerData.stepResults : [];
+          const stepResults = Array.isArray(innerData?.['stepResults']) ? innerData['stepResults'] as SeleniumStepResultDto[] : [];
           const rawLogs = this.getRawRunLogs(respPayload);
           const mappedSteps = stepResults.length
             ? this.mapStepResultsToScenarioSteps(stepResults)
             : this.scenario.steps;
 
-          const failedStep = stepResults.find((s: SeleniumStepResultDto) =>
+          const failedStep = stepResults.find((s) =>
             s.status === 'failed_execution' || s.status === 'failed_assertion'
           ) || null;
 
-          const screenshotList = Array.isArray(innerData?.screenshots) ? innerData.screenshots : [];
+          const screenshotList = Array.isArray(innerData?.['screenshots']) ? innerData['screenshots'] as Record<string, unknown>[] : [];
           const latestScreenshot = screenshotList[screenshotList.length - 1];
 
           const screenshotPath = String(
             failedStep?.screenshots?.[0]?.publicUrl || failedStep?.screenshots?.[0]?.path ||
             failedStep?.screenshot?.publicUrl || failedStep?.screenshot?.path ||
-            failedStep?.screenshotPath || latestScreenshot?.publicUrl || latestScreenshot?.path ||
-            innerData?.screenshot?.publicUrl || innerData?.screenshotPath || ''
+            failedStep?.screenshotPath || latestScreenshot?.['publicUrl'] || latestScreenshot?.['path'] ||
+            (innerData?.['screenshot'] as Record<string, unknown> | undefined)?.['publicUrl'] || innerData?.['screenshotPath'] || ''
           ).trim();
 
           this.screenshotUrl = this.resolveScreenshotUrl(screenshotPath);
           this.isStreaming = false;
           this.fakeTimelineSubscription?.unsubscribe();
           this.stopDomExtraction();
-          /*this.stopMetrics();*/
 
           this.scenario = {
             ...this.scenario,
-            status: innerData?.status === 'passed' ? 'passed' : 'failed',
+            status: innerData?.['status'] === 'passed' ? 'passed' : 'failed',
             executionTime: secs,
             steps: mappedSteps,
             progressPercent: 100,
-            progressLabel: innerData?.status === 'passed' ? 'Completed' : 'Completed with errors',
-            activeStepLabel: innerData?.status === 'passed' ? '✓ Completed' : '✖ Failed',
+            progressLabel: innerData?.['status'] === 'passed' ? 'Completed' : 'Completed with errors',
+            activeStepLabel: innerData?.['status'] === 'passed' ? '✓ Completed' : '✖ Failed',
             errorMeta: screenshotPath ? {
               errorType: 'SeleniumStepFailed',
               stepName: String(failedStep?.name || ''),
@@ -1705,14 +1554,13 @@ console.log(
         },
         error: (err: unknown) => {
           if (this.isAborted) {
-          this.cdr.markForCheck();
-          return;
-        }
+            this.cdr.markForCheck();
+            return;
+          }
           const msg = err instanceof Error ? err.message : String(err);
           this.isStreaming = false;
           this.fakeTimelineSubscription?.unsubscribe();
           this.stopDomExtraction();
-          /*this.stopMetrics();*/
           this.scenario = {
             ...this.scenario,
             status: 'failed',
@@ -1764,113 +1612,70 @@ console.log(
     }
   }
 
-private async executeLoadedPlan(): Promise<void> {
+  private async executeLoadedPlan(): Promise<void> {
+    console.log('=== executeLoadedPlan START ===');
+    console.log('suiteId =', this.suiteId);
+    console.log('planId =', this.planId);
 
-  console.log('=== executeLoadedPlan START ===');
-
-  console.log('suiteId =', this.suiteId);
-  console.log('planId =', this.planId);
-
-  if (!this.suiteId || !this.planId) {
-    console.log('❌ suiteId ou planId manquant');
-    return;
-  }
-
-  try {
-
-    console.log('🚀 AVANT getTestSuiteById');
-
-    const suite: TestSuiteDto =
-      await firstValueFrom(
-        this.testLabService.getTestSuiteById(
-          this.suiteId
-        )
-      );
-
-    console.log('✅ SUITE RECUE');
-    console.log(suite);
-
-    const planCases =
-      this.getPlanTestCases(
-        suite,
-        this.planId
-      );
-
-    console.log(
-      '📦 planCases =',
-      planCases
-    );
-
-    if (!planCases.length) {
-
-      console.log(
-        '❌ Aucun testcase trouvé'
-      );
-
-      this.streamedLogs = [
-        {
-          index: 1,
-          level: 'ERROR',
-          message:
-            'No test cases found for this test plan.'
-        }
-      ];
-
-      this.cdr.markForCheck();
+    if (!this.suiteId || !this.planId) {
+      console.log('❌ suiteId ou planId manquant');
       return;
     }
 
-    for (const [index, testCase] of planCases.entries()) {
+    try {
+      console.log('🚀 AVANT getTestSuiteById');
 
-      console.log(
-        '▶️ EXECUTION TESTCASE',
-        index,
-        testCase
+      const suite: TestSuiteDto = await firstValueFrom(
+        this.testLabService.getTestSuiteById(this.suiteId)
       );
 
-      this.loadedTestCase = testCase;
+      console.log('✅ SUITE RECUE');
+      console.log(suite);
 
-      await this.executeLoadedTestCase(
-        testCase
-      );
+      const planCases = this.getPlanTestCases(suite, this.planId);
 
-      console.log(
-        '✅ FIN TESTCASE',
-        index
-      );
+      console.log('📦 planCases =', planCases);
 
-      if (
-        this.scenario.status === 'failed' ||
-        this.scenario.status === 'aborted'
-      ) {
+      if (!planCases.length) {
+        console.log('❌ Aucun testcase trouvé');
 
-        console.log(
-          '⛔ STOP PLAN',
-          this.scenario.status
-        );
+        this.streamedLogs = [
+          {
+            index: 1,
+            level: 'ERROR',
+            message: 'No test cases found for this test plan.',
+          },
+        ];
 
-        break;
+        this.cdr.markForCheck();
+        return;
       }
+
+      for (const [index, testCase] of planCases.entries()) {
+        console.log('▶️ EXECUTION TESTCASE', index, testCase);
+
+        this.loadedTestCase = testCase;
+
+        await this.executeLoadedTestCase(testCase);
+
+        console.log('✅ FIN TESTCASE', index);
+
+        if (
+          this.scenario.status === 'failed' ||
+          this.scenario.status === 'aborted'
+        ) {
+          console.log('⛔ STOP PLAN', this.scenario.status);
+          break;
+        }
+      }
+    } catch (err) {
+      console.error('🔥 executeLoadedPlan ERROR', err);
+
+      const msg = err instanceof Error ? err.message : String(err);
+
+      console.error('🔥 MESSAGE =', msg);
     }
-
-  } catch (err) {
-
-    console.error(
-      '🔥 executeLoadedPlan ERROR',
-      err
-    );
-
-    const msg =
-      err instanceof Error
-        ? err.message
-        : String(err);
-
-    console.error(
-      '🔥 MESSAGE =',
-      msg
-    );
   }
-}
 
   showDomModal = false;
   domModalTab: 'dom' | 'actions' = 'dom';
@@ -1878,50 +1683,46 @@ private async executeLoadedPlan(): Promise<void> {
   aiActions: EditableAiAction[] = [];
   seleniumCode = '';
 
-  
-  setActionTab(
-  tab: 'simple' | 'selenium'
-): void {
+  setActionTab(tab: 'simple' | 'selenium'): void {
+    this.actionTab = tab;
+    this.cdr.markForCheck();
+  }
 
-  this.actionTab = tab;
+  private extractSeleniumCode(): string {
+    const log = [...this.rawExecutionLogs]
+      .reverse()
+      .find(x => {
+        const data = x?.data || {};
+        return !!data['seleniumCode'];
+      });
 
-  this.cdr.markForCheck();
-
-}
-private extractSeleniumCode(): string {
-
-  const log = [...this.rawExecutionLogs]
-    .reverse()
-    .find(x => {
-
-      const data = x?.data || {};
-
-      return !!data['seleniumCode'];
-
-    });
-
-  return String(
-    log?.data?.['seleniumCode'] || ''
-  );
-
-}
+    return String(log?.data?.['seleniumCode'] || '');
+  }
 
   // À ajouter avec les autres méthodes publiques
   openDomModal(): void {
-
     this.domModalTab = 'dom';
-
-    this.aiActions =
-      this.buildEditableActions();
-
-    this.seleniumCode =
-      this.extractSeleniumCode();
-
+    this.aiActions = this.buildEditableActions();
+    this.seleniumCode = this.extractSeleniumCode();
     this.showDomModal = true;
+    this.cdr.markForCheck();
+
+    // Move the modal out of the component's DOM subtree so it escapes any
+    // transformed/filtered ancestor in the layout (sidebar/navbar containers
+    // create a new containing block for position:fixed, which was clipping
+    // the modal). Attaching it directly to <body> makes it cover the whole
+    // viewport, navbar and sidebar included.
+    setTimeout(() => {
+      if (this.domModalRoot) {
+        this.renderer.appendChild(this.document.body, this.domModalRoot.nativeElement);
+      }
+    });
   }
 
   closeDomModal(): void {
+    this.detachModalFromBody(this.domModalRoot);
     this.showDomModal = false;
+    this.cdr.markForCheck();
   }
 
   setDomModalTab(tab: 'dom' | 'actions'): void {
@@ -2022,321 +1823,261 @@ private extractSeleniumCode(): string {
     this.rerun();
   }
 
+  projects: ProjectListItemDto[] = [];
+  suites: SuiteListItemDto[] = [];
+  plans: PlanListItemDto[] = [];
+  testCases: TestCaseListItemDto[] = [];
+  private testCasesByPlan = new Map<string, TestCaseListItemDto[]>();
 
-
-projects: any[] = []
-suites: any[] = []
-plans: any[] = []
-testCases: any[] = []
-
-filters: ExecutionFilters = {
-  project: '',
-  suite: '',
-  testPlan: '',
-  testCase: '',
-}
-
-
-   /*loadProjects(): void {
-    this.seleniumRunnerService.getProjects().subscribe((res: any) => {
-      this.projects = Array.isArray(res) ? res : res?.data ?? []
-    })
-  }*/
-
-  
-selectedProjectName = '';
-selectedSuiteName = '';
-selectedPlanName = '';
-selectedTestCaseName = '';
-
-
-onFilterChange(key: string, event: any): void {
-
-  const value = event.target.value;
-
-this.filters = {
-  ...this.filters,
-  [key]: value
-};
-if (value) {
-
-  console.log('PROJECT ID =', value);
-
-  this.seleniumRunnerService
-    .getSuitesByProject(value)
-    .subscribe((res: any) => {
-
-      console.log('SUITES RESPONSE =', res);
-
-      this.suites = Array.isArray(res)
-        ? res
-        : (res?.data ?? []);
-
-      console.log('SUITES ARRAY =', this.suites);
-
-      this.cdr.markForCheck();
-    });
-}
-  // PROJECT
-  if (key === 'project') {
-
-   const project = this.projects.find(
-  p => p._id === value
-);
-
-  this.scenario = {
-    ...this.scenario,
-    projectName: project?.title ?? '',
-    suiteName: '',
-    planName: '',
-    caseName: ''
+  filters: ExecutionFilters = {
+    project: '',
+    suite: '',
+    testPlan: '',
+    testCase: '',
   };
 
+  selectedProjectName = '';
+  selectedSuiteName = '';
+  selectedPlanName = '';
+  selectedTestCaseName = '';
 
-    this.filters.suite = '';
-    this.filters.testPlan = '';
-    this.filters.testCase = '';
+  onFilterChange(key: string, event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
 
-    this.suites = [];
-    this.plans = [];
-    this.testCases = [];
+    this.filters = {
+      ...this.filters,
+      [key]: value,
+    };
 
-    if (value) {
-      
-      this.seleniumRunnerService
-        .getSuitesByProject(value)
-       
-        .subscribe((res: any) => {
+    // PROJECT
+    if (key === 'project') {
+      const project = this.projects.find(p => p._id === value);
 
-          this.suites = Array.isArray(res)
-            ? res
-            : (res?.data ?? []);
+      this.scenario = {
+        ...this.scenario,
+        projectName: project?.title ?? '',
+        suiteName: '',
+        planName: '',
+        caseName: '',
+      };
+
+      this.filters.suite = '';
+      this.filters.testPlan = '';
+      this.filters.testCase = '';
+
+      this.suites = [];
+      this.plans = [];
+      this.testCases = [];
+      this.testCasesByPlan.clear();
+
+      if (value) {
+        this.seleniumRunnerService
+          .getSuitesByProject(value)
+          .subscribe((res: ListEnvelope<SuiteListItemDto> | SuiteListItemDto[]) => {
+            const rawSuites = Array.isArray(res) ? res : (res?.data ?? []);
+            this.suites = rawSuites.map((suite) => this.normalizeSuite(suite));
+            this.cdr.markForCheck();
+          });
+      }
+    }
+
+    if (key === 'suite') {
+      const suite = this.suites.find((item) => item._id === value);
+      this.scenario = {
+        ...this.scenario,
+        suiteName: this.dropdownLabel(suite),
+        planName: '',
+        caseName: '',
+      };
+      this.filters.testPlan = '';
+      this.filters.testCase = '';
+      this.plans = [];
+      this.testCases = [];
+      this.testCasesByPlan.clear();
+
+      if (value) {
+        this.seleniumRunnerService.getPlansBySuite(value).subscribe({
+          next: (res: GetTestPlansResponse | PlanListItemDto[]) => {
+            // The endpoint returns a raw array, while older versions returned
+            // { testPlans: [...] }. Support both response formats.
+            const rawPlans = Array.isArray(res) ? res : (res?.testPlans ?? []);
+            this.plans = rawPlans.map((plan) => this.normalizePlan(plan));
+            this.cacheTestCasesFromPlans(rawPlans);
+            this.cdr.markForCheck();
+          },
+          error: (err: unknown) => {
+            console.error('PLANS ERROR =', err);
+            this.plans = [];
+            this.cdr.markForCheck();
+          },
         });
+      }
+    }
+
+    console.log('KEY =', key);
+    console.log('VALUE =', value);
+    console.log('FILTERS =', this.filters);
+
+    // PLAN
+    if (key === 'testPlan') {
+      const plan = this.plans.find(p => p.id === value);
+
+      this.scenario = {
+        ...this.scenario,
+        planName: plan?.title ?? '',
+        caseName: '',
+      };
+
+      this.filters.testCase = '';
+      this.testCases = [];
+
+      // Plans returned by the suite endpoint already include their test cases.
+      // Use that data first, then fall back to the dedicated endpoint when needed.
+      const cachedCases = this.testCasesByPlan.get(value);
+      if (cachedCases?.length) {
+        this.testCases = cachedCases;
+        this.cdr.markForCheck();
+        return;
+      }
+
+      this.seleniumRunnerService
+        .getTestCasesByPlan(value)
+        .subscribe({
+          next: (res: ListEnvelope<TestCaseListItemDto> | TestCaseListItemDto[]) => {
+            console.log('TEST CASES RESPONSE =', res);
+            const rawCases = Array.isArray(res) ? res : (res?.testCases ?? res?.data ?? []);
+            this.testCases = rawCases.map((testCase) => this.normalizeTestCaseOption(testCase));
+            console.log('TEST CASES ARRAY =', this.testCases);
+            this.cdr.markForCheck();
+          },
+          error: (err: unknown) => {
+            console.error('TEST CASES ERROR =', err);
+          },
+        });
+    }
+
+    this.cdr.markForCheck();
+  }
+
+  onTestCaseChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+
+    this.filters.testCase = value;
+
+    const testCase = this.testCases.find(t => t._id === value);
+
+    this.scenario = {
+      ...this.scenario,
+      caseName: testCase?.title ?? '',
+    };
+
+    this.cdr.markForCheck();
+  }
+
+  loadProjects(): void {
+    this.seleniumRunnerService.getProjects().subscribe({
+      next: (res: ListEnvelope<ProjectListItemDto> | ProjectListItemDto[]) => {
+        console.log('API PROJECTS RESPONSE =', res);
+        this.projects = Array.isArray(res) ? res : (res?.data ?? []);
+        console.log('PROJECTS ARRAY =', this.projects);
+        this.cdr.markForCheck();
+      },
+      error: (err: unknown) => {
+        console.error('PROJECTS ERROR', err);
+      },
+    });
+  }
+
+  private dropdownLabel(item: unknown): string {
+    const record = item as Record<string, unknown> | undefined;
+    return String(record?.['title'] || record?.['name'] || record?.['nom'] || '').trim();
+  }
+
+  private normalizePlan(plan: unknown): PlanListItemDto {
+    const record = plan as Record<string, unknown>;
+    return {
+      id: String(record['id'] || record['_id'] || '').trim(),
+      title: this.dropdownLabel(record),
+    };
+  }
+
+  private normalizeSuite(suite: unknown): SuiteListItemDto {
+    const record = suite as Record<string, unknown>;
+    return {
+      _id: String(record['_id'] || record['id'] || '').trim(),
+      title: this.dropdownLabel(record),
+    };
+  }
+
+  private normalizeTestCaseOption(testCase: unknown): TestCaseListItemDto {
+    const record = testCase as Record<string, unknown>;
+    return {
+      _id: String(record['_id'] || record['id'] || '').trim(),
+      title: this.dropdownLabel(record),
+    };
+  }
+
+  private cacheTestCasesFromPlans(plans: unknown[]): void {
+    this.testCasesByPlan.clear();
+
+    for (const plan of plans) {
+      const record = plan as Record<string, unknown>;
+      const cases = Array.isArray(record['testCases']) ? record['testCases'] : [];
+      const normalizedCases = cases.map((testCase) => this.normalizeTestCaseOption(testCase));
+
+      for (const planId of [record['id'], record['_id']]) {
+        const key = String(planId || '').trim();
+        if (key) this.testCasesByPlan.set(key, normalizedCases);
+      }
     }
   }
 
+  get canRunSelectedCascade(): boolean {
+    console.log('filters', this.filters);
+    console.log('isStreaming', this.isStreaming);
 
+    return Boolean(
+      this.filters.project &&
+      this.filters.suite &&
+      this.filters.testPlan &&
+      this.filters.testCase &&
+      !this.isStreaming
+    );
+  }
 
-  
-if (key === 'suite') {
+  get canRun(): boolean {
+    return this.canRunSelectedCascade && !this.isStreaming;
+  }
 
-  console.log('SUITE SELECTED =', value);
+  get canAbort(): boolean {
+    return this.isStreaming;
+  }
 
-this.seleniumRunnerService
-  .getPlansBySuite(value)
-  .subscribe({
-    next: (res: any) => {
+  get canRerun(): boolean {
+    return (
+      this.canRunSelectedCascade &&
+      !this.isStreaming &&
+      (this.scenario.status === 'passed' ||
+       this.scenario.status === 'failed' ||
+       this.scenario.status === 'aborted')
+    );
+  }
 
-      console.log('PLANS RESPONSE =', res);
+  private async maybeAutoAnalyzeFailure(): Promise<void> {
+    if (this.scenario.status !== 'failed' && this.scenario.status !== 'aborted') return;
+    const executionKey = String(this.currentExecutionId || this.scenario.executionId || '').trim();
+    if (!executionKey || this.autoAnalysisRequestedForExecutionId === executionKey || this.isAnalyzingFailure) return;
+    this.autoAnalysisRequestedForExecutionId = executionKey;
+    await this.requestAIAnalysis();
+  }
 
-      this.plans = res?.testPlans ?? [];
+  async runSelectedCascade(): Promise<void> {
+    console.log('RUN CLICKED');
 
-      console.log('PLANS ARRAY =', this.plans);
+    this.suiteId = this.filters.suite;
+    this.planId = this.filters.testPlan;
+    this.testCaseId = this.filters.testCase;
 
-      this.cdr.markForCheck();
-    },
-
-    error: err => {
-      console.error('PLANS ERROR =', err);
-    }
-  });console.log('FIRST PLAN =', this.plans[0]);
-}
-
-
-  // SUITE
-/*if (key === 'suite') {
-
-  console.log('SUITE ID =', value);
-
-  this.seleniumRunnerService
-    .getPlansBySuite(value)
-    .subscribe({
-      next: (res: any) => {
-
-        console.log('PLANS RESPONSE =', res);
-
-        this.plans = Array.isArray(res)
-          ? res
-          : (res?.data ?? []);
-
-        console.log('PLANS ARRAY =', this.plans);
-
-        this.cdr.markForCheck();
-      },
-
-      error: err => {
-        console.error('PLANS ERROR =', err);
-      }
-    });
-}*/
-
-console.log('KEY =', key);
-console.log('VALUE =', value);
-console.log('FILTERS =', this.filters);
-
-  // PLAN
-if (key === 'testPlan') {
-
-  const plan = this.plans.find(
-    p => p._id === value
-  );
-
-  this.scenario = {
-    ...this.scenario,
-    planName: plan?.title ?? '',
-    caseName: ''
-  };
-
-  this.filters.testCase = '';
-
-  this.testCases = [];
-
-  this.seleniumRunnerService
-    .getTestCasesByPlan(value)
-    .subscribe({
-      next: (res: any) => {
-
-        console.log('TEST CASES RESPONSE =', res);
-
-        this.testCases = Array.isArray(res)
-          ? res
-          : (res?.testCases ?? res?.data ?? []);
-
-        console.log('TEST CASES ARRAY =', this.testCases);
-        console.log('FIRST TEST CASE =', this.testCases[0]);
-
-        this.cdr.markForCheck();
-      },
-      error: err => {
-        console.error('TEST CASES ERROR =', err);
-      }
-    });
-}
-
-  /*if (key === 'testPlan') {
-
-  console.log('PLAN SELECTED =', value);
-
-  const plan = this.plans.find(
-    p => p._id === value
-  );
-
-  console.log('PLAN FOUND =', plan);
-
-  this.seleniumRunnerService
-    .getTestCasesByPlan(value)
-    .subscribe({
-      next: (res: any) => {
-
-        console.log('TEST CASES RESPONSE =', res);
-
-        this.testCases =
-          res?.testCases ??
-          res?.data ??
-          [];
-
-        console.log('TEST CASES ARRAY =', this.testCases);
-        console.log('FIRST TEST CASE =', this.testCases[0]);
-
-        this.cdr.markForCheck();
-      },
-      error: err => {
-        console.error('TEST CASES ERROR =', err);
-      }
-    });
-}*/
-
-  this.cdr.markForCheck();
-}
-
-
-
-onTestCaseChange(event: any): void {
-
-  const value = event.target.value;
-
-  this.filters.testCase = value;
-
-  const testCase = this.testCases.find(
-    t => t._id === value
-  );
-
-  this.scenario = {
-    ...this.scenario,
-    caseName: testCase?.title ?? ''
-  };
-
-  this.cdr.markForCheck();
-}
-
-loadProjects(): void {
-
-  this.seleniumRunnerService.getProjects().subscribe({
-    next: (res: any) => {
-
-      console.log('API PROJECTS RESPONSE =', res);
-
-      this.projects = Array.isArray(res)
-        ? res
-        : (res?.data ?? []);
-
-      console.log('PROJECTS ARRAY =', this.projects);
-
-      this.cdr.markForCheck();
-    },
-
-    error: err => {
-      console.error('PROJECTS ERROR', err);
-    }
-  });
-}
-
-get canRunSelectedCascade(): boolean {
-  console.log('filters', this.filters);
-  console.log('isStreaming', this.isStreaming);
-
-  return Boolean(
-    this.filters.project &&
-    this.filters.suite &&
-    this.filters.testPlan &&
-    this.filters.testCase &&
-    !this.isStreaming
-  );
-}
-
-get canRun(): boolean {
-  return this.canRunSelectedCascade && !this.isStreaming;
-}
-
-get canAbort(): boolean {
-  return this.isStreaming;
-}
-
-get canRerun(): boolean {
-  return (
-    this.canRunSelectedCascade &&
-    !this.isStreaming &&
-    (this.scenario.status === 'passed' ||
-     this.scenario.status === 'failed' ||
-     this.scenario.status === 'aborted')
-  );
-}
-
-private async maybeAutoAnalyzeFailure(): Promise<void> {
-  if (this.scenario.status !== 'failed' && this.scenario.status !== 'aborted') return;
-  const executionKey = String(this.currentExecutionId || this.scenario.executionId || '').trim();
-  if (!executionKey || this.autoAnalysisRequestedForExecutionId === executionKey || this.isAnalyzingFailure) return;
-  this.autoAnalysisRequestedForExecutionId = executionKey;
-  await this.requestAIAnalysis();
-}
-
-async runSelectedCascade(): Promise<void> {
-  console.log('RUN CLICKED');
-
-  this.suiteId = this.filters.suite;
-  this.planId = this.filters.testPlan;
-  this.testCaseId = this.filters.testCase;
-
-  await this.loadAndRun();
-}
+    await this.loadAndRun();
+  }
 }

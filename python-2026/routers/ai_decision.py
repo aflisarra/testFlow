@@ -711,8 +711,14 @@ def _infer_actions_when_empty(step, dom, test_case):
         action = _dom_click_action_for_step(step, dom)
         return [action] if action else []
     if _is_fill_step(step):
+        if _extract_test_data_source(test_case) in (None, "", []):
+            logger.warning("No explicit test data for fill step; refusing to invent values")
+            return []
         return _dom_to_fill_actions(dom, test_case)
     if _is_dropdown_step(step):
+        if _extract_test_data_source(test_case) in (None, "", []):
+            logger.warning("No explicit test data for dropdown step; refusing to choose a value")
+            return []
         value = _extract_next_unused_test_data_value(test_case, _extract_execution_memory(test_case))
         action = _dom_dropdown_action(dom, value)
         return [action] if action else []
@@ -901,20 +907,9 @@ def _dom_to_fill_actions(dom, test_case):
         },
     )
     test_data_map = get_test_data_map(test_case)
-    defaults = _make_default_values()
     if not raw_values:
-        logger.warning("⚠️ No test_data → using default values")
-        raw_values = _infer_test_data_from_dom(dom)
-        if not raw_values:
-            raw_values = [
-                defaults["first"],
-                defaults["last"],
-                defaults["email"],
-                defaults["phone"],
-                defaults["date"],
-                defaults["subject"],
-                defaults["address"],
-            ]
+        logger.warning("No explicit test_data; refusing to generate fallback values")
+        return []
 
     logger.info(f"✅ Values used: {raw_values}")
     logger.info("🧩 test_data_map", extra=test_data_map)
@@ -1326,12 +1321,8 @@ def decide(payload: AIDecisionPayload):
     resolved_test_case = test_case if isinstance(test_case, dict) else {}
     execution_memory = _extract_execution_memory(resolved_test_case)
 
-    if resolved_test_case.get("test_data") is None and not resolved_test_case.get("testData"):
-        inferred = _infer_test_data_from_dom(dom, step)
-        if inferred:
-            resolved_test_case = dict(resolved_test_case)
-            resolved_test_case["test_data"] = inferred
-            logger.info("Inferred test_data from DOM count=%s", len(inferred))
+    # Test data belongs to the test case. Never infer credentials or fallback
+    # values from the target application's DOM: doing so changes the scenario.
 
     if execution_memory:
         resolved_test_case = dict(resolved_test_case)

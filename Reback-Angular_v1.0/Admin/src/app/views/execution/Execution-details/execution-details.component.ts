@@ -4,10 +4,13 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  ElementRef,
   EventEmitter,
   inject,
   Input,
   OnChanges,
+  OnDestroy,
+  OnInit,
   Output,
   SimpleChanges,
 } from '@angular/core';
@@ -56,7 +59,54 @@ export interface ExecutionDetailData {
   startedAt?: string;
   steps?: ExecutionDetailStep[];
   logs?: ExecutionDetailLog[];
-  rawExecution?: any;
+  rawExecution?: unknown;
+}
+
+// ─── Types décrivant la forme brute renvoyée par le backend ───────────
+
+interface RawScreenshotRef {
+  publicUrl?: string;
+  path?: string;
+}
+
+type RawScreenshot = string | RawScreenshotRef | undefined;
+
+interface RawStepResult {
+  index?: number | string;
+  name?: string;
+  step?: string;
+  status?: string;
+  screenshotPath?: RawScreenshot;
+  screenshot?: RawScreenshot;
+  allScreenshots?: RawScreenshotRef[];
+  screenshots?: RawScreenshotRef[];
+  screenshotUrl?: string;
+  message?: string;
+  error?: string;
+  actualResult?: string;
+  actual?: string;
+  expectedResult?: string;
+  expected?: string;
+}
+
+interface RawLogEntry {
+  timestamp?: string;
+  level?: string;
+  message?: string;
+  data?: Record<string, unknown>;
+}
+
+interface RawExecutionDetailPayload {
+  executedByName?: string;
+  executedBy?: { name?: string; picture?: string } | null;
+  stepsResults?: RawStepResult[];
+  stepResults?: RawStepResult[];
+  steps?: RawStepResult[];
+  logs?: RawLogEntry[];
+}
+
+interface RawExecutionDetailResponse {
+  data?: RawExecutionDetailPayload;
 }
 
 @Component({
@@ -67,7 +117,7 @@ export interface ExecutionDetailData {
   styleUrls: ['./execution-details.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ExecutionDetailModalComponent implements OnChanges {
+export class ExecutionDetailModalComponent implements OnChanges, OnInit, OnDestroy {
   @Input() execution: ExecutionDetailData | null = null;
   @Input() visible = false;
   @Output() closed = new EventEmitter<void>();
@@ -76,6 +126,7 @@ export class ExecutionDetailModalComponent implements OnChanges {
 
   private cdr = inject(ChangeDetectorRef);
   private seleniumRunner = inject(SeleniumRunnerService);
+  private el = inject(ElementRef);
 
   activeTab: 'screenshots' | 'logs' = 'screenshots';
   selectedStepIndex = 0;
@@ -83,6 +134,16 @@ export class ExecutionDetailModalComponent implements OnChanges {
 
   steps: ExecutionDetailStep[] = [];
   logs: ExecutionDetailLog[] = [];
+
+  ngOnInit(): void {
+    document.body.appendChild(this.el.nativeElement);
+  }
+
+  ngOnDestroy(): void {
+    if (this.el.nativeElement && document.body.contains(this.el.nativeElement)) {
+      document.body.removeChild(this.el.nativeElement);
+    }
+  }
 
   async ngOnChanges(changes: SimpleChanges): Promise<void> {
     if (changes['execution'] && this.execution?.executionId) {
@@ -122,13 +183,15 @@ private async fetchExecutionDetail(): Promise<void> {
   this.cdr.markForCheck()
 
     try {
-      const detail: any = await firstValueFrom(
+      const detail = await firstValueFrom(
         this.seleniumRunner.getExecutionDetail(this.execution.executionId)
-      )
+      ) as RawExecutionDetailResponse | RawExecutionDetailPayload
 
     console.log('✅ EXECUTION DETAIL RESPONSE:', detail)
 
-    const data = detail?.data ?? detail
+    const data: RawExecutionDetailPayload =
+      (detail as RawExecutionDetailResponse)?.data ??
+      (detail as RawExecutionDetailPayload)
 
     if (this.execution) {
       this.execution = {
@@ -142,13 +205,13 @@ private async fetchExecutionDetail(): Promise<void> {
       }
     }
 
-    const rawSteps =
+    const rawSteps: RawStepResult[] =
       data?.stepsResults ||
       data?.stepResults ||
       data?.steps ||
       []
 
-    const rawLogs =
+    const rawLogs: RawLogEntry[] =
       data?.logs ||
       []
 
@@ -175,7 +238,7 @@ private async fetchExecutionDetail(): Promise<void> {
   }
 }
 
-private mapSteps(raw: any[]): ExecutionDetailStep[] {
+private mapSteps(raw: RawStepResult[]): ExecutionDetailStep[] {
   return raw.map((r, i) => {
 
       const screenshotPath =
@@ -184,8 +247,8 @@ private mapSteps(raw: any[]): ExecutionDetailStep[] {
           : r.screenshotPath?.publicUrl ||
             r.screenshotPath?.path ||
             (typeof r.screenshot === 'string' ? r.screenshot : '') ||
-            r.screenshot?.publicUrl ||
-            r.screenshot?.path ||
+            (r.screenshot as RawScreenshotRef | undefined)?.publicUrl ||
+            (r.screenshot as RawScreenshotRef | undefined)?.path ||
             r.allScreenshots?.[0]?.publicUrl ||
             r.allScreenshots?.[0]?.path ||
             r.screenshots?.[0]?.publicUrl ||
@@ -224,7 +287,7 @@ private mapSteps(raw: any[]): ExecutionDetailStep[] {
   })
 }
 
-  private mapLogs(raw: any[]): ExecutionDetailLog[] {
+  private mapLogs(raw: RawLogEntry[]): ExecutionDetailLog[] {
     return raw.map((l) => {
       const details = l.data
         ? Object.entries(l.data).map(([k, v]) => `${k}: ${v}`).join(' | ')

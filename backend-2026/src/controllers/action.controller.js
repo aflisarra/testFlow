@@ -1,5 +1,6 @@
 const actionService = require('../services/action.service')
 const MESSAGES = require('../constants/messages.js')
+
 async function list(req, res) {
   try {
     const actions = await actionService.listActions()

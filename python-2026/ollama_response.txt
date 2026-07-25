@@ -1,34 +1,71 @@
 {
-  "steps": [
+  "title": "",
+  "description": "",
+  "summary": "",
+  "whatHappened": "",
+  "simpleExplanation": "",
+  "example": "",
+  "expectedBehavior": "",
+  "actualBehavior": "",
+  "whyItFailed": "",
+  "rootCause": "",
+  "severity": "Low",
+  "confidence": 0.9,
+
+  "failedStepIndex": 3,
+  "failedStepName": "Click login button",
+
+  "aiActionSummary": "AI attempted to type 'Admin' into the username field and typed 'admin123423' into the password field, then clicked a button labeled 'Login'. The actual URL was '/web/index.php/auth/login', which is expected for an invalid credentials scenario. The login process did not navigate as intended due to incorrect credentials provided by the test data.",
+  
+  "timeline": [
     {
-      "action": "click",
-      "selector": "[text=Admin]"
+      "step": 1,
+      "action": "Enter email 'user@test.com' in the email field",
+      "result": "Success"
     },
     {
-      "action": "type",
-      "selector": "[name=\"username\"]",
-      "value": "Admin"
+      "step": 2,
+      "action": "Enter password 'Password123' in the password field",
+      "result": "Success"
     },
     {
-      "action": "type",
-      "selector": "[name=\"password\"]",
-      "value": "admin123"
-    },
-    {
-      "action": "click",
-      "selector": "text=Login"
+      "step": 3,
+      "action": "Click login button",
+      "result": "Unexpected Action"
     }
   ],
-  "filled_fields": [
+
+  "evidence": [
+    "Expected URL: /dashboard/index",
+    "Actual URL: https://opensource-demo.orangehrmlive.com/web/index.php/auth/login",
+    "AI Action: type 'Admin' into username field, type 'admin123423' into password field, click login button"
+  ],
+
+  "developerFix": [
+    ""
+  ],
+
+  "testerFix": [
+    "Verify that the test data for username and password is correct. The provided credentials are invalid and should be updated to match the application's requirements."
+  ],
+
+  "actionLabel": "Recommended Fix",
+  "actionText": "Ensure the test data for username and password is correct and matches the application's expected values.",
+  
+  "recommendations": [
     {
-      "selector": "[name=\"username\"]",
-      "value": "Admin"
-    },
-    {
-      "selector": "[name=\"password\"]",
-      "value": "admin123"
+      "error": "Assertion failed: Got error instead: 'Invalid credentials'",
+      "rootCause": "Test Data Error",
+      "whatHappened": "The AI attempted to log in with invalid credentials, resulting in an unexpected URL and page content. The login process did not navigate as intended.",
+      "example": "In the test case definition, the expected username is 'user@test.com' and password is 'Password123'. However, the provided data was 'Admin' for username and 'admin123423' for password, which are incorrect. The AI clicked the login button with these values.",
+      "fix": "Update the test case to use correct credentials that match the application's requirements."
     }
   ],
-  "selected_dropdowns": [],
-  "checked_checkboxes": []
+
+  "diagnosticTips": [
+    "Verify that the provided username and password in the test data are correct and match the expected values for the application.",
+    "Check if there is any typo or mismatch between the expected credentials and what was provided in the test case."
+  ],
+
+  "suggestedSelectors": []
 }

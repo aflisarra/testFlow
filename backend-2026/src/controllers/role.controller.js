@@ -122,24 +122,6 @@ exports.reassignAndDelete = async (req, res) => {
   }
 }
 
-//const Role = require('../models/role.model');
-
-/*exports.createRole = async ({ name, description, actions }) => {
-  const exists = await Role.findOne({ name });
-  if (exists) throw new Error('Role already exists');
-
-  const newRole = new Role({ name, description });
-  const savedRole = await newRole.save();
-
-  const roleActions = actions.map(actionId => ({
-    roleId: savedRole._id,
-    actionId
-  }));
-
-  await RoleAction.insertMany(roleActions);
-
-  return savedRole;
-};*/
 
 
 

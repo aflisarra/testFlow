@@ -558,8 +558,8 @@
 }
 
 .user-avatar--photo {
-  width: 28px;
-  height: 28px;
+  inline-size: 28px;
+  block-size: 28px;
   border-radius: 50%;
   object-fit: cover;
   border: 1.5px solid #dde8f5;
@@ -671,8 +671,8 @@
 
 /* Trend card */
 .trend-svg {
-  width: 100%;
-  height: 80px;
+  inline-size: 100%;
+  block-size: 80px;
   display: block;
 }
 
@@ -694,14 +694,14 @@
 
 .health-donut-wrap {
   position: relative;
-  width: 130px;
-  height: 130px;
+  inline-size: 130px;
+  block-size: 130px;
   margin: 4px 0;
 }
 
 .health-donut {
-  width: 100%;
-  height: 100%;
+  inline-size: 100%;
+  block-size: 100%;
 }
 
 .health-donut__center {
@@ -740,4 +740,21 @@
 /* ─── Responsive ───────────────────────────────────────────────────────────────── */
 @media (width <= 900px) {
   .insights-row { grid-template-columns: 1fr; }
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgb(15 23 42 / 45%);
+}
+
+.modal-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 2010;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
 }

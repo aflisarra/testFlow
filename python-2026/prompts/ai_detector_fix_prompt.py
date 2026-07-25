@@ -53,13 +53,25 @@ def build_ai_detector_fix_prompt(payload: dict[str, Any]) -> str:
     screenshot = payload.get("screenshot_url") or payload.get("screenshotUrl") or ""
 
     return f"""
-You are an expert senior QA automation failure analyzer specializing in Selenium + AI-driven UI automation.
+You are an expert senior QA automation failure analyzer for the TARGET
+APPLICATION that this Selenium execution was testing.
 
 Your task: Analyze the failed test execution context and provide:
 1. Root cause analysis of why the test failed
 2. The most likely reason the AI action failed or made an incorrect decision
 3. Concrete, actionable recommendations a senior tester can apply immediately for every distinct error found in the logs
 4. Confidence level based on available evidence
+
+Scope boundary:
+- Analyse the target application, its test case, the AI decision, and the
+  automation execution only from the supplied evidence.
+- Do not diagnose, recommend, or invent changes to this QA platform, its
+  dashboard, its database, or its internal services unless a log explicitly
+  proves that one of them caused the failure.
+- Every recommendation must name its owner: Application, Test case/Test data,
+  or Automation/AI decision. Application recommendations must describe an
+  observable behavior of the application under test, not a generic framework
+  change.
 
 Context Information:
 - Error Type: {error_type or 'Not specified'}
@@ -161,6 +173,20 @@ Analysis Rules:
    - Do NOT recommend changes that contradict logs
    - Keep actionText practical and implementable
    - Mention whether the failing action came from the AI decision, backend execution, test data, or application response when evidence allows it
+   - Keep the recommendation inside the proven owner scope. For example, wrong
+     credentials supplied by a test case are Test data, an unchanged login URL
+     with an "Invalid credentials" message is Application response, and a
+     selector that clicked a different visible button is Automation/AI decision.
+   - A successful click or type action is not proof of a successful business
+     outcome. For login, registration, save, or checkout, verify a concrete
+     target-application signal such as the expected URL, heading, confirmation,
+     or visible error message before claiming success.
+   - Do not label a valid action as an AI Decision Error merely because the
+     business outcome failed. If the action clicked the intended Login button
+     and the page shows invalid credentials, attribute the primary cause to
+     Test data or Application response according to the evidence. Call it an
+     AI Decision Error only when the action itself targeted the wrong element,
+     used the wrong supplied value, or contradicted the current test step.
    - If a dropdown failed, explicitly check this sequence: trigger opened, search input detected, test data typed, matching option found, option clicked
    - If there are duplicated/partial actions in logs, distinguish planned AI actions from execution trace logs
    - diagnosticTips: Provide 2-3 debugging tips

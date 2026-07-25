@@ -1,5 +1,10 @@
 import { Pipe, PipeTransform } from '@angular/core'
 
+// ─── Shared minimal shape used by the pipes below ─────────────────────────────
+interface RunWithStatus {
+  status: string
+}
+
 // ─── Status label ──────────────────────────────────────────────────────────────
 @Pipe({ name: 'statusLabel', standalone: true })
 export class StatusLabelPipe implements PipeTransform {
@@ -33,7 +38,7 @@ export class UserInitialsPipe implements PipeTransform {
 // ─── Pass rate ─────────────────────────────────────────────────────────────────
 @Pipe({ name: 'passRate', standalone: true })
 export class PassRatePipe implements PipeTransform {
-  transform(runs: any[]): number {
+  transform(runs: RunWithStatus[]): number {
     if (!runs?.length) return 0
     const passed = runs.filter(r => r.status === 'passed').length
     return Math.round((passed / runs.length) * 100)
@@ -43,7 +48,7 @@ export class PassRatePipe implements PipeTransform {
 // ─── Status count ──────────────────────────────────────────────────────────────
 @Pipe({ name: 'statusCount', standalone: true })
 export class StatusCountPipe implements PipeTransform {
-  transform(runs: any[], status: string): number {
+  transform(runs: RunWithStatus[], status: string): number {
     if (!runs?.length) return 0
     if (status === 'failed') {
       return runs.filter(r =>

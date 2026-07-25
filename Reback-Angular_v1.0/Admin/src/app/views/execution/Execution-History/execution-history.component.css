@@ -511,8 +511,8 @@
 }
 
 .user-avatar--photo {
-  width: 28px;
-  height: 28px;
+  inline-size: 28px;
+  block-size: 28px;
   border-radius: 50%;
   object-fit: cover;
   border: 1.5px solid #dde8f5;

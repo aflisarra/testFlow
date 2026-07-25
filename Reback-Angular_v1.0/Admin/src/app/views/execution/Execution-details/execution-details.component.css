@@ -52,7 +52,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  /* Must sit above the application topbar (1005) and sidebar (1010/1055). */
+  z-index: 2100;
   padding: 24px;
   animation: fadeIn 0.15s ease;
 }
@@ -64,7 +65,8 @@
 
 /* ── Panel ─────────────────────────────────────────────────── */
 .modal-panel {
-  background: var(--bg-modal);
+  background: #ffffff;
+  background-color: #ffffff;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-modal);
   inline-size: 100%;
@@ -76,6 +78,8 @@
   overflow: hidden;
   box-shadow: 0 24px 64px rgb(15 17 23 / 18%), 0 0 0 1px rgb(15 17 23 / 3%);
   animation: slideUp 0.18s ease;
+  color: var(--text-primary);
+  isolation: isolate;
 }
 
 @keyframes slideUp {
@@ -202,6 +206,7 @@
   display: flex;
   flex-direction: column;
   min-block-size: 0;
+  background: #ffffff;
 }
 
 /* ── Loading ─────────────────────────────────────────────── */
@@ -241,7 +246,7 @@
 
 /* ── SCREENSHOTS TAB ─────────────────────────────────────── */
 .tab-content--screenshots {
-  background: var(--bg-body);
+  background: #ffffff;
 }
 
 /* Main viewer */
@@ -427,7 +432,7 @@
 
 /* ── LOGS TAB ────────────────────────────────────────────── */
 .tab-content--logs {
-  background: var(--bg-body);
+  background: #ffffff;
 }
 
 /* Toolbar */
@@ -610,7 +615,7 @@
   justify-content: space-between;
   padding: 12px 18px;
   border-block-start: 1px solid var(--border-subtle);
-  background: var(--bg-header);
+  background: #ffffff;
   flex-shrink: 0;
   gap: 16px;
 }

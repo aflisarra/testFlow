@@ -1565,7 +1565,8 @@ confirmAbandon(): void {
   }
 
   // Utilise le vrai Mongo _id pour l'appel API, pas le champ "id" affiché (TC-1, TC-2...)
-  const mongoId = (testCase as any)._id || testCase.id
+  //const mongoId = (testCase as any)._id || testCase.id
+  const mongoId = (testCase as TestCaseDto & { _id?: string })._id || testCase.id
 
   this.testLabService.deleteTestCase(mongoId).subscribe({
     next: () => {

@@ -26,6 +26,10 @@ import { ToastrService } from 'ngx-toastr'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 
+
+interface CreateSuiteResponse {
+  testSuiteId?: string
+}
 // Statuts possibles pour chaque plan dans le flux sÃ©quentiel
 @Component({
   selector: 'app-test-suite-configuration',
@@ -35,6 +39,7 @@ import { take } from 'rxjs/operators'
   styleUrl: './test-plan.component.css',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
+
 export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   private store = inject(Store)
   private testLabService = inject(TestLabService)
@@ -57,12 +62,14 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   private lastProjectId = ''
 
   // Reactive Form
-  testPlanForm: FormGroup = this.fb.group({
-    name: ['', Validators.required],
-    specDocument: ['', Validators.required],
-    projectId: ['', Validators.required],
-    applicationUrl: [''],
-  })
+testPlanForm: FormGroup = this.fb.group({
+  name: ['', Validators.required],
+  specDocument: ['', Validators.required],
+  projectId: ['', Validators.required],
+  applicationUrl: ['', [Validators.pattern(/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/)]],
+})
+
+
 
   // Banner for existing test plan
   showExistingBanner = false
@@ -855,7 +862,7 @@ getValidateButtonClass(planId: string): string {
       this.finishing = false
     }
   }*/
-specText: string = ''
+specText = ''
   // Remplacer onValidateAndGoToCases()
 async onValidateAndGoToCases() {
   if (!this.testPlans.length) {
@@ -933,9 +940,7 @@ async onValidateAndGoToCases() {
       this.testLabService.createSuiteWithPlansForm(fd)
     )
 
-
-    this.currentTestSuiteId =
-      (response as any)?.testSuiteId || this.currentTestSuiteId
+this.currentTestSuiteId = (response as CreateSuiteResponse)?.testSuiteId || this.currentTestSuiteId
 
 
     // navigation
@@ -1587,6 +1592,36 @@ onApplicationUrlInput(event: Event): void {
   this.testPlanForm.patchValue({
     applicationUrl: value
   }, { emitEvent: false })
+}
+
+async onConfirmCurrentPlan(): Promise<void> {
+  const plan = this.currentPlan
+  if (!plan) return
+
+  this.planStatuses[plan.id] = 'confirmed'
+  this.sessionSaved = false
+  this.plansValidated = this.allPlansConfirmed
+
+  if (this.isLastPlan) {
+    await this.finishAndNavigate()
+    return
+  }
+
+  this.currentPlanIndex++
+  const nextPlan = this.currentPlan
+  if (nextPlan && !(this.testCasesByPlan[nextPlan.id]?.length)) {
+    await this.generateCasesForCurrentPlan(false)
+  }
+}
+getApplicationUrlErrorMessage(): string {
+  const control = this.testPlanForm.get('applicationUrl')
+  if (!control || !control.errors) return ''
+
+  if (control.errors['pattern']) {
+    return 'Enter a valid URL, e.g. your-app.com/path (without http:// or https://).'
+  }
+
+  return 'Invalid application URL.'
 }
 
 }

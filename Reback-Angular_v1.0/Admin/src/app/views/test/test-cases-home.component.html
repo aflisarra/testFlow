@@ -121,7 +121,7 @@
           <span class="tc-tree-suite-name">{{ suite.nametest || 'Unnamed Suite' }}</span>
           <!--<span class="tc-tree-suite-project">Project: {{ getSuiteProjectTitle(suite) }}</span>-->
           <span class="badge ms-auto"
-            [ngClass]="getSuiteCardStatus(suite) === 'Validated' ? 'text-bg-success' : 'text-bg-warning'">
+          [ngClass]="getSuiteCardStatus(suite) === 'Completed' ? 'text-bg-success' : 'text-bg-warning'">
             {{ getSuiteCardStatus(suite) }}
           </span>
         </button>
@@ -313,7 +313,7 @@
   </div>
   }
 
-  @if (tc.steps?.length) {
+  @if (tc.steps.length) {
   <div class="tc-case-steps">
     <span class="tc-case-label">Steps</span>
     <ol class="tc-case-step-list">
@@ -439,7 +439,7 @@
     </button>
   </div>
 
-  @if (tc.steps?.length) {
+  @if (tc.steps.length) {
   <div class="tc-edit-step-list">
     @for (step of tc.steps; track $index) {
     <div class="tc-edit-step-card">
@@ -506,7 +506,7 @@
     </div>
     }
 
-    @if (tc.steps?.length) {
+    @if (tc.steps.length) {
     <div class="tc-case-steps">
       <span class="tc-case-label">Steps</span>
       <ol class="tc-case-step-list">
@@ -664,13 +664,9 @@
         ></button>
     </div>
 
-    <div class="tc-modal-body">
-
-      <label>Test Plan</label>
-
-      <select
-        class="form-select"
-        [(ngModel)]="selectedAbandonPlanId">
+      <div class="tc-modal-body">
+      <label for="abandonPlanSelect">Test Plan</label>
+<select id="abandonPlanSelect" name="abandonPlanSelect" class="form-select" [(ngModel)]="selectedAbandonPlanId">
 
         <option value="">
           Select Test Plan
@@ -684,13 +680,8 @@
 
       </select>
 
-      <label class="mt-3">
-        Test Case
-      </label>
-
-      <select
-        class="form-select"
-        [(ngModel)]="selectedAbandonCaseId">
+      <label class="mt-3" for="abandonCaseSelect">Test Case</label>
+<select id="abandonCaseSelect" name="abandonCaseSelect" class="form-select" [(ngModel)]="selectedAbandonCaseId">
 
         <option value="">
           Select Test Case
