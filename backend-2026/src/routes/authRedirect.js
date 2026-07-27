@@ -8,5 +8,3 @@ const authenticateUser = require('../middleware/authenticateUser');
 router.get('/auth-redirect', authenticateUser, authRedirect);
 
 module.exports = router;
-
-///?????????????????,

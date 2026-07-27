@@ -8,6 +8,7 @@ This module intentionally contains no business logic.
 from __future__ import annotations
 
 import subprocess
+import time
 from typing import Optional
 
 from fastapi import APIRouter
@@ -60,7 +61,12 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
     ):
         return JSONResponse(status_code=409, content={"error": "Generation cancelled by user."})
 
+    t_start = time.monotonic()
+    print(f"\n⏱ [generate-test-cases] plan_id={plan_id!r}  plan_title={plan_title!r}")
+    print(f"⏱ [generate-test-cases] spec_chars={len(spec_text)}")
+
     try:
+        t_ai_start = time.monotonic()
         cases = generate_test_cases(
             plan_id=plan_id,
             plan_title=plan_title,
@@ -69,6 +75,10 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
             style_config=style_config,
             project_title=project_title,
         )
+        t_ai_ms = int((time.monotonic() - t_ai_start) * 1000)
+        t_total_ms = int((time.monotonic() - t_start) * 1000)
+        print(f"⏱ [generate-test-cases] ai_ms={t_ai_ms}  total_ms={t_total_ms}  cases={len(cases)}")
+
         if is_cancelled(
             test_suite_id=payload.test_suite_id,
             plan_id=plan_id,
@@ -78,13 +88,22 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
             return JSONResponse(status_code=409, content={"error": "Generation cancelled by user."})
         return TestCasesResponse(plan_id=plan_id, plan_title=plan_title, test_cases=cases)
     except FileNotFoundError:
-        return JSONResponse(status_code=500, content=_error_payload("Ollama not found. Install from https://ollama.com"))
+        t_total_ms = int((time.monotonic() - t_start) * 1000)
+        print(f"⏱ [generate-test-cases] FAILED FileNotFoundError  total_ms={t_total_ms}")
+        return JSONResponse(status_code=500, content=_error_payload("xAI client error. Check XAI_API_KEY."))
     except subprocess.TimeoutExpired:
-        return JSONResponse(status_code=504, content=_error_payload("Ollama took too long."))
+        t_total_ms = int((time.monotonic() - t_start) * 1000)
+        print(f"⏱ [generate-test-cases] TIMEOUT  total_ms={t_total_ms}")
+        return JSONResponse(status_code=504, content=_error_payload("xAI took too long."))
     except ValueError as exc:
+        t_total_ms = int((time.monotonic() - t_start) * 1000)
+        print(f"⏱ [generate-test-cases] INVALID JSON  total_ms={t_total_ms}")
         return JSONResponse(status_code=502, content=_error_payload("AI returned invalid JSON.", str(exc)))
     except RuntimeError as exc:
-        return JSONResponse(status_code=502, content=_error_payload("Ollama error.", str(exc)))
+        t_total_ms = int((time.monotonic() - t_start) * 1000)
+        print(f"⏱ [generate-test-cases] RUNTIME ERROR  total_ms={t_total_ms}")
+        return JSONResponse(status_code=502, content=_error_payload("xAI error.", str(exc)))
     except Exception as exc:
-        log_error(logger, "generate_cases_unexpected_error", error=str(exc), exc_type=type(exc).__name__)
+        t_total_ms = int((time.monotonic() - t_start) * 1000)
+        print(f"⏱ [generate-test-cases] EXCEPTION  total_ms={t_total_ms}  error={exc}")
         return JSONResponse(status_code=500, content=_error_payload("Internal error.", str(exc)))

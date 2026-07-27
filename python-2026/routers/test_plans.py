@@ -9,6 +9,7 @@ This module intentionally contains no business logic.
 from __future__ import annotations
 
 import subprocess
+import time
 from typing import Optional
 
 from fastapi import APIRouter, File, UploadFile
@@ -71,7 +72,10 @@ async def generate_plan(
     spec_text: Optional[str] = Form(None),
 ):
     try:
-        # ✅ récupération texte
+        t_start = time.monotonic()
+
+        # ── spec extraction ────────────────────────────────────────────────
+        t_spec_start = time.monotonic()
         if file:
             file_bytes = await file.read()
 
@@ -97,6 +101,8 @@ async def generate_plan(
                 status_code=422,
                 content={"error": "Document empty"}
             )
+        t_spec_ms = int((time.monotonic() - t_spec_start) * 1000)
+        print(f"\n⏱ [generate-plan] spec_extraction_ms={t_spec_ms}  spec_chars={len(spec_text_final)}")
 
         # ✅ ANNULATION AVANT AI
         if is_cancelled(
@@ -110,12 +116,16 @@ async def generate_plan(
                 content={"error": "Generation cancelled by user"}
             )
 
-        # ✅ appel AI
+        # ── AI generation ───────────────────────────────────────────────────
+        t_ai_start = time.monotonic()
         plans = generate_test_plans(
             spec_text=spec_text_final,
             style_config=(styleConfig or "").strip(),
             project_title=(applicationUrl or "").strip()
         )
+        t_ai_ms = int((time.monotonic() - t_ai_start) * 1000)
+        t_total_ms = int((time.monotonic() - t_start) * 1000)
+        print(f"⏱ [generate-plan] ai_ms={t_ai_ms}  total_ms={t_total_ms}  plans={len(plans)}")
 
         # ✅ ANNULATION APRES AI
         if is_cancelled(

@@ -36,3 +36,7 @@ node_modules/
 
 
 "node_modules/" 
+*/package-lock.json
+*/package.json
+*package-lock.json
+*/yarn.lock

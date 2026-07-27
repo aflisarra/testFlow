@@ -8,7 +8,7 @@
 #
 # ENDPOINTS :
 #   GET  /                      → Health check
-#   POST /chat                  → Chat libre avec Ollama
+#   POST /chat                  → Chat libre avec xAI (Grok)
 #   POST /upload-spec           → Upload Word → extrait spec_text
 #   POST /generate-plan         → Génère les Test Plans  (TP-1, TP-2 ...)
 #   POST /generate-test-cases   → Génère les Test Cases  (TC-1.1, TC-1.2 ...)
@@ -30,7 +30,7 @@ from core.config import get_settings  # noqa: E402
 #from routers import test_plans, test_cases, test_case_translator  # noqa: E402
 from routers.cancellation import router as cancellation_router  # noqa: E402
 from routers.health import router as health_router  # noqa: E402
-from utils.ollama import run_ollama  # noqa: E402
+from utils.openrouter import run_openrouter  # noqa: E402
 from utils.logger import get_logger, log_event  # noqa: E402
 
 
@@ -42,21 +42,21 @@ def _chat_timeout() -> int:
     """
     Timeout dédié au endpoint /chat.
     Priorité:
-      1) OLLAMA_CHAT_TIMEOUT
-      2) OLLAMA_TIMEOUT
-      3) 300s
+      1) XAI_CHAT_TIMEOUT
+      2) XAI_TIMEOUT
+      3) 120s
     """
-    raw = os.getenv("OLLAMA_CHAT_TIMEOUT", os.getenv("OLLAMA_TIMEOUT", "300"))
+    raw = os.getenv("XAI_CHAT_TIMEOUT", os.getenv("XAI_TIMEOUT", "120"))
     try:
         return int(raw)
     except ValueError:
-        return 300
+        return 120
 
 
 # ── App ────────────────────────────────────────────────────
 app = FastAPI(
-    title="Ollama AI API",
-    description="Test Plan & Test Cases generation with Ollama",
+    title="xAI (Grok) API",
+    description="Test Plan & Test Cases generation with xAI Grok",
     version="2.0.0"
 )
 
@@ -83,7 +83,7 @@ app.include_router(health_router)
 @app.get("/")
 def root():
     log_event(logger, "health_root_called")
-    logger.info(f"✅ FINAL test_data: {resolved_test_case.get('test_data')}")
+
     return {
         "status":    "running",
         "version":   "2.0.0",
@@ -113,13 +113,13 @@ def chat(data: dict):
         return JSONResponse({"reply": f"[MOCK] Received: {message[:100]}..."})
 
     try:
-        reply = run_ollama(message, timeout=_chat_timeout())
+        reply = run_openrouter(message, timeout=_chat_timeout())
         return JSONResponse({"reply": reply})
 
     except FileNotFoundError as e:
         return JSONResponse(status_code=500, content={"reply": str(e)})
-    except subprocess.TimeoutExpired:
-        return JSONResponse(status_code=504, content={"reply": "Ollama took too long."})
+    except Exception as e:
+        return JSONResponse(status_code=504, content={"reply": f"xAI error: {str(e)}."})
     except RuntimeError as e:
         return JSONResponse(status_code=500, content={"reply": str(e)})
     except Exception as e:

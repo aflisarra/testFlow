@@ -182,7 +182,7 @@ def generate_test_cases(
 
     ai = get_ai_service()
     try:
-        data = ai.generate_json(prompt=prompt, timeout=settings.ollama_test_cases_timeout)
+        data = ai.generate_json(prompt=prompt, timeout=settings.openrouter_test_cases_timeout)
     except Exception as exc:
         log_error(logger, "generate_cases_ai_failed", error=str(exc))
         raise
