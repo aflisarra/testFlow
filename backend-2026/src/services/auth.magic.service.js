@@ -125,7 +125,7 @@ const sendForgotPasswordEmail = async (email) => {
 
     } catch (err) {
         console.error('forgot-password error:', err);
-        throw new Error('Erreur serveur');
+        throw new Error('Erreur serveur', { cause: err });
     }
 };
 
@@ -141,37 +141,32 @@ const verifyMagicToken = async (token) => {
         throw new Error('Token requis');
     }
 
+    // Verify JWT signature
+    let decoded;
     try {
-        // Verify JWT signature
-        let decoded;
-        try {
-            decoded = jwt.verify(token, getJwtSecret());
-        } catch {
-            throw new Error('Lien invalide ou expiré');
-        }
-
-        if (decoded.purpose !== 'magic-reset') {
-            throw new Error('Token invalide');
-        }
-
-        // Check that jti exists and hasn't been used yet (one-time use)
-        const record = await MagicToken.findOne({ jti: decoded.jti });
-        if (!record || record.used) {
-            throw new Error('Lien déjà utilisé ou expiré');
-        }
-
-        // Generate short-lived reset token (5 min) for next step
-        const resetToken = jwt.sign(
-            { userId: decoded.userId, purpose: 'reset-password', jti: decoded.jti },
-            getJwtSecret(),
-            { expiresIn: '5m' }
-        );
-
-        return { resetToken, valid: true };
-
-    } catch (err) {
-        throw err;
+        decoded = jwt.verify(token, getJwtSecret());
+    } catch {
+        throw new Error('Lien invalide ou expiré');
     }
+
+    if (decoded.purpose !== 'magic-reset') {
+        throw new Error('Token invalide');
+    }
+
+    // Check that jti exists and hasn't been used yet (one-time use)
+    const record = await MagicToken.findOne({ jti: decoded.jti });
+    if (!record || record.used) {
+        throw new Error('Lien déjà utilisé ou expiré');
+    }
+
+    // Generate short-lived reset token (5 min) for next step
+    const resetToken = jwt.sign(
+        { userId: decoded.userId, purpose: 'reset-password', jti: decoded.jti },
+        getJwtSecret(),
+        { expiresIn: '5m' }
+    );
+
+    return { resetToken, valid: true };
 };
 
 /**
@@ -190,33 +185,28 @@ const verifyOTP = async (email, code) => {
         throw new Error('Email et code requis');
     }
 
-    try {
-        const user = await User.findOne({ email: normalizedEmail });
-        if (!user) {
-            throw new Error('Code invalide');
-        }
-
-        const record = await MagicToken.findOne({ userId: user._id, used: false });
-        if (!record) {
-            throw new Error('Code invalide ou expiré');
-        }
-
-        const isValid = await bcrypt.compare(normalizedCode, record.codeHash);
-        if (!isValid) {
-            throw new Error('Code incorrect');
-        }
-
-        const resetToken = jwt.sign(
-            { userId: String(user._id), purpose: 'reset-password', jti: record.jti },
-            getJwtSecret(),
-            { expiresIn: '5m' }
-        );
-
-        return { resetToken, valid: true };
-
-    } catch (err) {
-        throw err;
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user) {
+        throw new Error('Code invalide');
     }
+
+    const record = await MagicToken.findOne({ userId: user._id, used: false });
+    if (!record) {
+        throw new Error('Code invalide ou expiré');
+    }
+
+    const isValid = await bcrypt.compare(normalizedCode, record.codeHash);
+    if (!isValid) {
+        throw new Error('Code incorrect');
+    }
+
+    const resetToken = jwt.sign(
+        { userId: String(user._id), purpose: 'reset-password', jti: record.jti },
+        getJwtSecret(),
+        { expiresIn: '5m' }
+    );
+
+    return { resetToken, valid: true };
 };
 
 /**
@@ -236,38 +226,33 @@ const resetPassword = async (resetToken, newPassword) => {
         throw new Error('Minimum 8 caractères');
     }
 
+    let decoded;
     try {
-        let decoded;
-        try {
-            decoded = jwt.verify(resetToken, getJwtSecret());
-        } catch {
-            throw new Error('Token expiré, recommencez');
-        }
-
-        if (decoded.purpose !== 'reset-password') {
-            throw new Error('Token invalide');
-        }
-
-        // Mark jti as used → guarantee one-time use
-        const record = await MagicToken.findOneAndUpdate(
-            { jti: decoded.jti, used: false },
-            { used: true },
-            { new: true }
-        );
-
-        if (!record) {
-            throw new Error('Token déjà utilisé');
-        }
-
-        // Hash and save new password
-        const hashed = await bcrypt.hash(newPassword, 12);
-        await User.findByIdAndUpdate(decoded.userId, { password: hashed });
-
-        return { message: 'Mot de passe réinitialisé avec succès' };
-
-    } catch (err) {
-        throw err;
+        decoded = jwt.verify(resetToken, getJwtSecret());
+    } catch {
+        throw new Error('Token expiré, recommencez');
     }
+
+    if (decoded.purpose !== 'reset-password') {
+        throw new Error('Token invalide');
+    }
+
+    // Mark jti as used → guarantee one-time use
+    const record = await MagicToken.findOneAndUpdate(
+        { jti: decoded.jti, used: false },
+        { used: true },
+        { new: true }
+    );
+
+    if (!record) {
+        throw new Error('Token déjà utilisé');
+    }
+
+    // Hash and save new password
+    const hashed = await bcrypt.hash(newPassword, 12);
+    await User.findByIdAndUpdate(decoded.userId, { password: hashed });
+
+    return { message: 'Mot de passe réinitialisé avec succès' };
 };
 
 module.exports = {

@@ -76,7 +76,7 @@ function normalizeTestCaseMetadata(data = {}, { includeDefaults = false } = {}) 
   return payload
 }
 
-/*function normalizeStepDetails(value, fallbackSteps = []) {
+function normalizeStepDetails(value, fallbackSteps = []) {
   const source = Array.isArray(value) ? value : []
   return source
     .map((item, index) => {
@@ -113,7 +113,7 @@ function normalizeTestCaseMetadata(data = {}, { includeDefaults = false } = {}) 
         : null
     })
     .filter(Boolean)
-}*/
+}
 
 /**
  * Create test case
@@ -313,18 +313,36 @@ async function updateTestCase(testCaseId, data) {
 /**
  * Delete test case
  */
-async function deleteTestCase(testCaseId) {
-  const deleted = await TestCase.findByIdAndDelete(testCaseId)
+async function deleteTestCase(id) {
+  const rawId = String(id || '').trim()
+  if (!rawId) {
+    const error = new Error('Test case id is required')
+    error.statusCode = 400
+    throw error
+  }
+
+  let deleted = null
+
+  // Cas normal : un vrai ObjectId MongoDB
+  if (mongoose.Types.ObjectId.isValid(rawId)) {
+    deleted = await TestCase.findByIdAndDelete(rawId)
+  }
+
+  // Filet de sécurité : le frontend a envoyé l'ID métier (ex: "TC-5")
+  // au lieu du vrai _id (arrive quand un test case ajouté manuellement
+  // n'a jamais reçu son _id réel après sauvegarde côté frontend).
+  if (!deleted) {
+    deleted = await TestCase.findOneAndDelete({ id: rawId })
+  }
 
   if (!deleted) {
-    const error = new Error('TestCase not found')
+    const error = new Error('Test case not found')
     error.statusCode = 404
     throw error
   }
 
-  return true
+  return deleted
 }
-
 /**
  * Convert natural language step → Selenium action
  */
@@ -438,4 +456,5 @@ module.exports = {
   deleteTestCase,
   getTestCasesForSelenium,
   getTypeBreakdown,
+  mapStepToSelenium,
 }

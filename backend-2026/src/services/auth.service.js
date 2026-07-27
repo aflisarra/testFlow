@@ -1,7 +1,5 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const mongoose = require('mongoose');
 
 const User = require('../models/user.model');
 const Role = require('../models/role.model');
@@ -37,20 +35,6 @@ function generateRefreshToken(payload) {
 }
 
 /**
- * Send an email (fallback stub).
- * Input: `to`, `subject`, `message` (string values).
- * Output: boolean success.
- * @param {string} to - Recipient email.
- * @param {string} subject - Subject line.
- * @param {string} message - Email body (plain text or HTML depending on provider).
- * @returns {Promise<boolean>} Always resolves true in this fallback implementation.
- */
-async function sendEmail(to, subject, message) {
-  // Fallback implementation to avoid runtime crashes when no mail provider is configured.
-  return true;
-}
-
-/**
  * Register a new user account.
  * Input: user identity fields + optional role name.
  * Output: the created User mongoose document.
@@ -64,7 +48,6 @@ const registerUser = async ({ name, email, password, picture, roleName }) => {
 
   const hashedPassword = await bcrypt.hash(password, 10);
   const existingUsers = await User.find();
-  const role = existingUsers.length === 0 ? 'admin' : (roleName || 'user');
 
   const isFirstUser = existingUsers.length === 0;
 

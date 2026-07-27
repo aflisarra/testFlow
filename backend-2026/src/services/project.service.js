@@ -184,7 +184,7 @@ async function syncInvitationsForProject(project, { invitedBy }) {
   if (!projectId) return
 
   const normalizeId = (value) => {
-    let raw = ''
+    let raw
     if (value && typeof value === 'object') {
       raw = String(value?._id || value?.id || '').trim()
       if (!raw) raw = String(value).trim()
@@ -267,4 +267,3 @@ exports.getUsersByProject = async (projectId) => {
 
   return uniqueUsers
 }
-

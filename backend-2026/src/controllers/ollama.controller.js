@@ -104,7 +104,7 @@ async function generateTestCases(req, res) {
     if (status === 409) {
       return res.status(409).json({ message: messageFromError(error, MESSAGES.FASTAPI.GENERATION_CANCELLED_BY_USER) })
     }
-console.log(MESSAGES.FASTAPI.STEP_DETAILS, tc.stepDetails)
+
     const testSuiteId = String(req.body?.testSuiteId || '').trim()
     if (testSuiteId) {
       const TestSuite = require('../models/testsuite')
@@ -113,6 +113,7 @@ console.log(MESSAGES.FASTAPI.STEP_DETAILS, tc.stepDetails)
         lastGeneratedAt: new Date(),
       }).catch(() => {
         console.error(MESSAGES.TESTPLAN.CONTROLLER_ERROR, error.message, error.statusCode)
+        
       })
     }
     return res

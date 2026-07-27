@@ -115,7 +115,7 @@ async function exportWordService(req, res) {
     const filename = `TestPlan_${sanitizeFilename(suiteName)}_${formatDateForFilename(today)}.docx`
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-    res.setHeader('Content-Disposition', `attachment; filename=\"${filename}\"`)
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
     return res.status(200).send(buffer)
   } catch (err) {
     console.error('exportWord error:', err)

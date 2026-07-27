@@ -2,7 +2,6 @@
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
 import { ProjectsStateService } from '@/app/core/services/projects-state.service'
-import { PlanEditModalComponent } from './plan-edit-modal.component'
 import {
   TestLabService,
   type TestCaseDto,
@@ -26,6 +25,7 @@ import { Store } from '@ngrx/store'
 import { ToastrService } from 'ngx-toastr'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
+import { PlanEditModalComponent } from './plan-edit-modal.component'
 
 
 interface CreateSuiteResponse {
@@ -719,10 +719,9 @@ onTogglePlanValidation(planId: string) {
         testCases: this.planEditDraft.testCases || [],
         casesCount: this.planEditDraft.casesCount || 0,
       }
-      this.testPlans = [...this.testPlans, newPlan]
+     this.testPlans = [...this.testPlans, newPlan]
       this.testCasesByPlan[newPlan.id] = this.testCasesByPlan[newPlan.id] || []
       this.planStatuses[newPlan.id] = 'pending'
-      this.currentPlanIndex = this.testPlans.length - 1
       this.plansValidated = false
       this.sessionSaved = false
       this.closePlanEditModal()
@@ -730,7 +729,7 @@ onTogglePlanValidation(planId: string) {
       return
     }
 
-    const idx = this.testPlans.findIndex((p) => p.id === id)
+const idx = this.testPlans.findIndex((p) => p.id === id)
     if (idx < 0) return
     this.testPlans = this.testPlans.map((p) =>
       p.id === id
@@ -746,6 +745,7 @@ onTogglePlanValidation(planId: string) {
     )
     this.sessionSaved = false
     this.closePlanEditModal()
+    this.toastr.success('Test plan updated successfully.', 'Test Plan')
   }
 
   onEditPlanField(field: keyof TestPlanDto, value: string): void {
@@ -786,7 +786,7 @@ onTogglePlanValidation(planId: string) {
     ref.componentInstance.confirmButtonClass = 'btn-brand'
     ref.componentInstance.icon = 'iconamoon:attention-circle-duotone'
 
-    ref.closed.subscribe((result) => {
+ref.closed.subscribe((result) => {
       if (!result) return
       this.testPlans = this.testPlans.filter((p) => p.id !== plan.id)
       delete this.testCasesByPlan[plan.id]
@@ -797,6 +797,7 @@ onTogglePlanValidation(planId: string) {
       if (this.currentPlanIndex >= this.testPlans.length) {
         this.currentPlanIndex = Math.max(0, this.testPlans.length - 1)
       }
+      this.toastr.success('Test plan abandoned successfully.', 'Test Plan')
     })
   }
 

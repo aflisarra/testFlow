@@ -70,7 +70,7 @@ async function resolveExecutionModel(testCase) {
 
   } catch (err) {
 
-    console.log("❌ AI FAILED → fallback")
+    console.log("❌ AI FAILED → fallback", err.message)
 
     return null
   }

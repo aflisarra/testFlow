@@ -49,6 +49,7 @@ const planStepSchema = new mongoose.Schema(
     },
     { _id: false }
 );*/
+// eslint-disable-next-line no-unused-vars
 const testCaseSchema = new mongoose.Schema(
     {
         id: { type: String, required: true, trim: true },

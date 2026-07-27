@@ -183,7 +183,7 @@ function getUserIdFromAuthHeader(req) {
   const token = authHeader.slice(7).trim()
   if (!token) return ''
 
-  let secret = ''
+  let secret
   try {
     secret = getJwtSecret()
   } catch {
@@ -587,7 +587,7 @@ async function generatePlan({ req, body, file }) {
   const generationRequestId = String(body?.generationRequestId || body?.generation_request_id || '').trim()
 
   const userId = userIdBody || getUserIdFromAuthHeader(req)
-  let specText = ''
+  let specText
 
   let suite = null
   let projectTitle = ''

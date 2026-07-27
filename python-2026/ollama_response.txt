@@ -1,74 +1,163 @@
 {
-  "title": "",
-  "description": "",
-  "summary": "",
-  "whatHappened": "The test tried to enter the username 'Admin' and password 'admin123423', then clicked on a login button. However, instead of navigating to the dashboard as expected, it showed an error message saying 'Invalid credentials'. The browser navigated to a different URL '/admin/saveSystemUser'.",
-  "simpleExplanation": "The test tried to log in with invalid credentials and ended up on a wrong page.",
-  "example": "Expected URL: /dashboard/index<br>Actual URL: /admin/saveSystemUser",
-  "expectedBehavior": "The test should have navigated to the dashboard after entering valid credentials.",
-  "actualBehavior": "The test navigated to '/admin/saveSystemUser' instead of the expected dashboard page due to invalid credentials.",
-  "whyItFailed": "The AI made a decision that led to an incorrect action, resulting in the test being redirected to a different URL and showing an error message.",
-  "rootCause": "AI Decision Error",
-  "severity": "Low",
-
-  "failedStepIndex": 3,
-  "failedStepName": "Click login button",
-
-  "aiActionSummary": "The AI clicked on the 'Login' button, which led to a redirect and displayed an error message.",
-  
-  "timeline": [
+  "test_cases": [
     {
-      "step": 1,
-      "action": "Enter username 'Admin'",
-      "result": "Success"
+      "id": "TC-1.1",
+      "title": "Successful Login with Valid Credentials",
+      "objective": "Verify login functionality using valid credentials.",
+      "preconditions": [
+        "Login page is displayed"
+      ],
+      "test_data": {
+        "email": "user@test.com",
+        "password": "Password123"
+      },
+      "steps": [
+        "Enter email 'user@test.com' in the email field",
+        "Enter password 'Password123' in the password field",
+        "Click on the login button"
+      ],
+      "stepDetails": [
+        {
+          "step": "Enter email 'user@test.com' in the email field",
+          "expected_result": "Email field is populated with 'user@test.com'"
+        },
+        {
+          "step": "Enter password 'Password123' in the password field",
+          "expected_result": "Password field is populated with 'Password123'"
+        },
+        {
+          "step": "Click on the login button",
+          "expected_result": "Login process initiated"
+        }
+      ],
+      "expected_result": "User is successfully logged in",
+      "priority": "High",
+      "severity": "Major",
+      "type": "Validation",
+      "requirements": ["REQ-001"]
     },
     {
-      "step": 2,
-      "action": "Enter password 'admin123423'",
-      "result": "Success"
+      "id": "TC-1.2",
+      "title": "Failed Login with Invalid Email",
+      "objective": "Verify login functionality fails when invalid email is provided.",
+      "preconditions": [
+        "Login page is displayed"
+      ],
+      "test_data": {
+        "email": "invalid_email@test.com",
+        "password": "Password123"
+      },
+      "steps": [
+        "Enter email 'invalid_email@test.com' in the email field",
+        "Enter password 'Password123' in the password field",
+        "Click on the login button"
+      ],
+      "stepDetails": [
+        {
+          "step": "Enter email 'invalid_email@test.com' in the email field",
+          "expected_result": "Email field is populated with 'invalid_email@test.com'"
+        },
+        {
+          "step": "Enter password 'Password123' in the password field",
+          "expected_result": "Password field is populated with 'Password123'"
+        },
+        {
+          "step": "Click on the login button",
+          "expected_result": "Login process fails due to invalid email"
+        }
+      ],
+      "expected_result": "User cannot log in with invalid email",
+      "priority": "High",
+      "severity": "Major",
+      "type": "Validation",
+      "requirements": ["REQ-001"]
     },
     {
-      "step": 3,
-      "action": "Click login button",
-      "result": "Unexpected Action: Redirected to '/admin/saveSystemUser'"
-    }
-  ],
-
-  "evidence": [
-    "Expected URL: /dashboard/index",
-    "Actual URL: /admin/saveSystemUser",
-    "AI Action: Click Login"
-  ],
-
-  "developerFix": [
-    ""
-  ],
-
-  "testerFix": [
+      "id": "TC-1.3",
+      "title": "Failed Login with Invalid Password",
+      "objective": "Verify login functionality fails when invalid password is provided.",
+      "preconditions": [
+        "Login page is displayed"
+      ],
+      "test_data": {
+        "email": "user@test.com",
+        "password": "invalid_password"
+      },
+      "steps": [
+        "Enter email 'user@test.com' in the email field",
+        "Enter password 'invalid_password' in the password field",
+        "Click on the login button"
+      ],
+      "stepDetails": [
+        {
+          "step": "Enter email 'user@test.com' in the email field",
+          "expected_result": "Email field is populated with 'user@test.com'"
+        },
+        {
+          "step": "Enter password 'invalid_password' in the password field",
+          "expected_result": "Password field is populated with 'invalid_password'"
+        },
+        {
+          "step": "Click on the login button",
+          "expected_result": "Login process fails due to invalid password"
+        }
+      ],
+      "expected_result": "User cannot log in with invalid password",
+      "priority": "High",
+      "severity": "Major",
+      "type": "Validation",
+      "requirements": ["REQ-001"]
+    },
     {
-      "error": "Test Data Error",
-      "rootCause": "Invalid credentials provided in test data.",
-      "whatHappened": "The test used invalid credentials 'admin123423' which caused the redirect to '/admin/saveSystemUser'.",
-      "example": "Expected URL: /dashboard/index<br>Actual URL: /admin/saveSystemUser",
-      "fix": "Replace the test data with valid credentials."
-    }
-  ],
-
-  "actionLabel": "Recommended Fix",
-  "actionText": "Replace the test data with valid credentials.",
-  
-  "recommendations": [
+      "id": "TC-1.4",
+      "title": "Failed Login with Empty Email Field",
+      "objective": "Verify login functionality fails when email field is left empty.",
+      "preconditions": [
+        "Login page is displayed"
+      ],
+      "test_data": {},
+      "steps": [
+        "Click on the login button"
+      ],
+      "stepDetails": [
+        {
+          "step": "Click on the login button",
+          "expected_result": "Login process fails due to empty email field"
+        }
+      ],
+      "expected_result": "User cannot log in with an empty email field",
+      "priority": "High",
+      "severity": "Major",
+      "type": "Validation",
+      "requirements": ["REQ-001"]
+    },
     {
-      "error": "Test Data Error",
-      "rootCause": "Invalid credentials provided in test data.",
-      "whatHappened": "The test used invalid credentials 'admin123423' which caused the redirect to '/admin/saveSystemUser'.",
-      "example": "Expected URL: /dashboard/index<br>Actual URL: /admin/saveSystemUser",
-      "fix": "Replace the test data with valid credentials."
+      "id": "TC-1.5",
+      "title": "Failed Login with Empty Password Field",
+      "objective": "Verify login functionality fails when password field is left empty.",
+      "preconditions": [
+        "Login page is displayed"
+      ],
+      "test_data": {},
+      "steps": [
+        "Enter email 'user@test.com' in the email field",
+        "Click on the login button"
+      ],
+      "stepDetails": [
+        {
+          "step": "Enter email 'user@test.com' in the email field",
+          "expected_result": "Email field is populated with 'user@test.com'"
+        },
+        {
+          "step": "Click on the login button",
+          "expected_result": "Login process fails due to empty password field"
+        }
+      ],
+      "expected_result": "User cannot log in with an empty password field",
+      "priority": "High",
+      "severity": "Major",
+      "type": "Validation",
+      "requirements": ["REQ-001"]
     }
-  ],
-
-  "evidence": [
-    "Expected URL: /dashboard/index",
-    "Actual URL: /admin/saveSystemUser"
   ]
 }

@@ -1,3 +1,6 @@
+
+/* global document, window, MouseEvent */
+
 const { By, until, Select } = require('selenium-webdriver')
 const axios = require('axios')
 
@@ -321,15 +324,11 @@ console.log(
     })
 
     const screenshots = []
-    const indexedElementsSelector = 'input, button, a, textarea, select, [role="button"], [role="link"]'
-    const optionSelector = '[role="option"]'
-    const indexedElements = await driver.findElements(By.css(indexedElementsSelector))
     const domElementsByIndex = new Map()
 
 for (const item of elements) {
   domElementsByIndex.set(item.index, item)
 }
-    const editableElements = await driver.findElements(By.css('input, textarea, select'))
     const highlightedSelectors = new Set()
     const executedActionKeys = new Set()
     const editableMetadata = elements.filter((el) => {
@@ -479,7 +478,7 @@ for (const item of elements) {
       try {
         await el.click()
         return
-      } catch (err) {
+      } catch {
         await driver.executeScript((element) => {
           element.dispatchEvent(new MouseEvent('click', {
             bubbles: true,
@@ -509,7 +508,7 @@ for (const item of elements) {
             rect.left <= window.innerWidth
           )
         }, el)
-      } catch (_) {
+      } catch {
         return false
       }
     }
@@ -545,7 +544,8 @@ for (const item of elements) {
   role === 'combobox' ||
   role === 'listbox' ||
   ['listbox', 'dialog', 'menu']
-    .includes(ariaHaspopup) 
+    .includes(ariaHaspopup) ||
+  ariaExpanded === 'true'
     
 
   const isSubmit =
@@ -578,7 +578,7 @@ for (const item of elements) {
       if (!el) return ''
       try {
         return normalizeValue(await el.getText())
-      } catch (_) {
+      } catch {
         return ''
       }
     }
@@ -603,7 +603,7 @@ for (const item of elements) {
           return `${attrs} ${parentText}`.replace(/\s+/g, ' ').trim()
         }, el)
         return normalizeValue(hint)
-      } catch (_) {
+      } catch {
         return ''
       }
     }
@@ -675,7 +675,7 @@ for (const item of elements) {
           (tag === 'input' && ['search', 'text'].includes(type)) ||
           (tag === 'div' && (role || ariaHaspopup || ariaExpanded))
         )
-      } catch (_) {
+      } catch {
         return false
       }
     }
@@ -729,7 +729,7 @@ const openDropdown = async (preferredEl, label) => {
           return false
         }, 5000)
         console.log("✅ Dialog opened")
-      } catch (_) {
+      } catch {
         console.log("⚠️ No dialog detected, continuing")
       }
 
@@ -747,22 +747,6 @@ const openDropdown = async (preferredEl, label) => {
 
   return null
 }
-
-    const getSearchInputInOpenDropdown = async () => {
-      const selector = [
-        'input[type="search"]',
-        'input[role="searchbox"]',
-        'input[placeholder*="Search" i]',
-        'input[placeholder*="Filter" i]',
-        'input[placeholder*="Type" i]',
-        'input[placeholder*="Find" i]'
-      ].join(', ')
-      const inputs = await driver.findElements(By.css(selector))
-      for (const input of inputs) {
-        if (await isVisibleElement(input)) return input
-      }
-      return null
-    }
 
     const getVisibleOptions = async () => {
   const selectors = [
@@ -864,10 +848,12 @@ const selectViaSearchDialog = async (wanted) => {
       try {
         const text = normalizeValue(await el.getText())
         if (text) return text
-      } catch (_) {}
+      } catch {
+        // ignore — fall back to aria-label below
+      }
       try {
         return normalizeValue(await el.getAttribute('aria-label'))
-      } catch (_) {
+      } catch {
         return ''
       }
     }
@@ -888,7 +874,7 @@ const selectViaSearchDialog = async (wanted) => {
           window.scrollBy(0, Math.max(120, window.innerHeight * 0.6))
         }, option)
         return true
-      } catch (_) {
+      } catch {
         return false
       }
     }
@@ -958,78 +944,20 @@ console.log(
       return null
     }
 
-    const typeIntoSearchInput = async (searchInput, value) => {
-      if (!searchInput) return false
-      try {
-        await driver.executeScript((element) => element.focus(), searchInput)
-      } catch (_) {}
-      try {
-        await searchInput.clear()
-      } catch (_) {
-        try {
-          await searchInput.sendKeys('\uE003')
-        } catch (_) {}
-      }
-      await searchInput.sendKeys(value)
-      return true
-    }
-
-    const getOptionElements = async () => {
-      const options = await driver.findElements(By.css(optionSelector))
-      const visibleOptions = []
-      for (const option of options) {
-        if (await isVisibleElement(option)) {
-          visibleOptions.push(option)
-        }
-      }
-      return visibleOptions
-    }
-
-    const findVisibleDropdownTrigger = async (preferred = null) => {
-      if (preferred && await isVisibleElement(preferred)) {
-        const tag = String(await preferred.getTagName().catch(() => '') || '').toLowerCase()
-        const role = String(await preferred.getAttribute('role').catch(() => '') || '').toLowerCase()
-        if (tag === 'button' || tag === 'input' || role === 'combobox' || role === 'button') {
-          return preferred
-        }
-      }
-
-      const triggers = [
-        '[role="combobox"]',
-        'button',
-        'input',
-        '[aria-haspopup="listbox"]'
-      ]
-      for (const triggerSelector of triggers) {
-        const triggersFound = await driver.findElements(By.css(triggerSelector))
-        for (const trigger of triggersFound) {
-          if (await isVisibleElement(trigger)) {
-            return trigger
-          }
-        }
-      }
-      return null
-    }
-
-    const openDropdownForValue = async (preferred = null) => {
-      const trigger = await findVisibleDropdownTrigger(preferred)
-      if (trigger) {
-        await safeClick(trigger)
-        return trigger
-      }
-      return null
-    }
-
     const closeTransientUi = async () => {
       try {
         await driver.actions({ bridge: true }).sendKeys('\uE00C').perform()
-      } catch (_) {}
+      } catch {
+        // ignore — best-effort key press
+      }
       try {
         await driver.executeScript(() => {
           const active = document.activeElement
           if (active && typeof active.blur === 'function') active.blur()
         })
-      } catch (_) {}
+      } catch {
+        // ignore — best-effort blur
+      }
       await sleep(150)
     }
 
@@ -1203,11 +1131,11 @@ console.log(
             const select = new Select(el)
             try {
               select.selectByVisibleText(value)
-            } catch (_) {
+            } catch {
               try {
                 select.selectByValue(value)
               } catch (selectErr) {
-                throw new Error(`Unable to select option "${value}" for ${selector}: ${selectErr.message}`)
+                throw new Error(`Unable to select option "${value}" for ${selector}: ${selectErr.message}`, { cause: selectErr })
               }
             }
             await sleep(500)
@@ -1294,7 +1222,7 @@ if (info.isSubmit) {
     await driver.wait(until.elementIsVisible(clickTarget), 10000)
   } catch (waitErr) {
     throw new Error(
-      `Login button was not visible within 10s: ${waitErr.message}`
+      `Login button was not visible within 10s: ${waitErr.message}`, { cause: waitErr }
     )
   }
 
@@ -1432,7 +1360,7 @@ addLog(
       18000
     )
 
-  } catch (_) {
+  } catch {
 
     try {
 
@@ -1443,7 +1371,9 @@ addLog(
         8000
       )
 
-    } catch (_) {}
+    } catch {
+      // ignore — element may simply still be attached
+    }
 
   }
 

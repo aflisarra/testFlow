@@ -92,7 +92,7 @@ module.exports = {
     NOT_FOUND: 'TestSuite not found',
     ERROR_EXPECTED : 'Unexpected server error',
     START_EXECUTION:'[EXECUTE] Starting background execution for suite',
-    NOT_FOUND:'Suite not found',
+    
     TESTSUITE_ID_REQUIRED:'Valid testSuiteId required',
   },
 

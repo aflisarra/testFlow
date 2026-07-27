@@ -1,4 +1,4 @@
-const { AlignmentType, PageBreak, Paragraph, ShadingType, TextRun } = require('docx')
+const {  PageBreak, Paragraph, ShadingType, TextRun } = require('docx')
 const { makeStepsTable } = require('./table.builder')
 
 function paragraphLine(colorHex) {

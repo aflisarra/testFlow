@@ -17,10 +17,10 @@ function formatDateForFilename(date) {
 function sanitizeFilename(value) {
   return String(value || 'TestSuite')
     .trim()
+    // eslint-disable-next-line no-control-regex -- intentional: strip filesystem-illegal control chars
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
     .replace(/\s+/g, '_')
     .slice(0, 80)
 }
 
 module.exports = { formatDateDDMMYYYY, formatDateForFilename, sanitizeFilename }
-

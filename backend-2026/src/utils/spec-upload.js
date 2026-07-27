@@ -32,7 +32,7 @@ function ensureDirExists(dir) {
     fsSync.mkdirSync(dir, { recursive: true })
   } catch (err) {
     const message = err?.message || String(err)
-    throw new Error(`Unable to prepare upload directory '${dir}': ${message}`)
+    throw new Error(`Unable to prepare upload directory '${dir}': ${message}`, { cause: err })
   }
 }
 

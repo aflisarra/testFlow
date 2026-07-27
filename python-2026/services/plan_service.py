@@ -13,6 +13,8 @@ from utils.logger import get_logger, log_event, log_error
 
 logger = get_logger("services.plan_service")
 
+MAX_GENERATION_ATTEMPTS = 3
+
 
 def _normalize_priority(value: str | None) -> str:
     raw = (value or "").strip().lower()
@@ -95,39 +97,13 @@ def _extract_plans_payload(data: Any) -> List[Dict[str, Any]] | None:
     return None
 
 
-def generate_test_plans(*, spec_text: str, style_config: str, project_title: str) -> List[Dict[str, Any]]:
-    settings = get_settings()
-    log_event(logger, "generate_plans_request_received", mock=settings.use_mock)
-
-    requirements = extract_requirements(spec_text)
-    chunks = get_srs_sections(spec_text, SRS_PLAN_SECTIONS)
-
-    if settings.use_mock:
-        raise ValueError("Mock test plan generation is disabled for the SRS pipeline")
-
-    prompt = build_test_plan_prompt(
-        project_title=project_title,
-        style_config=style_config,
-        modules=[],
-        requirements=requirements,
-        spec_chunks=chunks,
-    )
-
-    ai = get_ai_service()
-    try:
-        data = ai.generate_json(prompt=prompt, timeout=settings.ollama_test_plans_timeout)
-    except Exception as exc:
-        log_error(logger, "generate_plans_ai_failed", error=str(exc))
-        raise
-
-    # Accept the canonical payload and a few legacy/LLM variants.
-    plans_raw = _extract_plans_payload(data)
-
-    if not isinstance(plans_raw, list):
-        raise ValueError("AI returned invalid test plans")
-
+def _normalize_raw_plans(
+    plans_raw: List[Dict[str, Any]],
+    requirements: List[Dict[str, str]],
+    start_index: int,
+) -> List[Dict[str, Any]]:
     normalized: List[Dict[str, Any]] = []
-    for i, item in enumerate(plans_raw, start=1):
+    for i, item in enumerate(plans_raw, start=start_index):
         if not isinstance(item, dict):
             continue
         plan_requirements = _validated_plan_requirements(item.get("requirements"), requirements)
@@ -145,12 +121,84 @@ def generate_test_plans(*, spec_text: str, style_config: str, project_title: str
                 "requirements": plan_requirements,
             }
         )
+    return normalized
 
-    normalized = _dedupe_plans(normalized)
+
+def generate_test_plans(*, spec_text: str, style_config: str, project_title: str) -> List[Dict[str, Any]]:
+    settings = get_settings()
+    log_event(logger, "generate_plans_request_received", mock=settings.use_mock)
+
+    requirements = extract_requirements(spec_text)
+    chunks = get_srs_sections(spec_text, SRS_PLAN_SECTIONS)
+
+    if settings.use_mock:
+        raise ValueError("Mock test plan generation is disabled for the SRS pipeline")
+
+    ai = get_ai_service()
+    normalized: List[Dict[str, Any]] = []
+    existing_titles: set[str] = set()
+
+    for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
+        remaining_needed = DEFAULT_TEST_PLANS_MIN - len(normalized)
+        if remaining_needed <= 0:
+            break
+
+        prompt = build_test_plan_prompt(
+            project_title=project_title,
+            style_config=style_config,
+            modules=[],
+            requirements=requirements,
+            spec_chunks=chunks,
+        )
+
+        if attempt > 1:
+            # Nudge the model to cover different ground than what it already produced,
+            # since small models sometimes under-generate on the first pass.
+            existing_list = "\n".join(f"- {t}" for t in sorted(existing_titles)) or "(none yet)"
+            prompt = (
+                f"{prompt}\n\n"
+                f"IMPORTANT: You previously produced these test plan titles, which are "
+                f"already accepted and must NOT be repeated:\n{existing_list}\n\n"
+                f"Generate {remaining_needed} additional, DISTINCT test plan(s) covering "
+                f"other requirements or aspects of the specification that are not yet covered above."
+            )
+
+        try:
+            data = ai.generate_json(prompt=prompt, timeout=settings.ollama_test_plans_timeout)
+        except Exception as exc:
+            log_error(logger, "generate_plans_ai_failed", error=str(exc), attempt=attempt)
+            if normalized:
+                # Keep whatever we already validated rather than losing it on a later failure.
+                break
+            raise
+
+        plans_raw = _extract_plans_payload(data)
+        if not isinstance(plans_raw, list):
+            log_event(logger, "generate_plans_invalid_payload", attempt=attempt)
+            continue
+
+        new_plans = _normalize_raw_plans(plans_raw, requirements, start_index=len(normalized) + 1)
+        combined = _dedupe_plans(normalized + new_plans)
+
+        gained = len(combined) - len(normalized)
+        normalized = combined
+        existing_titles = {p["title"].lower() for p in normalized}
+
+        log_event(
+            logger,
+            "generate_plans_attempt_result",
+            attempt=attempt,
+            gained=gained,
+            total=len(normalized),
+        )
+
+        if gained == 0 and attempt > 1:
+            # The model isn't producing anything new; stop retrying early.
+            break
 
     if len(normalized) < DEFAULT_TEST_PLANS_MIN:
         raise ValueError(
-            f"AI generated only {len(normalized)} plan(s), "
+            f"AI generated only {len(normalized)} plan(s) after {MAX_GENERATION_ATTEMPTS} attempt(s), "
             f"minimum required is {DEFAULT_TEST_PLANS_MIN}"
         )
 

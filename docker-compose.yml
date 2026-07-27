@@ -1,0 +1,57 @@
+services:
+
+  frontend:
+    build:
+      context: ./Reback-Angular_v1.0/Admin
+      dockerfile: Dockerfile
+    container_name: pfe-frontend
+    ports:
+      - "4200:4200"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend-2026
+      dockerfile: Dockerfile
+    container_name: pfe-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PYTHON_SERVICE_URL=http://python-service:8000
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      - python-service
+      - ollama
+    restart: unless-stopped
+
+  python-service:
+    build:
+      context: ./python-2026
+      dockerfile: Dockerfile
+    container_name: pfe-python
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=qwen2.5:3b-instruct
+      - OLLAMA_TIMEOUT=420
+      - OLLAMA_TEST_PLANS_TIMEOUT=420
+      - OLLAMA_TEST_CASES_TIMEOUT=420
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: pfe-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  ollama_data:

@@ -1,11 +1,19 @@
+/* global window, document */
 const { createDriver } = require('./driver.factory')
 const { runStructuredUiStep } = require('./ui.executor')
 const { addLog } = require('../../utils/logger')
+
 /*const {
   createExecutionController,
   isExecutionCancelled,
   cleanupExecution,
 } = require('../../controllers/selenium.controller')*/
+
+// NOTE: adjust these two paths if your Mongoose models live somewhere else.
+// They were referenced below (getExecutionTrend / getTypeBreakdown) but never
+// imported, which is what triggered the "not defined" errors.
+const TestExecution = require('../../models/TestExecution.model')
+const TestCase = require('../../models/testcase.model')
 
 function normalizeText(value) {
   return String(value || '')
@@ -518,7 +526,11 @@ async function runTestCase(testCase) {
 
   registerAbortCallback(executionId, async () => {
     console.log(`🛑 Abort callback fired for ${executionId}`)
-    try { await driver.quit() } catch {}
+    try {
+      await driver.quit()
+    } catch (quitErr) {
+      addLog(logs, 0, 'WARN', 'Driver already closed during abort', { message: quitErr.message })
+    }
   })
   const logs = []
   const stepResults = []
@@ -544,7 +556,11 @@ async function runTestCase(testCase) {
 
   if (!ctx.baseUrl) {
     addLog(logs, 0, 'ERROR', 'Missing target URL.')
-    try { await driver.quit() } catch {}
+    try {
+      await driver.quit()
+    } catch (quitErr) {
+      addLog(logs, 0, 'WARN', 'Driver already closed', { message: quitErr.message })
+    }
     cleanupExecution(executionId)
     return {
       status: 'failed_execution',
@@ -749,6 +765,7 @@ if (isInputStep) {
     if (isExecutionCancelled(executionId)) {
       return { status: 'aborted', logs, stepResults }
     }
+    addLog(logs, 0, 'ERROR', 'Unhandled execution error', { message: err.message, stack: err.stack })
     return { status: 'failed', logs, stepResults }
 
   } finally {
@@ -817,6 +834,8 @@ async function getTypeBreakdown(filters = {}) {
   }))
 }
 
-module.exports = { runTestCase,
-  
- }
+module.exports = {
+  runTestCase,
+  getExecutionTrend,
+  getTypeBreakdown,
+}

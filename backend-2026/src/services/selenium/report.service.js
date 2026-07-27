@@ -395,7 +395,7 @@ class QaReport {
     const projectName = text(data.project?.title || data.suite?.nom || 'Project')
     const suiteName = text(data.suite?.nom || data.suite?.nametest || 'Test Suite')
     const testPlanName = text(data.plans[0]?.title || 'Execution History')
-    const generatedBy = '-' || text()
+    const generatedBy = '-'
 
     doc.addPage()
 
@@ -700,7 +700,7 @@ class QaReport {
           align: 'center',
           valign: 'center',
         })
-      } catch (error) {
+      } catch {
         this.doc.fillColor(COLORS.danger).font('Helvetica').fontSize(8)
           .text('Screenshot unavailable', imgX + 6, imgY + imageHeight / 2 - 4, { width: imgBoxWidth - 12, align: 'center' })
       }

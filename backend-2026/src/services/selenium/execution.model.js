@@ -351,14 +351,6 @@ action: action && action !== 'unknown'
       requires: requires.map((item) => text(item)).filter(Boolean)
     }
   })
-  
-if (
-  rawText.includes("open") &&
-  (rawText.includes("page") || rawText.includes("form"))
-) {
-  action = "open_app"
-}
-
 
   return {
     version: 'execution-model/v1',
@@ -412,8 +404,6 @@ async function resolveExecutionModel(testCase, ctx, addLog = () => {}) {
 
   addLog('INFO', 'Using local execution_model/v1 fallback')
   return buildFallbackExecutionModel(testCase)
-
-  console.log("🔥 EXECUTION MODEL:", JSON.stringify(translated, null, 2))
 }
 
 function describeExecutionStep(step) {

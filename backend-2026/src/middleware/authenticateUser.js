@@ -7,7 +7,7 @@ const authenticateUser = (req, res, next) => {
 
   if (!token) return res.status(401).json({ message: 'No token provided' });
 
-  let secret = ''
+  let secret;
   try {
     secret = getJwtSecret()
   } catch (e) {

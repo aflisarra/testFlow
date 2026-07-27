@@ -1,3 +1,5 @@
+/* global document, window */
+
 async function highlightElement(driver, element, durationMs = 1500) {
   await driver.executeScript((el, ms) => {
     if (!el) return
@@ -6,7 +8,9 @@ async function highlightElement(driver, element, durationMs = 1500) {
     if (existing) {
       try {
         existing.remove()
-      } catch (_) {}
+      } catch {
+        // ignore removal errors
+      }
     }
 
     const rect = el.getBoundingClientRect()
@@ -43,7 +47,9 @@ async function highlightElement(driver, element, durationMs = 1500) {
     window.setTimeout(() => {
       try {
         overlay.remove()
-      } catch (_) {}
+      } catch {
+        // ignore removal errors
+      }
     }, Number(ms) || 1500)
   }, element, durationMs)
 }

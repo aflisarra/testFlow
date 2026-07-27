@@ -44,7 +44,10 @@ async function main() {
 
 main().catch(async (err) => {
   console.error(MESSAGES.ROLE.MIGRATE_USER_ROLEID_FAILED, err)
-  try { await mongoose.disconnect() } catch {}
+  try {
+    await mongoose.disconnect()
+  } catch {
+    // ignore — connection may already be closed
+  }
   process.exit(1)
 })
-

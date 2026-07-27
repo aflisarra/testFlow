@@ -107,7 +107,7 @@ app.use((req, res, next) => {
   if (!authHeader) return next();
 
   const token = authHeader.split(' ')[1];
-  let secret = ''
+  let secret;
   try {
     secret = getJwtSecret()
   } catch {

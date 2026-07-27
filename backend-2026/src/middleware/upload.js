@@ -20,6 +20,7 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const original = path.basename(String(file.originalname || 'avatar'));
+    // eslint-disable-next-line no-control-regex
     const safe = original.replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_').replace(/\s+/g, ' ').trim();
     cb(null, `${Date.now()}-${safe}`);
   }

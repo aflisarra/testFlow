@@ -82,7 +82,7 @@ async function requireTestSuiteAccess(req, res, next) {
           if (!isOwner && !hasProjectPermission) {
             return res.status(403).json({ message: "Forbidden: missing project management permission" })
           }
-        } catch (err) {
+        } catch {
           // If permission check fails unexpectedly, deny access conservatively
           return res.status(403).json({ message: 'Forbidden' })
         }

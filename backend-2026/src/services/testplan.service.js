@@ -1,6 +1,6 @@
 const TestPlan = require('../models/testplan.model')
 const TestCase = require('../models/testcase.model')
-const fs = require('fs')
+
 const FormData = require('form-data')
 const {
   hasOwn,
@@ -174,28 +174,25 @@ async function generateTestPlansPreview({ file, styleConfig, applicationUrl }) {
 
     // ✅ 2. ENVOI TEXTE À FASTAPI
 
-    
-console.log("PAYLOAD SENT:", {
-  specText: specText.slice(0, 100)
-})
+    console.log("PAYLOAD SENT:", {
+      specText: specText.slice(0, 100)
+    })
 
-   const formData = new FormData()
+    const formData = new FormData()
 
-formData.append('spec_text', specText)   // ✅ NOM CORRECT
-formData.append('style_config', styleConfig || '')
-formData.append('url_cible', applicationUrl || '')
+    formData.append('spec_text', specText)   // ✅ NOM CORRECT
+    formData.append('style_config', styleConfig || '')
+    formData.append('url_cible', applicationUrl || '')
 
-const response = await axios.post(
-  'http://localhost:8000/generate-plan',
-  formData,
-  {
-    headers: {
-      ...formData.getHeaders(), // ✅ IMPORTANT
-    },
-  }
-)
-
-
+    const response = await axios.post(
+      'http://localhost:8000/generate-plan',
+      formData,
+      {
+        headers: {
+          ...formData.getHeaders(), // ✅ IMPORTANT
+        },
+      }
+    )
 
     console.log('✅ FastAPI RESPONSE:', response.data)
 
@@ -212,20 +209,15 @@ const response = await axios.post(
     }))
 
   } catch (error) {
-    console.error('🔥 ERROR:', error.response?.data || error.message)
+    console.error('🔥 ERROR:', error.response?.data || error.stack || error.message)
 
     const err = new Error(
-      error.response?.data?.error || 'AI generation failed'
+      error.response?.data?.error || error.message || 'AI generation failed'
     )
     err.statusCode = error.response?.status || 500
     throw err
   }
 }
-
-
-
-
-
 
 module.exports = {
   createTestPlan,
