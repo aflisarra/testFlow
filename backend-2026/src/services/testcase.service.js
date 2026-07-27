@@ -1,5 +1,6 @@
 const TestCase = require('../models/testcase.model')
 const TestPlan = require('../models/testplan.model')
+const mongoose = require('mongoose')
 const {
   hasOwn,
   normalizeRequirements,
@@ -408,10 +409,33 @@ async function getTestCasesForSelenium(testSuiteId) {
   }))
 }
 
+async function getTypeBreakdown(filters = {}) {
+  const match = {}
+  if (filters.testSuiteId && mongoose.Types.ObjectId.isValid(filters.testSuiteId)) {
+    match.testSuiteId = new mongoose.Types.ObjectId(filters.testSuiteId)
+  }
+  if (filters.planId && mongoose.Types.ObjectId.isValid(filters.planId)) {
+    match.planId = new mongoose.Types.ObjectId(filters.planId)
+  }
+
+  const raw = await TestCase.aggregate([
+    { $match: match },
+    { $group: { _id: '$type', count: { $sum: 1 } } },
+  ])
+
+  const total = raw.reduce((sum, r) => sum + r.count, 0) || 1
+  return raw.map((r) => ({
+    type: r._id || 'functional',
+    count: r.count,
+    percent: Math.round((r.count / total) * 100),
+  }))
+}
+
 module.exports = {
   createTestCase,
   getByPlan,
   updateTestCase,
   deleteTestCase,
   getTestCasesForSelenium,
+  getTypeBreakdown,
 }

@@ -19,7 +19,7 @@
       </div>
 
       <div class="d-flex align-items-center gap-1">
-        <div class="topbar-item">
+        <!--<div class="topbar-item">
           <button
             type="button"
             class="topbar-button"
@@ -31,7 +31,7 @@
               class="fs-24 align-middle"
             ></iconify-icon>
           </button>
-        </div>
+        </div>-->
 
         <!-- Project invitations -->
         <div
@@ -80,7 +80,7 @@
                   <div class="topbar-invite-item">
                     <div class="topbar-invite-meta">
                       <div class="topbar-invite-project">
-                        {{ inv?.projectId?.title || 'Project' }}
+                        {{ inv?.projectId.title || 'Project' }}
                       </div>
                       <div class="topbar-invite-from text-muted">
                         Invited by {{ inv?.invitedBy?.name || inv?.invitedBy?.email || 'User' }}
@@ -149,6 +149,10 @@
               <i class="bx bx-log-out fs-18 align-middle me-1"></i
               ><span class="align-middle">Logout</span>
             </button>
+            <button class="dropdown-item" (click)="navigateToChangePassword()">
+  <i class="bx bx-lock-alt fs-18 align-middle me-1"></i
+  ><span class="align-middle">Change Password</span>
+</button>
           </div>
         </div>
       </div>

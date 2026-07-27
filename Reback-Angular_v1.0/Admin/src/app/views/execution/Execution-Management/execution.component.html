@@ -15,9 +15,11 @@
       [value]="filters.project"
       (change)="onFilterChange('project', $event)">
       <option value="">Project</option>
-      <option *ngFor="let project of projects" [value]="project._id">
-        {{ project.title }}
-      </option>
+      @for (project of projects; track project._id) {
+        <option [value]="project._id">
+          {{ project.title }}
+        </option>
+      }
     </select>
   </div>
 
@@ -30,9 +32,11 @@
       (change)="onFilterChange('suite', $event)"
       [disabled]="!filters.project">
       <option value="">Suite</option>
-      <option *ngFor="let suite of suites" [value]="suite._id">
-        {{ suite.nom }}
-      </option>
+      @for (suite of suites; track suite._id) {
+        <option [value]="suite._id">
+          {{ suite.title }}
+        </option>
+      }
     </select>
   </div>
 
@@ -45,9 +49,11 @@
       (change)="onFilterChange('testPlan', $event)"
       [disabled]="!filters.suite">
       <option value="">Test Plan</option>
-      <option *ngFor="let plan of plans" [value]="plan._id">
-        {{ plan.title }}
-      </option>
+      @for (plan of plans; track plan.id) {
+        <option [value]="plan.id">
+          {{ plan.title }}
+        </option>
+      }
     </select>
   </div>
 
@@ -60,9 +66,11 @@
       (change)="onTestCaseChange($event)"
       [disabled]="!filters.testPlan">
       <option value="">Test Case</option>
-      <option *ngFor="let tc of testCases" [value]="tc._id">
-        {{ tc.title }}
-      </option>
+      @for (tc of testCases; track tc._id) {
+        <option [value]="tc._id">
+          {{ tc.title }}
+        </option>
+      }
     </select>
   </div>
 
@@ -99,30 +107,40 @@
         </button>
       }-->
 
-      <div class="topbar__actions">
-        
-<button
-  class="btn btn--run"
-  [disabled]="!canRunSelectedCascade"
-  (click)="runSelectedCascade()">
+<div class="topbar__actions">
 
-  Run
-</button>
+  <button
+    class="btn btn--run"
+    [disabled]="!canRun"
+    (click)="runSelectedCascade()">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <path d="M4 2.5v11l9-5.5-9-5.5z"/>
+    </svg>
+    Run
+  </button>
 
-        <button class="btn btn--rerun" (click)="rerun()">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M8 4v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-          Rerun
-        </button>
-        <button class="btn btn--abort" (click)="abort()">
-          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-            <rect x="2" y="2" width="8" height="8" rx="1" fill="currentColor"/>
-          </svg>
-          Abort
-        </button>
-      </div>
+  <button
+    class="btn btn--rerun"
+    [disabled]="!canRerun"
+    (click)="rerun()">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M8 4v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    Rerun
+  </button>
+
+  <button
+    class="btn btn--abort"
+    [disabled]="!canAbort"
+    (click)="abort()">
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+      <rect x="2" y="2" width="8" height="8" rx="1" fill="currentColor"/>
+    </svg>
+    Abort
+  </button>
+
+</div>
     </div>
   </header>
 
@@ -138,7 +156,7 @@
         {{ getStatusLabel() }}
       </span>
     </div>
-    <p class="exec-header__meta">
+    <!--<p class="exec-header__meta">
       <span>Environment: <strong>{{ scenario.environment }}</strong></span>
       <span class="exec-header__meta-sep">·</span>
       <span>Duration: <strong>{{ scenario.executionTime }}</strong></span>
@@ -146,7 +164,7 @@
         <span class="exec-header__meta-sep">·</span>
         <span>ID: <strong>{{ scenario.executionId }}</strong></span>
       }
-    </p>
+    </p>-->
   </section>
 
   <!-- ─── Progress bar ───────────────────────────────────────────────────────── -->
@@ -352,6 +370,22 @@
                 {{ detectorInsight.description }}
               </p>
 
+              @if (detectorInsight.severity || detectorInsight.rootCause) {
+                <div class="ai-insight__meta">
+                  @if (detectorInsight.severity) { <span>Severity: {{ detectorInsight.severity }}</span> }
+                  @if (detectorInsight.rootCause) { <span>Cause: {{ detectorInsight.rootCause }}</span> }
+                </div>
+              }
+
+              @if (detectorInsight.whatHappened || detectorInsight.expectedBehavior || detectorInsight.actualBehavior || detectorInsight.whyItFailed) {
+                <div class="ai-insight__details">
+                  @if (detectorInsight.whatHappened) { <p><strong>What happened:</strong> {{ detectorInsight.whatHappened }}</p> }
+                  @if (detectorInsight.expectedBehavior) { <p><strong>Expected:</strong> {{ detectorInsight.expectedBehavior }}</p> }
+                  @if (detectorInsight.actualBehavior) { <p><strong>Actual:</strong> {{ detectorInsight.actualBehavior }}</p> }
+                  @if (detectorInsight.whyItFailed) { <p><strong>Why it failed:</strong> {{ detectorInsight.whyItFailed }}</p> }
+                </div>
+              }
+
               <!-- Recommendations -->
               <div class="ai-insight__recommendations">
                 @for (recommendation of detectorInsight.recommendations; track recommendation.error + recommendation.fix; let idx = $index) {
@@ -361,6 +395,12 @@
                     </div>
                     @if (recommendation.error) {
                       <div class="ai-insight__error">{{ recommendation.error }}</div>
+                    }
+                    @if (recommendation.whatHappened) {
+                      <div class="ai-insight__detail-text">{{ recommendation.whatHappened }}</div>
+                    }
+                    @if (recommendation.example) {
+                      <div class="ai-insight__example">Example: {{ recommendation.example }}</div>
                     }
                     <div class="ai-insight__action-text">
                       {{ recommendation.fix }}
@@ -376,6 +416,21 @@
                   </div>
                 }
               </div>
+
+              @if (detectorInsight.developerFix?.length || detectorInsight.testerFix?.length) {
+                <div class="ai-insight__fix-groups">
+                  @if (detectorInsight.developerFix?.length) {
+                    <div><strong>Developer fix</strong><ul>@for (fix of detectorInsight.developerFix; track fix) { <li>{{ fix }}</li> }</ul></div>
+                  }
+                  @if (detectorInsight.testerFix?.length) {
+                    <div><strong>Tester fix</strong><ul>@for (fix of detectorInsight.testerFix; track fix) { <li>{{ fix }}</li> }</ul></div>
+                  }
+                </div>
+              }
+
+              @if (detectorInsight.evidence?.length) {
+                <div class="ai-insight__evidence"><strong>Evidence</strong><ul>@for (item of detectorInsight.evidence; track item) { <li>{{ item }}</li> }</ul></div>
+              }
 
               @if (detectorInsight.diagnosticTips?.length) {
                 <div class="ai-insight__tips">
@@ -417,61 +472,6 @@
 
         </div>
       }
-
-      <!-- Recent runs card -->
-      <div class="card">
-        <div class="card__head">
-          <div class="card__head-left">
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/>
-              <path d="M8 4v4l2.5 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-            </svg>
-            <span class="card__head-title">Recent test runs</span>
-          </div>
-        </div>
-        <div class="card__body card__body--flush">
-          <table class="runs-table">
-            <thead>
-              <tr>
-                <th>Test plan</th>
-                <th>Test case</th>
-                <th>Status</th>
-                <th>Duration</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (run of paginatedRecentRuns; track run.executionId) {
-                <tr>
-                  <td class="td--link">{{ run.planTitle || run.planKey || run.planId }}</td>
-                  <td class="td--mono td--link">{{ run.testCaseTitle || run.testCaseKey || run.testCaseId }}</td>
-                  <td>
-                    <span class="status-pill" [ngClass]="getRunStatusClass(run.status)">
-                      {{ getRunStatusLabel(run.status) }}
-                    </span>
-                  </td>
-                  <td class="td--mono">{{ run.duration }}s</td>
-                  <td class="td--muted">{{ (run.finishedAt || run.startedAt || run.createdAt) | date:'mediumDate' }}</td>
-                </tr>
-              }
-              @if (!recentRunsMerged.length) {
-                <tr>
-                  <td colspan="5" class="runs-table__empty">No executions yet</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-          <div class="table-pagination">
-            <span class="table-pagination__meta">
-              {{ recentRunsVisibleStart }}–{{ recentRunsVisibleEnd }} of {{ recentRunsMerged.length }}
-            </span>
-            <div class="table-pagination__actions">
-              <button class="table-pagination__btn" (click)="goToRecentRunsPreviousPage()" [disabled]="recentRunsPage === 1">Prev</button>
-              <button class="table-pagination__btn" (click)="goToRecentRunsNextPage()" [disabled]="recentRunsPage === recentRunsTotalPages">Next</button>
-            </div>
-          </div>
-        </div>
-      </div>
 
     </div><!-- /exec-left -->
 
@@ -572,326 +572,274 @@
 
 <!-- ─── Screenshot modal ──────────────────────────────────────────────────── -->
 @if (selectedScreenshotUrl) {
-  <div class="screenshot-modal" (click)="closeScreenshot()" role="dialog" aria-modal="true" aria-label="Screenshot preview">
-    <div class="screenshot-modal__panel" (click)="$event.stopPropagation()">
-      <button class="screenshot-modal__close" type="button" aria-label="Close" (click)="closeScreenshot()">×</button>
+  <div #screenshotModalRoot>
+    <button class="screenshot-modal" (click)="closeScreenshot()" role="dialog" aria-modal="true" aria-label="Screenshot preview">
+      <button class="screenshot-modal__panel" (click)="$event.stopPropagation()">
+        <button class="screenshot-modal__close" type="button" aria-label="Close" (click)="closeScreenshot()">×</button>
 
-      @if (currentScreenshots.length > 1) {
-        <button class="screenshot-modal__nav screenshot-modal__nav--prev" type="button" aria-label="Previous screenshot" (click)="prevScreenshot()">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-      }
+        @if (currentScreenshots.length > 1) {
+          <button class="screenshot-modal__nav screenshot-modal__nav--prev" type="button" aria-label="Previous screenshot" (click)="prevScreenshot()">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        }
 
-      <img class="screenshot-modal__image" [src]="selectedScreenshotUrl" alt="Screenshot preview" />
+        <img class="screenshot-modal__image" [src]="selectedScreenshotUrl" alt="Screenshot preview" />
 
-      @if (currentScreenshots.length > 1) {
-        <button class="screenshot-modal__nav screenshot-modal__nav--next" type="button" aria-label="Next screenshot" (click)="nextScreenshot()">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <div class="screenshot-modal__counter">
-          {{ currentScreenshotIndex + 1 }} / {{ currentScreenshots.length }}
-        </div>
-      }
-    </div>
+        @if (currentScreenshots.length > 1) {
+          <button class="screenshot-modal__nav screenshot-modal__nav--next" type="button" aria-label="Next screenshot" (click)="nextScreenshot()">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="screenshot-modal__counter">
+            {{ currentScreenshotIndex + 1 }} / {{ currentScreenshots.length }}
+          </div>
+        }
+      </button>
+    </button>
   </div>
 }
 
 <!-- ─── DOM Elements modal ────────────────────────────────────────────────── -->
 @if (showDomModal) {
-  <div class="dom-modal" (click)="closeDomModal()" role="dialog" aria-modal="true" aria-label="DOM elements">
-    <div class="dom-modal__panel" (click)="$event.stopPropagation()">
-      <div class="dom-modal__head">
-        <div class="dom-modal__title">
-          @if (domModalTab === 'dom') {
-            DOM Elements
-            @if (isStreaming) {
-              <span class="live-badge">
-                <span class="live-badge__dot"></span>
-                LIVE
-              </span>
+  <div #domModalRoot>
+    <button class="dom-modal" (click)="closeDomModal()" role="dialog" aria-modal="true" aria-label="DOM elements">
+      <button class="dom-modal__panel" (click)="$event.stopPropagation()">
+        <div class="dom-modal__head">
+          <div class="dom-modal__title">
+            @if (domModalTab === 'dom') {
+              DOM Elements
+              @if (isStreaming) {
+                <span class="live-badge">
+                  <span class="live-badge__dot"></span>
+                  LIVE
+                </span>
+              } @else {
+                <span class="live-badge live-badge--static">{{ domElements.length }} captured</span>
+              }
             } @else {
-              <span class="live-badge live-badge--static">{{ domElements.length }} captured</span>
-            }
-          } @else {
-            AI Actions
-            @if (aiActions.length) {
-              <span class="live-badge live-badge--static">{{ aiActions.length }} action(s)</span>
-            }
-          }
-        </div>
-        <button class="dom-modal__close" type="button" aria-label="Close" (click)="closeDomModal()">×</button>
-      </div>
-
-      <div class="dom-modal__tabs">
-        <button
-          class="dom-modal__tab"
-          [class.dom-modal__tab--active]="domModalTab === 'dom'"
-          (click)="setDomModalTab('dom')"
-          type="button"
-        >
-          DOM Elements
-        </button>
-        <button
-          class="dom-modal__tab"
-          [class.dom-modal__tab--active]="domModalTab === 'actions'"
-          (click)="setDomModalTab('actions')"
-          type="button"
-        >
-          AI Actions
-          @if (aiActions.length) {
-            <span class="dom-modal__tab-count">{{ aiActions.length }}</span>
-          }
-        </button>
-      </div>
-
-      <div class="dom-modal__body">
-
-        <!-- Onglet DOM (contenu existant, inchangé) -->
-        @if (domModalTab === 'dom') {
-          <div class="dom-elements-list">
-            @for (element of domElements; track element.id || element.tag + element.index; let idx = $index) {
-              <div class="dom-element-item" [class.dom-element-item--disabled]="!element.visible">
-                <div class="dom-element-header">
-                  <div class="dom-element-tag">{{ element.tag }}</div>
-                  <div class="dom-element-info">
-                    @if (element.id) {
-                      <span class="dom-element-id">#{{ element.id }}</span>
-                    }
-                    @if (element.classes) {
-                      <span class="dom-element-class">.{{ element.classes.split(' ')[0] }}</span>
-                    }
-                  </div>
-                  <div class="dom-element-state">
-                    @if (!element.visible) {
-                      <span class="state-badge state-badge--hidden">Hidden</span>
-                    } @else if (element.disabled) {
-                      <span class="state-badge state-badge--disabled">Disabled</span>
-                    } @else {
-                      <span class="state-badge state-badge--active">Active</span>
-                    }
-                  </div>
-                </div>
-                <div class="dom-element-details">
-                  @if (element.text) {
-                    <div class="dom-element-row"><span class="dom-label">Text:</span><span class="dom-value">{{ element.text }}</span></div>
-                  }
-                  @if (element.type) {
-                    <div class="dom-element-row"><span class="dom-label">Type:</span><span class="dom-value dom-value--code">{{ element.type }}</span></div>
-                  }
-                  @if (element.value) {
-                    <div class="dom-element-row"><span class="dom-label">Value:</span><span class="dom-value">{{ element.value }}</span></div>
-                  }
-                  @if (element.placeholder) {
-                    <div class="dom-element-row"><span class="dom-label">Placeholder:</span><span class="dom-value">{{ element.placeholder }}</span></div>
-                  }
-                  @if (element.href) {
-                    <div class="dom-element-row"><span class="dom-label">Href:</span><span class="dom-value dom-value--code">{{ element.href }}</span></div>
-                  }
-                  @if (element.role) {
-                    <div class="dom-element-row"><span class="dom-label">Role:</span><span class="dom-value">{{ element.role }}</span></div>
-                  }
-                  @if (element.name) {
-                    <div class="dom-element-row"><span class="dom-label">Name:</span><span class="dom-value">{{ element.name }}</span></div>
-                  }
-                  @if (element.form) {
-                    <div class="dom-element-row"><span class="dom-label">Form:</span><span class="dom-value dom-value--code">{{ element.form }}</span></div>
-                  }
-                  @if (element.rect) {
-                    <div class="dom-element-row"><span class="dom-label">Position:</span><span class="dom-value">x:{{ element.rect.x }} y:{{ element.rect.y }} w:{{ element.rect.width }} h:{{ element.rect.height }}</span></div>
-                  }
-                </div>
-                @if (idx < domElements.length - 1) {
-                  <div class="dom-element-separator"></div>
-                }
-              </div>
+              AI Actions
+              @if (aiActions.length) {
+                <span class="live-badge live-badge--static">{{ aiActions.length }} action(s)</span>
+              }
             }
           </div>
-        }
+          <button class="dom-modal__close" type="button" aria-label="Close" (click)="closeDomModal()">×</button>
+        </div>
 
-        <!-- Onglet AI Actions -->
-        @if (domModalTab === 'actions') {
+        <div class="dom-modal__tabs">
+          <button
+            class="dom-modal__tab"
+            [class.dom-modal__tab--active]="domModalTab === 'dom'"
+            (click)="setDomModalTab('dom')"
+            type="button"
+          >
+            DOM Elements
+          </button>
+          <button
+            class="dom-modal__tab"
+            [class.dom-modal__tab--active]="domModalTab === 'actions'"
+            (click)="setDomModalTab('actions')"
+            type="button"
+          >
+            AI Actions
+            @if (aiActions.length) {
+              <span class="dom-modal__tab-count">{{ aiActions.length }}</span>
+            }
+          </button>
+        </div>
 
-  <div class="dom-modal__tabs dom-modal__tabs--inner">
+        <div class="dom-modal__body">
 
-    <button
-      type="button"
-      class="dom-modal__tab"
-      [class.dom-modal__tab--active]="actionTab === 'simple'"
-      (click)="setActionTab('simple')">
+          <!-- Onglet DOM (contenu existant, inchangé) -->
+          @if (domModalTab === 'dom') {
+            <div class="dom-elements-list">
+              @for (element of domElements; track element.id || element.tag + element.index; let idx = $index) {
+                <div class="dom-element-item" [class.dom-element-item--disabled]="!element.visible">
+                  <div class="dom-element-header">
+                    <div class="dom-element-tag">{{ element.tag }}</div>
+                    <div class="dom-element-info">
+                      @if (element.id) {
+                        <span class="dom-element-id">#{{ element.id }}</span>
+                      }
+                      @if (element.classes) {
+                        <span class="dom-element-class">.{{ element.classes.split(' ')[0] }}</span>
+                      }
+                    </div>
+                    <div class="dom-element-state">
+                      @if (!element.visible) {
+                        <span class="state-badge state-badge--hidden">Hidden</span>
+                      } @else if (element.disabled) {
+                        <span class="state-badge state-badge--disabled">Disabled</span>
+                      } @else {
+                        <span class="state-badge state-badge--active">Active</span>
+                      }
+                    </div>
+                  </div>
+                  <div class="dom-element-details">
+                    @if (element.text) {
+                      <div class="dom-element-row"><span class="dom-label">Text:</span><span class="dom-value">{{ element.text }}</span></div>
+                    }
+                    @if (element.type) {
+                      <div class="dom-element-row"><span class="dom-label">Type:</span><span class="dom-value dom-value--code">{{ element.type }}</span></div>
+                    }
+                    @if (element.value) {
+                      <div class="dom-element-row"><span class="dom-label">Value:</span><span class="dom-value">{{ element.value }}</span></div>
+                    }
+                    @if (element.placeholder) {
+                      <div class="dom-element-row"><span class="dom-label">Placeholder:</span><span class="dom-value">{{ element.placeholder }}</span></div>
+                    }
+                    @if (element.href) {
+                      <div class="dom-element-row"><span class="dom-label">Href:</span><span class="dom-value dom-value--code">{{ element.href }}</span></div>
+                    }
+                    @if (element.role) {
+                      <div class="dom-element-row"><span class="dom-label">Role:</span><span class="dom-value">{{ element.role }}</span></div>
+                    }
+                    @if (element.name) {
+                      <div class="dom-element-row"><span class="dom-label">Name:</span><span class="dom-value">{{ element.name }}</span></div>
+                    }
+                    @if (element.form) {
+                      <div class="dom-element-row"><span class="dom-label">Form:</span><span class="dom-value dom-value--code">{{ element.form }}</span></div>
+                    }
+                    @if (element.rect) {
+                      <div class="dom-element-row"><span class="dom-label">Position:</span><span class="dom-value">x:{{ element.rect.x }} y:{{ element.rect.y }} w:{{ element.rect.width }} h:{{ element.rect.height }}</span></div>
+                    }
+                  </div>
+                  @if (idx < domElements.length - 1) {
+                    <div class="dom-element-separator"></div>
+                  }
+                </div>
+              }
+            </div>
+          }
 
-      Simple Actions
-
-    </button>
-
-    <button
-      type="button"
-      class="dom-modal__tab"
-      [class.dom-modal__tab--active]="actionTab === 'selenium'"
-      (click)="setActionTab('selenium')">
-
-      Selenium Code
-
-    </button>
-
-  </div>
-
-  @if (actionTab === 'simple') {
+          <!-- Onglet AI Actions -->
+          @if (domModalTab === 'actions') {
 
     <div class="ai-actions-list">
 
-      @if (aiActions.length) {
+        @if (aiActions.length) {
 
-        @for (action of aiActions; track action.uid) {
+          @for (action of aiActions; track action.uid) {
 
-          <div
-            class="ai-action-item"
-            [class.ai-action-item--edited]="action.isEdited">
+            <div
+              class="ai-action-item"
+              [class.ai-action-item--edited]="action.isEdited">
 
-            <div class="ai-action-item__head">
-              <span class="ai-action-item__step">
-                Step {{ action.stepIndex }}
-              </span>
-
-              <span class="ai-action-item__type-badge">
-                {{ action.type }}
-              </span>
-
-              @if (action.isEdited) {
-                <span class="ai-action-item__edited-badge">
-                  Modifié
-                </span>
-              }
-            </div>
-
-            <div class="ai-action-item__fields">
-
-              <label class="ai-action-field">
-                <span class="ai-action-field__label">Type</span>
-
-                <select
-                  class="ai-action-field__input"
-                  [ngModel]="action.type"
-                  (ngModelChange)="updateAction(action, 'type', $event)">
-
-                  <option value="click">click</option>
-                  <option value="type">type</option>
-                  <option value="press">press</option>
-                  <option value="wait">wait</option>
-                  <option value="scroll">scroll</option>
-
-                </select>
-              </label>
-
-              <label class="ai-action-field">
-                <span class="ai-action-field__label">
-                  Selector
+              <div class="ai-action-item__head">
+                <span class="ai-action-item__step">
+                  Step {{ action.stepIndex }}
                 </span>
 
-                <input
-                  class="ai-action-field__input"
-                  type="text"
-                  [ngModel]="action.selector"
-                  (ngModelChange)="updateAction(action, 'selector', $event)" />
-              </label>
-
-              <label class="ai-action-field">
-                <span class="ai-action-field__label">
-                  Value
+                <span class="ai-action-item__type-badge">
+                  {{ action.type }}
                 </span>
 
-                <input
-                  class="ai-action-field__input"
-                  type="text"
-                  [ngModel]="action.value"
-                  (ngModelChange)="updateAction(action, 'value', $event)" />
-              </label>
+                @if (action.isEdited) {
+                  <span class="ai-action-item__edited-badge">
+                    Modifié
+                  </span>
+                }
+              </div>
 
-            </div>
+              <div class="ai-action-item__fields">
 
-            <div class="ai-action-item__actions">
+                <label class="ai-action-field">
+                  <span class="ai-action-field__label">Type</span>
 
-              @if (action.isEdited) {
+                  <select
+                    class="ai-action-field__input"
+                    [ngModel]="action.type"
+                    (ngModelChange)="updateAction(action, 'type', $event)">
+
+                    <option value="click">click</option>
+                    <option value="type">type</option>
+                    <option value="press">press</option>
+                    <option value="wait">wait</option>
+                    <option value="scroll">scroll</option>
+
+                  </select>
+                </label>
+
+                <label class="ai-action-field">
+                  <span class="ai-action-field__label">
+                    Selector
+                  </span>
+
+                  <input
+                    class="ai-action-field__input"
+                    type="text"
+                    [ngModel]="action.selector"
+                    (ngModelChange)="updateAction(action, 'selector', $event)" />
+                </label>
+
+                <label class="ai-action-field">
+                  <span class="ai-action-field__label">
+                    Value
+                  </span>
+
+                  <input
+                    class="ai-action-field__input"
+                    type="text"
+                    [ngModel]="action.value"
+                    (ngModelChange)="updateAction(action, 'value', $event)" />
+                </label>
+
+              </div>
+
+              <div class="ai-action-item__actions">
+
+                @if (action.isEdited) {
+                  <button
+                    class="ai-action-item__btn"
+                    type="button"
+                    (click)="resetAction(action)">
+
+                    Reset
+
+                  </button>
+                }
+
                 <button
-                  class="ai-action-item__btn"
+                  class="ai-action-item__btn ai-action-item__btn--primary"
                   type="button"
-                  (click)="resetAction(action)">
+                  (click)="copyActionJson(action)">
 
-                  Reset
+                  Copy JSON
 
                 </button>
-              }
 
-              <button
-                class="ai-action-item__btn ai-action-item__btn--primary"
-                type="button"
-                (click)="copyActionJson(action)">
-
-                Copy JSON
-
-              </button>
+              </div>
 
             </div>
 
+          }
+
+        } @else {
+
+          <div class="dom-modal__empty">
+            Aucune action IA capturée pour cette exécution.
           </div>
 
         }
 
-      } @else {
+      </div>
 
-        <div class="dom-modal__empty">
-          Aucune action IA capturée pour cette exécution.
+    <div class="ai-actions-footer">
+      <button
+        class="btn btn--rerun"
+        type="button"
+        (click)="applyEditedActions()">
+        Apply changes
+      </button>
+    </div>
+
+  }
+
         </div>
-
-      }
-
-    </div>
-
-  }
-
-  <div class="ai-actions-footer" *ngIf="domModalTab === 'actions'">
-    <button
-      class="btn btn--rerun"
-      type="button"
-      (click)="applyEditedActions()">
-
-      Apply changes
-
+      </button>
     </button>
-  </div>
-
-  @if (actionTab === 'selenium') {
-
-    <div class="selenium-code-panel">
-
-      <div class="selenium-code-toolbar">
-
-        <button
-          class="ai-action-item__btn ai-action-item__btn--primary"
-          type="button"
-          (click)="copySnippet(seleniumCode)">
-
-          Copy Code
-
-        </button>
-
-      </div>
-
-      <textarea
-        class="selenium-code-editor"
-        [(ngModel)]="seleniumCode">
-      </textarea>
-
-    </div>
-
-  }
-
-}
-
-      </div>
-    </div>
   </div>
 }

@@ -10,9 +10,13 @@ router.use(authenticateUser)
 router.post('/run-test-case', seleniumController.runTestCaseHandler)
 router.get('/executions', seleniumController.getExecutions)
 
+router.get('/executions/trend', seleniumController.getTrend)
+router.get('/testcases/type-breakdown', seleniumController.getTypeBreakdown)
+
 router.get('/executions/:id', seleniumController.getExecutionDetail)
 router.get('/reports/test-suites/:testSuiteId', seleniumController.downloadTestSuiteReport)
 router.patch('/executions/:executionId/abort', abortExecution)
+
 
 
 module.exports = router

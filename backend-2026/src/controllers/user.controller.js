@@ -3,32 +3,7 @@ const User = require('../models/user.model');
 const Role = require('../models/role.model');
 const { isMongoObjectId } = require('../utils/mongo-objectid');
 const MESSAGES = require('../constants/messages.js');
-// ✅ Create a new user
-// Route: POST /api/users
-// Access: Private (admin only or similar logic)
-/*exports.createUser = async (req, res) => {
-  try {
-    const { name, email, password, role, description } = req.body;
-    const picture = req.file ? `/api/uploads/users/${req.file.filename}` : null;
 
-    const userData = { name, email, password, role, description, picture };
-    const newUser = await userService.createUser(userData);
-
-    const userObj = typeof newUser?.toObject === 'function' ? newUser.toObject() : newUser;
-    if (userObj && userObj.password) delete userObj.password;
-
-    res.status(201).json({ message: MESSAGES.USER.CREATED, user: userObj });
-  } catch (err) {
-    console.error(MESSAGES.ERROR.EMAIL_EXISTS, err);
-    if (err.message === MESSAGES.ERROR.EMAIL_EXISTS) {
-      return res.status(400).json({ message: err.message });
-    }
-    if (err.message === MESSAGES.ROLE.NOT_FOUND) {
-      return res.status(400).json({ message: err.message });
-    }
-    res.status(500).json({ message: MESSAGES.ERROR.SERVER });
-  }
-};*/
 
 exports.createUser = async (req, res) => {
   try {

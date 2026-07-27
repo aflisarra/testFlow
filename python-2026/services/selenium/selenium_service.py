@@ -5,11 +5,37 @@ from selenium.webdriver.support import expected_conditions as EC
 
 import requests
 import time
+import logging
 
 try:
     from automation.dom_capture import capture_dom_elements, resolve_indexed_selector
 except ModuleNotFoundError:  # pragma: no cover
     from ..automation.dom_capture import capture_dom_elements, resolve_indexed_selector
+
+
+logger = logging.getLogger("services.selenium.selenium_service")
+
+
+def refresh_page_state(driver, before_url):
+    """Stabilize the app, then return a fresh DOM for the current page."""
+    # This is the existing post-action application stabilization delay.  It is
+    # intentionally not a wait for navigation: SPA and same-page actions are
+    # both valid.
+    time.sleep(0.5)
+    after_url = driver.current_url
+    url_changed = before_url != after_url
+    if url_changed:
+        logger.info("url_changed before_url=%s after_url=%s", before_url, after_url)
+    logger.info("current_url url=%s", after_url)
+
+    dom = capture_dom_elements(driver)
+    logger.info(
+        "dom_recaptured url=%s elements=%s url_changed=%s",
+        after_url,
+        len(dom),
+        url_changed,
+    )
+    return dom
 
 
 def smart_find(driver, selector):
@@ -47,6 +73,10 @@ def run_test(test_case: dict):
 
         logs = []
         steps = test_case.get("steps", [])
+        # Keep the current page representation between test steps.  It is
+        # refreshed after every executed action, including SPA updates where
+        # the URL does not change.
+        current_dom = None
 
         for step_index, step in enumerate(steps):
 
@@ -56,7 +86,14 @@ def run_test(test_case: dict):
             # driver.page_source[:6000] (raw HTML, truncated and unreadable
             # once escaped into JSON). This is the format expected by the
             # router-side fallback (_dom_to_fill_actions, etc.).
-            dom = capture_dom_elements(driver)
+            if current_dom is None:
+                current_dom = capture_dom_elements(driver)
+                logger.info(
+                    "dom_recaptured reason=initial_capture url=%s elements=%s",
+                    driver.current_url,
+                    len(current_dom),
+                )
+            dom = current_dom
 
             resp = requests.post(
                 "http://localhost:8000/ai/decide",
@@ -94,6 +131,12 @@ def run_test(test_case: dict):
                     print(f"⏭️ Skipping invalid action: {act}")
                     continue
 
+                # Capture the URL immediately before the AI-directed Selenium
+                # action.  This supports both conventional navigation and SPA
+                # interactions without treating an unchanged URL as a failure.
+                before_url = driver.current_url
+                action_executed = False
+
                 try:
                     el = smart_find(driver, selector)
                     if el is None:
@@ -108,19 +151,32 @@ def run_test(test_case: dict):
                         action = "click"
 
                     if action == "type":
+                        logger.info(
+                            "action_execution step_index=%s action_index=%s action=%s selector=%s url=%s",
+                            step_index, i, action, selector, before_url,
+                        )
+                        action_executed = True
                         driver.execute_script("arguments[0].scrollIntoView();", el)
                         time.sleep(0.3)
                         el.clear()
                         el.send_keys(value)
 
                     elif action == "click":
+                        logger.info(
+                            "action_execution step_index=%s action_index=%s action=%s selector=%s url=%s",
+                            step_index, i, action, selector, before_url,
+                        )
+                        action_executed = True
                         try:
                             driver.execute_script("arguments[0].click();", el)
                         except Exception:
                             el.click()
 
                     print(f"✅ DONE: {action} → {selector}")
-                    time.sleep(0.5)
+                    # Never allow the DOM from before an action to reach the
+                    # next AI decision.  This also refreshes dynamic UIs when
+                    # their URL remains unchanged.
+                    current_dom = refresh_page_state(driver, before_url)
 
                     filename = f"step_{step_index}_{i}.png"
                     driver.save_screenshot(filename)
@@ -134,6 +190,12 @@ def run_test(test_case: dict):
                     })
 
                 except Exception as e:
+
+                    # An interaction can have taken effect before Selenium
+                    # reports an error.  If it was started, do not carry its
+                    # old DOM into the next AI decision.
+                    if action_executed:
+                        current_dom = refresh_page_state(driver, before_url)
 
                     print(f"❌ ERROR → {selector}: {e}")
 

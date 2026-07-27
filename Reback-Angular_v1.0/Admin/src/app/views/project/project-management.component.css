@@ -458,8 +458,6 @@ textarea.form-control {
 
 .exec-upsert-header {
   margin-block-end: 1rem;
-
-  
 }
 
 .exec-upsert-headline {
@@ -494,9 +492,13 @@ textarea.form-control {
   background: #fff;
   color: #35597e;
   font-size: 1.35rem;
-  line-height: 2rem; /* 👈 important */
+
+  /* important for vertical centering of the close glyph */
+  line-height: 2rem;
   cursor: pointer;
-  display: flex; /* 👈 remplace grid */
+
+  /* replaces grid layout */
+  display: flex;
   align-items: center;
   justify-content: center;
 }
@@ -681,8 +683,7 @@ textarea.form-control {
 .edit-elite-dropdown .exec-actions-box {
   position: absolute;
   inset-block-end: calc(100% + 0.4rem);
-  inset-inline-start: 0;
-  inset-inline-end: 0;
+  inset-inline: 0;
   z-index: 9999;
   box-shadow: 0 -6px 24px rgb(12 40 70 / 15%);
 }
@@ -826,7 +827,6 @@ textarea.form-control {
   letter-spacing: 0;
   color: #475569;
   margin-block-end: 3px;
-
 }
 
 .vpc-date-value {
@@ -844,7 +844,7 @@ textarea.form-control {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-   font-size: 0.85rem;
+  font-size: 0.85rem;
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;
@@ -996,4 +996,30 @@ textarea.form-control {
   .vpc-member-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Matches the pagination used in Users and Roles management. */
+.table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.table-pagination__meta {
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.table-pagination__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.table-pagination__page {
+  min-inline-size: 96px;
+  text-align: center;
+  font-size: 0.82rem;
+  color: #334155;
 }

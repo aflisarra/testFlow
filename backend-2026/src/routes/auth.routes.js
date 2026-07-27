@@ -3,7 +3,7 @@ const router = express.Router();
 const upload = require('../middleware/upload');
 const authController = require('../controllers/auth.controller');
 const { refreshTokenController } = require('../controllers/auth.controller');
-
+const authMiddleware = require('../middleware/authenticateUser');
 // Public: roles list for signup dropdown
 router.get('/signup-roles', authController.getSignupRoles);
 
@@ -27,5 +27,5 @@ router.post('/reset-password', authController.resetPassword);
 
 // ✅ Verify code
 router.post('/verify-code', authController.verifyCode);*/
-
+router.post('/change-password', authMiddleware, authController.changePassword);
 module.exports = router;

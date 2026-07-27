@@ -156,11 +156,13 @@ def build_ai_decision_prompt(step: str, dom, test_case) -> str:
     memory_text = safe(execution_memory) if execution_memory else "{}"
 
     return f"""
-You are a Selenium automation planner.
+You are the AI Decision engine for a Selenium test of the TARGET APPLICATION
+currently open in the supplied DOM. Your only job is to convert the CURRENT
+TEST STEP into executable UI actions on that target application.
 
-Your task is to convert a TEST STEP into executable Selenium UI actions
-Use the provided DOM and TEST DATA when available.
-If TEST DATA is incomplete, generate missing values based on the TEST CASE.
+You are not a test-data generator, a failure analyzer, or an application-fix
+advisor. Do not analyse or repair this automation platform. Do not recommend
+changes. Return actions only.
 
 OUTPUT FORMAT (STRICT JSON ONLY):
 
@@ -173,6 +175,15 @@ RULES:
 - No markdown.
 - Use ONLY elements existing in DOM.
 - Never invent selectors.
+- Plan actions only for the application represented by the current DOM. Never
+  navigate to, interact with, or infer controls from another application.
+- Use the exact TEST DATA supplied by the test case. Never replace, transform,
+  supplement, or invent credentials, emails, passwords, names, dates, or other
+  business data.
+- If a required value is absent, return {"data":[]} rather than guessing. The
+  test must be corrected by its author; a guessed value invalidates the test.
+- The step text and its expected result define intent. A click such as Login is
+  only a click; it must not be treated as proof that login or navigation worked.
 
 Prefer selectors:
 
@@ -597,54 +608,27 @@ validation error.
 TEST DATA RULES
 ================================================
 
-Use the provided TEST DATA when available.
+If TEST DATA contains an explicit value for a field, ALWAYS use that exact
+value. Never substitute demo credentials, values seen in the DOM, or values
+remembered from another test, and never override an explicit value with a
+generated one. If TEST DATA and the step disagree, TEST DATA wins.
 
-If TEST DATA is missing, incomplete, empty, or does not contain all required values, generate realistic missing values according to the TEST CASE objective and workflow.
-
-Generated values must:
-
-Respect the field purpose.
-Respect the test scenario type.
-Be realistic and executable.
-Not be random meaningless values.
-
-Examples:
-
-For a valid login test:
-
-Generate valid username and password values.
-
-For an invalid login test:
-
-Generate valid username and an incorrect password value, or invalid credentials according to the scenario.
-
-For registration:
-
-Generate realistic email, username, password, and required fields.
-
-Never leave mandatory fields empty when the workflow requires them.
-
-Never stop execution because TEST DATA is incomplete.
+If TEST DATA is completely empty for this test case (the TEST DATA block
+below is "[]", "{{}}" or empty), you MAY generate a plausible, clearly
+synthetic value appropriate for the field type so the step can still be
+executed (e.g. a realistic-looking name, a "name@example.com" style email,
+an "Ecommerce2025!" style password, a placeholder phone number, or a
+sensible dropdown choice that is already visible in the DOM). Prefer any
+option value that already appears in the DOM (select/option text) over an
+invented one. Never invent a value for a field that already has an
+explicit TEST DATA entry.
 
 
 TEST OBJECTIVE PRIORITY RULE
 
-When generating missing test data, the TEST CASE objective, title, and type have higher priority than incomplete existing data.
-
-If the test type is Positive:
-
-Generate valid data for all required fields.
-
-If the test type is Negative:
-
-Generate invalid data only for the field or rule being tested.
-Keep all other mandatory fields valid.
-
-If the test type is Validation:
-
-Generate data that triggers the specific validation described in the test case.
-
-Always generate data that allows the test scenario to be executed correctly.
+Preserve any test data explicitly provided by the tester — never override
+or replace an existing value. Only fill genuinely missing data as described
+above, so the step is not blocked purely for lack of data.
 
 ================================================
 ACTION CONSISTENCY

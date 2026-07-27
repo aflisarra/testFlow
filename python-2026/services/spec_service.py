@@ -7,6 +7,16 @@ from utils.chunker import split_by_headings, detect_modules_from_chunks, normali
 from utils.docx_reader import extract_text_from_docx
 
 
+SRS_PLAN_SECTIONS = {"project description", "objectives", "features"}
+SRS_CASE_SECTIONS = {
+    "ui components",
+    "business rules",
+    "validation rules",
+    "pass criteria",
+    "fail criteria",
+}
+
+
 def extract_spec_text_from_docx_bytes(file_bytes: bytes) -> str:
     return extract_text_from_docx(file_bytes)
 
@@ -21,40 +31,19 @@ def detect_modules(spec_text: str) -> List[str]:
 
 
 def classify_priority(text: str) -> str:
-    """
-    Heuristic priority classification based on requirement text signals.
-    """
-    t = (text or "").lower()
-    high_signals = ("must", "required", "shall", "critical", "security", "payment", "billing", "auth", "permission")
-    low_signals = ("nice to have", "optional", "may", "could")
-    if any(s in t for s in high_signals):
-        return "High"
-    if any(s in t for s in low_signals):
-        return "Low"
-    if "should" in t:
-        return "Medium"
     return "Medium"
 
 
-def _guess_module(text: str, modules: List[str]) -> str:
-    t = (text or "").lower()
-    for m in modules:
-        if m.lower() in t:
-            return m
-    # keyword mapping
-    if any(k in t for k in ("login", "logout", "password", "jwt", "session", "role", "permission")):
-        return "Authentication"
-    if any(k in t for k in ("search", "filter", "sort", "pagination")):
-        return "Search & Filtering"
-    if any(k in t for k in ("create", "update", "delete", "edit", "save")):
-        return "CRUD Operations"
-    if any(k in t for k in ("export", "report", "dashboard")):
-        return "Reporting"
-    if any(k in t for k in ("performance", "latency", "timeout", "load")):
-        return "Performance"
-    if any(k in t for k in ("accessibility", "keyboard", "aria", "contrast")):
-        return "Accessibility"
-    return modules[0] if modules else "Core Functionality"
+def _section_key(title: str) -> str:
+    title = re.sub(r"^\s*(?:\d+\.)+\s*", "", title or "")
+    return re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()
+
+
+def get_srs_sections(spec_text: str, allowed_sections: set[str] | None = None) -> List[Dict[str, str]]:
+    chunks = chunk_spec(spec_text)
+    if not allowed_sections:
+        return chunks
+    return [chunk for chunk in chunks if _section_key(str(chunk.get("title") or "")) in allowed_sections]
 
 
 def extract_requirements(spec_text: str) -> List[Dict[str, str]]:
@@ -63,20 +52,25 @@ def extract_requirements(spec_text: str) -> List[Dict[str, str]]:
 
     Output format (required):
     [
-      {"id":"REQ-001","module":"Authentication","text":"...","priority":"High"}
+      {"id":"REQ-001","module":"SRS Requirement","text":"...","priority":"Medium"}
     ]
     """
-    normalized = normalize_spec_text(spec_text)
-    # Clean noisy DOCX XML leftovers that can leak into extracted requirements.
+    source_chunks = get_srs_sections(spec_text, SRS_PLAN_SECTIONS)
+    if not source_chunks:
+        source_chunks = chunk_spec(spec_text)
+    source_text = "\n\n".join(f"# {chunk.get('title')}\n{chunk.get('text')}" for chunk in source_chunks)
+    normalized = normalize_spec_text(source_text)
     normalized = re.sub(r"<\/?w:[^>]+>", " ", normalized, flags=re.IGNORECASE)
     normalized = re.sub(r"<\/?[^>]+>", " ", normalized)
-    modules = detect_modules(spec_text)
+    content_for_sentences = re.sub(r"(?m)^#{1,3}\s+[^\n]*(?:\n|$)", "", normalized)
 
     lines = [ln.strip() for ln in normalized.split("\n") if ln.strip()]
 
     reqs: List[str] = []
 
-    # bullets / numbered items
+    modal_re = re.compile(r"\b(must|required|shall|should|may|can)\b", re.IGNORECASE)
+
+    # Bullets / numbered items.
     bullet_re = re.compile(r"^(\-|\*|•|\d+[\.\)])\s+(.*)$")
     for ln in lines:
         m = bullet_re.match(ln)
@@ -85,9 +79,22 @@ def extract_requirements(spec_text: str) -> List[Dict[str, str]]:
             if len(item) >= 8:
                 reqs.append(item)
 
+    # DOCX sections often contain functional requirements as plain paragraphs
+    # below a heading, without bullets or modal verbs. Keep those statements
+    # as requirements instead of losing the whole section.
+    for ln in lines:
+        if re.match(r"^#{1,3}\s+", ln):
+            continue
+        if bullet_re.match(ln) or len(ln) < 20 or len(ln) > 260:
+            continue
+        # Modal-verb sentences are already collected above; avoid adding the
+        # heading-prefixed version a second time.
+        if modal_re.search(ln):
+            continue
+        reqs.append(ln)
+
     # modal verbs / requirement-like sentences
-    sentence_candidates = re.split(r"(?<=[\.\!\?])\s+", normalized)
-    modal_re = re.compile(r"\b(must|required|shall|should|may|can)\b", re.IGNORECASE)
+    sentence_candidates = re.split(r"(?<=[\.\!\?])\s+", content_for_sentences)
     for s in sentence_candidates:
         st = s.strip()
         if len(st) < 20 or len(st) > 260:
@@ -115,11 +122,10 @@ def extract_requirements(spec_text: str) -> List[Dict[str, str]]:
         cleaned_text = re.sub(r"<\/?w:[^>]+>", " ", text, flags=re.IGNORECASE)
         cleaned_text = re.sub(r"<\/?[^>]+>", " ", cleaned_text)
         cleaned_text = re.sub(r"\s+", " ", cleaned_text).strip()
-        module = _guess_module(text, modules)
         out.append(
             {
                 "id": f"REQ-{i:03d}",
-                "module": module,
+                "module": "SRS Requirement",
                 "text": cleaned_text,
                 "priority": classify_priority(text),
             }

@@ -7,7 +7,7 @@ from core.config import get_settings
 from core.constants import DEFAULT_TEST_CASES_MIN, DEFAULT_TEST_CASES_MAX, PRIORITIES, SEVERITIES, TEST_CASE_TYPES
 from prompts.test_case_prompt import build_test_case_prompt
 from services.ai_service import get_ai_service
-from services.spec_service import chunk_spec, extract_requirements
+from services.spec_service import SRS_CASE_SECTIONS, extract_requirements, get_srs_sections
 from utils.logger import get_logger, log_event, log_error
 
 
@@ -73,115 +73,21 @@ def _format_requirement(req: Dict[str, Any]) -> Dict[str, str]:
     }
 
 
-def _normalize_requirements(raw: Any, fallback: List[Dict[str, str]] | None = None) -> List[Dict[str, str]]:
-    fallback = fallback or []
-    lookup = {str(req.get("id") or "").strip().lower(): _format_requirement(req) for req in fallback if req.get("id")}
+def _validated_requirements(raw: Any, requirements: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    valid_requirement_ids = {
+        str(req.get("id")).strip().lower(): _format_requirement(req)
+        for req in requirements if req.get("id")
+    }
     values = raw if isinstance(raw, list) else ([raw] if raw else [])
-    normalized: List[Dict[str, str]] = []
-
-    for item in values:
-        if isinstance(item, str):
-            key = item.strip().lower()
-            req = lookup.get(key) or {"id": item.strip(), "title": "", "description": "", "source": "", "priority": ""}
-        elif isinstance(item, dict):
-            req = _format_requirement(item)
-            if req["id"] and req["id"].lower() in lookup and not req["description"]:
-                req = lookup[req["id"].lower()]
-        else:
-            continue
-
-        if req["id"] or req["title"] or req["description"]:
-            normalized.append(req)
-
-    if not normalized:
-        normalized = [_format_requirement(req) for req in fallback[:5]]
-
+    linked: List[Dict[str, str]] = []
     seen: set[str] = set()
-    deduped: List[Dict[str, str]] = []
-    for req in normalized:
-        key = "|".join([req["id"], req["title"], req["description"], req["source"]]).lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(req)
-    return deduped
-
-
-def _link_requirements(plan_title: str, plan_description: str, reqs: List[Dict[str, str]]) -> List[Dict[str, str]]:
-    """
-    Lightweight relevance matching based on keywords and module name.
-    """
-    hay = f"{plan_title} {plan_description}".lower()
-    keywords = set(re.findall(r"[a-z0-9]+", hay))
-    if not keywords:
-        return reqs[:12]
-
-    linked = []
-    for r in reqs:
-        text = f"{r.get('module','')} {r.get('text','')}".lower()
-        score = sum(1 for k in keywords if k in text)
-        if score > 0:
-            linked.append((score, r))
-    linked.sort(key=lambda x: x[0], reverse=True)
-    return [r for _, r in linked[:18]] or reqs[:18]
-
-
-def _mock_cases(plan_id: str) -> List[Dict[str, Any]]:
-    prefix = _tc_prefix(plan_id)
-    return [
-        {
-            "id": f"{prefix}.1",
-            "title": "Happy path works as expected",
-            "objective": "Verify the main user flow succeeds with valid data",
-            "preconditions": ["Application is reachable", "User has access to the feature"],
-            "test_data": {"input": "valid data"},
-            "steps": ["Open the feature page", "Provide valid input", "Submit the action"],
-            "expected_result": "Operation succeeds and user sees success confirmation",
-            "priority": "High",
-            "severity": "Critical",
-            "type": "Positive",
-            "requirements": [],
-        },
-        {
-            "id": f"{prefix}.2",
-            "title": "Invalid input is rejected",
-            "objective": "Verify invalid data is rejected with a clear validation message",
-            "preconditions": ["Application is reachable", "User has access to the feature"],
-            "test_data": {"input": "invalid data"},
-            "steps": ["Open the feature page", "Provide invalid input", "Submit the action"],
-            "expected_result": "User sees a validation error and no data is saved",
-            "priority": "High",
-            "severity": "Major",
-            "type": "Validation",
-            "requirements": [],
-        },
-        {
-            "id": f"{prefix}.3",
-            "title": "Boundary values are handled safely",
-            "objective": "Verify boundary values are processed without incorrect behavior",
-            "preconditions": ["Application is reachable", "Boundary values are known"],
-            "test_data": {"input": "boundary value"},
-            "steps": ["Open the feature page", "Enter boundary value", "Submit the action"],
-            "expected_result": "System handles boundary without crash and shows correct result",
-            "priority": "Medium",
-            "severity": "Major",
-            "type": "Boundary",
-            "requirements": [],
-        },
-        {
-            "id": f"{prefix}.4",
-            "title": "System shows error on failure",
-            "objective": "Verify failures produce recoverable and understandable feedback",
-            "preconditions": ["Application is reachable", "A failure condition can be triggered"],
-            "test_data": {"condition": "forced failure"},
-            "steps": ["Trigger an error condition", "Retry the action"],
-            "expected_result": "User sees an error message and can recover",
-            "priority": "Medium",
-            "severity": "Major",
-            "type": "Error handling",
-            "requirements": [],
-        },
-    ][:DEFAULT_TEST_CASES_MAX]
+    for item in values:
+        candidate = item.get("id") if isinstance(item, dict) else item
+        key = str(candidate or "").strip().lower()
+        if key in valid_requirement_ids and key not in seen:
+            linked.append(valid_requirement_ids[key])
+            seen.add(key)
+    return linked
 
 
 def _normalize_step_details(steps: List[str], step_details: Any, fallback_expected: str = "") -> List[Dict[str, Any]]:
@@ -259,11 +165,10 @@ def generate_test_cases(
     log_event(logger, "generate_cases_request_received", plan_id=plan_id, mock=settings.use_mock)
 
     reqs = extract_requirements(spec_text)
-    linked = _link_requirements(plan_title, plan_description, reqs)
-    chunks = chunk_spec(spec_text)
+    chunks = get_srs_sections(spec_text, SRS_CASE_SECTIONS)
 
     if settings.use_mock:
-        return _mock_cases(plan_id)
+        raise ValueError("Mock test case generation is disabled for the SRS pipeline")
 
     prompt = build_test_case_prompt(
         plan_id=plan_id,
@@ -271,7 +176,7 @@ def generate_test_cases(
         plan_description=plan_description,
         project_title=project_title,
         style_config=style_config,
-        linked_requirements=linked,
+        linked_requirements=reqs,
         spec_chunks=chunks,
     )
 
@@ -304,16 +209,17 @@ def generate_test_cases(
         )
         _ensure_step_details_expected(step_details)
         test_data = item.get(
-    "test_data",
-    item.get("testData", {})
-)
+            "test_data",
+            item.get("testData", {}),
+        )
+        if not isinstance(test_data, dict):
+            raise ValueError("test_data must be a JSON object")
+        expected_result = str(item.get("expected_result") or "").strip()
+        if not expected_result:
+            logger.warning("Rejected test case without expected_result: %s", item.get("title"))
+            continue
 
-    if not isinstance(test_data, dict):
-        raise ValueError(
-        "test_data must be a JSON object"
-    )
-
-    normalized.append(
+        normalized.append(
             {
                 "id": str(item.get("id") or f"{prefix}.{i}").strip() or f"{prefix}.{i}",
                 "title": str(item.get("title") or f"Test Case {i}").strip(),
@@ -322,17 +228,19 @@ def generate_test_cases(
                 "test_data": test_data,
                 "steps": clean_steps,
                 "stepDetails": step_details,
-                "expected_result": str(item.get("expected_result") or "").strip(),
+                "expected_result": expected_result,
                 "priority": _normalize_priority(str(item.get("priority") or "Medium")),
                 "severity": _normalize_severity(str(item.get("severity") or "Major")),
                 "type": _normalize_type(str(item.get("type") or "Validation")),
-                "requirements": _normalize_requirements(item.get("requirements"), linked[:5]),
+                "requirements": _validated_requirements(item.get("requirements"), reqs),
             }
         )
 
-    # Ensure we always return at least DEFAULT_TEST_CASES_MIN cases
     if len(normalized) < DEFAULT_TEST_CASES_MIN:
-        normalized.extend(_mock_cases(plan_id)[len(normalized) : DEFAULT_TEST_CASES_MIN])
+        raise ValueError(
+            f"AI generated only {len(normalized)} test case(s), "
+            f"minimum required is {DEFAULT_TEST_CASES_MIN}"
+        )
 
     # Re-number sequentially (stable ids) and cap count
     normalized = normalized[:DEFAULT_TEST_CASES_MAX]

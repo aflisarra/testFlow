@@ -1,3 +1,9 @@
+import { AuthenticationService } from '@/app/core/services/auth.service'
+import { ProjectInvitationsService } from '@/app/core/services/project-invitations.service'
+import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
+import type { ProjectInvitationDto } from '@/app/interfaces/project-invitations.interface'
+import { logout } from '@/app/store/authentication/authentication.actions'
+import { getUser } from '@/app/store/authentication/authentication.selector'
 import { changetheme } from '@/app/store/layout/layout-action'
 import { CommonModule, DOCUMENT } from '@angular/common'
 import { HttpErrorResponse } from '@angular/common/http'
@@ -6,20 +12,15 @@ import {
   Component,
   DestroyRef,
   EventEmitter,
+  OnInit,
   Output,
-  inject, OnInit,
+  inject,
 } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
+import { Router } from '@angular/router'
 import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap'
 import { Store } from '@ngrx/store'
 import { getLayoutColor } from '../../store/layout/layout-selector'
-import { logout } from '@/app/store/authentication/authentication.actions'
-import { Router } from '@angular/router'
-import { getUser } from '@/app/store/authentication/authentication.selector'
-import { AuthenticationService } from '@/app/core/services/auth.service'
-import { ProjectInvitationsService } from '@/app/core/services/project-invitations.service'
-import type { ProjectInvitationDto } from '@/app/interfaces/project-invitations.interface'
-import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
 //import { ProjectsStateService } from '@/app/core/services/projects-state.service'
 import { ApiService } from '@/app/core/services/api.service'
 import { ToastrService } from 'ngx-toastr'
@@ -203,4 +204,8 @@ export class TopbarComponent implements OnInit {
       return false
     }
   }
+navigateToChangePassword(): void {
+  this.router.navigate(['/change-password'])
+}
+
 }

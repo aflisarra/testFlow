@@ -214,4 +214,10 @@ export class AuthenticationService {
   resetPassword(resetToken: string, password: string): Observable<{ message: string }> {
     return this.api.post<{ message: string }>(`/auth/reset-password`, { resetToken, password });
   }
+  changePassword(currentPassword: string, newPassword: string) {
+  return this.api.post<{ message: string }>(
+    `api/auth/change-password`,
+    { currentPassword, newPassword }
+  )
+}
 }

@@ -1,202 +1,233 @@
-<div
-  *ngIf="visible && execution"
-  class="modal-backdrop"
-  (click)="onBackdropClick($event)"
->
-  <div class="modal-panel" role="dialog" aria-modal="true">
+@if (visible && execution) {
+  <button
+    class="modal-backdrop"
+    (click)="onBackdropClick($event)"
+  >
+    <div class="modal-panel" role="dialog" aria-modal="true">
 
-    <!-- ── Header ──────────────────────────────────────────────── -->
-    <div class="modal-header">
-      <div class="modal-header__left">
-        <span class="modal-tc-key">{{ execution.testCaseKey }}</span>
-        <span [class]="'status-badge ' + statusClass">{{ statusLabel }}</span>
-        <span class="modal-breadcrumb">
-          {{ execution.testCaseTitle }}
-          <ng-container *ngIf="execution.planTitle">
-            &nbsp;·&nbsp;{{ execution.planTitle }}
-          </ng-container>
-          <ng-container *ngIf="execution.executedByName">
-            &nbsp;·&nbsp;{{ execution.executedByName }}
-          </ng-container>
-          <ng-container *ngIf="execution.environment">
-            &nbsp;·&nbsp;{{ execution.environment }}
-          </ng-container>
-        </span>
-        <div class="modal-meta small text-muted mt-1" *ngIf="executedByLabel">
-          Executed by: <strong>{{ executedByLabel }}</strong>
-        </div>
-      </div>
-      <button class="modal-close" (click)="onClose()" aria-label="Close">✕</button>
-    </div>
-
-    <!-- ── Tab bar ─────────────────────────────────────────────── -->
-    <div class="tab-bar">
-      <button
-        class="tab-btn"
-        [class.tab-btn--active]="activeTab === 'screenshots'"
-        (click)="setTab('screenshots')"
-      >
-        <span class="tab-icon">🖼</span> Screenshots
-      </button>
-      <button
-        class="tab-btn"
-        [class.tab-btn--active]="activeTab === 'logs'"
-        (click)="setTab('logs')"
-      >
-        <span class="tab-icon">📋</span> Logs
-      </button>
-    </div>
-
-    <!-- ── Body ───────────────────────────────────────────────── -->
-    <div class="modal-body">
-
-      <!-- Loading state -->
-      <div *ngIf="isLoadingDetail" class="loading-state">
-        <div class="spinner"></div>
-        <span>Loading execution details…</span>
-      </div>
-
-      <!-- SCREENSHOTS TAB -->
-      <div *ngIf="!isLoadingDetail && activeTab === 'screenshots'" class="tab-content tab-content--screenshots">
-
-        <!-- Main screenshot viewer -->
-        <div class="screenshot-viewer">
-          <div class="screenshot-viewer__label">
-            <span class="step-label" *ngIf="selectedStep">
-              CURRENT STEP
-              <strong>Step {{ selectedStep.index }}: {{ selectedStep.name }}</strong>
-            </span>
-            <span *ngIf="!selectedStep" class="step-label step-label--empty">No screenshot available</span>
-          </div>
-
-          <div class="screenshot-viewer__frame">
-            <img
-              *ngIf="selectedStep?.screenshotUrl"
-              [src]="selectedStep!.screenshotUrl!"
-              alt="Step screenshot"
-              class="screenshot-img"
-            />
-            <div *ngIf="!selectedStep?.screenshotUrl" class="screenshot-empty">
-              <span>No screenshot for this step</span>
-            </div>
-          </div>
-
-          <div class="screenshot-viewer__actions">
-            <button class="btn-icon" title="Zoom">🔍 Zoom</button>
-            <button class="btn-icon" title="Download">⬇ Download</button>
-          </div>
-        </div>
-
-        <!-- Step thumbnails strip -->
-        <div class="step-strip" *ngIf="steps.length">
-          <div class="step-strip__label">
-            <span class="step-strip__icon">⚙</span>
-            EXECUTION STEPS ({{ steps.length }} TOTAL)
-          </div>
-          <div class="step-strip__thumbs">
-            <div
-              *ngFor="let step of steps; trackBy: trackByStep; let i = index"
-              class="thumb"
-              [class.thumb--selected]="selectedStepIndex === i"
-              [class]="'thumb ' + getStepStatusClass(step.status) + (selectedStepIndex === i ? ' thumb--selected' : '')"
-              (click)="selectStep(i)"
-              [title]="step.name"
-            >
-              <img
-                *ngIf="step.screenshotUrl"
-                [src]="step.screenshotUrl"
-                class="thumb__img"
-                alt=""
-              />
-              <div *ngIf="!step.screenshotUrl" class="thumb__placeholder">
-                <span class="thumb__placeholder-text">Step {{ step.index }}</span>
-              </div>
-              <span class="thumb__badge">{{ getStepStatusIcon(step.status) }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="empty-state" *ngIf="!steps.length">
-          <span>No steps recorded for this execution.</span>
-        </div>
-
-      </div>
-
-      <!-- LOGS TAB -->
-      <div *ngIf="!isLoadingDetail && activeTab === 'logs'" class="tab-content tab-content--logs">
-
-        <!-- Log toolbar -->
-        <div class="log-toolbar">
-          <div class="log-search">
-            <input type="text" placeholder="Filter logs..." class="log-filter-input" />
-          </div>
-          <div class="log-toolbar__actions">
-            <button class="btn-icon btn-icon--sm" (click)="downloadLog()">⬇ Download Log</button>
-          </div>
-        </div>
-
-        <!-- Log terminal -->
-        <div class="log-terminal">
-          <div class="log-terminal__header">
-            <span class="log-dot log-dot--red"></span>
-            <span class="log-dot log-dot--yellow"></span>
-            <span class="log-dot log-dot--green"></span>
-            <span class="log-terminal__title">TEST RUN TERMINAL v1.0</span>
-          </div>
-
-          <div class="log-terminal__body" *ngIf="logs.length; else noLogs">
-            <div
-              *ngFor="let log of logs; trackBy: trackByLog"
-              [class]="'log-line ' + getLogClass(log.level)"
-            >
-              <span class="log-ts">{{ log.timestamp }}</span>
-              <span class="log-level">[{{ log.level }}]</span>
-              <span class="log-msg">{{ log.message }}</span>
-            </div>
-          </div>
-
-          <ng-template #noLogs>
-            <div class="log-terminal__body log-empty">
-              <span>No logs available for this execution.</span>
-            </div>
-          </ng-template>
-        </div>
-
-        <!-- Log options row -->
-        <div class="log-options">
-          <label class="log-checkbox">
-            <input type="checkbox" checked /> Auto-scroll
-          </label>
-          <label class="log-checkbox">
-            <input type="checkbox" checked /> Wrap lines
-          </label>
-          <div class="log-options__actions">
-            <button class="btn-icon btn-icon--sm" (click)="copyAllLogs()">📋 Copy All</button>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ── Footer ─────────────────────────────────────────────── -->
-    <div class="modal-footer">
-      <div class="footer-meta">
-        <div class="meta-item">
-          <span class="meta-label">DURATION</span>
-          <span class="meta-value">{{ durationLabel }}</span>
-        </div>
-        <div class="meta-item">
-          <span class="meta-label">PLATFORM</span>
-          <span class="meta-value">
-            <span class="platform-icon">⬡</span> {{ platformLabel }}
+      <!-- ── Header ──────────────────────────────────────────────── -->
+      <div class="modal-header">
+        <div class="modal-header__left">
+          <span class="modal-tc-key">{{ execution.testCaseKey }}</span>
+          <span [class]="'status-badge ' + statusClass">{{ statusLabel }}</span>
+          <span class="modal-breadcrumb">
+            {{ execution.testCaseTitle }}
+            @if (execution.planTitle) {
+              <ng-container>
+                &nbsp;·&nbsp;{{ execution.planTitle }}
+              </ng-container>
+            }
+            @if (execution.executedByName) {
+              <ng-container>
+                &nbsp;·&nbsp;{{ execution.executedByName }}
+              </ng-container>
+            }
+            @if (execution.environment) {
+              <ng-container>
+                &nbsp;·&nbsp;{{ execution.environment }}
+              </ng-container>
+            }
           </span>
+          <!--<div class="modal-meta small text-muted mt-1" *ngIf="executedByLabel">
+            Executed by: <strong>{{ executedByLabel }}</strong>
+          </div>-->
         </div>
+        <button class="modal-close" (click)="onClose()" aria-label="Close">✕</button>
       </div>
-      <div class="footer-actions">
-        <button class="btn-secondary" (click)="onRetest()">Retest Case</button>
-        <button class="btn-primary" (click)="onApprove()">Approve Result</button>
-      </div>
-    </div>
 
-  </div>
-</div>
+      <!-- ── Tab bar ─────────────────────────────────────────────── -->
+      <div class="tab-bar">
+        <button
+          class="tab-btn"
+          [class.tab-btn--active]="activeTab === 'screenshots'"
+          (click)="setTab('screenshots')"
+        >
+          <span class="tab-icon">🖼</span> Screenshots
+        </button>
+        <button
+          class="tab-btn"
+          [class.tab-btn--active]="activeTab === 'logs'"
+          (click)="setTab('logs')"
+        >
+          <span class="tab-icon">📋</span> Logs
+        </button>
+      </div>
+
+      <!-- ── Body ───────────────────────────────────────────────── -->
+      <div class="modal-body">
+
+        <!-- Loading state -->
+        @if (isLoadingDetail) {
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <span>Loading execution details…</span>
+          </div>
+        }
+
+        <!-- SCREENSHOTS TAB -->
+        @if (!isLoadingDetail && activeTab === 'screenshots') {
+          <div class="tab-content tab-content--screenshots">
+
+            <!-- Main screenshot viewer -->
+            <div class="screenshot-viewer">
+              <div class="screenshot-viewer__label">
+                @if (selectedStep) {
+                  <div class="step-label">
+                    <span>CURRENT STEP</span>
+                    <strong>Step {{ selectedStep.index }}: {{ selectedStep.name }}</strong>
+                    @if (selectedStep.message) {
+                      <div class="step-error mt-2 p-2 rounded" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-size: 11px;">
+                        <strong>Cause:</strong> {{ selectedStep.message }}
+                      </div>
+                    }
+                  </div>
+                }
+                @if (!selectedStep) {
+                  <span class="step-label step-label--empty">No screenshot available</span>
+                }
+              </div>
+
+              <div class="screenshot-viewer__frame">
+                @if (selectedStep?.screenshotUrl) {
+                  <img
+                    [src]="selectedStep!.screenshotUrl!"
+                    alt="Step screenshot"
+                    class="screenshot-img"
+                  />
+                }
+                @if (!selectedStep?.screenshotUrl) {
+                  <div class="screenshot-empty">
+                    <span>No screenshot for this step</span>
+                  </div>
+                }
+              </div>
+
+              <!--<div class="screenshot-viewer__actions">
+                <button class="btn-icon" title="Zoom">🔍 Zoom</button>
+                <button class="btn-icon" title="Download">⬇ Download</button>
+              </div>-->
+            </div>
+
+            <!-- Step thumbnails strip -->
+            @if (steps.length) {
+              <div class="step-strip">
+                <div class="step-strip__label">
+                  <span class="step-strip__icon">⚙</span>
+                  EXECUTION STEPS ({{ steps.length }} TOTAL)
+                </div>
+                <div class="step-strip__thumbs">
+                  @for (step of steps; track trackByStep($index, step); let i = $index) {
+                    <button
+                      class="thumb"
+                      [class]="'thumb ' + getStepStatusClass(step.status) + (selectedStepIndex === i ? ' thumb--selected' : '')"
+                      (click)="selectStep(i)"
+                      [title]="step.name"
+                    >
+                      @if (step.screenshotUrl) {
+                        <img
+                          [src]="step.screenshotUrl"
+                          class="thumb__img"
+                          alt=""
+                        />
+                      }
+                      @if (!step.screenshotUrl) {
+                        <div class="thumb__placeholder">
+                          <span class="thumb__placeholder-text">Step {{ step.index }}</span>
+                        </div>
+                      }
+                      <span class="thumb__badge">{{ getStepStatusIcon(step.status) }}</span>
+                    </button>
+                  }
+                </div>
+              </div>
+            }
+
+            @if (!steps.length) {
+              <div class="empty-state">
+                <span>No steps recorded for this execution.</span>
+              </div>
+            }
+
+          </div>
+        }
+
+        <!-- LOGS TAB -->
+        @if (!isLoadingDetail && activeTab === 'logs') {
+          <div class="tab-content tab-content--logs">
+
+            <!-- Log toolbar -->
+            <!--<div class="log-toolbar">
+              <div class="log-search">
+                <input type="text" placeholder="Filter logs..." class="log-filter-input" />
+              </div>
+              <div class="log-toolbar__actions">
+                <button class="btn-icon btn-icon--sm" (click)="downloadLog()">⬇ Download Log</button>
+              </div>
+            </div>-->
+
+            <!-- Log terminal -->
+            <div class="log-terminal">
+              <div class="log-terminal__header">
+                <span class="log-dot log-dot--red"></span>
+                <span class="log-dot log-dot--yellow"></span>
+                <span class="log-dot log-dot--green"></span>
+                <span class="log-terminal__title">TEST RUN TERMINAL v1.0</span>
+              </div>
+
+              @if (logs.length) {
+                <div class="log-terminal__body">
+                  @for (log of logs; track trackByLog($index, log)) {
+                    <div [class]="'log-line ' + getLogClass(log.level)">
+                      <span class="log-ts">{{ log.timestamp }}</span>
+                      <span class="log-level">[{{ log.level }}]</span>
+                      <span class="log-msg">{{ log.message }}</span>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div class="log-terminal__body log-empty">
+                  <span>No logs available for this execution.</span>
+                </div>
+              }
+            </div>
+
+            <!-- Log options row -->
+            <div class="log-options">
+              <label class="log-checkbox">
+                <input type="checkbox" checked /> Auto-scroll
+              </label>
+              <label class="log-checkbox">
+                <input type="checkbox" checked /> Wrap lines
+              </label>
+              <div class="log-options__actions">
+                <button class="btn-icon btn-icon--sm" (click)="copyAllLogs()">📋 Copy All</button>
+              </div>
+            </div>
+
+          </div>
+        }
+      </div>
+
+      <!-- ── Footer ─────────────────────────────────────────────── -->
+      <div class="modal-footer">
+        <div class="footer-meta">
+          <div class="meta-item">
+            <span class="meta-label">DURATION</span>
+            <span class="meta-value">{{ durationLabel }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">PLATFORM</span>
+            <span class="meta-value">
+              <span class="platform-icon">⬡</span> {{ platformLabel }}
+            </span>
+          </div>
+        </div>
+        <!--<div class="footer-actions">
+          <button class="btn-secondary" (click)="onRetest()">Retest Case</button>
+          <button class="btn-primary" (click)="onApprove()">Approve Result</button>
+        </div>-->
+      </div>
+
+    </div>
+  </button>
+}

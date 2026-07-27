@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common'
-import { Component, Inject, OnInit, inject } from '@angular/core'
+import { Component, OnInit, inject } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog'
 import { CKEditorModule } from '@ckeditor/ckeditor5-angular'
@@ -23,6 +23,7 @@ export interface SpecEditorDialogData {
 export class SpecEditorDialogComponent implements OnInit {
   private testLabService = inject(TestLabService)
   private dialogRef = inject(MatDialogRef<SpecEditorDialogComponent>)
+  readonly data = inject<SpecEditorDialogData>(MAT_DIALOG_DATA)
 
   readonly Editor = ClassicEditor
   loading = true
@@ -46,8 +47,6 @@ export class SpecEditorDialogComponent implements OnInit {
     ],
   }
 
-  constructor(@Inject(MAT_DIALOG_DATA) public data: SpecEditorDialogData) {}
-
   ngOnInit(): void {
     void this.loadContent()
   }
@@ -62,8 +61,9 @@ export class SpecEditorDialogComponent implements OnInit {
       if (!this.htmlContent.trim()) {
         this.errorMessage = 'Specification content is empty on the server.'
       }
-    } catch (err: any) {
-      this.errorMessage = err?.error?.message || err?.message || 'Unable to load specification content'
+    } catch (err: unknown) {
+      const httpErr = err as { error?: { message?: string }; message?: string }
+      this.errorMessage = httpErr?.error?.message || httpErr?.message || 'Unable to load specification content'
     } finally {
       this.loading = false
     }
@@ -83,8 +83,9 @@ export class SpecEditorDialogComponent implements OnInit {
         this.testLabService.updateSpecificationContent(this.data.testSuiteId, this.htmlContent)
       )
       this.dialogRef.close(resp)
-    } catch (err: any) {
-      this.errorMessage = err?.error?.message || err?.message || 'Unable to save specification content'
+    } catch (err: unknown) {
+      const httpErr = err as { error?: { message?: string }; message?: string }
+      this.errorMessage = httpErr?.error?.message || httpErr?.message || 'Unable to save specification content'
     } finally {
       this.saving = false
     }

@@ -28,12 +28,13 @@ export class TestEditModalComponent {
     const currentDetails = Array.isArray(this.testCase?.stepDetails) ? this.testCase.stepDetails : []
     const stepDetails = steps.map((step, index) => {
       const existingDetail = currentDetails[index] || {}
+      const existingDetailAny = existingDetail as unknown as Record<string, unknown>
       return {
         ...existingDetail,
         step: String(step || existingDetail.step || '').trim(),
         expected_result: String(
           existingDetail.expected_result ||
-          existingDetail.expectedResult ||
+          existingDetailAny['expectedResult'] ||
           this.testCase?.expected_result ||
           ''
         ).trim(),
@@ -57,13 +58,6 @@ export class TestEditModalComponent {
     return String(value)
   }
 
-  private parseTestDataLines(value: string): string[] {
-    return String(value || '')
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-  }
-
   set testDataText(value: string) {
     const lines = this.parseTestDataLines(value)
     console.log('[TestEditModal] parsed test_data lines', {
@@ -77,6 +71,13 @@ export class TestEditModalComponent {
       // backend and AI fallback can consume them in order.
       test_data: lines,
     }
+  }
+
+  private parseTestDataLines(value: string): string[] {
+    return String(value || '')
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
   }
 
   onCancel(): void {

@@ -1,4 +1,5 @@
 const actionService = require('../services/action.service')
+const MESSAGES = require('../constants/messages.js')
 
 async function list(req, res) {
   try {
@@ -8,7 +9,7 @@ async function list(req, res) {
     // Keep log for debugging; avoid throwing raw error to client.
     // eslint-disable-next-line no-console
     console.error(err)
-    return res.status(500).json({ message: 'Failed to load actions' })
+    return res.status(500).json({ message: MESSAGES.USER.FAILED_ACTION })
   }
 }
 

@@ -391,7 +391,7 @@ async openDetailsModal(suite: TestSuiteDto): Promise<void> {
         : null
 
     // ✅ Extraire le projectId ICI aussi
-    const projectId = String((resolvedProject as any)?._id || '').trim()
+    const projectId = String(resolvedProject?._id || '').trim()
 
     this.ngZone.run(() => {
       this.detailsModalSuite = detail
@@ -1034,8 +1034,12 @@ getTotalCases(suite: TestSuiteDto | null | undefined): number {
     return String(member.name || member.email || '').trim()
   }
 
-getMemberPicture(member: TestLabProjectUserDto): string {
-  const pic = member?.picture?.trim()
+getMemberPicture(member: TestLabProjectUserDto | string | null | undefined): string {
+  if (!member || typeof member === 'string') {
+    return '/assets/images/users/default-user.svg'
+  }
+
+  const pic = member.picture?.trim()
 
   if (!pic) {
     return '/assets/images/users/default-user.svg'
@@ -1368,7 +1372,7 @@ get detailsModalProjectMembers(): (TestLabProjectUserDto | string)[] {
   return collected
 }
 
-members: any[] = []
+members: TestLabProjectUserDto[] = []
 
 async loadMembers(projectId: string) {
   this.members = await firstValueFrom(

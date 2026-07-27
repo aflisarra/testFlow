@@ -10,7 +10,7 @@ exports.register = async (req, res) => {
 
     const user = await registerUser({ name, email, password, picture, roleName });
 
-    const userObj = typeof user?.toObject === 'function' ? user.toObject() : user;
+    const userObj = typeof user?.toObject === MESSAGES.AUTH.FUNCTION ? user.toObject() : user;
     if (userObj && userObj.password) delete userObj.password;
 
     res.status(201).json({ message: MESSAGES.USER.REGISTERED, user: userObj });
@@ -131,10 +131,25 @@ exports.logout = async (req, res) => {
 // Route: GET /api/auth/signup-roles
 exports.getSignupRoles = async (req, res) => {
   try {
-    const roles = await Role.find({ name: { $ne: 'admin' } }, { _id: 1, name: 1, description: 1 }).sort({ name: 1 });
+    const roles = await Role.find({ name: { $ne: MESSAGES.AUTH.ADMIN } }, { _id: 1, name: 1, description: 1 }).sort({ name: 1 });
     return res.json(roles);
   } catch (error) {
     console.error(MESSAGES.USER.SIGNUP_ROLES_ERROR, error);
     return res.status(500).json({ message: MESSAGES.ERROR.SERVER });
+  }
+};
+exports.changePassword = async (req, res) => {
+  try {
+    const userId = req.user?.userId || req.user?._id || req.body.userId;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: MESSAGES.AUTH.CURRENT_PASSWORD });
+    }
+
+    await authService.changePassword({ userId, currentPassword, newPassword });
+    res.json({ message: MESSAGES.AUTH.PASSWORD_UPDATE });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 };

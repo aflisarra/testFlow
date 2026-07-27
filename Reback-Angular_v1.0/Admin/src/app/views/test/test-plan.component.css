@@ -88,9 +88,9 @@
 }
 
 .testlab-card {
-    background: linear-gradient(145deg, rgb(255 255 255 / 90%), rgb(255 255 255 / 75%));
-    border: 1px solid rgb(255 255 255 / 40%);
-    border-radius: 18px;
+    background: #fff;
+    border: 1px solid #d7e0ec;
+    border-radius: 12px;
     backdrop-filter: blur(12px);
     box-shadow: var(--shadow-lg);
     transition: all 0.3s ease;
@@ -115,10 +115,10 @@
 }
 
 .testlab-card-subtitle {
-       font-size: 0.78rem;
+    font-size: 0.78rem;
     font-weight: 400;
     color: #003A70;
-    margin-block-end: 0.4rem;
+    margin-block-end: 0.25rem !important;
 }
 
 .testlab-title-icon {
@@ -187,7 +187,7 @@
     background: linear-gradient(135deg, rgb(255 255 255 / 96%) 0%, rgb(249 250 251 / 90%) 100%);
     border: 1.5px solid var(--pm-border);
     box-shadow: 0 10px 25px rgb(0 58 112 / 6%);
-
+    min-block-size: unset;
 }
 
 .testlab-emphasis {
@@ -257,13 +257,13 @@
     border: 1px solid rgb(0 58 112 / 28%);
     background: rgb(0 58 112 / 10%);
     color: #003A70;
-    font-size: 0.65rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.01em;
+    text-transform: none;
     font-weight: 500;
     flex-shrink: 0;
-    margin-inline-start: auto;
-    box-shadow: 0 4px 10px rgb(59 130 246 / 15%);
+    margin-inline-start: 0;
+    box-shadow: none;
 }
 
 .testlab-summary-card {
@@ -272,7 +272,7 @@
     box-shadow: 0 18px 45px rgb(2 6 23 / 22%);
     color: rgb(255 255 255 / 92%);
     line-height: 1.2;
-     padding: 0.55rem 0.7rem !important;
+    padding: 0.9rem 1rem !important;
 }
 
 .testlab-summary-kicker {
@@ -283,7 +283,7 @@
 
 .testlab-summary-title {
     font-family: var(--font-display);
-    font-size: 0.76rem;
+    font-size: 1.05rem;
     font-weight: 600;
     line-height: 1.25;
     margin-block-end: 2px;
@@ -291,7 +291,7 @@
 }
 
 .testlab-summary-meta {
-     font-size: 0.7rem;
+    font-size: 0.82rem;
     color: rgb(255 255 255 / 72%);
     margin-block-end: 2px;
 }
@@ -364,14 +364,16 @@
     border-radius: 12px;
     border: 1.5px solid #d8e1ee;
     background: #f5f7fa;
-   padding-block: 0.55rem;
+    padding-block: 0.45rem;
+    padding-inline-start: 2.35rem;
     font-family: var(--font-body);
     font-weight: 500;
-    font-size: 0.8rem;
+    font-size: 0.88rem;
     color: var(--pm-text-primary);
     appearance: none;
     cursor: pointer;
     transition: all 0.2s ease;
+    min-block-size: 40px;
 }
 
 .testlab-project-select:disabled  {
@@ -466,7 +468,11 @@
 }
 
 .testlab-textarea-compact {
-   min-block-size: 58px;
+    min-block-size: 40px;
+    block-size: 40px;
+    resize: none;
+    padding: 0.45rem 0.8rem 0.45rem 2.25rem;
+    line-height: 1.35;
 }
 
 .testlab-textarea::placeholder {
@@ -481,9 +487,9 @@
 
 .testlab-textarea-icon {
     position: absolute;
-    inset-inline-start: 1rem;
+    inset-inline-start: 0.7rem;
     inset-block-start: 1rem;
-    font-size: 1.1rem;
+    font-size: 1rem;
     color: var(--pm-brand-primary);
     pointer-events: none;
 }
@@ -507,17 +513,21 @@
    FILE DROPZONE
    ═══════════════════════════════════════════════════════════════════ */
 .testlab-dropzone {
-    border: 2.5px dashed #dbe6f5;
-    background: linear-gradient(135deg, #f8fbff 0%, #fcfdff 100%);
+    border: 1.5px dashed rgb(236 138 0 / 45%);
+    background: #fff;
     border-radius: 12px;
-    padding: 1.1rem 1rem;
+    padding: 0.8rem 0.85rem;
     text-align: center;
     cursor: pointer;
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
+    min-block-size: 132px;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   VALIDATE/INVALIDATE TOGGLE BUTTON (par plan) — style uniforme
+   ═══════════════════════════════════════════════════════════════════ */
 .testlab-validate-btn {
     display: inline-flex;
     align-items: center;
@@ -529,6 +539,12 @@
     color: #fff;
     font-weight: 400 !important;
     margin-block-start: 0;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.testlab-validate-btn:hover:not(:disabled) {
+    transform: none;
+    box-shadow: none;
 }
 
 .testlab-validate-btn--gray {
@@ -537,16 +553,35 @@
     color: #fff;
 }
 
+.testlab-validate-btn--gray:hover:not(:disabled) {
+    background: #7c8ba1;
+    border-color: #7c8ba1;
+}
+
 .testlab-validate-btn.testlab-validate-btn--green {
   background: rgb(16 185 129 / 12%);
   border-color: rgb(16 185 129 / 35%);
   color: #10b981;
 }
 
+.testlab-validate-btn.testlab-validate-btn--green:hover:not(:disabled) {
+  background: rgb(16 185 129 / 22%);
+  border-color: rgb(16 185 129 / 55%);
+}
+
 .testlab-validate-btn.testlab-validate-btn--orange {
   background: rgb(236 138 0 / 12%);
   border-color: rgb(236 138 0 / 35%);
   color: var(--pm-brand-primary);
+}
+
+.testlab-validate-btn.testlab-validate-btn--orange:hover:not(:disabled) {
+  background: rgb(236 138 0 / 22%);
+  border-color: rgb(236 138 0 / 55%);
+}
+
+.tp-results-card .testlab-validate-btn {
+    box-shadow: none !important;
 }
 
 .testlab-dropzone::before {
@@ -564,7 +599,9 @@
 }
 
 .testlab-dropzone-icon {
-    font-size: 1.45rem;    color: #003A70;    margin-block-end: 0.2rem;
+    font-size: 1.45rem;
+    color: #EC8A00;
+    margin-block-end: 0.2rem;
     animation: float 3s ease-in-out infinite;
 }
 
@@ -588,15 +625,15 @@
 }
 
 .testlab-dropzone-hint {
-     font-size: 0.72rem;
+    font-size: 0.72rem;
     color: #003A70;
-    margin-block-end: 0.4rem;
+    margin-block-end: 0.2rem;
 }
 
 .testlab-dropzone-format {
     font-size: 0.65rem;
     color: #94a3b8;
-     margin-block-end: 0.5rem;
+    margin-block-end: 0.2rem;
 }
 
 .testlab-file-selected {
@@ -682,15 +719,18 @@
 }
 
 .testlab-actions .btn {
+    min-inline-size: 180px;
+    min-block-size: 44px;
+    padding: 0.6rem 1.2rem;
     border-radius: 10px;
-    font-weight: 500;
     font-size: 0.9rem;
-    padding: 0.6rem 1.1rem;
+    font-weight: 600;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: var(--space-sm);
-    transition: all 0.2s ease;
+    gap: 0.5rem;
+    box-shadow: none;
+    transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .testlab-actions .btn-outline-secondary:hover:not(:disabled) {
@@ -698,11 +738,49 @@
     border-color: var(--pm-text-secondary);
 }
 
+.testlab-actions .btn-cancel {
+    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    color: #475569;
+}
+
+.testlab-actions .btn-cancel:hover:not(:disabled) {
+    background: #f5f6f9;
+    border-color: #cbd5e1;
+}
+
+.testlab-actions .btn-regenerate:hover:not(:disabled) {
+    background: #2b76c9;
+    border-color: #2b76c9;
+}
+
+.testlab-actions .btn-validate {
+    min-inline-size: 180px;
+    min-block-size: 44px;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.testlab-actions .btn-regenerate {
+    background: #3d8adde8;
+    border: 1px solid #3d8adde8;
+    color: #fff;
+}
+
+.testlab-actions .btn:hover:not(:disabled) {
+    transform: none;
+    box-shadow: none;
+}
+
 .testlab-actions .btn-outline-primary:hover:not(:disabled) {
     background: rgb(59 130 246 / 10%);
     border-color: #003A70;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   REGENERATE BUTTON — même logique de survol que Edit
+   ═══════════════════════════════════════════════════════════════════ */
 .testlab-regenerate-btn {
     background-color: #3d8adde8;
     display: inline-flex;
@@ -710,6 +788,14 @@
     justify-content: center;
     gap: var(--space-sm);
     font-size: 0.8rem;
+    box-shadow: none;
+    transition: background-color 0.2s ease;
+}
+
+.testlab-regenerate-btn:hover:not(:disabled) {
+    background-color: #2b76c9;
+    transform: none;
+    box-shadow: none;
 }
 
 .testlab-plan-actions {
@@ -725,6 +811,9 @@
     min-inline-size: 140px;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   EDIT / MANUAL EDIT / ABANDON — style de référence (assombrissement seul)
+   ═══════════════════════════════════════════════════════════════════ */
 .btn-edit-plan,
 .testlab-manual-edit-btn {
     min-inline-size: 140px;
@@ -741,7 +830,7 @@
     gap: var(--space-sm);
     white-space: nowrap;
     transition: all 0.2s ease;
-    
+    box-shadow: none;
 }
 
 
@@ -749,14 +838,21 @@
 .testlab-manual-edit-btn:hover:not(:disabled) {
     background: #2b76c9;
     border-color: #2b76c9;
+    transform: none;
+    box-shadow: none;
 }
+
 .btn-abandon-plan {
     background: #ea321d;
     border-color: #ef9444;
+    box-shadow: none;
 }
+
 .btn-abandon-plan:hover:not(:disabled) {
     background: #dc2626;
     border-color: #dc2626;
+    transform: none;
+    box-shadow: none;
 }
 
 .btn-edit-plan:disabled,
@@ -764,38 +860,42 @@
     opacity: 0.65;
     cursor: not-allowed;
 }
+
 .testlab-delete-btn {
     padding: 0.35rem 0.6rem;
     border-radius: 8px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   ADD PLAN — même logique de survol (sans ombre ni translation)
+   ═══════════════════════════════════════════════════════════════════ */
 .btn-add-plan {
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
-
-    padding: 0.45rem 0.9rem;
+    justify-content: center;
+    gap: var(--space-sm);
+    min-inline-size: 140px;
+    padding: 0.4rem 0.8rem;
     border: none;
-    border-radius: 10px;
-
+    border-radius: 8px;
     background: #3d8adde8;
     color: #fff;
-
-    font-size: 0.65rem;
-    font-weight: 600;
-
+    font-size: 0.9rem;
+    font-weight: 400;
     cursor: pointer;
-    transition: all 0.25s ease;
-    box-shadow: 0 4px 12px rgba(61, 138, 221, 0.25);
+    transition: background 0.2s ease;
+    box-shadow: none;
 }
 
 .btn-add-plan:hover:not(:disabled) {
     background: #2b76c9;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 18px rgba(61, 138, 221, 0.35);
+    transform: none;
+    box-shadow: none;
 }
 
+
 .btn-add-plan:active:not(:disabled) {
-    transform: translateY(0);
+    transform: none;
 }
 
 .btn-add-plan:disabled {
@@ -807,6 +907,7 @@
 .btn-add-plan iconify-icon {
     font-size: 1.1rem;
 }
+
 .testlab-plan-title-left {
     display: inline-flex;
     align-items: center;
@@ -819,16 +920,19 @@
 .testlab-pill {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: var(--space-xs);
-    font-size: 0.65rem;
-    letter-spacing: 0.1em;
-    font-weight: 600;
-    padding: 0.4rem 0.75rem;
-    border-radius: 999px;
+    min-inline-size: 140px;
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    font-weight: 400;
+    letter-spacing: normal;
+    text-transform: none;
     color: #7a4a05;
     background: linear-gradient(135deg, #ffe8c9 0%, #ffd39f 100%);
     border: 1.5px solid #ffc570;
-    font-family: var(--font-display);
 }
 
 .testlab-pill-processing {
@@ -1523,8 +1627,8 @@
 
 	.testlab-input-icon-left {
 	    position: absolute;
-	    inset-inline-start: 12px;
-	    font-size: 1.2rem;
+	    inset-inline-start: 0.7rem;
+	    font-size: 1rem;
     color: #6c757d;
 
     /* ou votre couleur thème */
@@ -1533,9 +1637,7 @@
 }
 
 .testlab-input--with-icon {
-    padding-inline-start: 38px;
-
-    /* espace pour l'icône gauche */
+    padding-inline-start: 2.25rem;
 }
 
 .testlab-url-input-group {
@@ -1547,6 +1649,7 @@
     overflow: hidden;
     background: #f5f7fa;
     transition: all 0.2s ease;
+    min-block-size: 40px;
 }
 
 .testlab-url-input-group:focus-within {
@@ -1573,7 +1676,7 @@
   border: 1.5px solid #e2e8f0;
   border-radius: 14px;
   background: linear-gradient(180deg, #f8fafc, #f1f5f9);
-  min-height: 48px;
+  min-block-size: 48px;
   display: flex;
   align-items: center;
   transition: all 0.25s ease;
@@ -1583,8 +1686,8 @@
 
 .testlab-input-wrapper-url:focus-within {
   border-color: #003A70;
-  background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(0, 58, 112, 0.12);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgb(0 58 112 / 12%);
   transform: scale(1.01);
 }
 
@@ -1592,8 +1695,8 @@
 
 .testlab-url-prefix-inline {
   position: absolute;
-  left: 16px;
-  top: 50%;
+  inset-inline-start: 16px;
+  inset-block-start: 50%;
   transform: translateY(-50%);
   color: #EC8A00;
   font-size: 0.85rem;
@@ -1604,19 +1707,18 @@
 
 
 .testlab-input--url {
-  width: 100%;
+  inline-size: 100%;
   border: none !important;
   background: transparent !important;
   outline: none;
-  padding-left: 100px;
-  padding-right: 42px;
+  padding-inline: 16px 42px;   /* was 100px — no left prefix is rendered in this markup */     /* keeps room for the right-aligned globe icon */
   font-size: 0.9rem;
   transition: all 0.2s ease;
 }
 
 .testlab-url-icon {
   position: absolute;
-  right: 12px;
+  inset-inline-end: 12px;
   color: #94a3b8;
   font-size: 1.1rem;
   transition: color 0.2s ease, transform 0.2s ease;
@@ -1634,15 +1736,16 @@
 
 
 .animate-fade {
-  animation: fadeIn 0.25s ease-in-out;
+  animation: fade-in 0.25s ease-in-out;
 }
 
 
-@keyframes fadeIn {
+@keyframes fade-in {
   from {
     opacity: 0;
     transform: translateY(-4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1663,91 +1766,29 @@
     color: #EC8A00;
 }
 
-/* Uniform field sizing/design + compact layout (no scroll) */
-.testlab-field-card {
-    min-block-size: unset;
-}
-
-.testlab-card-subtitle {
-    margin-block-end: 0.25rem !important;
-}
-
-.testlab-project-select,
-.testlab-input,
-.testlab-textarea-compact,
-.testlab-url-input-group {
-    min-block-size: 40px;
-    border-radius: 10px;
-}
-
-.testlab-project-select,
-.testlab-input {
-    padding-block: 0.45rem;
-    font-size: 0.88rem;
-}
-
-.testlab-project-select {
-    padding-inline-start: 2.35rem;
-}
-
-.testlab-input--with-icon {
-    padding-inline-start: 2.25rem;
-}
-
-.testlab-textarea-compact {
-    min-block-size: 40px;
-    block-size: 40px;
-    resize: none;
-    padding: 0.45rem 0.8rem 0.45rem 2.25rem;
-    line-height: 1.35;
-}
-
-.testlab-textarea-icon,
-.testlab-input-icon-left,
-.testlab-select-icon {
-    font-size: 1rem;
-    inset-inline-start: 0.7rem;
-}
-
-.testlab-dropzone {
-    min-block-size: 132px;
-    padding: 0.8rem 0.85rem;
-}
-
-.testlab-dropzone-hint {
-    margin-block-end: 0.2rem;
-}
-
-.testlab-dropzone-format {
-    margin-block-end: 0.2rem;
-}
-
-.testlab-summary-card .testlab-generate-btn {
-    margin-block-start: 0.35rem;
-    min-block-size: 40px;
-    padding-block: 0.45rem !important;
-}
-
-h1 {
-    margin-block-start: 0;
-}
-
 .tc-modal-backdrop {
     position: fixed;
     inset: 0;
-    background: rgb(15 23 42 / 45%);
+    background: rgb(15 17 23 / 55%);
     backdrop-filter: blur(4px);
-    z-index: 1060;
+    z-index: 3000;
+    animation: tc-modal-fade-in 0.15s ease;
+}
+
+@keyframes tc-modal-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .tc-modal-wrap {
     position: fixed;
     inset: 0;
+    z-index: 3010;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1.25rem;
-    z-index: 1070;
+    padding: 24px;
+    overflow: hidden;
 }
 
 .tc-modal-card {
@@ -1755,7 +1796,7 @@ h1 {
     max-block-size: min(90vh, 920px);
     display: flex;
     flex-direction: column;
-    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    background: linear-gradient(180deg, #fff 0%, #fbfdff 100%);
     border: 1px solid #dbe3ee;
     border-radius: 20px;
     box-shadow: 0 28px 70px rgb(15 23 42 / 24%);
@@ -1775,8 +1816,8 @@ h1 {
 
 .tc-modal-head {
     padding: 1.2rem 1.4rem 1rem;
-    border-bottom: 1px solid #e2e8f0;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    border-block-end: 1px solid #e2e8f0;
+    background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -1804,7 +1845,7 @@ h1 {
     gap: 0.6rem;
     justify-content: flex-end;
     flex-wrap: wrap;
-    border-top: 1px solid #e2e8f0;
+    border-block-start: 1px solid #e2e8f0;
     background: #f8fafc;
 }
 
@@ -1814,7 +1855,7 @@ h1 {
 
 .tc-modal-plan-id {
     display: inline-flex;
-    width: fit-content;
+    inline-size: fit-content;
     align-items: center;
     padding: 0.3rem 0.65rem;
     border-radius: 999px;
@@ -1841,7 +1882,7 @@ h1 {
 .tc-modal-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem 1rem;
+    gap: 1rem;
 }
 
 .tc-modal-field {
@@ -1854,7 +1895,7 @@ h1 {
 }
 
 .tc-modal-field .form-label {
-    margin-bottom: 0;
+    margin-block-end: 0;
     color: #475569;
     font-weight: 700;
     font-size: 0.92rem;
@@ -1862,7 +1903,7 @@ h1 {
 
 .tc-modal-field .form-control,
 .tc-modal-field .form-select {
-    min-height: 48px;
+    min-block-size: 48px;
     border-radius: 12px;
     border-color: #d8e1ec;
     box-shadow: inset 0 1px 1px rgb(15 23 42 / 3%);
@@ -1870,7 +1911,7 @@ h1 {
 
 .tc-modal-textarea {
     resize: vertical;
-    min-height: 112px;
+    min-block-size: 112px;
 }
 
 .tc-modal-field .form-control:focus,
@@ -1880,7 +1921,7 @@ h1 {
 }
 
 .confirm-close {
-    margin-top: 0.2rem;
+    margin-block-start: 0.2rem;
 }
 
 @keyframes modal-pop {
@@ -1888,13 +1929,14 @@ h1 {
         opacity: 0;
         transform: translateY(10px) scale(0.98);
     }
+
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
     }
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
     .tc-modal-wrap {
         padding: 0.75rem;
         align-items: flex-end;
@@ -1917,13 +1959,6 @@ h1 {
     }
 }
 
-/* ===== Final UI Alignment (match reference) ===== */
-.testlab-card {
-    background: #fff;
-    border: 1px solid #d7e0ec;
-    border-radius: 12px;
-}
-
 .testlab-step-group {
     margin-inline-start: auto;
     display: inline-flex;
@@ -1944,41 +1979,13 @@ h1 {
     justify-content: center;
 }
 
-.testlab-step-chip {
-    font-size: 0.72rem;
-    letter-spacing: 0.01em;
-    text-transform: none;
-    margin-inline-start: 0;
-    box-shadow: none;
-}
-
-.testlab-dropzone {
-    border: 1.5px dashed rgb(236 138 0 / 45%);
-    background: #fff;
-}
-
-.testlab-dropzone-icon {
-    color: #EC8A00;
-}
-
-.testlab-summary-card {
-    background: linear-gradient(135deg, #003A70 0%, #0c4d8f 100%);
-    padding: 0.9rem 1rem !important;
-}
-
-.testlab-summary-title {
-    font-size: 1.05rem;
-}
-
-.testlab-summary-meta {
-    font-size: 0.82rem;
-}
-
 .testlab-summary-card .testlab-generate-btn {
+    margin-block-start: 0.35rem;
     min-block-size: 42px;
     background: #0a4f96;
     border: 1px solid #0a4f96;
     border-radius: 8px;
+    padding-block: 0.45rem !important;
 }
 
 .tp-generation-backdrop{position:fixed;inset:0;z-index:1040;background:rgb(15 23 42 / 30%)}
@@ -2021,6 +2028,7 @@ h1 {
 .tp-generation-btn--link{background:transparent;color:#1267d8}
 .tp-generation-btn--next{background:#ffc08a;color:#fff}
 .tp-generation-btn:disabled{cursor:not-allowed;opacity:.75}
+
 @media (width <= 768px){.tp-generation-card{grid-template-columns:1fr;min-block-size:auto;max-block-size:92vh}.tp-generation-side{display:none}.tp-generation-content{padding-block-start:2.3rem}.tp-generation-footer{flex-wrap:wrap}}
 
 .tp-results-backdrop{position:fixed;inset:0;z-index:1035;background:rgb(248 250 252 / 72%)}
@@ -2043,32 +2051,53 @@ h1 {
 .tp-results-card .btn-edit-plan{background:#18a8df;border-color:#18a8df;color:#fff}
 .tp-results-card .testlab-regenerate-btn{background:#4a90e2;border-color:#1f7af2;color:#fff}
 .tp-results-card .testlab-actions{margin-block-start:1.4rem}
+
 @media (width <= 992px){.tp-results-card .testlab-plan-item{grid-template-columns:1fr}.tp-results-card .testlab-plan-actions{grid-column:1;grid-row:auto;flex-wrap:wrap}.tp-results-card .testlab-plan-desc{grid-column:1}.tp-results-card .testlab-validate-btn,.tp-results-card .testlab-regenerate-btn,.tp-results-card .btn-edit-plan{min-inline-size:0;flex:1 1 150px}}
 
-/* état normal */
+/* ═══════════════════════════════════════════════════════════════════
+   VALIDATE & GENERATE TEST CASE — vert quand actif, texte blanc
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* état actif (enabled, pas encore validé) : orange */
 .btn-validate {
     background: linear-gradient(135deg, #ec8a00, #ffb347);
     border: none;
-    color: white;
-    transition: all 0.3s ease;
+    color: #fff;
+    box-shadow: none;
+    transition: background 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
 }
 
 /* hover */
+
 .btn-validate:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 20px rgba(236, 138, 0, 0.3);
+    box-shadow: 0 10px 20px rgb(236 138 0 / 30%);
+    transform: none;
 }
 
-/* ✅ état disabled PRO */
+/* ✅ état disabled */
 .btn-validate.is-disabled,
 .btn-validate:disabled {
-    background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+    background: linear-gradient(135deg, #ec8a00, #ffb347);
     border: none;
-    color: #ffffff;
-
+    color: #fff;
     cursor: not-allowed;
-    opacity: 0.75;
+    opacity: 0.55;
+    box-shadow: none;
+    transform: none;
+}
 
+.btn-validate.is-success,
+.btn-validate.is-confirmed {
+    background: #10b981;
+    border: none;
+    color: #fff;
+    box-shadow: none;
+    opacity: 1;
+}
+
+.btn-validate.is-success:hover:not(:disabled),
+.btn-validate.is-confirmed:hover:not(:disabled) {
+    background: #0ea371;
     box-shadow: none;
     transform: none;
 }
@@ -2077,30 +2106,35 @@ h1 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  border-top: 0.5px solid var(--color-border-tertiary, #e5e5e5);
-  padding-top: 12px;
-  margin-top: 10px;
+  border-block-start: 0.5px solid var(--color-border-tertiary, #e5e5e5);
+  padding-block-start: 12px;
+  margin-block-start: 10px;
 }
+
 .testlab-plan-meta-field {
   background: var(--color-background-secondary, #f8f8f8);
   border-radius: 6px;
   padding: 8px 10px;
 }
+
 .testlab-plan-meta-field--full {
   grid-column: 1 / -1;
 }
+
 .testlab-plan-meta-label {
   display: block;
   font-size: 11px;
   color: var(--color-text-tertiary, #999);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin-bottom: 4px;
+  margin-block-end: 4px;
 }
+
 .testlab-plan-meta-value {
   font-size: 13px;
   color: var(--color-text-primary, #111);
 }
+
 .testlab-plan-meta-badge {
   display: inline-block;
   font-size: 11px;
@@ -2120,9 +2154,9 @@ h1 {
 .testlab-plan-meta-reqs li {
   font-size: 12px;
   color: var(--color-text-secondary, #555);
-  border-left: 2px solid var(--color-border-secondary, #ccc);
-  padding-left: 8px;
-  margin-top: 4px;
+  border-inline-start: 2px solid var(--color-border-secondary, #ccc);
+  padding-inline-start: 8px;
+  margin-block-start: 4px;
 }
 .tc-edit-steps { margin-block-end: 0.6rem; }
 
@@ -2151,7 +2185,7 @@ h1 {
 }
 
 .tc-edit-step-num {
-  width: 18px; height: 18px; border-radius: 50%;
+  inline-size: 18px; block-size: 18px; border-radius: 50%;
   background: #fff; border: 1px solid #e2e8f0;
   display: flex; align-items: center; justify-content: center;
   font-size: 0.6rem; font-weight: 700; color: #475569; flex-shrink: 0;
@@ -2163,7 +2197,7 @@ h1 {
 }
 
 .tc-edit-step-remove {
-  width: 22px; height: 22px; border: none; background: none;
+  inline-size: 22px; block-size: 22px; border: none; background: none;
   color: #94a3b8; cursor: pointer; flex-shrink: 0; border-radius: 5px;
   display: flex; align-items: center; justify-content: center; transition: all 0.15s;
 }
@@ -2190,219 +2224,18 @@ h1 {
 :host-context([data-bs-theme='dark']) .tc-edit-step-row { background: #0f172a; }
 :host-context([data-bs-theme='dark']) .tc-edit-step-input { color: #e2e8f0; }
 :host-context([data-bs-theme='dark']) .tc-edit-step-num { background: #1e293b; border-color: rgb(255 255 255 / 10%); color: #94a3b8; }
-/* ─── Plan edit modal — thème orange (header blanc) ───────────────────────── */
-.tc-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgb(15 17 23 / 55%);
-  backdrop-filter: blur(3px);
-  z-index: 1000;
-  animation: tc-modal-fade-in 0.15s ease;
-}
 
-@keyframes tc-modal-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-.tc-modal-wrap {
-  position: fixed;
-  inset: 0;
-  z-index: 1001;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-}
-
-.tc-modal-card.tc-modal-card--plan {
-  background: #fff;
-  border-radius: 18px;
- width: min(520px, 92vw);   /* était 680px */
-  max-height: 78vh;          /* était 88vh */
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 24px 70px rgb(15 17 23 / 32%);
-  animation: tc-modal-pop 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-@keyframes tc-modal-pop {
-  from { opacity: 0; transform: translateY(10px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* ─── Header (fond blanc, plus de dégradé orange) ──────────────────────────── */
-.tc-modal-head.tc-modal-head--plan {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 22px 24px;
-  background: #fff !important;
-  color: #1f2430 !important;
-  border-bottom: 1px solid #edf0f4;
-  position: relative;
-}
-
-.tc-modal-head.tc-modal-head--plan .tc-modal-head-icon {
-  flex-shrink: 0;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: rgb(230 126 34 / 12%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #E67E22;
-}
-
-.tc-modal-head.tc-modal-head--plan .tc-modal-head-copy {
-  flex: 1;
-  min-width: 0;
-}
-
-.tc-modal-head.tc-modal-head--plan .tc-modal-plan-id {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  background: rgb(230 126 34 / 12%);
-  color: #d3690f;
-  border-radius: 99px;
-  padding: 3px 10px;
-  margin-bottom: 6px;
-}
-
-.tc-modal-head.tc-modal-head--plan .tc-modal-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1f2430 !important;
-}
-
-.tc-modal-head.tc-modal-head--plan .tc-modal-subtitle {
-  font-size: 12.5px;
-  color: #6b7280;
-  margin-top: 4px;
-  line-height: 1.5;
-}
-
-/* le bouton close reprend son style normal (plus d'inversion blanc) */
-.tc-modal-head.tc-modal-head--plan .confirm-close {
-  filter: none;
-  opacity: 0.6;
-  transition: opacity 0.15s;
-}
-.tc-modal-head.tc-modal-head--plan .confirm-close:hover { opacity: 1; }
-
-/* ─── Body ────────────────────────────────────────────────────────────────── */
-.tc-modal-body.tc-modal-body--plan {
-  padding: 22px 24px;
-  overflow-y: auto;
-}
-
-.tc-modal-body.tc-modal-body--plan .tc-modal-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.tc-modal-body.tc-modal-body--plan .tc-modal-field--full {
-  grid-column: 1 / -1;
-}
-
-.tc-modal-body.tc-modal-body--plan .tc-modal-field .form-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: #5a5f78;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 6px;
-}
-
-.tc-modal-body.tc-modal-body--plan .tc-modal-field .form-control,
-.tc-modal-body.tc-modal-body--plan .tc-modal-field .form-select {
-  border: 1.5px solid #e8eaf0;
-  border-radius: 10px;
-  padding: 9px 12px;
-  font-size: 13.5px;
-  color: #1f2430;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.tc-modal-body.tc-modal-body--plan .tc-modal-field .form-control:focus,
-.tc-modal-body.tc-modal-body--plan .tc-modal-field .form-select:focus {
-  border-color: #E67E22 !important;
-  box-shadow: 0 0 0 3px rgb(230 126 34 / 15%) !important;
-  outline: none;
-}
-
-.tc-modal-body.tc-modal-body--plan .tc-modal-textarea {
-  resize: vertical;
-  min-height: 90px;
-}
-
-/* ─── Actions ─────────────────────────────────────────────────────────────── */
-.tc-modal-actions.tc-modal-actions--plan {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 16px 24px;
-  border-top: 1px solid #edf0f4;
-  background: #fafbfd;
-}
-
-.tc-modal-actions.tc-modal-actions--plan .btn-cancel {
-  background: #fff;
-  border: 1.5px solid #e4e7ec;
-  color: #5a5f78;
-  font-weight: 600;
-  font-size: 13.5px;
-  border-radius: 10px;
-  padding: 9px 18px;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
-}
-.tc-modal-actions.tc-modal-actions--plan .btn-cancel:hover {
-  background: #f5f6f9;
-  border-color: #d6dae2;
-}
-.tc-modal-actions.tc-modal-actions--plan .btn-cancel:active { transform: translateY(1px); }
-
-.tc-modal-actions.tc-modal-actions--plan .btn-brand {
-  background: #E67E22 !important;
-  border: 1.5px solid #E67E22 !important;
-  color: #fff !important;
-  font-weight: 700;
-  font-size: 13.5px;
-  border-radius: 10px;
-  padding: 9px 18px;
-  box-shadow: 0 2px 8px rgb(230 126 34 / 30%);
-  transition: background 0.15s, box-shadow 0.2s, transform 0.1s;
-}
-.tc-modal-actions.tc-modal-actions--plan .btn-brand:hover {
-  background: #d3690f !important;
-  border-color: #d3690f !important;
-  box-shadow: 0 5px 16px rgb(230 126 34 / 40%);
-  transform: translateY(-1px);
-}
-.tc-modal-actions.tc-modal-actions--plan .btn-brand:active { transform: translateY(0); }
-
-/* ─── Responsive ──────────────────────────────────────────────────────────── */
-@media (width <= 640px) {
-  .tc-modal-body.tc-modal-body--plan .tc-modal-grid {
-    grid-template-columns: 1fr;
-  }
-  .tc-modal-head.tc-modal-head--plan {
-    padding: 18px 18px;
-  }
-  .tc-modal-body.tc-modal-body--plan {
-    padding: 18px;
-  }
-  .tc-modal-actions.tc-modal-actions--plan {
-    padding: 14px 18px;
-    flex-direction: column-reverse;
-  }
-  .tc-modal-actions.tc-modal-actions--plan .btn {
-    width: 100%;
-  }
+/* ═══════════════════════════════════════════════════════════════════
+   VALIDATE/INVALIDATE — suppression totale de l'ombre (tous états)
+   ═══════════════════════════════════════════════════════════════════ */
+.testlab-validate-btn,
+.testlab-validate-btn:hover,
+.testlab-validate-btn:focus,
+.testlab-validate-btn:focus-visible,
+.testlab-validate-btn:active,
+.testlab-validate-btn:not(:disabled):active,
+.testlab-validate-btn:disabled {
+    box-shadow: none !important;
+    outline: none !important;
+    transform: none !important;
 }

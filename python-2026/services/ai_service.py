@@ -77,7 +77,7 @@ class AiService:
             )
 
             t_repair_start = time.monotonic()
-            repaired_reply = run_openrouter(repair_prompt, timeout=90)
+            repaired_reply = run_openrouter(repair_prompt, timeout=90,json_mode=True)
             t_repair_ms = int((time.monotonic() - t_repair_start) * 1000)
 
             log_event(logger, "⏱ STAGE repair_inference",

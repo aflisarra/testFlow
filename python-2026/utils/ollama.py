@@ -24,7 +24,7 @@ logger = get_logger("utils.ollama")
 
 
 def get_ollama_model() -> str:
-    return os.getenv("OLLAMA_MODEL", "qwen2.5-coder:7b")
+    return os.getenv("OLLAMA_MODEL", "qwen2.5:3b-instruct")
 
 
 def get_ollama_path() -> str:
@@ -146,7 +146,7 @@ def parse_json_from_ollama(text: str):
     )
 
 
-def run_ollama(prompt: str, timeout: int | None = None) -> str:
+def run_ollama(prompt: str, timeout: int | None = None, *, json_mode: bool = False) -> str:
     """
     Send a prompt to Ollama.
     Strategy:
@@ -174,7 +174,7 @@ def run_ollama(prompt: str, timeout: int | None = None) -> str:
 
     url = "http://127.0.0.1:11434/api/generate"
     options: dict[str, object] = {
-        "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "2048")),
+        "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "4096")),
     "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.7")),
     "num_predict": int(os.getenv("OLLAMA_NUM_PREDICT", "800")),
     }
@@ -191,6 +191,10 @@ def run_ollama(prompt: str, timeout: int | None = None) -> str:
         "stream": False,
         "options": options,
     }
+    if json_mode:
+        # Ollama constrains the model to a JSON response instead of allowing a
+        # conversational answer when the source specification is imperfect.
+        req_body["format"] = "json"
     data = json.dumps(req_body).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
 

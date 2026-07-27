@@ -96,6 +96,7 @@ export interface TestCaseStepDetailDto {
   expected_result?: string
   actual_result?: string
   status?: 'pending' | 'passed' | 'failed_execution' | 'failed_assertion' | 'skipped'
+  
 }
 
 

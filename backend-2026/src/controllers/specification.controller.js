@@ -1,5 +1,5 @@
 const specificationService = require('../services/specification.service')
-
+const MESSAGES = require('../constants/messages')
 function statusFromError(err, fallback = 500) {
   const code = Number(err?.statusCode || err?.response?.status || fallback)
   return Number.isFinite(code) ? code : fallback
@@ -21,7 +21,7 @@ async function getContent(req, res) {
     return res.json(data)
   } catch (error) {
     const status = statusFromError(error, 500)
-    return res.status(status).json({ message: messageFromError(error, 'Get specification content failed') })
+    return res.status(status).json({ message: messageFromError(error, MESSAGES.SPECIFICATION.FAILED) })
   }
 }
 
@@ -32,7 +32,7 @@ async function updateContent(req, res) {
     return res.json(data)
   } catch (error) {
     const status = statusFromError(error, 500)
-    return res.status(status).json({ message: messageFromError(error, 'Update specification content failed') })
+    return res.status(status).json({ message: messageFromError(error, MESSAGES.SPECIFICATION.UPDATE_FAILED) })
   }
 }
 

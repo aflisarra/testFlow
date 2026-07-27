@@ -90,6 +90,16 @@
 .tc-tree-suite-icon { color: #f59e0b; font-size: 1rem; flex-shrink: 0; }
 .tc-tree-suite-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+.tc-tree-suite-project {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 500;
+  max-inline-size: 35%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tc-tree-badge {
   background: #e2e8f0; color: #475569; font-size: 0.65rem;
   font-weight: 700; padding: 1px 7px; border-radius: 99px; flex-shrink: 0;
@@ -317,7 +327,7 @@
 
 .tc-case-card {
   background: #f8fafc; border: 1px solid #e2e8f0;
-  border-radius: 12px; padding: 0.9rem 1rem;
+  border-radius: 10px; padding: 0.7rem 0.85rem;
   transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -357,6 +367,8 @@
   padding: 0;
   transition: opacity 0.15s;
   flex-shrink: 0;
+  min-inline-size: unset;
+  block-size: unset;
 }
 .tc-case-edit:hover { opacity: 1; }
 .tc-case-edit:focus { outline: none; }
@@ -383,10 +395,10 @@
 .tc-case-label { font-size: 0.72rem; font-weight: 700; color: #475569; display: block; margin-block-end: 0.25rem; }
 
 .tc-case-steps { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.55rem 0.75rem; margin-block-end: 0.45rem; }
-.tc-case-step-list { font-size: 0.8rem; color: #334155; margin: 0; padding-inline-start: 1rem; }
-/*.tc-case-step-list li { margin-block-end: 0.2rem; }*/
 
-/*.tc-case-expected { background: rgb(16 185 129 / 4%); border: 1px solid rgb(16 185 129 / 18%); border-radius: 8px; padding: 0.55rem 0.75rem; font-size: 0.8rem; color: #1e293b; }*/
+/* .tc-case-step-list li { margin-block-end: 0.2rem; } */
+
+/* .tc-case-expected { background: rgb(16 185 129 / 4%); border: 1px solid rgb(16 185 129 / 18%); border-radius: 8px; padding: 0.55rem 0.75rem; font-size: 0.8rem; color: #1e293b; } */
 
 /* ═══ MODAL ═══ */
 .tc-modal-backdrop {
@@ -398,17 +410,17 @@
 .tc-modal-backdrop:focus { outline: none; }
 
 .tc-modal {
-  background: #fff; border-radius: 18px; box-shadow: 0 24px 60px rgb(15 23 42 / 22%);
-  inline-size: 100%; max-inline-size: 1200px; max-block-size: 85vh;
+  background: #fff; border-radius: 14px; box-shadow: 0 24px 60px rgb(15 23 42 / 22%);
+  inline-size: 100%; max-inline-size: 820px; max-block-size: 78vh;
   display: flex; flex-direction: column; overflow: hidden;
   border: none; outline: none; text-align: start; padding: 0; cursor: auto;
 }
 .tc-modal:focus { outline: none; }
 
-.tc-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.5rem 0.7rem; border-block-end: 1px solid #e2e8f0; }
-.tc-modal-plan-id { font-size: 0.7rem; font-weight: 700; color: #0d6efd; background: rgb(13 110 253 / 8%); padding: 2px 8px; border-radius: 4px; display: inline-block; margin-block-end: 0.25rem; }
-.tc-modal-title { font-size: 1rem; font-weight: 700; color: #0f172a; }
-.tc-modal-desc  { font-size: 0.8rem; color: #64748b; margin-block-start: 0.15rem; }
+.tc-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 0.9rem 1.25rem 0.6rem; border-block-end: 1px solid #e2e8f0; }
+.tc-modal-plan-id { font-size: 0.65rem; font-weight: 700; color: #0d6efd; background: rgb(13 110 253 / 8%); padding: 2px 8px; border-radius: 4px; display: inline-block; margin-block-end: 0.25rem; }
+.tc-modal-title { font-size: 0.92rem; font-weight: 700; color: #0f172a; }
+.tc-modal-desc  { font-size: 0.75rem; color: #64748b; margin-block-start: 0.15rem; }
 
 .tc-modal-close {
   background: none; border: 1px solid #e2e8f0; outline: none; border-radius: 50%;
@@ -418,12 +430,12 @@
 .tc-modal-close:hover { background: #f1f5f9; border-color: #cbd5e1; }
 .tc-modal-close:focus { outline: none; }
 
-.tc-modal-body { flex: 1; overflow-y: auto; padding: 1rem 1.5rem 1.5rem; max-block-size: 60vh; }
+.tc-modal-body { flex: 1; overflow-y: auto; padding: 0.85rem 1.25rem 1.25rem; max-block-size: 52vh; }
 
 .tc-modal-generating,
 .tc-modal-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1rem; text-align: center; color: #94a3b8; }
 
-.tc-modal-cases { display: flex; flex-direction: column; gap: 0.75rem; }
+.tc-modal-cases { display: flex; flex-direction: column; gap: 0.6rem; }
 
 /* ═══ SHARED UTILS ═══ */
 .testlab-spin { animation: spin 1s linear infinite; display: inline-block; }
@@ -445,11 +457,11 @@
 
 .tc-modal-actions-bottom {
   display: flex; justify-content: flex-end; gap: 0.5rem;
-  padding: 0.9rem 1.5rem; border-block-start: 1px solid #f1f5f9;
+  padding: 0.7rem 1.25rem; border-block-start: 1px solid #f1f5f9;
   background: #fff; position: sticky; inset-block-end: 0; z-index: 10; flex-wrap: wrap;
 }
 
-.tc-modal--unsaved { max-inline-size: 520px; }
+.tc-modal--unsaved { max-inline-size: 620px; }
 
 /* ═══ DARK MODE ═══ */
 :host-context([data-bs-theme='dark']) .tc-page {
@@ -464,6 +476,7 @@
 :host-context([data-bs-theme='dark']) .tc-breadcrumb-home    { color: #94a3b8; }
 :host-context([data-bs-theme='dark']) .tc-left            { background: rgb(15 23 42 / 80%); border-color: rgb(255 255 255 / 8%); }
 :host-context([data-bs-theme='dark']) .tc-tree-suite-row  { color: #e2e8f0; }
+:host-context([data-bs-theme='dark']) .tc-tree-suite-project { color: #94a3b8; }
 :host-context([data-bs-theme='dark']) .tc-tree-suite-row:hover { background: rgb(30 41 59 / 90%); }
 :host-context([data-bs-theme='dark']) .tc-tree-plan-row:hover  { background: rgb(99 102 241 / 10%); }
 :host-context([data-bs-theme='dark']) .tc-tree-plan--active    { background: rgb(13 110 253 / 6%); border-color: rgb(13 110 253 / 20%); }
@@ -595,6 +608,7 @@
 :host-context([data-bs-theme='dark']) .team-avatar--overflow {
   background: #0f172a;
 }
+
 /* Preconditions */
 .tc-case-label--pre {
   color: #7c5cbb;
@@ -643,6 +657,8 @@
 }
 
 .tc-case-step-list {
+  font-size: 0.8rem;
+  color: #334155;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -720,18 +736,22 @@
 :host-context([data-bs-theme='dark']) .tc-step-action {
   background: rgb(15 23 42 / 60%);
 }
+
 :host-context([data-bs-theme='dark']) .tc-step-num {
   background: #0f172a;
   border-color: rgb(255 255 255 / 10%);
   color: #94a3b8;
 }
+
 :host-context([data-bs-theme='dark']) .tc-step-text {
   color: #cbd5e1;
 }
+
 :host-context([data-bs-theme='dark']) .tc-step-expected {
   background: rgb(16 185 129 / 8%);
   border-color: rgb(16 185 129 / 15%);
 }
+
 :host-context([data-bs-theme='dark']) .tc-step-expected-text {
   color: #6ee7b7;
 }
@@ -762,7 +782,7 @@
 }
 
 .tc-edit-step-num {
-  width: 18px; height: 18px; border-radius: 50%;
+  inline-size: 18px; block-size: 18px; border-radius: 50%;
   background: #fff; border: 1px solid #e2e8f0;
   display: flex; align-items: center; justify-content: center;
   font-size: 0.6rem; font-weight: 700; color: #475569; flex-shrink: 0;
@@ -774,7 +794,7 @@
 }
 
 .tc-edit-step-remove {
-  width: 22px; height: 22px; border: none; background: none;
+  inline-size: 22px; block-size: 22px; border: none; background: none;
   color: #94a3b8; cursor: pointer; flex-shrink: 0; border-radius: 5px;
   display: flex; align-items: center; justify-content: center; transition: all 0.15s;
 }
@@ -801,34 +821,31 @@
 :host-context([data-bs-theme='dark']) .tc-edit-step-row { background: #0f172a; }
 :host-context([data-bs-theme='dark']) .tc-edit-step-input { color: #e2e8f0; }
 :host-context([data-bs-theme='dark']) .tc-edit-step-num { background: #1e293b; border-color: rgb(255 255 255 / 10%); color: #94a3b8; }
+
 .btn-add-plan {
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
-
     padding: 0.45rem 0.9rem;
     border: none;
     border-radius: 10px;
-
     background: #3d8adde8;
     color: #fff;
-
     font-size: 0.65rem;
     font-weight: 600;
-
     cursor: pointer;
     transition: all 0.25s ease;
-    box-shadow: 0 4px 12px rgba(61, 138, 221, 0.25);
+    box-shadow: none;
 }
 
 .btn-add-plan:hover:not(:disabled) {
     background: #2b76c9;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 18px rgba(61, 138, 221, 0.35);
+    transform: none;
+    box-shadow: none;
 }
 
 .btn-add-plan:active:not(:disabled) {
-    transform: translateY(0);
+    transform: none;
 }
 
 .btn-add-plan:disabled {
@@ -840,6 +857,7 @@
 .btn-add-plan iconify-icon {
     font-size: 1.1rem;
 }
+
 .btn-abandon-red {
   display: inline-flex;
   align-items: center;
@@ -854,7 +872,7 @@
   font-weight: 600;
   line-height: 1.2;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
   transition: background-color 0.15s ease-in-out,
               box-shadow 0.15s ease-in-out;
 }
@@ -872,20 +890,30 @@
 }
 
 .btn-abandon-red:focus {
-  box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.5);
+  box-shadow: 0 0 0 0.25rem rgb(220 53 69 / 50%);
   outline: none;
 }
+
 .btn-confirm-abandon {
   color: #fff;
-  background-color: #fd7e14;
-  border: 1px solid #fd7e14;
-  border-radius: 0.375rem;
-  padding: 0.375rem 0.75rem;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: color 0.15s ease-in-out,
-              background-color 0.15s ease-in-out,
-              border-color 0.15s ease-in-out;
+  background-color: #dc3545;
+  border: none;
+  box-shadow: 0 4px 12px rgb(220 53 69 / 25%);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-confirm-abandon:hover:not(:disabled) {
+  background-color: #bb2d3b;
+  box-shadow: 0 6px 14px rgb(220 53 69 / 30%);
+}
+
+.btn-confirm-abandon:active:not(:disabled) {
+  background-color: #b02a37;
+}
+
+.btn-confirm-abandon:focus {
+  box-shadow: 0 0 0 0.25rem rgb(253 126 20 / 50%);
+  outline: none;
 }
 
 .btn-confirm-abandon:hover {
@@ -900,10 +928,6 @@
   border-color: #c05e02;
 }
 
-.btn-confirm-abandon:focus {
-  box-shadow: 0 0 0 0.25rem rgba(253, 126, 20, 0.5);
-  outline: none;
-}
 /* ── Boutons du header — harmonisés ── */
 .tc-right-header .btn-add-plan,
 .tc-right-header .tc-generate-main-btn,
@@ -935,11 +959,13 @@
 .tc-right-header .btn-add-plan {
   background: #3d8adde8;
   color: #fff;
-  box-shadow: 0 4px 12px rgba(61, 138, 221, 0.25);
+  box-shadow: none;
 }
+
 .tc-right-header .btn-add-plan:hover:not(:disabled) {
   background: #2b76c9;
-  box-shadow: 0 6px 14px rgba(61, 138, 221, 0.3);
+  box-shadow: none;
+  transform: none;
 }
 
 /* View / Generate */
@@ -948,6 +974,7 @@
   color: #fff;
   box-shadow: 0 4px 12px rgb(236 138 0 / 25%);
 }
+
 .tc-right-header .tc-generate-main-btn:hover:not(:disabled) {
   background: linear-gradient(135deg, #d97c00, #ec8a00);
 }
@@ -956,8 +983,369 @@
 .tc-right-header .btn-abandon-red {
   background-color: #dc3545;
   color: #fff;
-  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.25);
+  box-shadow: 0 4px 12px rgb(220 53 69 / 25%);
 }
+
 .tc-right-header .btn-abandon-red:hover {
   background-color: #bb2d3b;
+}
+
+.tc-page button.btn,
+.tc-page .btn-add-plan,
+.tc-page .tc-generate-main-btn,
+.tc-page .btn-abandon-red,
+.tc-page .btn-confirm-abandon,
+.tc-page .tc-tree-generate-btn,
+.tc-page .tc-tree-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-inline-size: 130px;
+  block-size: 38px;
+  padding: 0 1rem;
+  border-radius: 8px;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.tc-page button.btn iconify-icon,
+.tc-page .btn-add-plan iconify-icon,
+.tc-page .tc-generate-main-btn iconify-icon,
+.tc-page .btn-abandon-red iconify-icon,
+.tc-page .btn-confirm-abandon iconify-icon,
+.tc-page .tc-tree-generate-btn iconify-icon,
+.tc-page .tc-tree-action-btn iconify-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.tc-page .tc-tree-generate-btn,
+.tc-page .tc-tree-action-btn {
+  min-inline-size: unset;
+  block-size: 30px;
+  font-size: 0.74rem;
+  padding: 0 0.7rem;
+}
+
+/* ── Bouton icône seule (Edit dans les cartes) — hors système, reste petit ── */
+
+.tc-page .btn-brand {
+  background: linear-gradient(135deg, #ec8a00, #f7a535);
+  color: #fff;
+  box-shadow: 0 4px 12px rgb(236 138 0 / 25%);
+}
+
+.tc-page .btn-brand:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d97c00, #ec8a00);
+  box-shadow: 0 6px 14px rgb(236 138 0 / 30%);
+}
+
+/* PRIMARY — bleu (actions secondaires : Add, Regenerate) */
+.tc-page .btn-add-plan,
+.tc-page .btn-outline-primary,
+.tc-page .tc-tree-generate-btn,
+.tc-page .tc-tree-action-btn--primary {
+  background: #3d8adde8;
+  color: #fff;
+  box-shadow: 0 4px 12px rgb(61 138 221 / 25%);
+  border: none;
+}
+
+.tc-page .btn-add-plan:hover:not(:disabled),
+.tc-page .btn-outline-primary:hover:not(:disabled),
+.tc-page .tc-tree-generate-btn:hover,
+.tc-page .tc-tree-action-btn--primary:hover {
+  background: #2b76c9;
+  box-shadow: 0 6px 14px rgb(61 138 221 / 30%);
+}
+
+/* View/Generate — dégradé orange (déjà harmonisé) */
+.tc-page .tc-generate-main-btn {
+  background: linear-gradient(135deg, #ec8a00, #f7a535);
+  color: #fff;
+  box-shadow: 0 4px 12px rgb(236 138 0 / 25%);
+}
+
+.tc-page .tc-generate-main-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d97c00, #ec8a00);
+}
+
+/* DANGER — rouge (Abandon, Leave Without Saving, Stop Generation) */
+.tc-page .btn-abandon-red,
+.tc-page .btn-confirm-abandon,
+.tc-page .btn-outline-danger {
+  background-color: #dc3545;
+  color: #fff;
+  box-shadow: 0 4px 12px rgb(220 53 69 / 25%);
+  border: none;
+}
+
+.tc-page .btn-abandon-red:hover:not(:disabled),
+.tc-page .btn-confirm-abandon:hover:not(:disabled),
+.tc-page .btn-outline-danger:hover:not(:disabled) {
+  background-color: #bb2d3b;
+  box-shadow: 0 6px 14px rgb(220 53 69 / 30%);
+}
+
+/* VALIDATE — vert (Yes / Validate & Save alternate) */
+.tc-page .btn-validate {
+  background: #10b981;
+  color: #fff;
+  box-shadow: 0 4px 12px rgb(16 185 129 / 25%);
+}
+
+.tc-page .btn-validate:hover:not(:disabled) {
+  background: #0ea371;
+  box-shadow: 0 6px 14px rgb(16 185 129 / 30%);
+}
+
+/* CANCEL — neutre gris (Cancel, No) */
+.tc-page .btn-cancel {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  box-shadow: none;
+}
+
+.tc-page .btn-cancel:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+/* Disabled state uniforme */
+.tc-page button.btn:disabled,
+.tc-page .btn-add-plan:disabled,
+.tc-page .tc-generate-main-btn:disabled,
+.tc-page .btn-abandon-red:disabled,
+.tc-page .btn-confirm-abandon:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Save All Changes (header) — même famille "brand" */
+.tc-header .btn-brand {
+  min-inline-size: unset;
+  block-size: 36px;
+  padding: 0 0.9rem;
+  font-size: 0.78rem;
+}
+
+.tc-modal-actions-bottom .btn-cancel,
+.tc-modal-actions-bottom .btn-confirm-abandon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-inline-size: 130px;
+  block-size: 38px;
+  padding: 0 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+.tc-modal-actions-bottom .btn-cancel iconify-icon,
+.tc-modal-actions-bottom .btn-confirm-abandon iconify-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.tc-modal-actions-bottom .btn-outline-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-inline-size: 130px;
+  block-size: 38px;
+  padding: 0 1rem;
+  background: #3d8adde8;
+  border: none;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: 0 4px 12px rgb(61 138 221 / 25%);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tc-modal-actions-bottom .btn-outline-primary:hover:not(:disabled) {
+  background: #2b76c9;
+  color: #fff;
+  box-shadow: 0 6px 14px rgb(61 138 221 / 30%);
+}
+
+.tc-modal-actions-bottom .btn-outline-primary:active:not(:disabled) {
+  background: #2b76c9;
+}
+
+.tc-modal-actions-bottom .btn-outline-primary iconify-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.btn-stop-generation {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-inline-size: 140px;
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 8px;
+  background-color: #dc3545;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background-color 0.2s ease;
+}
+
+.btn-stop-generation iconify-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.btn-stop-generation:hover:not(:disabled) {
+  background-color: #bb2d3b;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-stop-generation:active:not(:disabled) {
+  background-color: #b02a37;
+}
+
+.btn-stop-generation:focus {
+  box-shadow: 0 0 0 0.2rem rgb(220 53 69 / 30%);
+  outline: none;
+}
+
+.btn-stop-generation:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tc-modal--unsaved .tc-modal-actions-bottom {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.tc-modal--unsaved .tc-modal-actions-bottom .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LEAVE WITHOUT SAVING — rouge plein, même famille que Stop Generation
+   ═══════════════════════════════════════════════════════════════════ */
+.btn-leave-without-saving {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  border: none;
+  border-radius: 8px;
+  background-color: #dc3545;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: none;
+  white-space: nowrap;
+  transition: background-color 0.2s ease;
+}
+
+.btn-leave-without-saving iconify-icon {
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+
+.btn-leave-without-saving:hover:not(:disabled) {
+  background-color: #bb2d3b;
+}
+
+.btn-leave-without-saving:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ═══ PROJECT FILTER BAR ═══ */
+.tc-project-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.tc-project-select-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  inline-size: 240px;
+}
+
+.tc-project-select-icon {
+  position: absolute;
+  inset-inline-start: 0.65rem;
+  font-size: 0.95rem;
+  color: #94a3b8;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.tc-project-select {
+  inline-size: 100%;
+  appearance: none;
+  background: #fff;
+  border: 1px solid var(--pm-border, #e2e8f0);
+  border-radius: 9px;
+  padding: 0.45rem 1.9rem 0.45rem 2.1rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.tc-project-select:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.tc-project-select:focus {
+  outline: none;
+  border-color: #3d8adde8;
+  box-shadow: 0 0 0 3px rgb(61 138 221 / 12%);
+}
+
+.tc-project-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #f1f5f9;
+}
+
+.tc-project-select-chevron {
+  position: absolute;
+  inset-inline-end: 0.6rem;
+  font-size: 1rem;
+  color: #94a3b8;
+  pointer-events: none;
+  transition: transform 0.15s ease;
+}
+
+.tc-project-select-wrap:has(.tc-project-select:focus) .tc-project-select-chevron {
+  transform: rotate(180deg);
+  color: #3d8adde8;
 }

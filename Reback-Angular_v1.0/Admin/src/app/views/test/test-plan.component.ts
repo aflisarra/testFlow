@@ -2,6 +2,7 @@
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
 import { ProjectsStateService } from '@/app/core/services/projects-state.service'
+import { PlanEditModalComponent } from './plan-edit-modal.component'
 import {
   TestLabService,
   type TestCaseDto,
@@ -15,7 +16,7 @@ import { getUser } from '@/app/store/authentication/authentication.selector'
 import { ConfirmModalComponent } from '@/app/views/admin/shared/confirm-modal.component'
 import type { PlanStatus } from '@/app/views/test/models/status.types'
 import { getErrorMessage, getErrorStatus } from '@/app/views/test/utils/error.utils'
-import { CommonModule } from '@angular/common'
+import { CommonModule, DOCUMENT } from '@angular/common'
 import { Component, CUSTOM_ELEMENTS_SCHEMA, DestroyRef, ElementRef, HostListener, inject, NgZone, ViewChild } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms'
@@ -26,15 +27,20 @@ import { ToastrService } from 'ngx-toastr'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 
+
+interface CreateSuiteResponse {
+  testSuiteId?: string
+}
 // Statuts possibles pour chaque plan dans le flux sÃ©quentiel
 @Component({
   selector: 'app-test-suite-configuration',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, NgbModalModule],
+  imports: [CommonModule, ReactiveFormsModule, NgbModalModule ,PlanEditModalComponent],
   templateUrl: './test-plan.component.html',
   styleUrl: './test-plan.component.css',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
+
 export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   private store = inject(Store)
   private testLabService = inject(TestLabService)
@@ -49,6 +55,7 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   private zone = inject(NgZone)
   private fb = inject(FormBuilder)
   private destroyRef = inject(DestroyRef)
+  private document = inject(DOCUMENT)
 
   @ViewChild('plansResult') private plansResultRef?: ElementRef<HTMLElement>
 
@@ -57,12 +64,14 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   private lastProjectId = ''
 
   // Reactive Form
-  testPlanForm: FormGroup = this.fb.group({
-    name: ['', Validators.required],
-    specDocument: ['', Validators.required],
-    projectId: ['', Validators.required],
-    applicationUrl: [''],
-  })
+testPlanForm: FormGroup = this.fb.group({
+  name: ['', Validators.required],
+  specDocument: ['', Validators.required],
+  projectId: ['', Validators.required],
+  applicationUrl: ['', [Validators.pattern(/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/)]],
+})
+
+
 
   // Banner for existing test plan
   showExistingBanner = false
@@ -128,6 +137,7 @@ isEditMode = false
   }
 
   constructor() {
+    this.destroyRef.onDestroy(() => this.document.body.classList.remove('test-plan-modal-open'))
     void this.loadProjects()
     void this.initializeFromQueryParams()
 
@@ -667,7 +677,7 @@ onTogglePlanValidation(planId: string) {
       casesCount: 0,
     }
     this.planEditMode = 'add'
-    this.planEditModalOpen = true
+    this.setPlanEditModalOpen(true)
   }
 
   openPlanEditModal(plan: TestPlanDto): void {
@@ -680,13 +690,18 @@ onTogglePlanValidation(planId: string) {
       priority: String(plan.priority || 'Medium'),
     }
     this.planEditMode = 'edit'
-    this.planEditModalOpen = true
+    this.setPlanEditModalOpen(true)
   }
 
   closePlanEditModal(): void {
-    this.planEditModalOpen = false
+    this.setPlanEditModalOpen(false)
     this.planEditDraft = null
     this.planEditMode = 'edit'
+  }
+
+  private setPlanEditModalOpen(isOpen: boolean): void {
+    this.planEditModalOpen = isOpen
+    this.document.body.classList.toggle('test-plan-modal-open', isOpen)
   }
 
   savePlanEditModal(): void {
@@ -855,7 +870,7 @@ getValidateButtonClass(planId: string): string {
       this.finishing = false
     }
   }*/
-specText: string = ''
+specText = ''
   // Remplacer onValidateAndGoToCases()
 async onValidateAndGoToCases() {
   if (!this.testPlans.length) {
@@ -933,9 +948,7 @@ async onValidateAndGoToCases() {
       this.testLabService.createSuiteWithPlansForm(fd)
     )
 
-
-    this.currentTestSuiteId =
-      (response as any)?.testSuiteId || this.currentTestSuiteId
+this.currentTestSuiteId = (response as CreateSuiteResponse)?.testSuiteId || this.currentTestSuiteId
 
 
     // navigation
@@ -1587,6 +1600,36 @@ onApplicationUrlInput(event: Event): void {
   this.testPlanForm.patchValue({
     applicationUrl: value
   }, { emitEvent: false })
+}
+
+async onConfirmCurrentPlan(): Promise<void> {
+  const plan = this.currentPlan
+  if (!plan) return
+
+  this.planStatuses[plan.id] = 'confirmed'
+  this.sessionSaved = false
+  this.plansValidated = this.allPlansConfirmed
+
+  if (this.isLastPlan) {
+    await this.finishAndNavigate()
+    return
+  }
+
+  this.currentPlanIndex++
+  const nextPlan = this.currentPlan
+  if (nextPlan && !(this.testCasesByPlan[nextPlan.id]?.length)) {
+    await this.generateCasesForCurrentPlan(false)
+  }
+}
+getApplicationUrlErrorMessage(): string {
+  const control = this.testPlanForm.get('applicationUrl')
+  if (!control || !control.errors) return ''
+
+  if (control.errors['pattern']) {
+    return 'Enter a valid URL, e.g. your-app.com/path (without http:// or https://).'
+  }
+
+  return 'Invalid application URL.'
 }
 
 }

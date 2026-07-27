@@ -251,6 +251,7 @@ projectForm.controls.milestoneDate.errors?.['invalidMilestoneRange']) {
               class="form-control project-search-input"
               placeholder="Search projects…"
               [(ngModel)]="projectSearch"
+              (ngModelChange)="onProjectSearchChange()"
               [ngModelOptions]="{ standalone: true }" />
           </div>
 
@@ -288,16 +289,22 @@ projectForm.controls.milestoneDate.errors?.['invalidMilestoneRange']) {
               }
             </div>
 
-            <!-- Pagination -->
-            @if (totalProjectPages > 1) {
-              <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
-                <button class="btn btn-sm btn-outline-secondary" [disabled]="currentProjectPage === 1"
-                  (click)="onPrevProjectsPage()">Previous</button>
-                <span class="small text-muted">Page {{ currentProjectPage }} of {{ totalProjectPages }}</span>
-                <button class="btn btn-sm btn-outline-secondary" [disabled]="currentProjectPage === totalProjectPages"
-                  (click)="onNextProjectsPage()">Next</button>
+            <div class="table-pagination mt-3 pt-2 border-top">
+              <span class="table-pagination__meta">
+                Showing {{ projectsRangeStart }}-{{ projectsRangeEnd }} of {{ filteredProjects.length }}
+              </span>
+              <div class="table-pagination__actions">
+                <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="currentProjectPage === 1"
+                  (click)="onPrevProjectsPage()">
+                  Previous
+                </button>
+                <span class="table-pagination__page">Page {{ currentProjectPage }} / {{ totalProjectPages }}</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                  [disabled]="currentProjectPage === totalProjectPages" (click)="onNextProjectsPage()">
+                  Next
+                </button>
               </div>
-            }
+            </div>
           }
 
         </div>
@@ -330,9 +337,9 @@ projectForm.controls.milestoneDate.errors?.['invalidMilestoneRange']) {
               </div>
               <span class="vpc-title">{{ viewProject.title }}</span>
             </div>
-            <span class="vpc-status-badge vpc-status-{{ viewProject.status || 'draft' }}">
+            <!--<span class="vpc-status-badge vpc-status-{{ viewProject.status || 'draft' }}">
               {{ viewProject.status || 'draft' }}
-            </span>
+            </span>-->
           </div>
 
           <!-- Description -->
@@ -497,13 +504,13 @@ projectForm.controls.milestoneDate.errors?.['invalidMilestoneRange']) {
           }
         </div>
         <div class="col-12">
-          <label class="form-label pm-label" for="status">Status</label>
+          <!--<label class="form-label pm-label" for="status">Status</label>
           <select class="form-select" formControlName="status">
             <option value="draft">Draft</option>
             <option value="active">Active</option>
             <option value="paused">Paused</option>
             <option value="completed">Completed</option>
-          </select>
+          </select>-->
         </div>
 
         <!-- Team in Edit -->

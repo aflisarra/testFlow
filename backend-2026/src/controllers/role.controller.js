@@ -84,14 +84,14 @@ exports.deleteRole = async (req, res) => {
 
     if (!deleted) {
       return res.status(404).json({
-        message: 'Role not found',
-        code: 'ROLE_NOT_FOUND',
+        message: MESSAGES.ROLE.NOT_FOUND,
+        code: MESSAGES.ROLE.NOT_FOUND,
       })
     }
 
     return res.json({
-      message: 'Role deleted',
-      code: 'ROLE_DELETED',
+      message: MESSAGES.ROLE.DELETED,
+      code: MESSAGES.ROLE.DELETED,
     })
   } catch (err) {
     return res.status(err.statusCode || 500).json({
@@ -114,32 +114,14 @@ exports.reassignAndDelete = async (req, res) => {
     })
 
     res.json({
-      code: 'ROLE_REASSIGNED_AND_DELETED',
-      message: 'Success',
+      code: MESSAGES.ROLE.ROLE_REASSIGNED_AND_DELETED,
+      message: MESSAGES.ROLE.SUCCESS,
     })
   } catch (err) {
     res.status(500).json({ message: err.message })
   }
 }
 
-//const Role = require('../models/role.model');
-
-/*exports.createRole = async ({ name, description, actions }) => {
-  const exists = await Role.findOne({ name });
-  if (exists) throw new Error('Role already exists');
-
-  const newRole = new Role({ name, description });
-  const savedRole = await newRole.save();
-
-  const roleActions = actions.map(actionId => ({
-    roleId: savedRole._id,
-    actionId
-  }));
-
-  await RoleAction.insertMany(roleActions);
-
-  return savedRole;
-};*/
 
 
 

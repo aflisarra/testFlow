@@ -3,14 +3,16 @@ import type { AppProject, AppUser } from '@/app/interfaces/admin-management.inte
 import { getUser } from '@/app/store/authentication/authentication.selector'
 import { CommonModule } from '@angular/common'
 
+import { ApiService } from '@/app/core/services/api.service'
+import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
 import {
   CUSTOM_ELEMENTS_SCHEMA,
   Component,
   DestroyRef,
   HostListener,
   OnInit,
-  ViewChild,
   TemplateRef,
+  ViewChild,
   inject,
 } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
@@ -29,11 +31,9 @@ import { ToastrService } from 'ngx-toastr'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { ConfirmModalComponent } from '../admin/shared/confirm-modal.component'
-import { ApiService } from '@/app/core/services/api.service'
-import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
 
-import type { TeamMemberView } from '@/app/interfaces/project-management.interface'
 import type { UserWithActions } from '@/app/interfaces/authorization.interface'
+import type { TeamMemberView } from '@/app/interfaces/project-management.interface'
 
 @Component({
   selector: 'app-project-management',
@@ -81,7 +81,7 @@ export class ProjectManagementComponent implements OnInit {
   private readonly ACTION_EDIT_PROJECT = 14
   private readonly ACTION_DELETE_PROJECT = 15
   private readonly ACTION_LIST_USERS = 10
-  private readonly ACTION_VIEW_USER = 4
+  private readonly ACTION_VIEW_USER =4
 
   canViewProjects = false
   canCreateProject = false
@@ -104,7 +104,7 @@ export class ProjectManagementComponent implements OnInit {
   viewProject: AppProject | null = null
 
   currentProjectPage = 1
-  private projectsPerPage = 10
+  readonly projectsPerPage = 10
 
   projectForm = this.fb.group({
     title: ['', [Validators.required, Validators.pattern(/\S+/)]],
@@ -155,7 +155,7 @@ milestoneDate: ['', [Validators.required, this.validDateValidator.bind(this)]],
   }
 
   get totalProjectPages(): number {
-    return Math.ceil(this.filteredProjects.length / this.projectsPerPage)
+    return Math.max(1, Math.ceil(this.filteredProjects.length / this.projectsPerPage))
   }
 
   get projectsRangeStart(): number {
@@ -330,6 +330,7 @@ private async initPermissions(): Promise<void> {
     this.adminService.getProjects(false).subscribe({
       next: (projects) => {
         this.projects = projects || []
+        this.clampProjectPage()
         this.loading = false
         if (this.selectedProjectId) {
           const selected = this.projects.find((p) => p._id === this.selectedProjectId)
@@ -355,6 +356,17 @@ private async initPermissions(): Promise<void> {
 
   onNextProjectsPage(): void {
     if (this.currentProjectPage < this.totalProjectPages) this.currentProjectPage++
+  }
+
+  onProjectSearchChange(): void {
+    this.currentProjectPage = 1
+  }
+
+  private clampProjectPage(): void {
+    if (this.currentProjectPage < 1) this.currentProjectPage = 1
+    if (this.currentProjectPage > this.totalProjectPages) {
+      this.currentProjectPage = this.totalProjectPages
+    }
   }
 
   // ─── Form helpers ───────────────────────────────────────────────────────────

@@ -58,11 +58,15 @@ class AIService:
         resp = requests.post(
             "http://localhost:11434/api/generate",
             json={
-                "model": "qwen2.5-coder:7b",
+                "model": "qwen2.5:3b-instruct",
                 "prompt": prompt,
                 "stream": False,
                 "format": "json",              # force Ollama to output valid JSON
-                "options": {"temperature": 0},  # deterministic, less filler text
+                 "options": {
+                    "temperature": 0,
+                    "num_predict": int(os.getenv("OLLAMA_NUM_PREDICT", "800")),
+                    "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "2048")),
+                },  # deterministic, less filler text
             },
             timeout=timeout,
         )

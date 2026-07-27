@@ -1,18 +1,5 @@
 ```json
 {
-  "error": "Registration failed due to validation errors",
-  "potential_reasons": [
-    "Password Complexity",
-    "Username Availability",
-    "Country Selection",
-    "Checkbox Validation",
-    "Form Submission"
-  ],
-  "troubleshooting_steps": [
-    "Check browser developer console for error messages",
-    "Verify all fields are correctly filled out and interacted with",
-    "Ensure there are no JavaScript errors on the page",
-    "Try registering with a different email address"
-  ]
+  "error": "Incomplete or malformed message"
 }
 ```

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose')
 
 const Project = require('../models/project.model')
+const ProjectInvitation = require('../models/projectInvitation.model')
 const TestSuite = require('../models/testsuite')
 const TestPlan = require('../models/testplan.model')
 const TestCase = require('../models/testcase.model')
@@ -347,27 +348,24 @@ async function getSuiteOrThrow(testSuiteId) {
 }
 
 async function getAllTestSuites(viewerUserId = '') {
-  const suites = await TestSuite.find()
-    .populate('projectId', 'title')
-    .populate('userId', 'name email picture')
-    .sort({ createdAt: -1 })
-    .lean()
-
-  return Promise.all(
-    suites.map(async (suite) => {
-      const planData = await getSuitePlansAndCases(suite._id)
-      const canOpen = !viewerUserId || String(suite?.userId?._id || suite?.userId) === String(viewerUserId)
-      return formatSuiteSummary(suite, { ...planData, canOpen })
-    })
-  )
+  // Test History is a visibility list: unavailable suites must not be sent to
+  // the client at all. Use the same owner/member rules as the suite guard.
+  const safeUserId = String(viewerUserId || '').trim()
+  if (!safeUserId) return []
+  return getTestSuitesByUser(safeUserId)
 }
 
 async function getTestSuitesByUser(userId) {
   const safeUserId = String(userId || '').trim()
   if (!safeUserId) throw makeError('User ID is required', 400)
 
+  const acceptedInvitations = await ProjectInvitation.find({
+    userId: safeUserId,
+    status: 'accepted',
+  }).select('projectId').lean()
+  const acceptedProjectIds = acceptedInvitations.map((invitation) => invitation.projectId)
   const projects = await Project.find({
-    $or: [{ ownerId: safeUserId }, { assignedUsers: safeUserId }],
+    $or: [{ ownerId: safeUserId }, { _id: { $in: acceptedProjectIds } }],
   }).select('_id').lean()
   const projectIds = projects.map((project) => project._id)
 

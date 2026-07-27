@@ -1281,21 +1281,32 @@ if (action === "click") {
 
   const info = await classifyElement(clickTarget)
 
-  if (info.isSubmit) {
+if (info.isSubmit) {
 
-    console.log(
-      "✅ SUBMIT BUTTON DETECTED"
+  console.log(
+    "✅ SUBMIT BUTTON DETECTED"
+  )
+
+  // Explicit wait: ensure the Login/submit button is actually visible
+  // before clicking it, instead of relying on the earlier isVisibleElement()
+  // snapshot which can go stale if Angular/React re-renders the form.
+  try {
+    await driver.wait(until.elementIsVisible(clickTarget), 10000)
+  } catch (waitErr) {
+    throw new Error(
+      `Login button was not visible within 10s: ${waitErr.message}`
     )
-
-    await safeClick(clickTarget)
-
-    ctx.executionMemory.executed_actions.push({
-      action: "click",
-      selector
-    })
-
-    break
   }
+
+  await safeClick(clickTarget)
+
+  ctx.executionMemory.executed_actions.push({
+    action: "click",
+    selector
+  })
+
+  break
+}
 
   const isDropdownSelection =
     info.isDropdown

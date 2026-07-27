@@ -128,8 +128,10 @@ confirmAbandonModalOpen = false
 
   get filteredSuites(): TestSuiteDto[] {
     const projectId = String(this.projectFilterId || '').trim()
-    if (!projectId) return this.suites
-    return this.suites.filter((suite) => this.getSuiteProjectId(suite) === projectId)
+    return this.suites.filter((suite) =>
+      this.isSuiteFromAcceptedProject(suite) &&
+      (!projectId || this.getSuiteProjectId(suite) === projectId)
+    )
   }
 
   get canEditGenerateForSelectedProject(): boolean {
@@ -384,10 +386,8 @@ confirmAbandonModalOpen = false
       if (!userId && token) userId = this.resolveUserIdFromToken(token)
       if (!userId) { this.errorMessage = 'Session expired.'; return }
       const suites = await firstValueFrom(this.testLabService.getTestSuitesByUser(userId))
-      this.suites = (Array.isArray(suites) ? suites : []).filter((suite) => {
-        const projectId = this.getSuiteProjectId(suite)
-        return !projectId || this.acceptedProjectIds.has(projectId)
-      })
+      this.suites = (Array.isArray(suites) ? suites : [])
+        .filter((suite) => this.isSuiteFromAcceptedProject(suite))
     } catch (err: unknown) {
       this.errorMessage = getErrorMessage(err, 'Unable to load test suites')
     } finally {
@@ -1440,8 +1440,24 @@ if (this.pendingNewCase) {
   }
 
   private isSuiteFromAcceptedProject(suite: TestSuiteDto | null | undefined): boolean {
-    void suite
-    return true
+    const projectId = this.getSuiteProjectId(suite)
+    // The API marks suites that the user cannot open with canOpen=false.
+    // Do not render those entries: users should never reach an access-denied page.
+    return Boolean(projectId) && suite?.canOpen !== false && this.acceptedProjectIds.has(projectId)
+  }
+
+  getSuiteProjectTitle(suite: TestSuiteDto): string {
+    const fromSuite = String(suite?.projectTitle || '').trim()
+    if (fromSuite) return fromSuite
+
+    const project = suite?.projectId
+    if (project && typeof project === 'object') {
+      const title = String(project.title || '').trim()
+      if (title) return title
+    }
+
+    const projectId = this.getSuiteProjectId(suite)
+    return String(this.projects.find((item) => item._id === projectId)?.title || '—').trim()
   }
 
 
@@ -1542,21 +1558,36 @@ confirmAbandon(): void {
   const planId = this.selectedAbandonPlanId
   const caseId = this.selectedAbandonCaseId
 
-  this.testCasesByPlan[planId] =
-    (this.testCasesByPlan[planId] || []).filter(
-      tc => tc.id !== caseId
-    )
-
-  if (this.livePlanId === planId) {
-    this.liveCases = [...this.testCasesByPlan[planId]]
+  const testCase = (this.testCasesByPlan[planId] || []).find(tc => tc.id === caseId)
+  if (!testCase) {
+    this.toastr.error('Test case not found')
+    return
   }
 
-  this.setPlanDirty(planId, true)
+  // Utilise le vrai Mongo _id pour l'appel API, pas le champ "id" affiché (TC-1, TC-2...)
+  //const mongoId = (testCase as any)._id || testCase.id
+  const mongoId = (testCase as TestCaseDto & { _id?: string })._id || testCase.id
 
-  this.confirmAbandonModalOpen = false
-  this.abandonModalOpen = false
+  this.testLabService.deleteTestCase(mongoId).subscribe({
+    next: () => {
+      this.testCasesByPlan[planId] =
+        (this.testCasesByPlan[planId] || []).filter(tc => tc.id !== caseId)
 
-  this.toastr.success('Test case abandoned successfully')
+      if (this.livePlanId === planId) {
+        this.liveCases = [...this.testCasesByPlan[planId]]
+      }
+
+      this.setPlanDirty(planId, true)
+
+      this.confirmAbandonModalOpen = false
+      this.abandonModalOpen = false
+
+      this.toastr.success('Test case abandoned successfully')
+    },
+    error: (err) => {
+      this.toastr.error(err?.error?.message || 'Unable to abandon test case')
+    },
+  })
 }
 
 }

@@ -2,7 +2,7 @@ const mongoose = require('mongoose')
 const TestExecution = require('../models/TestExecution.model')
 const User = require('../models/user.model')
 const testSuiteService = require('../services/testsuite.service')
-
+const MESSAGES = require('../constants/messages.js')
 function getUserId(req) {
   return String(req.user?.userId || req.user?.id || req.user?._id || '').trim()
 }
@@ -44,7 +44,7 @@ async function resolveActor(req) {
   if (!userId) return direct
 
   try {
-    const user = await User.findById(userId).select('name picture email').lean()
+    const user = await User.findById(userId).select(MESSAGES.USER.NAME_PICTURE).lean()
     if (!user) return direct
     return {
       userId,
@@ -58,7 +58,7 @@ async function resolveActor(req) {
 
 function handleError(res, error) {
   return res.status(error.statusCode || 500).json({
-    message: error.message || 'Unexpected server error',
+    message: error.message || MESSAGES.TESTSUITE.ERROR_EXPECTED,
   })
 }
 
@@ -123,7 +123,7 @@ exports.update = async (req, res) => {
 exports.delete = async (req, res) => {
   try {
     await testSuiteService.deleteTestSuite(req.params.id)
-    return res.status(200).json({ message: 'Test suite deleted successfully' })
+    return res.status(200).json({ MESSAGE: MESSAGES.TESTSUITE.DELETED })
   } catch (error) {
     return handleError(res, error)
   }
@@ -142,7 +142,7 @@ exports.saveSession = async (req, res) => {
   try {
     const suite = await testSuiteService.saveSuiteSession(req.params.id, req.body || {})
     return res.status(200).json({
-      message: 'Session saved successfully',
+      MESSAGE: MESSAGES.TESTSUITE.SESSION_SAVED,
       suite,
     })
   } catch (error) {
@@ -195,11 +195,11 @@ exports.execute = async (req, res) => {
           try {
             const suiteId = String(req.params.id || '').trim()
             if (!suiteId) return
-            console.log('[EXECUTE] Starting background execution for suite', suiteId)
+            console.log(MESSAGES.TESTSUITE.START_EXECUTION, suiteId)
             const cases = await TestCase.find({ testSuiteId: suiteId }).sort({ createdAt: 1 }).lean()
             for (const tc of cases) {
               try {
-                console.log('[EXECUTE] Running test case', tc._id || tc.id || tc.title)
+                console.log(MESSAGES.TESTCASES.EXECUTE, tc._id || tc.id || tc.title)
                 const result = await runTestCase(tc)
                 const actor = await resolveActor(req)
                 // persist execution similar to selenium.controller.runTestCaseHandler
@@ -209,11 +209,11 @@ exports.execute = async (req, res) => {
                       index: step.index || 0,
                       step: String(step.step || step.name || ''),
                       status:
-                        step.status === 'passed'
-                          ? 'passed'
-                          : step.status === 'failed_assertion'
-                            ? 'failed_assertion'
-                            : 'failed_execution',
+                        step.status === MESSAGES.STATUSTEST.PASSED
+                          ? MESSAGES.STATUSTEST.PASSED
+                          : step.status === MESSAGES.STATUSTEST.FAILED_ASSERTION
+                            ? MESSAGES.STATUSTEST.FAILED_ASSERTION
+                            : MESSAGES.STATUSTEST.FAILED_EXECUTION,
                       actualResult: String(step.actualResult || ''),
                       expectedResult: String(step.expectedResult || ''),
                       error: String(step.error || ''),
@@ -221,7 +221,7 @@ exports.execute = async (req, res) => {
                       screenshotPath:
                         step.screenshot?.publicUrl ||
                         step.screenshot?.path ||
-                        (typeof step.screenshot === 'string' ? step.screenshot : ''),
+                        (typeof step.screenshot === MESSAGES.CONSOLE.STRING ? step.screenshot : ''),
                     }))
                   : []
                 await TestExecution.create({
@@ -237,11 +237,11 @@ exports.execute = async (req, res) => {
                   executedBy: actor,
                   createdBy: actor,
                   status:
-  result.status === 'passed'
-    ? 'passed'
-    : result.status === 'failed_assertion'
-      ? 'failed_assertion'
-      : 'failed_execution',
+  result.status === MESSAGES.STATUSTEST.PASSED
+    ? MESSAGES.STATUSTEST.PASSED
+    : result.status === MESSAGES.STATUSTEST.FAILED_ASSERTION
+      ? MESSAGES.STATUSTEST.FAILED_ASSERTION
+      : MESSAGES.STATUSTEST.FAILED_EXECUTION,
                   duration: Array.isArray(result.stepResults) ? result.stepResults.length : 0,
                   startedAt: new Date(),
                   finishedAt: new Date(),
@@ -250,22 +250,22 @@ exports.execute = async (req, res) => {
                   stepsResults,
                   stepResults: stepsResults,
                 })
-                console.log('[EXECUTE] Test case saved:', executionId)
+                console.log(MESSAGES.TESTCASES.SAVED, executionId)
               } catch (tcErr) {
-                console.error('[EXECUTE] Test case execution error:', tcErr)
+                console.error(MESSAGES.TESTCASES.EXECUTION_ERROR, tcErr)
               }
             }
-            console.log('[EXECUTE] Background execution finished for suite', suiteId)
+            console.log(MESSAGES.TESTCASES.FINISHED, suiteId)
           } catch (bgErr) {
-            console.error('[EXECUTE] Background execution failed:', bgErr)
+            console.error(MESSAGES.TESTCASES.FAILED, bgErr)
           }
         })()
       } catch (e) {
-        console.warn('[EXECUTE] Selenium runner not available:', e?.message || e)
-        return res.status(501).json({ message: 'Execution not implemented. Selenium runner not available.' })
+        console.warn(MESSAGES.SELENIUM.RUNNER_NOT_AVAILABLE, e?.message || e)
+        return res.status(501).json({ message: MESSAGES.SELENIUM.EXECUTION_NOT_IMPLEMENTED })
       }
 
-      return res.status(202).json({ message: 'Execution started' })
+      return res.status(202).json({ message: MESSAGES.SELENIUM.EXECUTION_STARTED })
     }
 
     const suite = await testSuiteService.updateTestSuiteStatus(req.params.id, result)
@@ -289,7 +289,7 @@ exports.getExecutions = async (req, res) => {
       limit = 10
     } = req.query
 
-    console.log('🔎 FILTER QUERY:', req.query)
+    console.log(MESSAGES.CONSOLE.FILTER_QUERY, req.query)
 
     const filter = {}
 
@@ -297,7 +297,7 @@ exports.getExecutions = async (req, res) => {
     if (project && mongoose.Types.ObjectId.isValid(project)) {
       const suites = await require('../models/testsuite')
         .find({ projectId: project })
-        .select('_id')
+        .select(MESSAGES.USER.ID)
         .lean()
 
       const suiteIds = suites.map(s => s._id)
@@ -327,10 +327,10 @@ exports.getExecutions = async (req, res) => {
 
     // ✅ FILTER BY EXECUTION STATE (optional)
     if (executionState) {
-      if (executionState === 'running') {
+      if (executionState === MESSAGES.SELENIUM.RUNNING) {
         filter.finishedAt = null
       }
-      if (executionState === 'finished') {
+      if (executionState === MESSAGES.SELENIUM.FINISHED) {
         filter.finishedAt = { $ne: null }
       }
     }
@@ -387,7 +387,7 @@ exports.getExecutions = async (req, res) => {
     })
 
   } catch (error) {
-    console.error('🔥 getExecutions error:', error)
+    console.error(MESSAGES.SELENIUM.GET_EXECUTIONS_ERROR, error)
     return res.status(500).json({ message: error.message })
   }
 }

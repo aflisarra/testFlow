@@ -18,9 +18,11 @@ from core.config import get_settings
 from schemas.test_case_schema import GenerateTestCasesRequest, TestCasesResponse
 from services.cancellation_service import is_cancelled
 from services.case_service import generate_test_cases
+from utils.logger import get_logger, log_error
 
 
 router = APIRouter()
+logger = get_logger("routers.test_cases")
 
 
 def _error_payload(message: str, detail: Optional[str] = None) -> dict:
@@ -84,7 +86,7 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
             request_id=payload.generation_request_id,
         ):
             return JSONResponse(status_code=409, content={"error": "Generation cancelled by user."})
-        return {"plan_id": plan_id, "plan_title": plan_title, "test_cases": cases}
+        return TestCasesResponse(plan_id=plan_id, plan_title=plan_title, test_cases=cases)
     except FileNotFoundError:
         t_total_ms = int((time.monotonic() - t_start) * 1000)
         print(f"⏱ [generate-test-cases] FAILED FileNotFoundError  total_ms={t_total_ms}")

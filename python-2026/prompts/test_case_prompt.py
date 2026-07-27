@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import List, Dict
 
 
@@ -17,343 +18,201 @@ def build_test_case_prompt(
     project_block = project_title.strip() or "(not provided)"
     style_block = style_config.strip() or "(none)"
 
-    req_lines: List[str] = []
-    for r in linked_requirements[:5]:
-        req_lines.append(
-            f"- {r.get('id')} [{r.get('module')}] "
-            f"({r.get('priority')}): {r.get('text')}"
-        )
+    chunk_lines = []
 
-    chunk_lines: List[str] = []
-    for ch in spec_chunks:
+    for ch in spec_chunks[:5]:
         chunk_lines.append(
             f"## {ch.get('title')}\n{ch.get('text')[:500]}"
         )
 
-
-    example = (
-    '{\n'
-    '  "test_cases": [\n'
-    '    {\n'
-    '      "id": "TC-1.1",\n'
-    '      "title": "Login with valid credentials",\n'
-    '      "objective": "Verify that a user can login successfully",\n'
-    
-
-'          "preconditions": [\n'
-'           "Login page is accessible",\n'
-'           "User is not authenticated"\n'
-'            ],\n'
-    '      "steps": [\n'
-    '        "Open login page",\n'
-    '        "Enter valid credentials",\n'
-    '        "Click login button"\n'
-    '      ],\n'
-    '      "stepDetails": [\n'
-    '        {\n'
-    '          "step": "Open login page",\n'
-    '          "expected_result": "Login page is displayed"\n'
-    '        },\n'
-    '        {\n'
-    '          "step": "Enter valid credentials",\n'
-    '          "expected_result": "Username and password fields accept the provided values"\n'
-    '        },\n'
-    '        {\n'
-    '          "step": "Click login button",\n'
-    '          "expected_result": "User is redirected to dashboard"\n'
-    '        }\n'
-    '      ],\n'
-    '      "expected_result": "User is redirected to dashboard",\n'
-    '      "test_data": {\n'
-'        "email": "john.doe@example.com",\n'
-'        "password": "ValidPass123!",\n'
-'        "username": "john-doe-2026",\n'
-'        "country": "Tunisia"\n'
-'      },\n'
-    '      "priority": "High",\n'
-    '      "severity": "Critical",\n'
-    '      "type": "Positive"\n'
-    '    }\n'
-    '  ]\n'
-    '}'
-
-
-)
-
+    example = """
+{
+  "test_cases": [
+    {
+      "id": "TC-1.1",
+      "title": "Successful Account Creation",
+      "objective": "Verify that the selected test plan workflow succeeds when SRS rules and criteria are satisfied",
+      "preconditions": [
+        "Registration page is displayed"
+      ],
+      "test_data": {
+        "field_1": "valid value",
+        "field_2": "valid value"
+      },
+      "steps": [
+        "Navigate to the SRS-described workflow entry point",
+        "Complete all SRS-required UI components with valid data",
+        "Submit using the SRS-described action"
+      ],
+      "stepDetails": [
+        {
+          "step": "Navigate to the SRS-described workflow entry point",
+          "expected_result": "The workflow entry point is available"
+        },
+        {
+          "step": "Complete all SRS-required UI components with valid data",
+          "expected_result": "The provided data satisfies the SRS validation rules"
+        },
+        {
+          "step": "Submit using the SRS-described action",
+          "expected_result": "The SRS pass criteria are met"
+        }
+      ],
+      "expected_result": "The selected test plan behavior satisfies the SRS pass criteria",
+      "priority": "High",
+      "severity": "Major",
+      "type": "Validation",
+      "requirements": []
+    }
+  ]
+}
+"""
 
     return (
-      
-    "<s>[INST]\n"
+        "<s>[INST]\n"
 
-    "You are a Senior QA Engineer and Test Analyst.\n"
-    "Follow ISTQB principles.\n"
-    "Generate realistic, executable, and business-oriented test cases.\n\n"
+        "You are a Senior QA Engineer specialized in test analysis.\n"
+        "Apply ISTQB principles.\n\n"
 
-    "### SOURCE TRACEABILITY\n"
-    "Test cases must be generated ONLY from:\n"
-    "1. Specification chunks linked to this test plan\n"
-    "2. Linked requirements\n\n"
+        "### TASK\n"
+        "Generate detailed QA test cases for the confirmed test plan.\n"
+        "Use ONLY information explicitly described in the SRS.\n\n"
 
-    "Never use common application assumptions.\n\n"
-    "Never infer common software features.\n"
-"Do not invent CRUD operations, authentication failures, rejected login, locked account, disabled account, search, filter, export, import, permissions, security tests or performance tests unless they are explicitly described in the specification.\n\n"
+        "### CONFIRMED TEST PLAN\n"
+        f"ID: {plan_id}\n"
+        f"TITLE: {plan_title}\n"
+        f"DESCRIPTION: {plan_description}\n\n"
 
-    "Do not invent:\n"
-    "- pages\n"
-    "- buttons\n"
-    "- fields\n"
-    "- workflows\n"
-    "- validation rules\n"
-    "- API calls\n"
-    "- business rules\n\n"
+        "### LINKED REQUIREMENTS\n"
+        f"{json.dumps(linked_requirements, indent=2, ensure_ascii=False)}\n\n"
 
-    "The specification is the only source of truth.\n\n"
+        "### SPECIFICATION\n"
+        + "\n\n".join(chunk_lines)
+        + "\n\n"
 
-    "### TASK\n"
-    "Generate enough test cases to cover all major business workflows, validation rules, required fields, and error scenarios described in the specification.\n"
-    "Avoid redundant test cases.\n"
-    "Keep only meaningful and unique scenarios.\n\n"
+        "### PLAN CONSISTENCY RULE\n"
+        "Every generated test case MUST be consistent with the confirmed test plan.\n"
+        "A test case must stay inside the scope of the selected test plan.\n"
+        "Every step must be traceable to the selected test plan.\n\n"
 
-   "### QA TEST DESIGN RULES\n"
-"Apply ISTQB test design techniques.\n\n"
+        "### SRS SOURCE RULE\n"
+        "Generate test cases from the selected Test Plan plus these SRS sections only:\n"
+        "- UI Components\n"
+        "- Business Rules\n"
+        "- Validation Rules\n"
+        "- Pass Criteria\n"
+        "- Fail Criteria\n\n"
+        "Use only UI Components described in the SRS, including fields, buttons, dropdowns, checkboxes, radio buttons, tables, date pickers, and upload controls.\n"
+        "Do not invent screens, workflows, actions, or UI components.\n\n"
 
-"Generate ONLY the test categories explicitly supported by the specification.\n"
-"If the specification does not describe validation, boundary, error handling, or negative scenarios, do NOT generate them.\n"
-"If the specification only describes the normal workflow, generate only Positive test cases.\n\n"
+        "### REALISTIC EXECUTION RULE\n"
+        "Test cases must be executable in the real workflow, not isolated field fragments.\n"
+        "If the behavior under test belongs to a form or flow with other mandatory fields, prerequisites, account state, verification state, or navigation context, include those required dependencies in preconditions, test_data, and steps.\n"
+        "Do not submit a form while leaving required fields empty unless the specific test objective is to validate the empty-field error.\n"
+        "For a field-focused test, fill the other required inputs with valid SRS-compliant data before submitting, unless those fields are the negative condition being tested.\n\n"
 
-"Possible categories:\n"
-"- Happy Path\n"
-"- Validation\n"
-"- Boundary\n"
-"- Error Handling\n"
-"- Negative\n\n"
+        "### CORE LOGIC\n"
+        "- A test case validates one functional behavior or business rule.\n"
+        "- The SRS is the ONLY source of truth.\n"
+        "- Generate positive, negative, validation, boundary and error scenarios when supported by the SRS.\n"
+        "- Do not invent undocumented functionality.\n\n"
 
-"Only generate a category when it is explicitly described in the specification.\n\n"
+        "### TRACEABILITY RULE\n"
+        "Every generated test case should be traceable to at least one specification requirement.\n\n"
 
-    "Avoid:\n"
-    "- Duplicate test cases\n"
-    "- Redundant scenarios\n"
-    "- Artificial scenarios\n"
-    "- Single-field scenarios that cannot be executed independently\n\n"
+        "### STEP DETAILS RULE\n"
+        "Every item in stepDetails MUST contain:\n"
+        "- step\n"
+        "- expected_result\n\n"
+        "Neither value may be empty.\n\n"
 
-    "### BUSINESS WORKFLOW RULE\n"
-    "Test cases must represent complete user workflows.\n"
-    "Do not create isolated field validation scenarios when the application requires multiple mandatory fields.\n"
-    "Every test case must contain all prerequisite actions required to reach the validation point.\n\n"
+        "### TEST DATA RULE\n"
+        "test_data MUST always be a JSON object.\n"
+        "If no test data exists, return {}.\n\n"
 
-    "### VALIDATION TESTING RULE\n"
-    "When testing a specific field validation:\n"
-    "- All other mandatory fields must contain valid values.\n"
-    "- Only the target field may contain invalid or boundary data.\n"
-    "- Test cases must isolate the validation being tested.\n"
-    "- Validation failures must be attributable to a single field.\n\n"
+        "### CRITICAL RULE\n"
+        "Return ONLY a JSON object with root key test_cases.\n"
+        "Do NOT return test_plans.\n"
+        "Do NOT return plans.\n"
+        "Do NOT return user_journey.\n"
+        "Do NOT return explanations.\n\n"
 
-    "Example:\n"
-    "Invalid Email Test:\n"
-    "- Email = invalid\n"
-    "- Password = valid\n"
-    "- Username = valid\n"
-    "- Country = valid\n\n"
+        "### OUTPUT FORMAT\n"
+        "Return exactly:\n"
+        "{ \"test_cases\": [] }\n\n"
 
-    "Weak Password Test:\n"
-    "- Email = valid\n"
-    "- Password = weak\n"
-    "- Username = valid\n"
-    "- Country = valid\n\n"
+        "Each test case MUST contain:\n"
+        "- id\n"
+        "- title\n"
+        "- objective\n"
+        "- preconditions\n"
+        "- test_data\n"
+        "- steps\n"
+        "- stepDetails\n"
+        "- expected_result\n"
+        "- priority\n"
+        "- severity\n"
+        "- type\n"
+        "- requirements\n\n"
 
-    "### WORKFLOW COMPLETENESS RULE\n"
-    "For registration, signup, checkout, payment, booking, profile creation, account creation, or any multi-field workflow:\n"
-    "- Include all mandatory fields.\n"
-    "- Include all mandatory steps.\n"
-    "- Generate complete test data.\n"
-    "- Do not omit required fields.\n"
-    "- Do not assume missing data.\n\n"
+        "Priority values:\n"
+        "Critical | High | Medium | Low\n\n"
 
-    
-"### Preconditions Rule\n"
-"Every test case MUST include preconditions.\n"
-"Preconditions describe the required application state before execution.\n"
-"Preconditions must be realistic and directly related to the workflow.\n"
-"Do not generate empty preconditions.\n"
-"At least one precondition is required.\n\n"
+        "Severity values:\n"
+        "Blocker | Critical | Major | Minor | Trivial\n\n"
+       
+        "### WRITING STYLE RULE\n"
+"Keep all generated text concise.\n\n"
 
-    "Preconditions describe the required state before execution.\n\n"
+"title:\n"
+"- maximum 6 words\n\n"
 
-    "Examples:\n"
-    "- Registration page is accessible\n"
-    "- User is not authenticated\n"
-    "- User is on the login page\n"
-    "- Internet connection is available\n\n"
+"objective:\n"
+"- maximum 15 words\n"
+"- one short sentence\n\n"
 
-    "### TEST DATA RULE\n"
-    "Generate complete, realistic, and executable test data.\n"
-    "Never generate partial test data when multiple mandatory fields exist.\n\n"
+"preconditions:\n"
+"- short sentences only\n"
+"- maximum 10 words per item\n\n"
 
-    "Avoid:\n"
-    "- test@test.com\n"
-    "- valid@test.com\n"
-    "- user123\n"
-    "- abc123\n\n"
+"steps:\n"
+"- maximum 12 words per step\n"
+"- use action verbs\n\n"
 
-    "Prefer:\n"
-    "- john.doe@example.com\n"
-    "- sarah.smith@example.com\n"
-    "- john-doe-2026\n"
-    "- ValidPass123!\n"
-    "- Tunisia\n"
-    "- Romania\n\n"
+"expected_result:\n"
+"- maximum 15 words\n"
+"- short sentence only\n\n"
 
-    "### TEST DATA COMPLETENESS RULE\n"
-    "The test_data object must contain all data required to execute the test case.\n"
-    "If the workflow contains email, password, username, and country fields, all values must be provided.\n\n"
-    "### JSON STRICT RULE\n"
-"test_data MUST be a JSON object.\n\n"
+"stepDetails.expected_result:\n"
+"- maximum 15 words\n"
+"- short sentence only\n\n"
 
-"Allowed:\n"
+"requirements:\n"
+"- only requirement IDs\n\n"
 
+"test_data:\n"
+"- use a JSON object with meaningful keys\n"
+"- Example:\n"
 "{\n"
-"  \"email\": \"john@example.com\",\n"
-"  \"password\": \"ValidPass123!\",\n"
-"  \"username\": \"john-doe\",\n"
-"  \"country\": \"Tunisia\"\n"
+'  "email": "user@test.com",\n'
+'  "password": "Password123",\n'
+'  "username": "user123",\n'
+'  "country": "Albania"\n'
 "}\n\n"
 
-"Forbidden:\n"
+"Do NOT return test_data as a list.\n"
+"Do NOT return long explanations.\n"
+"Do NOT return paragraphs.\n"
+"Generate between 3 and 5 test cases maximum.\n\n"
 
-"[\"email\",\"password\"]\n\n"
+        "### EXAMPLE\n"
+        f"{example}\n\n"
 
-"Forbidden:\n"
+        "### PROJECT\n"
+        f"{project_block}\n\n"
 
-"{\n"
-"  \"values\": [\"john@example.com\"]\n"
-"}\n\n"
+        "### UI STYLE\n"
+        f"{style_block}\n\n"
 
-"The AI must always use named fields.\n"
-"Never return arrays for test_data.\n\n"
-"### CRITICAL TEST DATA MAPPING RULE\n"
-"The AI must NEVER return test_data as:\n"
-
-"[\n"
-"  \"john@example.com\",\n"
-"  \"password123\"\n"
-"]\n\n"
-
-"or\n\n"
-
-"[\n"
-"  \"value1\",\n"
-"  \"value2\"\n"
-"]\n\n"
-
-"or\n\n"
-
-"{\n"
-"  \"data\": [\"john@example.com\"]\n"
-"}\n\n"
-
-"The AI must ALWAYS return named fields.\n\n"
-
-"Correct:\n\n"
-
-"{\n"
-"  \"email\": \"john@example.com\",\n"
-"  \"password\": \"ValidPass123!\",\n"
-"  \"username\": \"john-doe\",\n"
-"  \"country\": \"Tunisia\"\n"
-"}\n\n"
-
-"Incorrect:\n\n"
-
-"[\n"
-"  \"john@example.com\",\n"
-"  \"ValidPass123!\"\n"
-"]\n\n"
-    "### REDUNDANCY RULE\n"
-    "Do not generate separate test cases that validate the same workflow.\n"
-    "Merge related validations whenever appropriate.\n\n"
-
-    "Prefer:\n"
-    "- Successful Registration\n"
-    "- Invalid Email During Registration\n"
-    "- Weak Password During Registration\n"
-    "- Invalid Username During Registration\n"
-    "- Missing Required Field During Registration\n\n"
-
-    "Instead of:\n"
-    "- Verify Email Field\n"
-    "- Verify Password Field\n"
-    "- Verify Username Field\n\n"
-
-    "### EXPECTED RESULT RULE\n"
-    "Expected results must validate business behavior.\n"
-    "Do not validate only UI interactions.\n\n"
-
-    "Bad examples:\n"
-    "- Button clicked successfully\n"
-    "- Value entered successfully\n\n"
-
-    "Good examples:\n"
-    "- Registration proceeds to the next step\n"
-    "- Email validation error is displayed\n"
-    "- Account is created successfully\n"
-    "- Username is rejected because it already exists\n\n"
-
-    "### OUTPUT FORMAT STRICT\n"
-    "Output ONLY valid JSON.\n"
-    "No markdown.\n"
-    "No explanation.\n\n"
-
-    "Return:\n"
-    "{ \"test_cases\": [] }\n\n"
-
-    "Each test case MUST contain EXACTLY:\n"
-"- id\n"
-"- title\n"
-"- objective\n"
-"- preconditions\n"
-"- steps\n"
-"- stepDetails\n"
-"- expected_result\n"
-"- test_data\n"
-"- priority\n"
-"- severity\n"
-"- type\n"
-"- requirements\n\n"
-
-    "### PRIORITY VALUES\n"
-    "Critical | High | Medium | Low\n\n"
-
-    "### SEVERITY VALUES\n"
-    "Blocker | Critical | Major | Minor | Trivial\n\n"
-
-    "### TYPE VALUES\n"
-    "Positive | Negative | Boundary | Validation | Error handling | Permission\n\n"
-
-    "### NAVIGATION RULE\n"
-    "Steps containing open, navigate, go to, access must only reference pages.\n"
-    "Never include URLs.\n\n"
-
-    "### EXAMPLE\n"
-    f"{example}\n\n"
-
-    "### TEST PLAN\n"
-    f"- id: {plan_id}\n"
-    f"- title: {plan_title}\n"
-    f"- description: {plan_description}\n\n"
-
-    "### PROJECT\n"
-    f"{project_block}\n\n"
-
-    "### UI STYLE\n"
-    f"{style_block}\n\n"
-
-    "### LINKED REQUIREMENTS\n"
-    + "\n".join(req_lines)
-    + "\n\n"
-
-    "### SPECIFICATION\n"
-    + "\n\n".join(chunk_lines)
-    + "\n\n"
-
-    "[/INST]"
-)
+        "[/INST]"
+    )

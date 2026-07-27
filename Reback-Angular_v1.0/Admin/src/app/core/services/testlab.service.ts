@@ -47,6 +47,20 @@ export interface TestExecutionDto {
   updatedAt?: string
 }
 
+export interface SpecificationContentDto {
+  fileName: string
+  content: string
+}
+interface GenerateTestCasesPayload {
+  testSuiteId: string
+  planId: string
+  planTitle?: string
+  planDescription?: string
+  specText?: string
+  regenerate?: boolean
+  generationRequestId?: string
+}
+
 @Injectable({ providedIn: 'root' })
 export class TestLabService {
   private api = inject(ApiService)
@@ -61,26 +75,24 @@ export class TestLabService {
     return this.api.getBlob(`/api/ollama/testsuite/${testSuiteId}/spec-document`)
   }
 
-generateTestCases(payload: {
-  testSuiteId: string
-  planId: string
-  planTitle?: string
-  planDescription?: string
-  specText?: string
-  regenerate?: boolean
-  generationRequestId?: string
-}): Observable<GenerateTestCasesResponse> {
-  const body: any = {
+generateTestCases(
+  payload: GenerateTestCasesPayload
+): Observable<GenerateTestCasesResponse> {
+  const body = {
     testSuiteId: payload.testSuiteId,
     planId: payload.planId,
     planTitle: payload.planTitle || '',
-    planDescription: payload.planDescription || '',  // ✅ ajouté
-    specText: payload.specText || '',                // ✅ ajouté (alias Pydantic)
-    spec_text: payload.specText || payload.planDescription || '', // ✅ gardé
+    planDescription: payload.planDescription || '',
+    specText: payload.specText || '',
+    spec_text: payload.specText || payload.planDescription || '',
     regenerate: payload.regenerate ?? false,
     generationRequestId: payload.generationRequestId || '',
   }
-  return this.api.post<GenerateTestCasesResponse>(`/api/ollama/generate-test-cases`, body)
+
+  return this.api.post<GenerateTestCasesResponse>(
+    `/api/ollama/generate-test-cases`,
+    body
+  )
 }
 
   cancelGeneration(payload: {
@@ -158,21 +170,18 @@ createSuiteWithPlans(payload: {
   projectId: string
   name: string
   testPlans: TestPlanDto[]
-  planStatuses: Record<string, any>
-
-  // ✅ AJOUT ICI
+  planStatuses: Record<string, string>
   specText?: string
   fileName?: string
 }) {
-  
-return this.api.post<{ testSuiteId: string }>(
-  `/api/testsuites/save-plans`,
-  {
-    ...payload,
-    testPlans: JSON.stringify(payload.testPlans),
-    planStatuses: JSON.stringify(payload.planStatuses)
-  }
-)
+  return this.api.post<{ testSuiteId: string }>(
+    `/api/testsuites/save-plans`,
+    {
+      ...payload,
+      testPlans: JSON.stringify(payload.testPlans),
+      planStatuses: JSON.stringify(payload.planStatuses),
+    }
+  )
 }
 
   // POST multipart form when uploading a spec file
@@ -254,6 +263,24 @@ return this.api.post<{ testSuiteId: string }>(
     })
   }
 
+deleteTestCase(id: string) {
+  return this.api.delete<{ message: string }>(`/api/testsuites/cases/${id}`)
+}
 
+  getSpecificationContent(testSuiteId: string): Observable<SpecificationContentDto> {
+    return this.api.get<SpecificationContentDto>(
+      `/api/specifications/${testSuiteId}/content`
+    )
+  }
+
+  updateSpecificationContent(
+    testSuiteId: string,
+    content: string
+  ): Observable<{ message?: string; fileName?: string; content?: string }> {
+    return this.api.put<{ message?: string; fileName?: string; content?: string }>(
+      `/api/specifications/${testSuiteId}/content`,
+      { content }
+    )
+  }
 
 }

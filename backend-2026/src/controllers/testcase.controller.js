@@ -1,5 +1,5 @@
 const testCaseService = require('../services/testcase.service')
-
+const MESSAGES = require('../constants/messages')
 exports.create = async (req, res) => {
   try {
     const testCase = await testCaseService.createTestCase(req.body)
@@ -44,7 +44,7 @@ exports.delete = async (req, res) => {
     await testCaseService.deleteTestCase(req.params.id)
 
     res.status(200).json({
-      message: 'TestCase deleted successfully',
+      message: MESSAGES.TESTCASES.DELETED,
     })
   } catch (error) {
     res.status(error.statusCode || 500).json({

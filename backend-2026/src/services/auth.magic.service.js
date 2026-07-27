@@ -113,7 +113,7 @@ const sendForgotPasswordEmail = async (email) => {
         const info = await transporter.sendMail({
             from: '"Support" <support@test.com>',
             to: normalizedEmail,
-            subject: 'Réinitialiser votre mot de passe',
+            subject: 'Reset your password',
             html: htmlContent,
         });
 

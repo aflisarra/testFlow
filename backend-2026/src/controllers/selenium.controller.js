@@ -1,16 +1,20 @@
 const mongoose = require('mongoose')
 const TestExecution = require('../models/TestExecution.model')
+const TestSuite = require('../models/testsuite')
+const TestPlan = require('../models/testplan.model')
+const Project = require('../models/project.model')
+const ProjectInvitation = require('../models/projectInvitation.model')
 const User = require('../models/user.model')
 const { runTestCase } = require('../services/selenium/selenium.service')
 const { cancelExecution } = require('../services/selenium/cancellation.manager')
 const { buildTestSuiteReportPdf } = require('../services/selenium/report.service')
-
+const  MESSAGES = require('../constants/messages.js')
 // ✅ AJOUT
 const testCaseService = require('../services/testcase.service')
 
 function normalizeUserPreview(user) {
   if (!user) return null
-  const source = user?.user && typeof user.user === 'object' ? user.user : user
+  const source = user?.user && typeof user.user === MESSAGES.CONSOLE.OBJECT ? user.user : user
   const firstName = String(source?.firstName || '').trim()
   const lastName = String(source?.lastName || '').trim()
   const fullName = String(source?.fullName || source?.name || source?.nom || '').trim()
@@ -27,7 +31,7 @@ function normalizeUserPreview(user) {
 
 function normalizeScreenshotEntry(screenshot) {
   if (!screenshot) return null
-  if (typeof screenshot === 'string') {
+  if (typeof screenshot === MESSAGES.CONSOLE.STRING) {
     const value = screenshot.trim()
     if (!value) return null
     return {
@@ -37,7 +41,7 @@ function normalizeScreenshotEntry(screenshot) {
       createdAt: '',
     }
   }
-  if (typeof screenshot === 'object') {
+  if (typeof screenshot === MESSAGES.CONSOLE.OBJECT) {
     const path = String(screenshot.path || screenshot.publicUrl || screenshot.url || '').trim()
     if (!path && !screenshot.filename) return null
     return {
@@ -73,7 +77,7 @@ async function resolveActor(req) {
   if (!userId) return fromToken
 
   try {
-    const user = await User.findById(userId).select('name picture email').lean()
+    const user = await User.findById(userId).select(MESSAGES.USER.NAME_PICTURE).lean()
     if (!user) return fromToken
     return {
       userId,
@@ -106,19 +110,19 @@ async function runTestCaseHandler(req, res) {
     } else if (body.planId) {
       const casesFromDB = await testCaseService.getByPlan(body.planId)
       if (!casesFromDB.length) {
-        return res.status(404).json({ status: 'error', message: 'No test cases found for this plan' })
+        return res.status(404).json({ status: MESSAGES.STATUSTEST.ERROR, message: MESSAGES.TESTCASES.NO_TEST_CASES })
       }
       testCase = casesFromDB[0]
     }
 
     if (!testCase || !Array.isArray(testCase.steps) || !testCase.steps.length) {
-      return res.status(400).json({ status: 'error', message: 'testCase.steps is required' })
+      return res.status(400).json({ status: MESSAGES.STATUSTEST.ERROR, message: MESSAGES.TESTCASES.STEPS_REQUIRED })
     }
 
     // ─── Passe l'executionId au service ────────────────────────────────────
     const result = await runTestCase({ ...testCase, executionId: generatedExecutionId })
 
-    const safeResult = result || { status: 'failed_execution', logs: [], stepResults: [] }
+    const safeResult = result || { status: MESSAGES.STATUSTEST.FAILED_EXECUTION, logs: [], stepResults: [] }
     const finishedAt = new Date()
     const duration = Math.round((Date.now() - startedAt) / 1000)
     const suiteId = testCase?.testSuiteId || null
@@ -129,10 +133,10 @@ async function runTestCaseHandler(req, res) {
       testCaseTitle: testCase.title || '',
       planKey: testCase.planId ? String(testCase.planId) : '',
       planTitle: testCase.planTitle || '',
-      status: safeResult.status === 'passed' ? 'passed'
-        : safeResult.status === 'aborted' ? 'aborted'       // ← ajoute aborted
-        : safeResult.status === 'failed_assertion' ? 'failed_assertion'
-        : 'failed_execution',
+      status: safeResult.status === MESSAGES.STATUSTEST.PASSED ? MESSAGES.STATUSTEST.PASSED
+        : safeResult.status === MESSAGES.STATUSTEST.ABORTED ? MESSAGES.STATUSTEST.ABORTED     // ← ajoute aborted
+        : safeResult.status === MESSAGES.STATUSTEST.FAILED_ASSERTION ? MESSAGES.STATUSTEST.FAILED_ASSERTION
+        : MESSAGES.STATUSTEST.FAILED_EXECUTION,
       duration,
       startedAt: new Date(startedAt),
       finishedAt,
@@ -154,7 +158,7 @@ async function runTestCaseHandler(req, res) {
       try {
         await TestExecution.create(executionData)
       } catch (dbErr) {
-        console.error('⚠️ Execution save failed:', dbErr)
+        console.error(MESSAGES.SELENIUM.EXECTION_FAILED_SAVE, dbErr)
       }
     }
 
@@ -165,8 +169,8 @@ async function runTestCaseHandler(req, res) {
 })
 
   } catch (err) {
-    console.error('❌ CONTROLLER ERROR:', err)
-    return res.status(500).json({ status: 'error', message: err.message })
+    console.error(MESSAGES.TESTPLAN.CONTROLLER_ERROR, err)
+    return res.status(500).json({ status: MESSAGES.STATUSTEST.ERROR, message: err.message })
   }
 }
 async function getExecutions(req, res) {
@@ -187,6 +191,31 @@ async function getExecutions(req, res) {
     limit = parseInt(limit)
 
     const query = {}
+    const viewerUserId = String(req.user?.userId || req.user?.id || req.user?._id || '').trim()
+
+    // Do not expose inaccessible executions in history/analytics. We narrow
+    // the database query to suites belonging to a project the user owns or is
+    // assigned to; personal suites are visible only to their creator.
+    if (!viewerUserId) {
+      return res.json({ success: true, data: [], total: 0, page, limit })
+    }
+
+    const acceptedInvitations = await ProjectInvitation.find({
+      userId: viewerUserId,
+      status: 'accepted',
+    }).select('projectId').lean()
+    const acceptedProjectIds = acceptedInvitations.map((invitation) => invitation.projectId)
+    const accessibleProjects = await Project.find({
+      $or: [{ ownerId: viewerUserId }, { _id: { $in: acceptedProjectIds } }],
+    }).select('_id').lean()
+    const accessibleProjectIds = accessibleProjects.map((project) => project._id)
+    const accessibleSuites = await TestSuite.find({
+      $or: [
+        { projectId: { $in: accessibleProjectIds } },
+        { projectId: null, userId: viewerUserId },
+      ],
+    }).select('_id').lean()
+    query.testSuiteId = { $in: accessibleSuites.map((suite) => suite._id) }
 
     // ✅ STATUS
     if (status) {
@@ -195,7 +224,11 @@ async function getExecutions(req, res) {
 
     // ✅ SUITE
     if (testSuiteId && mongoose.Types.ObjectId.isValid(testSuiteId)) {
-      query.testSuiteId = new mongoose.Types.ObjectId(testSuiteId)
+      const requestedSuiteId = String(testSuiteId)
+      const isAccessible = accessibleSuites.some((suite) => String(suite._id) === requestedSuiteId)
+      query.testSuiteId = isAccessible
+        ? new mongoose.Types.ObjectId(requestedSuiteId)
+        : { $in: [] }
     }
 
     // ✅ PROJECT seulement si pas de suite sélectionnée
@@ -209,12 +242,12 @@ async function getExecutions(req, res) {
       const suites = await TestSuite.find({
         projectId: new mongoose.Types.ObjectId(project)
       })
-        .select('_id')
+        .select(MESSAGES.USER.ID)
         .lean()
 
       const suiteIds = suites.map((s) => s._id)
 
-      query.testSuiteId = { $in: suiteIds }
+      query.testSuiteId = { $in: suiteIds.filter((suiteId) => accessibleSuites.some((suite) => String(suite._id) === String(suiteId))) }
     }
 
     // ✅ PLAN
@@ -247,7 +280,7 @@ async function getExecutions(req, res) {
       }
     }
 
-    console.log('🔎 FILTER QUERY FINAL:', query)
+    console.log(MESSAGES.CONSOLE.FILTER_QUERY, query)
 
     const skip = (page - 1) * limit
 
@@ -261,12 +294,45 @@ async function getExecutions(req, res) {
       TestExecution.countDocuments(query)
     ])
 
-    const data = executions.map((row) => ({
+    // Execution documents only keep the suite id. Resolve the suite and its
+    // project once for this page so the dashboard can display database names.
+    const suiteIds = [...new Set(executions.map((row) => String(row.testSuiteId || '')).filter(Boolean))]
+    const suites = suiteIds.length
+      ? await TestSuite.find({ _id: { $in: suiteIds } }).populate('projectId', 'title').lean()
+      : []
+    const suitesById = new Map(suites.map((suite) => [String(suite._id), suite]))
+
+    const planIds = [...new Set(executions.map((row) => String(row.planId || '')).filter(Boolean))]
+    const mongoPlanIds = planIds.filter((id) => mongoose.Types.ObjectId.isValid(id))
+    const plans = planIds.length
+      ? await TestPlan.find({
+          $or: [
+            ...(mongoPlanIds.length ? [{ _id: { $in: mongoPlanIds } }] : []),
+            { id: { $in: planIds } },
+          ],
+        }).select('_id id title').lean()
+      : []
+    const plansById = new Map()
+    plans.forEach((plan) => {
+      plansById.set(String(plan._id), plan)
+      plansById.set(String(plan.id), plan)
+    })
+
+    const data = executions.map((row) => {
+      const suite = suitesById.get(String(row.testSuiteId || ''))
+      const project = suite?.projectId && typeof suite.projectId === 'object' ? suite.projectId : null
+      const plan = plansById.get(String(row.planId || ''))
+
+      return {
       executionId: row.executionId,
       testSuiteId: String(row.testSuiteId || ''),
+      testSuiteName: suite?.nom || suite?.nametest || '',
+      projectName: project?.title || '',
       planId: String(row.planId || ''),
       planKey: row.planKey || '',
-      planTitle: row.planTitle || '',
+      // The plan document is the source of truth; older executions may have
+      // stored the plan identifier in planTitle.
+      planTitle: plan?.title || row.planTitle || '',
       testCaseId: String(row.testCaseId || ''),
       testCaseKey: row.testCaseKey || '',
       testCaseTitle: row.testCaseTitle || '',
@@ -282,11 +348,9 @@ async function getExecutions(req, res) {
         getActorName(row.user) ||
         String(row.userName || '').trim() ||
         '',
-
-         // ✅ AJOUTE CES DEUX LIGNES
-  executedBy: row.executedBy || row.createdBy || null,
-  executedByPicture: row.executedBy?.picture || row.createdBy?.picture || null,
-    }))
+      executedByPicture: row.executedBy?.picture || row.createdBy?.picture || null,
+    }
+    })
 
     return res.json({
       success: true,
@@ -297,11 +361,11 @@ async function getExecutions(req, res) {
     })
 
   } catch (err) {
-    console.error('❌ getExecutions:', err)
+    console.error(MESSAGES.SELENIUM.GET_EXECUTIONS_ERROR, err)
 
     return res.status(500).json({
       success: false,
-      message: 'Error fetching executions'
+      message: MESSAGES.SELENIUM.ERROR_FETCHING
     })
   }
 }
@@ -316,7 +380,7 @@ exports.getExecutionDetail = async (req, res) => {
       .lean()
 
     if (!execution) {
-      return res.status(404).json({ message: 'Execution not found' })
+      return res.status(404).json({ message: MESSAGES.SELENIUM.NOT_FOUND })
     }
 
     const rawSteps = execution.stepsResults || execution.stepResults || []
@@ -329,7 +393,7 @@ exports.getExecutionDetail = async (req, res) => {
       : rawScreenshots.map((shot, index) => ({
           index: index + 1,
           step: `Step ${index + 1}`,
-          status: 'passed',
+          status: MESSAGES.STATUSTEST.PASSED,
           screenshot: shot,
           screenshotPath: shot.publicUrl || shot.path || '',
           actualResult: '',
@@ -346,9 +410,9 @@ exports.getExecutionDetail = async (req, res) => {
 
       screenshotPath:
         step.screenshot?.publicUrl ||
-        (typeof step.screenshot === 'string' ? step.screenshot : null) ||
+        (typeof step.screenshot === MESSAGES.CONSOLE.STRING ? step.screenshot : null) ||
         step.screenshot?.path ||
-        (typeof step.screenshotPath === 'string' ? step.screenshotPath : null) ||
+        (typeof step.screenshotPath === MESSAGES.CONSOLE.STRING ? step.screenshotPath : null) ||
         null,
 
       screenshot: step.screenshot || null,
@@ -360,7 +424,7 @@ exports.getExecutionDetail = async (req, res) => {
       expectedResult: step.expectedResult || ''
     }))
 
-    console.log('✅ DETAIL STEPS SENT:', steps)
+    console.log(MESSAGES.SELENIUM.DETAILS_SENT, steps)
 
     const logs = (execution.logs || []).map(log => ({
       timestamp: log.timestamp || new Date().toISOString(),
@@ -392,7 +456,7 @@ exports.getExecutionDetail = async (req, res) => {
     })
 
   } catch (error) {
-    console.error('🔥 getExecutionDetail error:', error)
+    console.error(MESSAGES.SELENIUM.GET_EXECUTION_DETAIL_ERROR, error)
     res.status(500).json({ message: error.message })
   }
 }
@@ -403,7 +467,7 @@ async function abortExecution(req, res) {
     const { executionId } = req.params
 
     if (!executionId) {
-      return res.status(400).json({ message: 'executionId required' })
+      return res.status(400).json({ message: MESSAGES.SELENIUM.EXECUTION_ID_REQUIRED })
     }
 
     // ─── Annule le process Selenium en cours ───────────────────────────────
@@ -413,18 +477,18 @@ async function abortExecution(req, res) {
     // ─── Met à jour le statut en DB ────────────────────────────────────────
     const updated = await TestExecution.findOneAndUpdate(
       { executionId },
-      { $set: { status: 'aborted', finishedAt: new Date() } },
+      { $set: { status: MESSAGES.STATUSTEST.ABORTED, finishedAt: new Date() } },
       { new: true }
     ).lean()
 
     return res.json({
       success: true,
-      status: 'aborted',
+      status: MESSAGES.STATUSTEST.ABORTED,
       executionId,
       found: Boolean(updated),
     })
   } catch (err) {
-    console.error('❌ abortExecution:', err)
+    console.error(MESSAGES.SELENIUM.ABORT_EXECUTION_ERROR, err)
     return res.status(500).json({ message: err.message })
   }
 }
@@ -433,7 +497,7 @@ async function downloadTestSuiteReport(req, res) {
   try {
     const testSuiteId = String(req.params.testSuiteId || '').trim()
     if (!mongoose.Types.ObjectId.isValid(testSuiteId)) {
-      return res.status(400).json({ message: 'Valid testSuiteId required' })
+      return res.status(400).json({ message: MESSAGES.TESTSUITE.TESTSUITE_ID_REQUIRED })
     }
 
     const pdfBuffer = await buildTestSuiteReportPdf(testSuiteId)
@@ -443,16 +507,92 @@ async function downloadTestSuiteReport(req, res) {
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`)
     return res.status(200).send(pdfBuffer)
   } catch (error) {
+    console.error('downloadTestSuiteReport error:', error)
     const status = error?.statusCode || 500
     return res.status(status).json({ message: error.message || 'Failed to generate report' })
   }
 }
 
-// Ajoute à module.exports
+async function getTrend(req, res) {
+  try {
+    const days = Number(req.query.days) || 7
+    const { project, testSuiteId, planId } = req.query
+
+    const since = new Date()
+    since.setDate(since.getDate() - (days - 1))
+    since.setHours(0, 0, 0, 0)
+
+    const match = { startedAt: { $gte: since } }
+
+    if (testSuiteId && mongoose.Types.ObjectId.isValid(testSuiteId)) {
+      match.testSuiteId = new mongoose.Types.ObjectId(testSuiteId)
+    } else if (project && mongoose.Types.ObjectId.isValid(project)) {
+      const TestSuite = require('../models/testsuite')
+      const suites = await TestSuite.find({ projectId: new mongoose.Types.ObjectId(project) })
+        .select(MESSAGES.USER.ID)
+        .lean()
+      match.testSuiteId = { $in: suites.map((s) => s._id) }
+    }
+
+    if (planId && mongoose.Types.ObjectId.isValid(planId)) {
+      match.planId = new mongoose.Types.ObjectId(planId)
+    }
+
+    const raw = await TestExecution.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: {
+            day: { $dateToString: { format: MESSAGES.DATE.FORME_DATE, date: MESSAGES.DATE.START_DATE } },
+            status: MESSAGES.DATE.STATUS,
+          },
+          count: { $sum: 1 },
+        },
+      },
+    ])
+
+    const dayList = []
+    for (let i = 0; i < days; i++) {
+      const d = new Date(since)
+      d.setDate(d.getDate() + i)
+      dayList.push(d.toISOString().slice(0, 10))
+    }
+
+    const data = dayList.map((day) => {
+      const passed = raw.find((r) => r._id.day === day && r._id.status === MESSAGES.STATUSTEST.PASSED)?.count || 0
+      const failed = raw
+        .filter((r) => r._id.day === day && r._id.status === MESSAGES.STATUSTEST.FAIL)
+        .reduce((sum, r) => sum + r.count, 0)
+      return { day, passed, failed }
+    })
+
+    return res.json({ data })
+  } catch (error) {
+    console.error('❌ getTrend:', error)
+    return res.status(500).json({ message: error.message })
+  }
+}
+
+async function getTypeBreakdown(req, res) {
+  try {
+    const filters = {
+      testSuiteId: req.query.testSuiteId,
+      planId: req.query.planId,
+    }
+    const data = await testCaseService.getTypeBreakdown(filters)
+    return res.json({ data })
+  } catch (error) {
+    console.error('❌ getTypeBreakdown:', error)
+    return res.status(500).json({ message: error.message })
+  }
+}
+
 module.exports = {
   runTestCaseHandler,
   getExecutions,
   getExecutionDetail: exports.getExecutionDetail,
-  abortExecution,   // ← ajoute ici
+  abortExecution,   
   downloadTestSuiteReport,
+  getTypeBreakdown,
+  getTrend
 }
