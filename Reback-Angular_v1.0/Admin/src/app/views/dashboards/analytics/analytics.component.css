@@ -128,6 +128,7 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
+  border-inline-start: 3px solid transparent;
 }
 
 .metric-label {
@@ -199,7 +200,6 @@
 
 .filter-select-wrapper select {
   appearance: none;
-  appearance: none;
   block-size: 36px;
   padding: 0 30px 0 10px;
   border: 1px solid #e5e7eb;
@@ -214,9 +214,9 @@
 }
 
 .filter-select-wrapper select:focus {
-  border-color: #6366f1;
+  border-color: #185fa5;
   background: #fff;
-  box-shadow: 0 0 0 3px rgb(99 102 241 / 8%);
+  box-shadow: 0 0 0 3px rgb(24 95 165 / 10%);
 }
 
 .filter-select-wrapper select:disabled {
@@ -264,7 +264,15 @@
   background: linear-gradient(135deg, #ec8a00 0%, #d67900 100%);
 }
 
+.btn-apply:hover {
+  background: linear-gradient(135deg, #ec8a00 0%, #d67900 100%);
+}
+
 .btn-apply:active:not(:disabled) {
+  background: #d67900;
+}
+
+.btn-apply:active {
   background: #d67900;
 }
 
@@ -274,9 +282,6 @@
   box-shadow: none;
   transform: none;
 }
-
-.btn-apply:hover { background: #4f46e5; }
-.btn-apply:active { background: #4338ca; }
 
 /* ─── Table Wrapper ──────────────────────────────────────────────────────────── */
 .table-wrapper {
@@ -331,7 +336,9 @@
 /* Colored left-border per status on hover */
 .exec-table tbody tr.row-passed:hover          { border-inline-start-color: #059669; }
 .exec-table tbody tr.row-failed:hover          { border-inline-start-color: #dc2626; }
+/* stylelint-disable-next-line selector-class-pattern -- mirrors backend status enum "failed_execution", referenced verbatim in the template */
 .exec-table tbody tr.row-failed_execution:hover{ border-inline-start-color: #dc2626; }
+/* stylelint-disable-next-line selector-class-pattern -- mirrors backend status enum "failed_assertion", referenced verbatim in the template */
 .exec-table tbody tr.row-failed_assertion:hover{ border-inline-start-color: #d97706; }
 .exec-table tbody tr.row-running:hover         { border-inline-start-color: #6366f1; }
 .exec-table tbody tr.row-aborted:hover         { border-inline-start-color: #9ca3af; }
@@ -421,14 +428,18 @@
 .status-badge.status-failed           { background: #fef2f2; color: #991b1b; }
 .status-badge.status-failed .status-dot { background: #dc2626; }
 
+/* stylelint-disable-next-line selector-class-pattern -- mirrors backend status enum "failed_execution", referenced verbatim in the template */
 .status-badge.status-failed_execution { background: #fef2f2; color: #991b1b; }
+/* stylelint-disable-next-line selector-class-pattern -- mirrors backend status enum "failed_execution", referenced verbatim in the template */
 .status-badge.status-failed_execution .status-dot { background: #dc2626; }
 
+/* stylelint-disable-next-line selector-class-pattern -- mirrors backend status enum "failed_assertion", referenced verbatim in the template */
 .status-badge.status-failed_assertion { background: #fffbeb; color: #92400e; }
+/* stylelint-disable-next-line selector-class-pattern -- mirrors backend status enum "failed_assertion", referenced verbatim in the template */
 .status-badge.status-failed_assertion .status-dot { background: #d97706; }
 
-.status-badge.status-running          { background: #eef2ff; color: #3730a3; }
-.status-badge.status-running .status-dot { background: #6366f1; }
+.status-badge.status-running          { background: #e6f1fb; color: #0c447c; }
+.status-badge.status-running .status-dot { background: #185fa5; }
 
 .status-badge.status-aborted          { background: #f9fafb; color: #4b5563; }
 .status-badge.status-aborted .status-dot { background: #9ca3af; }
@@ -465,9 +476,9 @@
 }
 
 .btn-view:hover {
-  border-color: #6366f1;
-  color: #6366f1;
-  background: #eef2ff;
+  border-color: #185fa5;
+  color: #185fa5;
+  background: #e6f1fb;
 }
 
 /* ─── Empty State ────────────────────────────────────────────────────────────── */
@@ -526,8 +537,8 @@
 }
 
 .page-btn:hover:not(:disabled) {
-  border-color: #6366f1;
-  color: #6366f1;
+  border-color: #185fa5;
+  color: #185fa5;
 }
 
 .page-btn:disabled {
@@ -536,8 +547,8 @@
 }
 
 .page-btn.page-active {
-  background: #6366f1;
-  border-color: #6366f1;
+  background: #185fa5;
+  border-color: #185fa5;
   color: #fff;
   font-weight: 600;
 }
@@ -571,42 +582,7 @@
   color: #d1d5db;
 }
 
-/* ─── Recolor existing accents to match blue/orange theme ────────────────────── */
-.btn-apply {
-  background: linear-gradient(135deg, #f0a020 0%, #ec8a00 100%);
-  box-shadow: 0 1px 3px rgb(236 138 0 / 28%);
-}
-.btn-apply:hover { background: linear-gradient(135deg, #ec8a00 0%, #d67900 100%); }
-.btn-apply:active { background: #d67900; }
-
-.filter-select-wrapper select:focus {
-  border-color: #185fa5;
-  box-shadow: 0 0 0 3px rgb(24 95 165 / 10%);
-}
-
-.page-btn:hover:not(:disabled) {
-  border-color: #185fa5;
-  color: #185fa5;
-}
-
-.page-btn.page-active {
-  background: #185fa5;
-  border-color: #185fa5;
-}
-
-.btn-view:hover {
-  border-color: #185fa5;
-  color: #185fa5;
-  background: #e6f1fb;
-}
-
-.status-badge.status-running { background: #e6f1fb; color: #0c447c; }
-.status-badge.status-running .status-dot { background: #185fa5; }
-
 /* ─── Metric cards — colored left border accents ──────────────────────────────── */
-.metric-card {
-  border-inline-start: 3px solid transparent;
-}
 .metric-card--total { border-inline-start-color: #185fa5; }
 .metric-card--pass  { border-inline-start-color: #059669; }
 .metric-card--fail  { border-inline-start-color: #ec8a00; }

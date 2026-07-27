@@ -1677,33 +1677,19 @@ export class ExecutionComponent implements OnInit, OnDestroy {
     }
   }
 
-  showDomModal = false;
+showDomModal = false;
   domModalTab: 'dom' | 'actions' = 'dom';
-  actionTab: 'simple' | 'selenium' = 'simple';
   aiActions: EditableAiAction[] = [];
-  seleniumCode = '';
 
-  setActionTab(tab: 'simple' | 'selenium'): void {
-    this.actionTab = tab;
-    this.cdr.markForCheck();
-  }
 
-  private extractSeleniumCode(): string {
-    const log = [...this.rawExecutionLogs]
-      .reverse()
-      .find(x => {
-        const data = x?.data || {};
-        return !!data['seleniumCode'];
-      });
 
-    return String(log?.data?.['seleniumCode'] || '');
-  }
+
 
   // À ajouter avec les autres méthodes publiques
   openDomModal(): void {
     this.domModalTab = 'dom';
     this.aiActions = this.buildEditableActions();
-    this.seleniumCode = this.extractSeleniumCode();
+    
     this.showDomModal = true;
     this.cdr.markForCheck();
 
@@ -1802,13 +1788,7 @@ export class ExecutionComponent implements OnInit, OnDestroy {
     this.showSnackbar('✅ Action copiée dans le presse-papiers', 1800);
   }
 
-  applyEditedActions(): void {
-    if (this.actionTab === 'selenium') {
-      this.showSnackbar('Selenium code updated', 2000);
-      this.closeDomModal();
-      return;
-    }
-
+applyEditedActions(): void {
     const edited = this.aiActions.filter((a) => a.isEdited);
     if (!edited.length) {
       this.showSnackbar('Aucune modification à appliquer', 2000);

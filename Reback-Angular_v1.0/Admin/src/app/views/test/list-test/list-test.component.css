@@ -342,15 +342,45 @@
   inline-size: 32px;
   block-size: 32px;
   border-radius: 50%;
-  background: #e6f1fb;
+  overflow: hidden;
+  background: #e2e8f0;
   color: #185fa5;
   font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center; /* ✅ IMPORTANT */
+  flex-shrink: 0;
+  border: 2px solid #fff;
+  margin-inline-start: -8px;
+  text-align: center;
+  line-height: 32px;
+}
+
+.tv-avatar:first-child {
+  margin-inline-start: 0;
+}
+
+.tv-avatar img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tv-avatar-more {
+  background: #cbd5f5;
+  color: #1e40af;
+}
+
+.tv-avatar-text {
+  font-size: 11px;
   font-weight: 700;
+  color: #1e293b;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  border: 2px solid #b5d4f4;
+  inline-size: 100%;
 }
 
 .tv-user-name {
@@ -965,36 +995,7 @@
   align-items: center;
 }
 
-.tv-avatar {
-  inline-size: 32px;
-  block-size: 32px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: #e2e8f0;
-  border: 2px solid #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 600;
-  margin-inline-start: -8px;
-}
-
-.tv-avatar:first-child {
-  margin-inline-start: 0;
-}
-
-.tv-avatar img {
-  inline-size: 100%;
-  block-size: 100%;
-  object-fit: cover;
-}
-
 /* +N */
-.tv-avatar-more {
-  background: #cbd5f5;
-  color: #1e40af;
-}
 
 /* PROGRESS */
 .tv-progress-wrapper {
@@ -1021,137 +1022,6 @@
   justify-content: space-between;
   font-size: 11px;
   color: #64748b;
-}
-
-/* HEADER */
-.tv-project-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-block-end: 12px;
-}
-
-/* MEMBERS STACK */
-.tv-project-members {
-  display: flex;
-  align-items: center;
-}
-
-.tv-avatar {
-  inline-size: 32px;
-  block-size: 32px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: #e2e8f0;
-  border: 2px solid #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 600;
-  margin-inline-start: -8px;
-}
-
-.tv-avatar:first-child {
-  margin-inline-start: 0;
-}
-
-.tv-avatar img {
-  inline-size: 100%;
-  block-size: 100%;
-  object-fit: cover;
-}
-
-/* +N */
-.tv-avatar-more {
-  background: #cbd5f5;
-  color: #1e40af;
-}
-
-/* PROGRESS */
-.tv-progress-wrapper {
-  margin-block-start: 10px;
-}
-
-.tv-progress-bar {
-  block-size: 6px;
-  background: #e2e8f0;
-  border-radius: 99px;
-  overflow: hidden;
-  margin-block-end: 6px;
-}
-
-.tv-progress-fill {
-  block-size: 100%;
-  background: #1e40af;
-  transition: width 0.3s ease;
-}
-
-/* ROW */
-.tv-progress-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: #64748b;
-}
-
-.tv-avatar {
-  inline-size: 32px;
-  block-size: 32px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: #e2e8f0;
-  border: 2px solid #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-inline-start: -8px;
-}
-
-.tv-avatar:first-child {
-  margin-inline-start: 0;
-}
-
-.tv-avatar img {
-  inline-size: 100%;
-  block-size: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.tv-avatar-text {
-  font-size: 11px;
-  font-weight: 600;
-  color: #1e293b;
-}
-
-.tv-avatar-more {
-  background: #cbd5f5;
-  color: #1e40af;
-}
-
-.tv-avatar {
-  inline-size: 32px;
-  block-size: 32px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: #e2e8f0;
-  border: 2px solid #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center; /* ✅ IMPORTANT */
-  text-align: center;
-  line-height: 32px;
-}
-
-.tv-avatar-text {
-  font-size: 11px;
-  font-weight: 700;
-  color: #1e293b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  inline-size: 100%;
 }
 
 /* ── Stacked Avatars ── */

@@ -22,12 +22,13 @@ module.exports = {
     /* =========================
        FLEXIBILITY FOR ANGULAR
     ========================= */
-    'selector-pseudo-class-no-unknown': [
-      true,
-      {
-        ignorePseudoClasses: ['ng-deep'],
-      },
-    ],
+  'selector-pseudo-class-no-unknown': true,
+'selector-pseudo-element-no-unknown': [
+  true,
+  {
+    ignorePseudoElements: ['ng-deep'],
+  },
+],
     'no-invalid-double-slash-comments': null,
     'at-rule-no-unknown': null,
     'scss/at-rule-no-unknown': true,

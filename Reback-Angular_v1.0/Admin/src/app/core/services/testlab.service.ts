@@ -46,6 +46,11 @@ export interface TestExecutionDto {
   createdAt?: string
   updatedAt?: string
 }
+
+export interface SpecificationContentDto {
+  fileName: string
+  content: string
+}
 interface GenerateTestCasesPayload {
   testSuiteId: string
   planId: string
@@ -261,5 +266,21 @@ createSuiteWithPlans(payload: {
 deleteTestCase(id: string) {
   return this.api.delete<{ message: string }>(`/api/testsuites/cases/${id}`)
 }
+
+  getSpecificationContent(testSuiteId: string): Observable<SpecificationContentDto> {
+    return this.api.get<SpecificationContentDto>(
+      `/api/specifications/${testSuiteId}/content`
+    )
+  }
+
+  updateSpecificationContent(
+    testSuiteId: string,
+    content: string
+  ): Observable<{ message?: string; fileName?: string; content?: string }> {
+    return this.api.put<{ message?: string; fileName?: string; content?: string }>(
+      `/api/specifications/${testSuiteId}/content`,
+      { content }
+    )
+  }
 
 }

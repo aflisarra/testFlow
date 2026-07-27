@@ -9,6 +9,13 @@ This is EXACTLY the format already expected by routers/ai_decision.py
 (_infer_test_data_from_dom, _dom_to_fill_actions, _dom_submit_action) —
 no changes are needed on the router side, its fallback logic "wakes up"
 automatically once it receives this format instead of an HTML string.
+
+NOTE: `rect` (x, y, width, height) captured below is what
+routers/ai_decision.py._enrich_actions() reads to attach a `position`
+field to every returned action, so the Selenium executor can fall back
+to on-screen coordinates (elementFromPoint) if the selector no longer
+resolves at execution time. No changes were needed here for that feature
+— the position data was already being captured.
 """
 
 from __future__ import annotations

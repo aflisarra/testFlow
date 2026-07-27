@@ -608,21 +608,27 @@ validation error.
 TEST DATA RULES
 ================================================
 
-Use only the provided TEST DATA, exactly as written.
+If TEST DATA contains an explicit value for a field, ALWAYS use that exact
+value. Never substitute demo credentials, values seen in the DOM, or values
+remembered from another test, and never override an explicit value with a
+generated one. If TEST DATA and the step disagree, TEST DATA wins.
 
-For credentials, use only the explicit username/email/password values supplied
-for this test case. Never substitute demo credentials, values seen in the DOM,
-or values remembered from another test. If the test data and the step disagree,
-the test data wins and the discrepancy must be handled outside this endpoint.
-
-If the required value is missing or ambiguous, return an empty action list.
-Do not generate realistic values and do not attempt a login with guessed data.
+If TEST DATA is completely empty for this test case (the TEST DATA block
+below is "[]", "{{}}" or empty), you MAY generate a plausible, clearly
+synthetic value appropriate for the field type so the step can still be
+executed (e.g. a realistic-looking name, a "name@example.com" style email,
+an "Ecommerce2025!" style password, a placeholder phone number, or a
+sensible dropdown choice that is already visible in the DOM). Prefer any
+option value that already appears in the DOM (select/option text) over an
+invented one. Never invent a value for a field that already has an
+explicit TEST DATA entry.
 
 
 TEST OBJECTIVE PRIORITY RULE
 
-The test objective must never authorize generating, changing, or overriding
-test data. Preserve the scenario provided by the tester.
+Preserve any test data explicitly provided by the tester — never override
+or replace an existing value. Only fill genuinely missing data as described
+above, so the step is not blocked purely for lack of data.
 
 ================================================
 ACTION CONSISTENCY

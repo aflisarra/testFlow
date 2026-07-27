@@ -194,12 +194,36 @@ def _find_matching_test_data(el, test_data_map):
     return best_value
 
 
-def _action_label_from_selector(selector: str, dom) -> str:
-    selector_text = str(selector or "").strip()
-    if selector_text.startswith("text="):
-        return selector_text[5:].strip()
+def _find_dom_element_by_selector(selector: str, dom):
+    """
+    Resolve a selector string (as produced by this module or by the LLM)
+    back to the DOM element dict it was built from. Used both to derive a
+    human-readable label and to attach the element's on-screen position
+    to the action, so the executor has a coordinate fallback if the
+    selector itself no longer matches at run time.
+    """
     if not isinstance(dom, list):
-        return ""
+        return None
+    selector_text = str(selector or "").strip()
+    if not selector_text:
+        return None
+
+    if selector_text.startswith("text="):
+        target_text = _normalize_text(selector_text[5:])
+        for el in dom:
+            if isinstance(el, dict) and _normalize_text(el.get("text")) == target_text:
+                return el
+        return None
+
+    if selector_text.startswith("__index:"):
+        try:
+            idx = int(selector_text.split(":", 1)[1])
+        except ValueError:
+            return None
+        for el in dom:
+            if isinstance(el, dict) and el.get("index") == idx:
+                return el
+        return None
 
     for el in dom:
         if not isinstance(el, dict):
@@ -212,15 +236,27 @@ def _action_label_from_selector(selector: str, dom) -> str:
             f'[placeholder="{str(el.get("placeholder") or "").strip()}"]',
         }
         if selector_text in candidates:
-            return str(
-                el.get("businessRole")
-                or el.get("ariaLabel")
-                or el.get("placeholder")
-                or el.get("name")
-                or el.get("text")
-                or ""
-            ).strip()
-    return ""
+            return el
+    return None
+
+
+def _action_label_from_selector(selector: str, dom) -> str:
+    selector_text = str(selector or "").strip()
+    if selector_text.startswith("text="):
+        return selector_text[5:].strip()
+
+    el = _find_dom_element_by_selector(selector_text, dom)
+    if not el:
+        return ""
+
+    return str(
+        el.get("businessRole")
+        or el.get("ariaLabel")
+        or el.get("placeholder")
+        or el.get("name")
+        or el.get("text")
+        or ""
+    ).strip()
 
 
 def _enrich_actions(actions, dom):
@@ -232,10 +268,27 @@ def _enrich_actions(actions, dom):
         item_type = str(item.get("type") or item.get("action") or "").strip().lower()
         if item_type:
             item["type"] = item_type
+
         if not str(item.get("label") or "").strip():
             label = _action_label_from_selector(str(item.get("selector") or ""), dom)
             if label:
                 item["label"] = label
+
+        # ✅ Attach the element's on-screen position (from the DOM capture's
+        # `rect`) so the frontend can show/edit it, and so the Selenium
+        # executor has a coordinate-based fallback (elementFromPoint) when
+        # the selector no longer resolves at execution time.
+        if not item.get("position"):
+            el = _find_dom_element_by_selector(str(item.get("selector") or ""), dom)
+            rect = el.get("rect") if isinstance(el, dict) else None
+            if isinstance(rect, dict):
+                item["position"] = {
+                    "x": rect.get("x"),
+                    "y": rect.get("y"),
+                    "width": rect.get("width"),
+                    "height": rect.get("height"),
+                }
+
         enriched.append(item)
     return enriched
 
@@ -703,6 +756,38 @@ def _deterministic_actions_for_step(step, dom, test_case):
     return actions
 
 
+def _first_dom_option_value(dom):
+    """
+    Pick a plausible value directly from the DOM when no test_data value
+    is left to assign to a dropdown step (all explicit values already
+    consumed, or none were ever provided). Prefers a visible option
+    element, then falls back to a <select> element's first <option>.
+    """
+    if not isinstance(dom, list):
+        return None
+
+    for el in dom:
+        if not isinstance(el, dict):
+            continue
+        if (
+            str(el.get("role") or "").lower() == "option"
+            and el.get("visible")
+            and str(el.get("text") or "").strip()
+        ):
+            return str(el.get("text")).strip()
+
+    for el in dom:
+        if not isinstance(el, dict):
+            continue
+        if str(el.get("tag") or "").lower() == "select":
+            for opt in el.get("options") or []:
+                text = str(opt.get("text") or "").strip()
+                if text:
+                    return text
+
+    return None
+
+
 def _infer_actions_when_empty(step, dom, test_case):
     actions = _deterministic_actions_for_step(step, dom, test_case)
     if actions:
@@ -711,15 +796,16 @@ def _infer_actions_when_empty(step, dom, test_case):
         action = _dom_click_action_for_step(step, dom)
         return [action] if action else []
     if _is_fill_step(step):
-        if _extract_test_data_source(test_case) in (None, "", []):
-            logger.warning("No explicit test data for fill step; refusing to invent values")
-            return []
-        return _dom_to_fill_actions(dom, test_case)
+        # No longer refuses when test_data is empty: _dom_to_fill_actions
+        # generates plausible placeholder values from the DOM itself so the
+        # step can still run instead of being permanently blocked.
+        return _dom_to_fill_actions(dom, test_case, step=step)
     if _is_dropdown_step(step):
-        if _extract_test_data_source(test_case) in (None, "", []):
-            logger.warning("No explicit test data for dropdown step; refusing to choose a value")
-            return []
         value = _extract_next_unused_test_data_value(test_case, _extract_execution_memory(test_case))
+        if not value:
+            # No test_data left for this dropdown: pick a plausible option
+            # straight from the DOM so the step still executes.
+            value = _first_dom_option_value(dom)
         action = _dom_dropdown_action(dom, value)
         return [action] if action else []
     return []
@@ -878,8 +964,10 @@ def _infer_test_data_from_dom(dom, step=""):
 
 
 # ✅ fallback intelligent (DOM → actions)
-def _dom_to_fill_actions(dom, test_case):
+def _dom_to_fill_actions(dom, test_case, step=""):
     logger.info("⚙️ Fallback activated (DOM → actions)")
+
+    defaults = _make_default_values()
 
     if not isinstance(dom, list):
         logger.warning("DOM is not list")
@@ -899,6 +987,20 @@ def _dom_to_fill_actions(dom, test_case):
     logger.info(f"📊 Raw test_data: {test_data}")
 
     raw_values = _flatten_test_data(test_data)
+    test_data_map = get_test_data_map(test_case)
+
+    if not raw_values:
+        # No explicit test_data at all: generate plausible placeholder
+        # values from the DOM (field type heuristics) rather than blocking
+        # the step. Explicit values always win when present — this branch
+        # only runs when test_data is completely empty for this test case.
+        logger.warning("No explicit test_data; generating placeholder values from DOM")
+        raw_values = _infer_test_data_from_dom(dom, step)
+        test_data_map = {}
+        if not raw_values:
+            logger.warning("Could not infer any placeholder values from DOM either")
+            return []
+
     logger.info(
         "🧪 flattened test_data values",
         extra={
@@ -906,11 +1008,6 @@ def _dom_to_fill_actions(dom, test_case):
             "values": raw_values,
         },
     )
-    test_data_map = get_test_data_map(test_case)
-    if not raw_values:
-        logger.warning("No explicit test_data; refusing to generate fallback values")
-        return []
-
     logger.info(f"✅ Values used: {raw_values}")
     logger.info("🧩 test_data_map", extra=test_data_map)
 
@@ -1321,8 +1418,9 @@ def decide(payload: AIDecisionPayload):
     resolved_test_case = test_case if isinstance(test_case, dict) else {}
     execution_memory = _extract_execution_memory(resolved_test_case)
 
-    # Test data belongs to the test case. Never infer credentials or fallback
-    # values from the target application's DOM: doing so changes the scenario.
+    # Test data belongs to the test case. An explicit value always wins —
+    # generated/inferred values (see _dom_to_fill_actions / _first_dom_option_value)
+    # only ever fill in for a field that has no explicit test_data entry.
 
     if execution_memory:
         resolved_test_case = dict(resolved_test_case)

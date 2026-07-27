@@ -2,6 +2,7 @@
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
 import { ProjectsStateService } from '@/app/core/services/projects-state.service'
+import { PlanEditModalComponent } from './plan-edit-modal.component'
 import {
   TestLabService,
   type TestCaseDto,
@@ -34,7 +35,7 @@ interface CreateSuiteResponse {
 @Component({
   selector: 'app-test-suite-configuration',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, NgbModalModule],
+  imports: [CommonModule, ReactiveFormsModule, NgbModalModule ,PlanEditModalComponent],
   templateUrl: './test-plan.component.html',
   styleUrl: './test-plan.component.css',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],

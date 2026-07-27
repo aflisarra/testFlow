@@ -1,0 +1,194 @@
+/* ─── Plan edit modal — thème orange (header blanc) ───────────────────────── */
+
+@keyframes tc-modal-pop {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.tc-modal-card.tc-modal-card--plan {
+  background: #fff;
+  border-radius: 18px;
+  inline-size: min(520px, 92vw);
+  max-block-size: min(90dvh, 920px);
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  overflow: hidden;
+  box-shadow: 0 24px 70px rgb(15 17 23 / 32%);
+  animation: tc-modal-pop 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ─── Header (fond blanc, plus de dégradé orange) ──────────────────────────── */
+.tc-modal-head.tc-modal-head--plan {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px 24px;
+  background: #fff !important;
+  color: #1f2430 !important;
+  border-block-end: 1px solid #edf0f4;
+  position: relative;
+}
+
+.tc-modal-head.tc-modal-head--plan .tc-modal-head-icon {
+  flex-shrink: 0;
+  inline-size: 38px;
+  block-size: 38px;
+  border-radius: 10px;
+  background: rgb(230 126 34 / 12%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #E67E22;
+}
+
+.tc-modal-head.tc-modal-head--plan .tc-modal-head-copy {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.tc-modal-plan-id {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgb(230 126 34 / 12%);
+  color: #d3690f;
+  border-radius: 99px;
+  padding: 3px 10px;
+  margin-block-end: 6px;
+}
+
+.tc-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2430 !important;
+}
+
+.tc-modal-subtitle {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin-block-start: 4px;
+  line-height: 1.5;
+}
+
+/* le bouton close reprend son style normal (plus d'inversion blanc) */
+.confirm-close {
+  margin-block-start: 0.2rem;
+  filter: none;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.confirm-close:hover { opacity: 1; }
+
+/* ─── Body ────────────────────────────────────────────────────────────────── */
+.tc-modal-body.tc-modal-body--plan {
+  padding: 22px 24px;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.tc-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.tc-modal-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.tc-modal-field--full {
+  grid-column: 1 / -1;
+}
+
+.tc-modal-field .form-label {
+  display: block;
+  text-align: start;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5a5f78;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-block-end: 6px;
+}
+
+.tc-modal-field .form-control,
+.tc-modal-field .form-select {
+  border: 1.5px solid #e8eaf0;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  color: #1f2430;
+  text-align: start;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.tc-modal-field .form-control:focus,
+.tc-modal-field .form-select:focus {
+  border-color: #E67E22 !important;
+  box-shadow: 0 0 0 3px rgb(230 126 34 / 15%) !important;
+  outline: none;
+}
+
+.tc-modal-textarea {
+  resize: vertical;
+  min-block-size: 90px;
+}
+
+/* ─── Actions ─────────────────────────────────────────────────────────────── */
+.tc-modal-actions.tc-modal-actions--plan {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-block-start: 1px solid #edf0f4;
+  background: #fafbfd;
+}
+
+.tc-modal-actions.tc-modal-actions--plan .btn-cancel {
+  background: #fff;
+  border: 1.5px solid #e4e7ec;
+  color: #5a5f78;
+  font-weight: 600;
+  font-size: 13.5px;
+  border-radius: 10px;
+  padding: 9px 18px;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.tc-modal-actions.tc-modal-actions--plan .btn-cancel:hover {
+  background: #f5f6f9;
+  border-color: #d6dae2;
+}
+.tc-modal-actions.tc-modal-actions--plan .btn-cancel:active { transform: translateY(1px); }
+
+.tc-modal-actions.tc-modal-actions--plan .btn-brand {
+  background: #E67E22 !important;
+  border: 1.5px solid #E67E22 !important;
+  color: #fff !important;
+  font-weight: 700;
+  font-size: 13.5px;
+  border-radius: 10px;
+  padding: 9px 18px;
+  box-shadow: 0 2px 8px rgb(230 126 34 / 30%);
+  transition: background 0.15s, box-shadow 0.2s, transform 0.1s;
+}
+
+.tc-modal-actions.tc-modal-actions--plan .btn-brand:hover {
+  background: #d3690f !important;
+  border-color: #d3690f !important;
+  box-shadow: 0 5px 16px rgb(230 126 34 / 40%);
+  transform: translateY(-1px);
+}
+.tc-modal-actions.tc-modal-actions--plan .btn-brand:active { transform: translateY(0); }
+
+@media (width <= 768px) {
+  .tc-modal-grid {
+    grid-template-columns: 1fr;
+  }
+}

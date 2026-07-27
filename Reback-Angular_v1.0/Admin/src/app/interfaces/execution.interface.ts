@@ -185,7 +185,8 @@ export interface DOMElement {
   index?: number
   name?: string
   placeholder?: string
-  rect?: DOMElementRect
+  /*rect?: DOMElementRect*/
+  rect?: { x: number; y: number; width: number; height: number };
   role?: string
   tag: string
   testId?: string
@@ -197,15 +198,17 @@ export interface DOMElement {
 }
 
 export interface EditableAiAction {
-  uid: string
-  stepIndex: number
-  type: string
-  selector: string
-  value: string
-  originalType: string
-  originalSelector: string
-  originalValue: string
-  isEdited: boolean
+  uid: string;
+  stepIndex: number;
+  type: string;
+  selector: string;
+  value: string;
+  position?: { x: number; y: number; width: number; height: number } | null;
+  originalType: string;
+  originalSelector: string;
+  originalValue: string;
+  originalPosition?: { x: number; y: number; width: number; height: number } | null;
+  isEdited: boolean;
 }
 
 export interface ExecutionFilters {
@@ -246,6 +249,7 @@ export interface ListEnvelope<T> {
   testPlans?: T[]
   testCases?: T[]
 }
+
 
 // Remplace `Array<Record<string, unknown>>` utilisé par extractAiActions()
 export type AiActionRecord = Record<string, unknown>

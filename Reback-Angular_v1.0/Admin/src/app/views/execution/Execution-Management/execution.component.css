@@ -9,20 +9,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* ─── Design tokens ───────────────────────────────────────────────────────────── */
-/* ─── Design tokens ───────────────────────────────────────────────────────────── */
 :root, .execution-shell {
-  --font-display: 'Space Grotesk', Inter, 'Segoe UI', sans-serif;
-  --font-body: Inter, 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Space Grotesk', inter, 'Segoe UI', sans-serif;
+  --font-body: inter, 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
-
   --ink: #12141c;
   --ink-soft: #4c5165;
   --ink-faint: #9297a8;
   --line: #e4e7f1;
   --line-soft: #edeff6;
   --canvas-0: #f4f6fb;
-  --canvas-1: #ffffff;
-
+  --canvas-1: #fff;
   --signal-blue: #1d5fd6;
   --signal-blue-ink: #17509f;
   --signal-blue-soft: #e8f0fe;
@@ -37,11 +34,9 @@
   --signal-violet-soft: #f1eefc;
   --signal-slate: #5a6274;
   --signal-slate-soft: #eef0f5;
-
   --radius-lg: 16px;
   --radius-md: 11px;
   --radius-sm: 7px;
-
   --shadow-card: 0 1px 1px rgb(16 19 28 / 3%), 0 10px 26px -16px rgb(16 19 28 / 16%);
   --shadow-card-hover: 0 2px 4px rgb(16 19 28 / 4%), 0 18px 38px -18px rgb(16 19 28 / 22%);
   --shadow-pop: 0 24px 64px -18px rgb(16 19 28 / 32%);
@@ -263,14 +258,14 @@
   background: linear-gradient(180deg, var(--signal-violet), #a596ef);
 }
 
-.card--ai-insights__body {
+.ai-insights-card__body {
   padding: 18px;
 }
 
-.card--ai-insights__empty {
+.ai-insights-card__empty {
   padding: 20px;
   text-align: center;
-  min-block-size: 100px;
+  min-block-size: 140px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -686,7 +681,7 @@
 .timeline {
   display: flex;
   flex-direction: column;
-  padding: 6px 16px 6px 16px;
+  padding: 6px 16px;
   position: relative;
 }
 
@@ -1197,23 +1192,20 @@
 .active-step-label--fail { color: var(--signal-red); }
 
 /* ─── Screenshot modal ────────────────────────────────────────────────────────── */
-/* ─── Screenshot modal ────────────────────────────────────────────────────────── */
 .screenshot-modal {
   /* Ces modals sont rendus hors de .execution-shell dans le DOM (frères, pas
      enfants), donc ils n'héritent pas de ses variables CSS. On les redéfinit
      ici pour que tous leurs descendants (panel, boutons, etc.) les reçoivent. */
-  --font-display: 'Space Grotesk', Inter, 'Segoe UI', sans-serif;
-  --font-body: Inter, 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Space Grotesk', inter, 'Segoe UI', sans-serif;
+  --font-body: inter, 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
-
   --ink: #12141c;
   --ink-soft: #4c5165;
   --ink-faint: #9297a8;
   --line: #e4e7f1;
   --line-soft: #edeff6;
   --canvas-0: #f4f6fb;
-  --canvas-1: #ffffff;
-
+  --canvas-1: #fff;
   --signal-blue: #1d5fd6;
   --signal-blue-ink: #17509f;
   --signal-blue-soft: #e8f0fe;
@@ -1228,11 +1220,9 @@
   --signal-violet-soft: #f1eefc;
   --signal-slate: #5a6274;
   --signal-slate-soft: #eef0f5;
-
   --radius-lg: 16px;
   --radius-md: 11px;
   --radius-sm: 7px;
-
   --shadow-card: 0 1px 1px rgb(16 19 28 / 3%), 0 10px 26px -16px rgb(16 19 28 / 16%);
   --shadow-card-hover: 0 2px 4px rgb(16 19 28 / 4%), 0 18px 38px -18px rgb(16 19 28 / 22%);
   --shadow-pop: 0 24px 64px -18px rgb(16 19 28 / 32%);
@@ -1463,7 +1453,7 @@
 .dom-value {
   color: var(--ink-soft);
   flex: 1;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .dom-value--code {
@@ -1619,10 +1609,9 @@
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
+
+
 /* ─── AI Analyzing state ──────────────────────────────────────────────────────── */
-.card--ai-insights__empty {
-  min-block-size: 140px;
-}
 
 .ai-analyzing {
   display: flex;
@@ -1719,18 +1708,16 @@
 .dom-modal {
   /* Même raison que .screenshot-modal ci-dessus : ce modal est rendu hors de
      .execution-shell dans le DOM, donc il redéfinit les tokens lui-même. */
-  --font-display: 'Space Grotesk', Inter, 'Segoe UI', sans-serif;
-  --font-body: Inter, 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Space Grotesk', inter, 'Segoe UI', sans-serif;
+  --font-body: inter, 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
-
   --ink: #12141c;
   --ink-soft: #4c5165;
   --ink-faint: #9297a8;
   --line: #e4e7f1;
   --line-soft: #edeff6;
   --canvas-0: #f4f6fb;
-  --canvas-1: #ffffff;
-
+  --canvas-1: #fff;
   --signal-blue: #1d5fd6;
   --signal-blue-ink: #17509f;
   --signal-blue-soft: #e8f0fe;
@@ -1745,11 +1732,9 @@
   --signal-violet-soft: #f1eefc;
   --signal-slate: #5a6274;
   --signal-slate-soft: #eef0f5;
-
   --radius-lg: 16px;
   --radius-md: 11px;
   --radius-sm: 7px;
-
   --shadow-card: 0 1px 1px rgb(16 19 28 / 3%), 0 10px 26px -16px rgb(16 19 28 / 16%);
   --shadow-card-hover: 0 2px 4px rgb(16 19 28 / 4%), 0 18px 38px -18px rgb(16 19 28 / 22%);
   --shadow-pop: 0 24px 64px -18px rgb(16 19 28 / 32%);
@@ -1815,7 +1800,7 @@
 .dom-modal__close:hover { background: var(--canvas-0); }
 
 .dom-modal__body {
-  padding: 8px 14px 16px 20px; /* réduit le padding droit d'origine */
+  padding: 8px 14px 16px 20px;
   padding-inline-end: 12px;
   scrollbar-gutter: stable;
   flex: 1;
@@ -1997,45 +1982,7 @@
   padding: 0;
 }
 
-.selenium-code-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
 
-.selenium-code-toolbar {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.selenium-code-editor {
-  inline-size: 100%;
-  min-block-size: 500px;
-  padding: 14px;
-  border: 1px solid #2c3346;
-  border-radius: var(--radius-md);
-  background: #0f172a;
-  color: #f8fafc;
-  font-size: 12px;
-  line-height: 1.6;
-  font-family: var(--font-mono);
-  resize: vertical;
-}
-
-.selenium-code-editor:focus {
-  outline: none;
-  border-color: var(--signal-violet);
-  box-shadow: 0 0 0 3px rgb(106 85 214 / 18%);
-}
-
-.selenium-code-editor::-webkit-scrollbar {
-  inline-size: 10px;
-}
-
-.selenium-code-editor::-webkit-scrollbar-thumb {
-  background: #374151;
-  border-radius: 999px;
-}
 
 /* ─── Topbar filters ──────────────────────────────────────────────────────────── */
 .execution-filters {
@@ -2120,8 +2067,9 @@
   .snackbar {
     animation: none !important;
   }
+
   .dom-modal,
-.screenshot-modal {
-  z-index: 9999;
-}
+  .screenshot-modal {
+    z-index: 9999;
+  }
 }

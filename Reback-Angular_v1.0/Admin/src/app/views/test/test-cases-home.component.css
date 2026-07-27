@@ -327,7 +327,7 @@
 
 .tc-case-card {
   background: #f8fafc; border: 1px solid #e2e8f0;
-  border-radius: 12px; padding: 0.9rem 1rem;
+  border-radius: 10px; padding: 0.7rem 0.85rem;
   transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -367,6 +367,8 @@
   padding: 0;
   transition: opacity 0.15s;
   flex-shrink: 0;
+  min-inline-size: unset;
+  block-size: unset;
 }
 .tc-case-edit:hover { opacity: 1; }
 .tc-case-edit:focus { outline: none; }
@@ -393,7 +395,6 @@
 .tc-case-label { font-size: 0.72rem; font-weight: 700; color: #475569; display: block; margin-block-end: 0.25rem; }
 
 .tc-case-steps { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.55rem 0.75rem; margin-block-end: 0.45rem; }
-.tc-case-step-list { font-size: 0.8rem; color: #334155; margin: 0; padding-inline-start: 1rem; }
 
 /* .tc-case-step-list li { margin-block-end: 0.2rem; } */
 
@@ -409,17 +410,17 @@
 .tc-modal-backdrop:focus { outline: none; }
 
 .tc-modal {
-  background: #fff; border-radius: 18px; box-shadow: 0 24px 60px rgb(15 23 42 / 22%);
-  inline-size: 100%; max-inline-size: 1200px; max-block-size: 85vh;
+  background: #fff; border-radius: 14px; box-shadow: 0 24px 60px rgb(15 23 42 / 22%);
+  inline-size: 100%; max-inline-size: 820px; max-block-size: 78vh;
   display: flex; flex-direction: column; overflow: hidden;
   border: none; outline: none; text-align: start; padding: 0; cursor: auto;
 }
 .tc-modal:focus { outline: none; }
 
-.tc-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.5rem 0.7rem; border-block-end: 1px solid #e2e8f0; }
-.tc-modal-plan-id { font-size: 0.7rem; font-weight: 700; color: #0d6efd; background: rgb(13 110 253 / 8%); padding: 2px 8px; border-radius: 4px; display: inline-block; margin-block-end: 0.25rem; }
-.tc-modal-title { font-size: 1rem; font-weight: 700; color: #0f172a; }
-.tc-modal-desc  { font-size: 0.8rem; color: #64748b; margin-block-start: 0.15rem; }
+.tc-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 0.9rem 1.25rem 0.6rem; border-block-end: 1px solid #e2e8f0; }
+.tc-modal-plan-id { font-size: 0.65rem; font-weight: 700; color: #0d6efd; background: rgb(13 110 253 / 8%); padding: 2px 8px; border-radius: 4px; display: inline-block; margin-block-end: 0.25rem; }
+.tc-modal-title { font-size: 0.92rem; font-weight: 700; color: #0f172a; }
+.tc-modal-desc  { font-size: 0.75rem; color: #64748b; margin-block-start: 0.15rem; }
 
 .tc-modal-close {
   background: none; border: 1px solid #e2e8f0; outline: none; border-radius: 50%;
@@ -429,12 +430,12 @@
 .tc-modal-close:hover { background: #f1f5f9; border-color: #cbd5e1; }
 .tc-modal-close:focus { outline: none; }
 
-.tc-modal-body { flex: 1; overflow-y: auto; padding: 1rem 1.5rem 1.5rem; max-block-size: 60vh; }
+.tc-modal-body { flex: 1; overflow-y: auto; padding: 0.85rem 1.25rem 1.25rem; max-block-size: 52vh; }
 
 .tc-modal-generating,
 .tc-modal-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1rem; text-align: center; color: #94a3b8; }
 
-.tc-modal-cases { display: flex; flex-direction: column; gap: 0.75rem; }
+.tc-modal-cases { display: flex; flex-direction: column; gap: 0.6rem; }
 
 /* ═══ SHARED UTILS ═══ */
 .testlab-spin { animation: spin 1s linear infinite; display: inline-block; }
@@ -456,11 +457,11 @@
 
 .tc-modal-actions-bottom {
   display: flex; justify-content: flex-end; gap: 0.5rem;
-  padding: 0.9rem 1.5rem; border-block-start: 1px solid #f1f5f9;
+  padding: 0.7rem 1.25rem; border-block-start: 1px solid #f1f5f9;
   background: #fff; position: sticky; inset-block-end: 0; z-index: 10; flex-wrap: wrap;
 }
 
-.tc-modal--unsaved { max-inline-size: 520px; }
+.tc-modal--unsaved { max-inline-size: 620px; }
 
 /* ═══ DARK MODE ═══ */
 :host-context([data-bs-theme='dark']) .tc-page {
@@ -656,6 +657,8 @@
 }
 
 .tc-case-step-list {
+  font-size: 0.8rem;
+  color: #334155;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -832,17 +835,17 @@
     font-weight: 600;
     cursor: pointer;
     transition: all 0.25s ease;
-    box-shadow: 0 4px 12px rgb(61 138 221 / 25%);
+    box-shadow: none;
 }
 
 .btn-add-plan:hover:not(:disabled) {
     background: #2b76c9;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 18px rgb(61 138 221 / 35%);
+    transform: none;
+    box-shadow: none;
 }
 
 .btn-add-plan:active:not(:disabled) {
-    transform: translateY(0);
+    transform: none;
 }
 
 .btn-add-plan:disabled {
@@ -909,7 +912,7 @@
 }
 
 .btn-confirm-abandon:focus {
-  box-shadow: 0 0 0 0.25rem rgb(220 53 69 / 30%);
+  box-shadow: 0 0 0 0.25rem rgb(253 126 20 / 50%);
   outline: none;
 }
 
@@ -923,11 +926,6 @@
   color: #fff;
   background-color: #cc6402;
   border-color: #c05e02;
-}
-
-.btn-confirm-abandon:focus {
-  box-shadow: 0 0 0 0.25rem rgb(253 126 20 / 50%);
-  outline: none;
 }
 
 /* ── Boutons du header — harmonisés ── */
@@ -961,12 +959,13 @@
 .tc-right-header .btn-add-plan {
   background: #3d8adde8;
   color: #fff;
-  box-shadow: 0 4px 12px rgb(61 138 221 / 25%);
+  box-shadow: none;
 }
 
 .tc-right-header .btn-add-plan:hover:not(:disabled) {
   background: #2b76c9;
-  box-shadow: 0 6px 14px rgb(61 138 221 / 30%);
+  box-shadow: none;
+  transform: none;
 }
 
 /* View / Generate */
@@ -1036,7 +1035,6 @@
 }
 
 /* ── Bouton icône seule (Edit dans les cartes) — hors système, reste petit ── */
-.tc-case-edit { min-inline-size: unset; block-size: unset; padding: 0; }
 
 .tc-page .btn-brand {
   background: linear-gradient(135deg, #ec8a00, #f7a535);
@@ -1141,31 +1139,6 @@
   font-size: 0.78rem;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   ADD TEST CASE — suppression ombre + effet de saut (comme View/Abandon)
-   ═══════════════════════════════════════════════════════════════════ */
-.btn-add-plan {
-    box-shadow: none;
-}
-
-.btn-add-plan:hover:not(:disabled) {
-    transform: none;
-    box-shadow: none;
-}
-
-.btn-add-plan:active:not(:disabled) {
-    transform: none;
-}
-
-.tc-right-header .btn-add-plan {
-    box-shadow: none;
-}
-
-.tc-right-header .btn-add-plan:hover:not(:disabled) {
-    box-shadow: none;
-    transform: none;
-}
-
 .tc-modal-actions-bottom .btn-cancel,
 .tc-modal-actions-bottom .btn-confirm-abandon {
   display: inline-flex;
@@ -1220,52 +1193,6 @@
   flex-shrink: 0;
 }
 
-/* ═══ MODAL — taille réduite ═══ */
-.tc-modal {
-  max-inline-size: 820px;   /* était 1200px */
-  max-block-size: 78vh;      /* était 85vh */
-  border-radius: 14px;       /* était 18px */
-}
-
-.tc-modal-header {
-  padding: 0.9rem 1.25rem 0.6rem;  /* était 1.1rem 1.5rem 0.7rem */
-}
-
-.tc-modal-plan-id {
-  font-size: 0.65rem;
-}
-
-.tc-modal-title {
-  font-size: 0.92rem;   /* était 1rem */
-}
-
-.tc-modal-desc {
-  font-size: 0.75rem;   /* était 0.8rem */
-}
-
-.tc-modal-body {
-  padding: 0.85rem 1.25rem 1.25rem;  /* était 1rem 1.5rem 1.5rem */
-  max-block-size: 52vh;               /* était 60vh */
-}
-
-.tc-modal-cases {
-  gap: 0.6rem;   /* était 0.75rem */
-}
-
-.tc-case-card {
-  padding: 0.7rem 0.85rem;   /* était 0.9rem 1rem */
-  border-radius: 10px;
-}
-
-.tc-modal-actions-bottom {
-  padding: 0.7rem 1.25rem;   /* était 0.9rem 1.5rem */
-}
-
-/* Modale "Unsaved Changes" un peu plus étroite aussi */
-.tc-modal--unsaved {
-  max-inline-size: 440px;   /* était 520px */
-}
-
 .btn-stop-generation {
   display: inline-flex;
   align-items: center;
@@ -1307,11 +1234,6 @@
 .btn-stop-generation:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-/* Modale "Unsaved Changes" — plus large pour garder les boutons sur une ligne */
-.tc-modal--unsaved {
-  max-inline-size: 620px;   /* au lieu de 440px/520px précédent */
 }
 
 .tc-modal--unsaved .tc-modal-actions-bottom {
@@ -1385,7 +1307,6 @@
 
 .tc-project-select {
   inline-size: 100%;
-  appearance: none;
   appearance: none;
   background: #fff;
   border: 1px solid var(--pm-border, #e2e8f0);

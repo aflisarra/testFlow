@@ -169,7 +169,6 @@
 
 .filter-select-wrapper select {
   appearance: none;
-  appearance: none;
   block-size: 36px;
   padding: 0 30px 0 10px;
   border: 1px solid #e5e7eb;
@@ -282,12 +281,12 @@
 .exec-table tbody tr:hover { background: #fafbff; }
 
 /* Colored left-border per status on hover */
-.exec-table tbody tr.row-passed:hover          { border-inline-start-color: #059669; }
-.exec-table tbody tr.row-failed:hover          { border-inline-start-color: #dc2626; }
-.exec-table tbody tr.row-failed_execution:hover{ border-inline-start-color: #dc2626; }
-.exec-table tbody tr.row-failed_assertion:hover{ border-inline-start-color: #d97706; }
-.exec-table tbody tr.row-running:hover         { border-inline-start-color: #6366f1; }
-.exec-table tbody tr.row-aborted:hover         { border-inline-start-color: #9ca3af; }
+.exec-table tbody tr.row-passed:hover           { border-inline-start-color: #059669; }
+.exec-table tbody tr.row-failed:hover           { border-inline-start-color: #dc2626; }
+.exec-table tbody tr.row-failed-execution:hover { border-inline-start-color: #dc2626; }
+.exec-table tbody tr.row-failed-assertion:hover { border-inline-start-color: #d97706; }
+.exec-table tbody tr.row-running:hover          { border-inline-start-color: #6366f1; }
+.exec-table tbody tr.row-aborted:hover          { border-inline-start-color: #9ca3af; }
 
 .exec-table td {
   padding: 13px 16px;
@@ -368,22 +367,22 @@
   flex-shrink: 0;
 }
 
-.status-badge.status-passed           { background: #ecfdf5; color: #065f46; }
+.status-badge.status-passed             { background: #ecfdf5; color: #065f46; }
 .status-badge.status-passed .status-dot { background: #059669; }
 
-.status-badge.status-failed           { background: #fef2f2; color: #991b1b; }
+.status-badge.status-failed             { background: #fef2f2; color: #991b1b; }
 .status-badge.status-failed .status-dot { background: #dc2626; }
 
-.status-badge.status-failed_execution { background: #fef2f2; color: #991b1b; }
-.status-badge.status-failed_execution .status-dot { background: #dc2626; }
+.status-badge.status-failed-execution             { background: #fef2f2; color: #991b1b; }
+.status-badge.status-failed-execution .status-dot { background: #dc2626; }
 
-.status-badge.status-failed_assertion { background: #fffbeb; color: #92400e; }
-.status-badge.status-failed_assertion .status-dot { background: #d97706; }
+.status-badge.status-failed-assertion             { background: #fffbeb; color: #92400e; }
+.status-badge.status-failed-assertion .status-dot { background: #d97706; }
 
-.status-badge.status-running          { background: #eef2ff; color: #3730a3; }
+.status-badge.status-running             { background: #eef2ff; color: #3730a3; }
 .status-badge.status-running .status-dot { background: #6366f1; }
 
-.status-badge.status-aborted          { background: #f9fafb; color: #4b5563; }
+.status-badge.status-aborted             { background: #f9fafb; color: #4b5563; }
 .status-badge.status-aborted .status-dot { background: #9ca3af; }
 
 /* ─── Time Cell ──────────────────────────────────────────────────────────────── */

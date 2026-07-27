@@ -718,33 +718,7 @@
           <!-- Onglet AI Actions -->
           @if (domModalTab === 'actions') {
 
-    <div class="dom-modal__tabs dom-modal__tabs--inner">
-
-      <button
-        type="button"
-        class="dom-modal__tab"
-        [class.dom-modal__tab--active]="actionTab === 'simple'"
-        (click)="setActionTab('simple')">
-
-        Simple Actions
-
-      </button>
-
-      <button
-        type="button"
-        class="dom-modal__tab"
-        [class.dom-modal__tab--active]="actionTab === 'selenium'"
-        (click)="setActionTab('selenium')">
-
-        Selenium Code
-
-      </button>
-
-    </div>
-
-    @if (actionTab === 'simple') {
-
-      <div class="ai-actions-list">
+    <div class="ai-actions-list">
 
         @if (aiActions.length) {
 
@@ -853,9 +827,6 @@
 
       </div>
 
-    }
-
-  @if (domModalTab === 'actions') {
     <div class="ai-actions-footer">
       <button
         class="btn btn--rerun"
@@ -864,33 +835,6 @@
         Apply changes
       </button>
     </div>
-  }
-
-    @if (actionTab === 'selenium') {
-
-      <div class="selenium-code-panel">
-
-        <div class="selenium-code-toolbar">
-
-          <button
-            class="ai-action-item__btn ai-action-item__btn--primary"
-            type="button"
-            (click)="copySnippet(seleniumCode)">
-
-            Copy Code
-
-          </button>
-
-        </div>
-
-        <textarea
-          class="selenium-code-editor"
-          [(ngModel)]="seleniumCode">
-        </textarea>
-
-      </div>
-
-    }
 
   }
 
