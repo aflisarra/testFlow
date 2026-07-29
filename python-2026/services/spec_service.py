@@ -3,8 +3,8 @@ from __future__ import annotations
 import re
 from typing import Dict, List
 
-from utils.chunker import split_by_headings, detect_modules_from_chunks, normalize_spec_text
-from utils.docx_reader import extract_text_from_docx
+from utils.chunker import SpecChunk, chunk_spec_recursive, detect_modules_from_chunks, normalize_spec_text
+from utils.docx_reader import extract_doc_from_bytes, extract_text_from_docx
 
 
 SRS_PLAN_SECTIONS = {"project description", "objectives", "features"}
@@ -21,8 +21,13 @@ def extract_spec_text_from_docx_bytes(file_bytes: bytes) -> str:
     return extract_text_from_docx(file_bytes)
 
 
-def chunk_spec(spec_text: str) -> List[Dict[str, str]]:
-    return split_by_headings(spec_text)
+def chunk_docx_bytes(file_bytes: bytes) -> List[SpecChunk]:
+    """Return DOCX chunks with native Heading 1..6 ancestry when available."""
+    return chunk_spec_recursive(extract_doc_from_bytes(file_bytes))
+
+
+def chunk_spec(spec_text: str) -> List[SpecChunk]:
+    return chunk_spec_recursive(spec_text)
 
 
 def detect_modules(spec_text: str) -> List[str]:
@@ -39,11 +44,16 @@ def _section_key(title: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()
 
 
-def get_srs_sections(spec_text: str, allowed_sections: set[str] | None = None) -> List[Dict[str, str]]:
-    chunks = chunk_spec(spec_text)
+def filter_srs_sections(
+    chunks: List[SpecChunk], allowed_sections: set[str] | None = None
+) -> List[SpecChunk]:
     if not allowed_sections:
         return chunks
     return [chunk for chunk in chunks if _section_key(str(chunk.get("title") or "")) in allowed_sections]
+
+
+def get_srs_sections(spec_text: str, allowed_sections: set[str] | None = None) -> List[SpecChunk]:
+    return filter_srs_sections(chunk_spec(spec_text), allowed_sections)
 
 
 def extract_requirements(spec_text: str) -> List[Dict[str, str]]:

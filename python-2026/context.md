@@ -9,13 +9,13 @@
 **python-2026** est un backend **FastAPI** (Python) qui expose une API REST pour :
 
 1. Extraire le texte d'une spec `.docx`
-2. Générer des **Test Plans** (TP-N) via un LLM Ollama
+2. Générer des **Test Plans** (TP-N) via un LLM OpenRouter
 3. Générer des **Test Cases** (TC-N.N) par plan
 4. Prendre des **décisions AI** step-by-step pour l'automatisation UI (Selenium)
 5. **Exécuter** des test cases via Selenium + décision AI
 6. **Annuler** une génération en cours
 
-Le LLM utilisé est **Ollama** (`qwen2.5-coder:7b` par défaut), appelé soit via HTTP (préféré) soit via CLI en fallback.
+Le LLM utilisé est **OpenRouter**, appelé via HTTP.
 
 ---
 
@@ -55,7 +55,7 @@ python-2026/
 │   ├── ai_decision_prompt.py      # build_ai_decision_prompt()
 │   └── validate.prompt.py         # (mini prompt de validation)
 ├── utils/
-│   ├── ollama.py                  # run_ollama() : HTTP → CLI fallback, timeout-safe
+│   ├── openrouter.py              # run_openrouter() : HTTP, timeout-safe
 │   ├── json_cleaner.py            # safe_json_loads() : robuste aux sorties LLM
 │   ├── chunker.py                 # split_by_headings(), detect_modules_from_chunks()
 │   ├── docx_reader.py             # extract_text_from_docx()
@@ -78,7 +78,7 @@ python-2026/
 | `POST` | `/ai/decide` | Décision AI pour une step UI (step + DOM → actions) |
 | `POST` | `/test-runner/run` | Exécute un test case via Selenium |
 | `POST` | `/cancel-generation` | Annule une génération en cours |
-| `POST` | `/chat` | Chat libre avec Ollama |
+| `POST` | `/chat` | Chat libre avec OpenRouter |
 
 ---
 
@@ -87,8 +87,8 @@ python-2026/
 ### Coeur métier
 - **Extraction spec** : lecture `.docx`, normalisation texte, chunking par headings, extraction requirements (bullets, modal verbs, user stories)
 - **Détection modules** : heuristique par keywords (Auth, Users, CRUD, Search, Notifications, Reporting, Security, Performance, Accessibility, Payments)
-- **Génération Test Plans** : prompt → Ollama → parse JSON → normalisation, déduplication, renumérotation, fallback mock si trop peu de plans
-- **Génération Test Cases** : prompt → Ollama → parse JSON → normalisation fields (priority, severity, type, stepDetails avec expected_result par étape), fallback mock
+- **Génération Test Plans** : prompt → OpenRouter → parse JSON → normalisation, déduplication, renumérotation, fallback mock si trop peu de plans
+- **Génération Test Cases** : prompt → OpenRouter → parse JSON → normalisation fields (priority, severity, type, stepDetails avec expected_result par étape), fallback mock
 - **Linking requirements** : pertinence par keywords entre plan/case et exigences extraites
 
 ### AI Decision (step-by-step UI automation)
@@ -117,15 +117,15 @@ python-2026/
 - One-shot consume : une annulation n'est consommée qu'une fois (évite de bloquer les runs suivants)
 
 ### Utilitaires
-- **ollama.py** : HTTP API → CLI fallback, timeout partagé entre les deux, strip ANSI, extraction JSON robuste
+- **openrouter.py** : HTTP API, timeout-safe, extraction JSON robuste
 - **json_cleaner.py** : `safe_json_loads()` : direct → strip fences → extract balanced → repair trailing commas
-- **ai_service.py** : `generate_json()` avec repair-loop (un second appel Ollama si le JSON est invalide), logging structuré
+- **ai_service.py** : `generate_json()` avec repair-loop (un second appel OpenRouter si le JSON est invalide), logging structuré
 - **logger.py** : JSON structuré sur stdout, configurable via `LOG_LEVEL`
 
 ### Configuration
 - `core/config.py` : `Settings` dataclass frozen, tous les timeouts configurables via env
-- Variables disponibles : `OLLAMA_HOST`, `OLLAMA_MODEL` / `MODEL_NAME`, `OLLAMA_TIMEOUT`, `OLLAMA_CHAT_TIMEOUT`, `OLLAMA_TEST_PLANS_TIMEOUT`, `OLLAMA_TEST_CASES_TIMEOUT`, `OLLAMA_TEST_TRANSLATOR_TIMEOUT`, `OLLAMA_HTTP_TIMEOUT`, `OLLAMA_NUM_PREDICT`, `OLLAMA_TEMPERATURE`, `OLLAMA_NUM_CTX`, `USE_MOCK`, `DEBUG_ERRORS`, `LOG_LEVEL`
-- **Mock mode** (`USE_MOCK=true`) : retourne des données statiques sans appeler Ollama
+- Variables disponibles : `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` / `MODEL_NAME`, `OPENROUTER_TIMEOUT`, `OPENROUTER_CHAT_TIMEOUT`, `OPENROUTER_TEST_PLANS_TIMEOUT`, `OPENROUTER_TEST_CASES_TIMEOUT`, `OPENROUTER_TEST_TRANSLATOR_TIMEOUT`, `OPENROUTER_HTTP_TIMEOUT`, `OPENROUTER_NUM_PREDICT`, `OPENROUTER_TEMPERATURE`, `USE_MOCK`, `DEBUG_ERRORS`, `LOG_LEVEL`
+- **Mock mode** (`USE_MOCK=true`) : retourne des données statiques sans appeler OpenRouter
 
 ---
 
@@ -167,18 +167,18 @@ python-2026/
       ├─ POST /generate-plan ─────────► plan_service
       │                                     ├─ spec_service (chunk + modules + requirements)
       │                                     ├─ build_test_plan_prompt()
-      │                                     └─ AiService.generate_json() ──► run_ollama() ──► Ollama HTTP
+      │                                     └─ AiService.generate_json() ──► run_openrouter() ──► OpenRouter HTTP
       │
       ├─ POST /generate-test-cases ───► case_service
       │                                     ├─ spec_service (chunk + requirements)
       │                                     ├─ build_test_case_prompt()
-      │                                     └─ AiService.generate_json() ──► run_ollama() ──► Ollama HTTP
+      │                                     └─ AiService.generate_json() ──► run_openrouter() ──► OpenRouter HTTP
       │
       └─ POST /test-runner/run ───────► selenium_service.run_test()
                                             ├─ webdriver.Chrome()
                                             ├─ [per step] capture_dom_elements()
                                             ├─ POST /ai/decide ──► build_ai_decision_prompt()
-                                            │                   └─► AIService.generate_json() ──► Ollama HTTP
+                                            │                   └─► AIService.generate_json() ──► OpenRouter HTTP
                                             │                       (+ DOM fallback si LLM échoue)
                                             └─ smart_find() + send_keys() / click()
 ```
@@ -217,8 +217,8 @@ pip install selenium requests  # manquants dans requirements.txt
 copy .env.example .env
 # éditer .env
 
-# 4. Démarrer Ollama (séparément)
-ollama serve
+# 4. Configurer la clé API OpenRouter
+ # export OPENROUTER_API_KEY=sk-or-...
 
 # 5. Lancer l'API
 uvicorn main:app --reload --host 127.0.0.1 --port 8000

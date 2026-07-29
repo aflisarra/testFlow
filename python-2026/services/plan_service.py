@@ -7,7 +7,7 @@ from core.config import get_settings
 from core.constants import DEFAULT_TEST_PLANS_MIN, DEFAULT_TEST_PLANS_MAX
 from prompts.test_plan_prompt import build_test_plan_prompt
 from services.ai_service import get_ai_service
-from services.spec_service import SRS_PLAN_SECTIONS, extract_requirements, get_srs_sections
+from services.spec_service import SRS_PLAN_SECTIONS, extract_requirements, filter_srs_sections, get_srs_sections
 from utils.logger import get_logger, log_event, log_error
 
 
@@ -95,12 +95,22 @@ def _extract_plans_payload(data: Any) -> List[Dict[str, Any]] | None:
     return None
 
 
-def generate_test_plans(*, spec_text: str, style_config: str, project_title: str) -> List[Dict[str, Any]]:
+def generate_test_plans(
+    *,
+    spec_text: str,
+    style_config: str,
+    project_title: str,
+    spec_chunks: List[Dict[str, str]] | None = None,
+) -> List[Dict[str, Any]]:
     settings = get_settings()
     log_event(logger, "generate_plans_request_received", mock=settings.use_mock)
 
     requirements = extract_requirements(spec_text)
-    chunks = get_srs_sections(spec_text, SRS_PLAN_SECTIONS)
+    chunks = (
+        filter_srs_sections(spec_chunks, SRS_PLAN_SECTIONS)
+        if spec_chunks is not None
+        else get_srs_sections(spec_text, SRS_PLAN_SECTIONS)
+    )
 
     if settings.use_mock:
         raise ValueError("Mock test plan generation is disabled for the SRS pipeline")

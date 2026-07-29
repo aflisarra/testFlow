@@ -19,8 +19,10 @@ def build_test_plan_prompt(
     chunk_lines = []
 
     for ch in spec_chunks[:5]:
+        heading_path = ch.get("heading_path") or []
+        heading = " > ".join(heading_path) if heading_path else ch.get("title")
         chunk_lines.append(
-            f"## {ch.get('title')}\n{ch.get('text')[:500]}"
+            f"## {heading}\n{ch.get('text')[:500]}"
         )
 
     example = """

@@ -19,7 +19,7 @@ from core.config import get_settings
 from schemas.test_plan_schema import GeneratePlanRequest, GeneratePlanResponse
 from services.cancellation_service import is_cancelled
 from services.plan_service import generate_test_plans
-from services.spec_service import extract_spec_text_from_docx_bytes
+from services.spec_service import chunk_docx_bytes, extract_spec_text_from_docx_bytes
 
 
 router = APIRouter()
@@ -86,9 +86,11 @@ async def generate_plan(
                 )
 
             spec_text_final = extract_spec_text_from_docx_bytes(file_bytes)
+            spec_chunks_final = chunk_docx_bytes(file_bytes)
 
         elif spec_text:
             spec_text_final = spec_text.strip()
+            spec_chunks_final = None
 
         else:
             return JSONResponse(
@@ -121,7 +123,8 @@ async def generate_plan(
         plans = generate_test_plans(
             spec_text=spec_text_final,
             style_config=(styleConfig or "").strip(),
-            project_title=(applicationUrl or "").strip()
+            project_title=(applicationUrl or "").strip(),
+            spec_chunks=spec_chunks_final,
         )
         t_ai_ms = int((time.monotonic() - t_ai_start) * 1000)
         t_total_ms = int((time.monotonic() - t_start) * 1000)
