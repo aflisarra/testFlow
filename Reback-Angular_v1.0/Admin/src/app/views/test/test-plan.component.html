@@ -71,68 +71,72 @@
             }
           </div>
 
-          <!-- Test Name -->
-          <div class="testlab-card testlab-field-card p-3">
-            <div class="testlab-card-title testlab-card-title--with-chip">
-              <span class="testlab-card-title-left">
-                <iconify-icon icon="iconamoon:text-duotone" class="testlab-title-icon testlab-title-icon--small"></iconify-icon>
-                <span>Test Name</span>
-              </span>
-              <span class="testlab-step-group">
-                <span class="testlab-step-dot-ui">2</span>
-                <span class="testlab-step-chip">Step 2</span>
-              </span>
-            </div>
-            <div class="testlab-input-wrapper">
-              <iconify-icon icon="iconamoon:text-duotone" class="testlab-input-icon-left"></iconify-icon>
-              <input type="text" class="testlab-input testlab-input--with-icon"
-              [class.is-invalid]="testPlanForm.get('name')?.touched && testPlanForm.get('name')?.invalid"
-              placeholder="Enter a descriptive name for your test suite" formControlName="name" />
-              @if (testPlanForm.get('name')?.value) {
-              <iconify-icon icon="iconamoon:check-circle-1-duotone" class="testlab-input-icon-check"></iconify-icon>
-              }
-            </div>
-            @if (testPlanForm.get('name')?.touched && testPlanForm.get('name')?.errors?.['required']) {
-            <div class="invalid-feedback d-block mt-2">Test name is required.</div>
-            }
-          </div>
+<!-- Test Name -->
+<div class="testlab-card testlab-field-card p-3">
+  <div class="testlab-card-title testlab-card-title--with-chip">
+    <span class="testlab-card-title-left">
+      <iconify-icon icon="iconamoon:text-duotone" class="testlab-title-icon testlab-title-icon--small"></iconify-icon>
+      <span>Test Name</span>
+    </span>
+    <span class="testlab-step-group">
+      <span class="testlab-step-dot-ui">2</span>
+      <span class="testlab-step-chip">Step 2</span>
+    </span>
+  </div>
+<div class="testlab-input-wrapper">
+  <div class="testlab-select-icon">
+    <iconify-icon icon="iconamoon:beaker-1-duotone"></iconify-icon>
+  </div>
+  <input type="text" class="testlab-input testlab-input--with-icon"
+    [class.is-invalid]="testPlanForm.get('name')?.touched && testPlanForm.get('name')?.invalid"
+    placeholder="Enter a descriptive name for your test suite" formControlName="name" />
+  @if (testPlanForm.get('name')?.value) {
+  <iconify-icon icon="iconamoon:check-circle-1-duotone" class="testlab-input-icon-check"></iconify-icon>
+  }
+</div>
+  @if (testPlanForm.get('name')?.touched && testPlanForm.get('name')?.errors?.['required']) {
+  <div class="invalid-feedback d-block mt-2">Test name is required.</div>
+  }
+</div>
 
-          <!-- Application URL -->
-          <div class="testlab-card testlab-field-card p-3">
-            <div class="testlab-card-title testlab-card-title--with-chip">
-              <span class="testlab-card-title-left">
-                <iconify-icon
-                  icon="iconamoon:globe-duotone"
-                  class="testlab-title-icon testlab-title-icon--green testlab-title-icon--small">
-                </iconify-icon>
-                <span>Application URL</span>
-              </span>
-              <span class="testlab-step-group">
-                <span class="testlab-step-dot-ui">3</span>
-                <span class="testlab-step-chip">Step 3</span>
-              </span>
-            </div>
-            <div class="testlab-url-container">
-              <div class="testlab-input-wrapper testlab-input-wrapper-url">
-                
-                <input
-                  type="text"
-                  class="testlab-input testlab-input--url"
-                  [class.is-invalid]="testPlanForm.get('applicationUrl')?.touched && testPlanForm.get('applicationUrl')?.invalid"
-                  formControlName="applicationUrl"
-                  placeholder="your-app.com/path"
-                />
-                <span class="testlab-url-icon">
-                  <iconify-icon icon="iconamoon:globe-duotone"></iconify-icon>
-                </span>
-              </div>
-              @if (testPlanForm.get('applicationUrl')?.touched && testPlanForm.get('applicationUrl')?.invalid) {
-              <div class="invalid-feedback d-block mt-2 animate-fade">
-                {{ getApplicationUrlErrorMessage() }}
-              </div>
-              }
-            </div>
-          </div>
+<!-- Application URL -->
+<div class="testlab-card testlab-field-card p-3">
+  <div class="testlab-card-title testlab-card-title--with-chip">
+    <span class="testlab-card-title-left">
+      <iconify-icon
+        icon="iconamoon:globe-duotone"
+        class="testlab-title-icon testlab-title-icon--green testlab-title-icon--small">
+      </iconify-icon>
+      <span>Application URL</span>
+    </span>
+    <span class="testlab-step-group">
+      <span class="testlab-step-dot-ui">3</span>
+      <span class="testlab-step-chip">Step 3</span>
+    </span>
+  </div>
+  <div class="testlab-url-container">
+    <div class="testlab-input-wrapper">
+  <div class="testlab-select-icon">
+    <iconify-icon icon="iconamoon:globe-duotone"></iconify-icon>
+  </div>
+  <input
+    type="text"
+    class="testlab-input testlab-input--with-icon"
+    [class.is-invalid]="testPlanForm.get('applicationUrl')?.touched && testPlanForm.get('applicationUrl')?.invalid"
+    formControlName="applicationUrl"
+    placeholder="your-app.com/path"
+  />
+  @if (testPlanForm.get('applicationUrl')?.value) {
+  <iconify-icon icon="iconamoon:check-circle-1-duotone" class="testlab-input-icon-check"></iconify-icon>
+  }
+</div>
+    @if (testPlanForm.get('applicationUrl')?.touched && testPlanForm.get('applicationUrl')?.invalid) {
+    <div class="invalid-feedback d-block mt-2 animate-fade">
+      {{ getApplicationUrlErrorMessage() }}
+    </div>
+    }
+  </div>
+</div>
 
           <!-- Style Configuration -->
           <div class="testlab-card testlab-field-card p-3">

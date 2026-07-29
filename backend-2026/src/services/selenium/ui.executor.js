@@ -16,7 +16,10 @@ async function runStructuredUiStep(driver, step, ctx, stepIndex) {
     // ✅ STEP 1: OPEN PAGE
     if (stepIndex === 1) {
 
-      const url = ctx.baseUrl
+      let url = ctx.baseUrl
+      if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url
+      }
       console.log("🌍 OPEN:", url)
 
       try {

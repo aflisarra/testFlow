@@ -6,7 +6,7 @@ import {
     HttpRequest,
 } from '@angular/common/http'
 import { HttpClient, HttpContextToken, HttpErrorResponse } from '@angular/common/http'
-import { Injectable, inject } from '@angular/core'
+import { Injectable, inject, Injector } from '@angular/core'
 import { Router } from '@angular/router'
 import { BehaviorSubject, EMPTY, Observable, throwError } from 'rxjs'
 import { catchError, filter, finalize, switchMap, take } from 'rxjs/operators'
@@ -23,10 +23,21 @@ interface RefreshResponse {
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
-  private authService = inject(AuthenticationService)
-  private router = inject(Router)
-  private api = inject(ApiService)
+  private injector = inject(Injector)
   private http = new HttpClient(inject(HttpBackend)) // bypass interceptors
+
+  private get authService(): AuthenticationService {
+    return this.injector.get(AuthenticationService)
+  }
+
+  private get router(): Router {
+    return this.injector.get(Router)
+  }
+
+  private get api(): ApiService {
+    return this.injector.get(ApiService)
+  }
+
 
   private isRefreshing = false
   private refreshToken$ = new BehaviorSubject<string | null>(null)

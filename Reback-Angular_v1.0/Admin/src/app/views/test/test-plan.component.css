@@ -843,14 +843,14 @@
 }
 
 .btn-abandon-plan {
-    background: #ea321d;
-    border-color: #ef9444;
+    background: #F29100;
+    border-color: #F29100;
     box-shadow: none;
 }
 
 .btn-abandon-plan:hover:not(:disabled) {
-    background: #dc2626;
-    border-color: #dc2626;
+    background: #d98200;
+    border-color: #d98200;
     transform: none;
     box-shadow: none;
 }
@@ -2238,4 +2238,45 @@
     box-shadow: none !important;
     outline: none !important;
     transform: none !important;
+}
+
+.testlab-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/*.testlab-input-wrapper .testlab-select-icon {
+  position: absolute;
+  inset-inline-start: 12px;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--testlab-icon-color, #6b7280);
+  font-size: 1.1rem;
+  pointer-events: none;
+  z-index: 10;
+}*/
+
+.testlab-select-icon {
+    position: absolute;
+    inset-inline-start: 1rem;
+    inset-block-start: 50%;
+    transform: translateY(-50%);
+    font-size: 1.1rem;
+    color: var(--pm-brand-primary);
+    pointer-events: none;
+    z-index: 10;
+}
+
+.testlab-input--with-icon {
+  padding-inline-start: 2.75rem; /* même espace que Test Name original */
+}
+
+.testlab-input-icon-check {
+  position: absolute;
+  inset-inline-end: 12px;
+  color: var(--testlab-success-color, #22c55e);
 }

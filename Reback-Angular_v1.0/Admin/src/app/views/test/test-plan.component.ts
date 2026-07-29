@@ -1,4 +1,4 @@
-﻿import { AdminManagementService } from '@/app/core/services/admin-management.service'
+import { AdminManagementService } from '@/app/core/services/admin-management.service'
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
 import { ProjectsStateService } from '@/app/core/services/projects-state.service'
@@ -783,7 +783,7 @@ const idx = this.testPlans.findIndex((p) => p.id === id)
     ref.componentInstance.details = `${plan.title || plan.id} will be removed from the current list.`
     ref.componentInstance.confirmText = 'Abandon'
     ref.componentInstance.cancelText = 'Cancel'
-    ref.componentInstance.confirmButtonClass = 'btn-brand'
+    ref.componentInstance.confirmButtonClass = 'btn-abandon-confirm'
     ref.componentInstance.icon = 'iconamoon:attention-circle-duotone'
 
 ref.closed.subscribe((result) => {

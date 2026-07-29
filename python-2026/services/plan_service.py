@@ -13,7 +13,7 @@ from utils.logger import get_logger, log_event, log_error
 
 logger = get_logger("services.plan_service")
 
-MAX_GENERATION_ATTEMPTS = 3
+MAX_GENERATION_ATTEMPTS = 5
 
 
 def _normalize_priority(value: str | None) -> str:

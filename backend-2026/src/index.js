@@ -40,38 +40,19 @@ const mongoUri = process.env.MONGODB_URI || process.env.MONGODB_URL
 //app.use(cors());
 
 
-function parseAllowedOrigins(raw) {
-  if (!raw) return ['http://localhost:4200', 'http://localhost:3000']
-  return String(raw)
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
-
-const allowedOrigins = parseAllowedOrigins(process.env.CORS_ORIGINS);
-
 const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // accepter Postman/CURL, etc.
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = `L'origine ${origin} n'est pas autorisée par CORS.`;
-      return callback(new Error(msg), false);
-    }
-    callback(null, origin);
-  },
+  origin: [
+    'http://localhost:61358',
+    'http://localhost:4200'
+  ],
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 };
 
-app.use((req, res, next) => {
-  // Permet la communication entre fenêtres popup/parent mais reste sécuritaire
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  next();
-});
-
 app.use(cors(corsOptions));
+
+
 app.use(express.json()); ///parser les données au format JSON
 // Configuration CORS dynamique avec gestion des credentials
 /*app.use(cors({
@@ -157,7 +138,7 @@ app.use('/api/uploads', express.static(
 
 
 
-
+console.log('🔗 MongoDB URI:', mongoUri);
 mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true

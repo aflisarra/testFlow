@@ -136,7 +136,7 @@ def build_test_plan_prompt(
 "Do not write paragraphs.\n"
 "Use short business-oriented wording.\n\n"
 
-"Generate between 3 and 5 test plans maximum.\n\n"
+"Generate between 10 and 10 test plans maximum.\n\n"
 
         "### EXAMPLE\n"
         f"{example}\n\n"

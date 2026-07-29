@@ -1,163 +1,76 @@
 {
-  "test_cases": [
+  "title": "",
+  "description": "",
+  "summary": "",
+  "whatHappened": "",
+  "simpleExplanation": "",
+  "example": "",
+  "expectedBehavior": "",
+  "actualBehavior": "",
+  "whyItFailed": "",
+  "rootCause": "",
+  "severity": "Medium",
+  "confidence": 0.8,
+
+  "failedStepIndex": 2,
+  "failedStepName": "Enter password 'admin1234' in the password field",
+
+  "aiActionSummary": "The AI attempted to type 'Admin' into the username input and typed 'admin1234' into the password input. It then clicked on a button with text 'Login'. The expected behavior was for the user to be redirected to the dashboard, but instead, they were taken to the login page of the application.",
+  
+  "timeline": [
     {
-      "id": "TC-1.1",
-      "title": "Successful Login with Valid Credentials",
-      "objective": "Verify login functionality using valid credentials.",
-      "preconditions": [
-        "Login page is displayed"
-      ],
-      "test_data": {
-        "email": "user@test.com",
-        "password": "Password123"
-      },
-      "steps": [
-        "Enter email 'user@test.com' in the email field",
-        "Enter password 'Password123' in the password field",
-        "Click on the login button"
-      ],
-      "stepDetails": [
-        {
-          "step": "Enter email 'user@test.com' in the email field",
-          "expected_result": "Email field is populated with 'user@test.com'"
-        },
-        {
-          "step": "Enter password 'Password123' in the password field",
-          "expected_result": "Password field is populated with 'Password123'"
-        },
-        {
-          "step": "Click on the login button",
-          "expected_result": "Login process initiated"
-        }
-      ],
-      "expected_result": "User is successfully logged in",
-      "priority": "High",
-      "severity": "Major",
-      "type": "Validation",
-      "requirements": ["REQ-001"]
+      "step": 0,
+      "action": "Enter email 'user@test.com' in the email field",
+      "result": "Success"
     },
     {
-      "id": "TC-1.2",
-      "title": "Failed Login with Invalid Email",
-      "objective": "Verify login functionality fails when invalid email is provided.",
-      "preconditions": [
-        "Login page is displayed"
-      ],
-      "test_data": {
-        "email": "invalid_email@test.com",
-        "password": "Password123"
-      },
-      "steps": [
-        "Enter email 'invalid_email@test.com' in the email field",
-        "Enter password 'Password123' in the password field",
-        "Click on the login button"
-      ],
-      "stepDetails": [
-        {
-          "step": "Enter email 'invalid_email@test.com' in the email field",
-          "expected_result": "Email field is populated with 'invalid_email@test.com'"
-        },
-        {
-          "step": "Enter password 'Password123' in the password field",
-          "expected_result": "Password field is populated with 'Password123'"
-        },
-        {
-          "step": "Click on the login button",
-          "expected_result": "Login process fails due to invalid email"
-        }
-      ],
-      "expected_result": "User cannot log in with invalid email",
-      "priority": "High",
-      "severity": "Major",
-      "type": "Validation",
-      "requirements": ["REQ-001"]
+      "step": 1,
+      "action": "Enter password 'Password123' in the password field",
+      "result": "Success"
     },
     {
-      "id": "TC-1.3",
-      "title": "Failed Login with Invalid Password",
-      "objective": "Verify login functionality fails when invalid password is provided.",
-      "preconditions": [
-        "Login page is displayed"
-      ],
-      "test_data": {
-        "email": "user@test.com",
-        "password": "invalid_password"
-      },
-      "steps": [
-        "Enter email 'user@test.com' in the email field",
-        "Enter password 'invalid_password' in the password field",
-        "Click on the login button"
-      ],
-      "stepDetails": [
-        {
-          "step": "Enter email 'user@test.com' in the email field",
-          "expected_result": "Email field is populated with 'user@test.com'"
-        },
-        {
-          "step": "Enter password 'invalid_password' in the password field",
-          "expected_result": "Password field is populated with 'invalid_password'"
-        },
-        {
-          "step": "Click on the login button",
-          "expected_result": "Login process fails due to invalid password"
-        }
-      ],
-      "expected_result": "User cannot log in with invalid password",
-      "priority": "High",
-      "severity": "Major",
-      "type": "Validation",
-      "requirements": ["REQ-001"]
-    },
-    {
-      "id": "TC-1.4",
-      "title": "Failed Login with Empty Email Field",
-      "objective": "Verify login functionality fails when email field is left empty.",
-      "preconditions": [
-        "Login page is displayed"
-      ],
-      "test_data": {},
-      "steps": [
-        "Click on the login button"
-      ],
-      "stepDetails": [
-        {
-          "step": "Click on the login button",
-          "expected_result": "Login process fails due to empty email field"
-        }
-      ],
-      "expected_result": "User cannot log in with an empty email field",
-      "priority": "High",
-      "severity": "Major",
-      "type": "Validation",
-      "requirements": ["REQ-001"]
-    },
-    {
-      "id": "TC-1.5",
-      "title": "Failed Login with Empty Password Field",
-      "objective": "Verify login functionality fails when password field is left empty.",
-      "preconditions": [
-        "Login page is displayed"
-      ],
-      "test_data": {},
-      "steps": [
-        "Enter email 'user@test.com' in the email field",
-        "Click on the login button"
-      ],
-      "stepDetails": [
-        {
-          "step": "Enter email 'user@test.com' in the email field",
-          "expected_result": "Email field is populated with 'user@test.com'"
-        },
-        {
-          "step": "Click on the login button",
-          "expected_result": "Login process fails due to empty password field"
-        }
-      ],
-      "expected_result": "User cannot log in with an empty password field",
-      "priority": "High",
-      "severity": "Major",
-      "type": "Validation",
-      "requirements": ["REQ-001"]
+      "step": 2,
+      "action": "Click on the login button",
+      "result": "Unexpected Action"
     }
-  ]
+  ],
+
+  "evidence": [
+    "Expected URL: /dashboard/index",
+    "Actual URL: https://opensource-demo.orangehrmlive.com/web/index.php/auth/login",
+    "AI Action: type 'Admin' into [name='username']",
+    "AI Action: type 'admin1234' into [name='password']",
+    "AI Action: click on text=Login"
+  ],
+
+  "developerFix": [
+    ""
+  ],
+
+  "testerFix": [
+    {
+      "error": "Test Data Error",
+      "rootCause": "The test data provided ('Admin', 'admin1234') is incorrect for the login credentials of the application.",
+      "whatHappened": "The AI attempted to use these invalid credentials, resulting in a redirect to the login page instead of the dashboard. The user should provide correct credentials as per the expected behavior.",
+      "example": "Expected URL: /dashboard/index",
+      "fix": "Replace 'Admin' and 'admin1234' with valid credentials that would lead to the dashboard."
+    }
+  ],
+
+  "recommendations": [
+    {
+      "error": "Test Data Error",
+      "rootCause": "The test data provided ('Admin', 'admin1234') is incorrect for the login credentials of the application.",
+      "whatHappened": "The AI attempted to use these invalid credentials, resulting in a redirect to the login page instead of the dashboard. The user should provide correct credentials as per the expected behavior.",
+      "example": "Expected URL: /dashboard/index",
+      "fix": "Replace 'Admin' and 'admin1234' with valid credentials that would lead to the dashboard."
+    }
+  ],
+
+  "diagnosticTips": [
+    "Verify that the provided test data matches the actual login credentials of the application.",
+    "Check if there are any known issues or changes in the application's login process that might affect the expected behavior."
+  ],
+
+  "suggestedSelectors": []
 }

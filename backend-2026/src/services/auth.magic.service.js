@@ -103,7 +103,7 @@ const sendForgotPasswordEmail = async (email) => {
             expiresAt: new Date(Date.now() + 15 * 60 * 1000),
         });
 
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:50766/';
         const magicUrl = `${frontendUrl}/reset-password?token=${token}`;
 
         // Generate email template

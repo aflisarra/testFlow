@@ -634,6 +634,10 @@ def extract_test_data(test_case):
             for item in value:
                 consume(item)
             return
+        if isinstance(value, str):
+            # Do not heuristically classify raw strings into the map.
+            # They will be processed sequentially by the fallback cursor instead.
+            return
 
     consume(source)
     return normalized
@@ -1128,14 +1132,6 @@ def _dom_to_fill_actions(dom, test_case, step=""):
                 value = ""
             else:
                 value = defaults["subject"] if "subject" in selector.lower() else ""
-
-        classified_value_type = _classify_test_data_value(value)
-        if field_type == "password" and classified_value_type == "email":
-            logger.info("⏭️ Preventing email assignment to password field: %s", selector)
-            continue
-        if field_type == "username" and classified_value_type == "password":
-            logger.info("⏭️ Preventing password assignment to username field: %s", selector)
-            continue
 
         if value:
             used_values.add(value)  # ✅ mark this value as consumed

@@ -156,9 +156,17 @@ async function refreshToken(refreshTokenValue) {
 const loginUser = async ({ email, password }) => {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const user = await User.findOne({ email: normalizedEmail });
+
+  console.log('📧 Email:', normalizedEmail);
+console.log('👤 User:', user ? user.email : 'NOT FOUND');
   if (!user) throw new Error('Invalid email or password');
 
   const isMatch = await bcrypt.compare(password, user.password);
+
+  console.log('Email:', normalizedEmail);
+console.log('Password reçu:', password);
+console.log('Hash DB:', user.password);
+console.log('Password match:', isMatch);
   if (!isMatch) throw new Error('Invalid email or password');
 
   const roleName = String(user.role || '').trim()

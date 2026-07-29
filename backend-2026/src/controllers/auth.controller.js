@@ -23,6 +23,8 @@ exports.register = async (req, res) => {
 
 // Login user
 exports.login = async (req, res) => {
+  console.log('🔥 LOGIN CONTROLLER APPELÉ');
+  console.log('📦 Body:', req.body);
   try {
     const { email, password } = req.body;
 

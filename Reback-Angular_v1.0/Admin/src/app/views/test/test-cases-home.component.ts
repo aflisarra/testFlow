@@ -1,4 +1,4 @@
-﻿import { CommonModule } from '@angular/common'
+import { CommonModule } from '@angular/common'
 import { Component, CUSTOM_ELEMENTS_SCHEMA, HostListener, inject, OnInit } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { ActivatedRoute, Router } from '@angular/router'
@@ -888,6 +888,12 @@ if (this.pendingNewCase) {
   private updateModalCase(caseId: string, updater: (tc: TestCaseDto) => TestCaseDto) {
     const normalizedId = String(caseId || '').trim()
     if (!normalizedId) return
+
+    if (this.pendingNewCase && this.pendingNewCase.id === normalizedId) {
+      this.pendingNewCase = this.attachCurrentUserAuthor(updater(this.pendingNewCase))
+      this.modalCases = [this.pendingNewCase]
+      return
+    }
 
     const allIdx = this.modalAllCases.findIndex((tc) => String(tc?.id || '').trim() === normalizedId)
     if (allIdx < 0) return
