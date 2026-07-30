@@ -6,20 +6,25 @@ FastAPI routes for:
 This module intentionally contains no business logic.
 """
 
+
+
 from __future__ import annotations
 
 import subprocess
 import time
 from typing import Optional
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 
 from core.config import get_settings
 from schemas.test_plan_schema import GeneratePlanRequest, GeneratePlanResponse
 from services.cancellation_service import is_cancelled
+from services.ingestion.ingest import ingest_spec
+from services.ingestion.items import get_items
 from services.plan_service import generate_test_plans
 from services.spec_service import chunk_docx_bytes, extract_spec_text_from_docx_bytes
+from utils.docx_reader import extract_doc_from_bytes
 
 
 router = APIRouter()
@@ -45,18 +50,28 @@ async def upload_spec(file: UploadFile = File(...)):
         if not spec_text.strip():
             return JSONResponse(status_code=422, content={"error": "Document is empty or has no readable text."})
 
-        return {"filename": file.filename, "spec_text": spec_text, "char_count": len(spec_text)}
+        # Phase 2: itemise the spec (idempotent — safe to call on every upload)
+        try:
+            doc = extract_doc_from_bytes(file_bytes)
+            h, items = ingest_spec(doc, file_bytes)
+            item_count = len(items)
+            print(f"[upload-spec] ingested hash={h[:8]}  items={item_count}")
+        except Exception as exc:
+            # Ingestion failure must not break the upload response
+            print(f"[upload-spec] ingest_spec warning: {exc}")
+            item_count = 0
+
+        return {
+            "filename": file.filename,
+            "spec_text": spec_text,
+            "char_count": len(spec_text),
+            "item_count": item_count,   # observability only
+        }
     except RuntimeError as exc:
         return JSONResponse(status_code=500, content={"error": str(exc)})
     except Exception as exc:
         return JSONResponse(status_code=500, content={"error": f"Upload failed: {str(exc)}"})
 
-
-from fastapi import Form, UploadFile, File
-from typing import Optional
-
-from fastapi import Form, UploadFile, File
-from typing import Optional
 
 @router.post("/generate-plan", response_model=GeneratePlanResponse)
 async def generate_plan(
@@ -152,3 +167,27 @@ async def generate_plan(
             status_code=500,
             content={"error": str(exc)}
         )
+
+
+@router.get("/debug/items/{spec_hash}")
+async def debug_items(spec_hash: str):
+    """
+    Temporary debug endpoint — returns item count and first 5 items for a
+    given spec_hash (sha256 hex).  Useful for verifying bullet splits.
+    """
+    items = get_items(spec_hash)
+    if not items:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "No items found for this spec_hash. Upload the spec first."},
+        )
+    sample = [
+        {
+            "id": it.id,
+            "source_chunk_id": it.source_chunk_id,
+            "heading_path": it.heading_path,
+            "text": it.text,
+        }
+        for it in items[:5]
+    ]
+    return {"spec_hash": spec_hash, "item_count": len(items), "sample": sample}

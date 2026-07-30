@@ -1,6 +1,6 @@
 # context.md — python-2026 : état du projet
 
-> Généré le 2026-07-01. À mettre à jour à chaque session.
+> Mis à jour le 2026-07-30.
 
 ---
 
@@ -8,14 +8,16 @@
 
 **python-2026** est un backend **FastAPI** (Python) qui expose une API REST pour :
 
-1. Extraire le texte d'une spec `.docx`
-2. Générer des **Test Plans** (TP-N) via un LLM OpenRouter
-3. Générer des **Test Cases** (TC-N.N) par plan
-4. Prendre des **décisions AI** step-by-step pour l'automatisation UI (Selenium)
-5. **Exécuter** des test cases via Selenium + décision AI
-6. **Annuler** une génération en cours
+1. Extraire et découper le texte d'une spec `.docx` (chunking récursif structuré, itemisation atomique & classification hybride)
+2. Ingestion complète (Phase 2 à 4) : itemisation, classification en cascade des rôles (`tag_role`) et extraction générative des modules par spec (`generate_module_list`, `tag_module`)
+3. Générer des **Test Plans** (TP-N) via un LLM OpenRouter
+4. Générer des **Test Cases** (TC-N.N) par plan
+5. Prendre des **décisions AI** step-by-step pour l'automatisation UI (Selenium)
+6. **Exécuter** des test cases via Selenium + décision AI
+7. **Annuler** une génération en cours
 
-Le LLM utilisé est **OpenRouter**, appelé via HTTP.
+Le LLM principal utilisé est **OpenRouter** (ex. `google/gemini-2.5-flash`), appelé via HTTP.
+Pour l'embedding et l'alignement sémantique (Rôles & Modules), le système s'appuie sur `sentence-transformers` (`paraphrase-multilingual-MiniLM-L12-v2`) et `scipy` pour l'alignement de Hungarian.
 
 ---
 
@@ -24,26 +26,38 @@ Le LLM utilisé est **OpenRouter**, appelé via HTTP.
 ```
 python-2026/
 ├── main.py                        # Point d'entrée FastAPI (v2.0.0)
-├── requirements.txt               # Dépendances (fastapi, uvicorn, python-dotenv, python-docx, python-multipart)
+├── requirements.txt               # Dépendances (fastapi, uvicorn, python-dotenv, python-docx, python-multipart, scipy, sentence-transformers, openai)
 ├── .env.example                   # Variables d'environnement documentées
+├── probe_classifier.ipynb         # Notebook d'expérimentation (Ground Truth, Role/Module classifier, Module Generation, Hungarian alignment)
 ├── core/
 │   ├── config.py                  # Settings dataclass (frozen), chargée depuis env
 │   └── constants.py               # PRIORITIES, SEVERITIES, TEST_CASE_TYPES, limites min/max
 ├── routers/
 │   ├── health.py                  # GET /health
-│   ├── test_plans.py              # POST /upload-spec, POST /generate-plan
+│   ├── test_plans.py              # POST /upload-spec, POST /generate-plan, GET /debug/items/{spec_hash}
 │   ├── test_cases.py              # POST /generate-test-cases
 │   ├── ai_decision.py             # POST /ai/decide  (décision AI step-by-step)
 │   ├── test_runner.py             # POST /test-runner/run  (exécution Selenium)
 │   └── cancellation.py            # POST /cancel-generation
 ├── services/
-│   ├── ai_service.py              # AiService (generate_json + repair JSON)
+│   ├── ai_service.py              # AiService (generate_json + repair JSON via OpenRouter)
 │   ├── plan_service.py            # generate_test_plans()
 │   ├── case_service.py            # generate_test_cases()
-│   ├── spec_service.py            # extract_spec_text, chunk_spec, extract_requirements
+│   ├── spec_service.py            # extract_spec_text, chunk_docx_bytes, filter_srs_sections, extract_requirements
 │   ├── cancellation_service.py    # request_cancel(), is_cancelled() (TTL-based, thread-safe)
+│   ├── ingestion/                 # Pipeline d'ingestion (Phases 2-4)
+│   │   ├── __init__.py
+│   │   ├── items.py               # Modèle Item, in-process store (_STORE, store_items, get_items), expand_section_to_items()
+│   │   ├── role_rules.py          # Règles lexicales / regex par rôle (Pass 1)
+│   │   ├── role_heading_prior.py   # Detection par mots-clés sur le titre parent direct (Pass 2)
+│   │   ├── tagger.py              # Classifier hybride en cascade tag_role() (regex -> heading -> embedding k-NN -> UNTAGGED)
+│   │   ├── module_generation.py   # Extraits de preuve & appel LLM pour générer les cartes modules spec-local
+│   │   ├── module_tagger.py       # Alignement et tagging des items sur les modules générés (tag_module)
+│   │   ├── module_gold.py         # Registre Gold pour l'alignement de Hungarian
+│   │   ├── module_validation.py   # Fonctions de comparaison (legacy vs généré) & scoring Hungarian
+│   │   └── ingest.py              # Pipeline complet ingest_spec() (sha256, cache, itemisation, roles, modules, logging structuré)
 │   ├── ai/
-│   │   └── ai_service.py          # AIService secondaire (appel HTTP direct Ollama, format=json)
+│   │   └── ai_service.py          # AIService secondaire (OpenRouter HTTP)
 │   └── selenium/
 │       └── selenium_service.py    # run_test() — orchestration Selenium + appels /ai/decide
 ├── schemas/
@@ -57,9 +71,14 @@ python-2026/
 ├── utils/
 │   ├── openrouter.py              # run_openrouter() : HTTP, timeout-safe
 │   ├── json_cleaner.py            # safe_json_loads() : robuste aux sorties LLM
-│   ├── chunker.py                 # split_by_headings(), detect_modules_from_chunks()
-│   ├── docx_reader.py             # extract_text_from_docx()
+│   ├── chunker.py                 # chunk_spec_recursive(), build_heading_tree(), _heading_level_of(), split_by_headings()
+│   ├── docx_reader.py             # extract_text_from_docx(), extract_doc_from_bytes()
 │   └── logger.py                  # get_logger(), log_event(), log_error() (JSON structuré)
+├── tests/                         # Suite de tests unitaires et d'intégration
+│   ├── test_chunker.py            # Tests du chunking récursif
+│   ├── test_role_tagger.py        # Tests du classifier de rôles en cascade
+│   ├── test_module_generation.py  # Tests de génération et tagging des modules
+│   └── pipeline_smoke.py          # Smoke test d'ingestion bout-en-bout
 └── automation/
     └── dom_capture.py             # capture_dom_elements() + resolve_indexed_selector() (Selenium JS)
 ```
@@ -72,7 +91,8 @@ python-2026/
 |---------|-------|-------------|
 | `GET` | `/` | Health check + liste des endpoints |
 | `GET` | `/health` | Status + modèle + mock_mode |
-| `POST` | `/upload-spec` | Upload `.docx` → extrait `spec_text` |
+| `POST` | `/upload-spec` | Upload `.docx` → extrait `spec_text`, exécute `ingest_spec()` (itemisation, rôles, modules) et retourne `item_count` |
+| `GET` | `/debug/items/{spec_hash}` | Inspecte le store d'items (count + sample structuré) pour un hash donné |
 | `POST` | `/generate-plan` | Génère les Test Plans (TP-1..TP-N) |
 | `POST` | `/generate-test-cases` | Génère les Test Cases d'un plan |
 | `POST` | `/ai/decide` | Décision AI pour une step UI (step + DOM → actions) |
@@ -84,76 +104,52 @@ python-2026/
 
 ## Ce qui est implémenté et fonctionnel
 
-### Coeur métier
-- **Extraction spec** : lecture `.docx`, normalisation texte, chunking par headings, extraction requirements (bullets, modal verbs, user stories)
-- **Détection modules** : heuristique par keywords (Auth, Users, CRUD, Search, Notifications, Reporting, Security, Performance, Accessibility, Payments)
-- **Génération Test Plans** : prompt → OpenRouter → parse JSON → normalisation, déduplication, renumérotation, fallback mock si trop peu de plans
-- **Génération Test Cases** : prompt → OpenRouter → parse JSON → normalisation fields (priority, severity, type, stepDetails avec expected_result par étape), fallback mock
-- **Linking requirements** : pertinence par keywords entre plan/case et exigences extraites
+### 1. Chunking récursif sensible aux titres (`utils/chunker.py`)
+- **Arbre de titres (`HeadingNode`)** : parcours unique de l'arbre documentaire. Les paragraphes d'introduction situés entre un titre parent et son premier sous-titre sont attribués au parent via `own_paragraphs`.
+- **Support bilingue & outline XML** : détection des styles `Heading 1..6` (Anglais), `Titre 1..6` (Français) et fallback sur l'attribut XML `<w:outlineLvl>`.
+- **Propagation d'ancêtres (`heading_path`)** : chaque chunk conserve le chemin complet des titres ancêtres (ex: `["2. Fonctionnalités", "2.1 Authentification"]`).
 
-### AI Decision (step-by-step UI automation)
-- Endpoint `/ai/decide` reçoit : `step` (texte), `dom` (liste structurée d'éléments), `test_case`
-- **Détection fill step** vs **click step** par keywords
-- **Fallback DOM → actions** : si le LLM échoue ou retourne des actions invalides, construit les actions `type`/`click` directement depuis la liste DOM
-  - Extraction test_data depuis de multiples formes (snake_case, camelCase, nesting, credentials)
-  - Valeurs sémantiques par champ (email, password, phone, date, address...)
-  - Defaults hardcodés (John, john@test.com, John@test123...)
-  - Inférence test_data depuis le DOM si test_data absent
-- **Anti-wrong-click** : détecte si le LLM retourne des clicks alors que des inputs existent → force le fallback fill
+### 2. Ingestion & Itemisation atomique (Phase 2 - `services/ingestion/`)
+- **Modèle `Item`** (`id`, `source_chunk_id`, `heading_path`, `text`, `role`, `role_method`, `module`, `role_score`, `module_score`).
+- **Stratégie de découpage 2-pass (`expand_section_to_items`)** :
+  1. Extraction des puces (regex `-`, `*`, `•`, numérotation `1.`, `1)`).
+  2. Découpage des blocs de prose restants aux frontières de phrases (`. `, `! `, `? ` pour les candidats >= 20 caractères).
+  3. Filtrage des items de longueur < 10 caractères.
+- **Store in-process (`_STORE`)** : indexé par `spec_hash` (digest SHA-256 du fichier).
 
-### Selenium test runner
-- `run_test(test_case)` : ouvre Chrome, navigue vers `test_case.url`, exécute chaque step
-- Par step : capture le DOM via JS → appelle `/ai/decide` → exécute les actions retournées
-- `smart_find()` : résout les sélecteurs CSS, avec fallback `label[for=...]` et `__index:N`
-- `capture_dom_elements()` : snapshot JS structuré (input/button/a/textarea/select) des éléments visibles, max 150
-- `resolve_indexed_selector()` : résout `__index:N` via XPath positionnel
-- Screenshots à chaque action (step_N_M.png / error_N_M.png)
-- Fermeture propre du driver (finally → `driver.quit()`)
+### 3. Classifier hybride de Rôles en cascade (Phase 3 - `services/ingestion/tagger.py`)
+- **Cascade à 4 niveaux (première correspondance gagnante)** :
+  1. **Regex déterministe (`role_rules.py`)** : détection immédiate des puces, exigences modales, critères BDD/UC, hors périmètre, glossaires → `method="regex"`.
+  2. **Prior du titre parent (`role_heading_prior.py`)** : inspection des mots-clés du titre parent immédiat (ex: `ACTOR`, `GLOSSARY`, `CONTEXT`) → `method="heading"`.
+  3. **Fallback d'embedding k-NN (`tagger.py`)** : comparaison par cosine similarity k-NN contre les exemples étiquetés gold via `paraphrase-multilingual-MiniLM-L12-v2` (seuil > 0.30) → `method="embedding"`.
+  4. **Défaut** : `UNTAGGED` → `method="none"`.
+- Chaque item conserve la méthode ayant produit son étiquette dans `item.role_method`.
 
-### Annulation
-- Service in-memory thread-safe avec TTL (15 min par défaut)
-- Annulation par `(test_suite_id, plan_id, scope)` ou par `request_id`
-- Checked avant et après l'appel AI dans `/generate-plan` et `/generate-test-cases`
-- One-shot consume : une annulation n'est consommée qu'une fois (évite de bloquer les runs suivants)
+### 4. Génération & Classification des Modules par Spec (Phase 4 - `services/ingestion/module_*`)
+- **Extraction générative des modules (`module_generation.py`)** : sélection d'un budget d'items de preuve (`CONTEXT`, `FEATURE`, `REQUIREMENT`, `NON_FUNCTIONAL`) transmis à OpenRouter pour générer la liste des modules spécifiques à la spec `{name, description}`.
+- **Tagging des items par module (`module_tagger.py`)** : comparaison cosine similarity entre le texte de chaque item et la description générée des modules.
+- **Évaluation Hungarian Alignment (`module_validation.py` & `module_gold.py`)** : calcul de la matrice de coût d'assignation globale (`scipy.optimize.linear_sum_assignment`) contre une liste Gold de référence (score d'alignement moyen : **0.618**, couverture 11/13 ≥ 0.50).
+- **Détection des sous-modules sur-découpés (`flag_tiny_modules`)** : alerte sur les modules ayant < 2 items attribués.
 
-### Utilitaires
-- **openrouter.py** : HTTP API, timeout-safe, extraction JSON robuste
-- **json_cleaner.py** : `safe_json_loads()` : direct → strip fences → extract balanced → repair trailing commas
-- **ai_service.py** : `generate_json()` avec repair-loop (un second appel OpenRouter si le JSON est invalide), logging structuré
-- **logger.py** : JSON structuré sur stdout, configurable via `LOG_LEVEL`
+### 5. Coeur métier & Génération LLM
+- **Génération Test Plans & Cases** : prompts structurés avec fallback mock, déduplication et renumérotation.
+- **Linking requirements** : association par mots-clés entre exigences extraites et plans/cases.
 
-### Configuration
-- `core/config.py` : `Settings` dataclass frozen, tous les timeouts configurables via env
-- Variables disponibles : `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` / `MODEL_NAME`, `OPENROUTER_TIMEOUT`, `OPENROUTER_CHAT_TIMEOUT`, `OPENROUTER_TEST_PLANS_TIMEOUT`, `OPENROUTER_TEST_CASES_TIMEOUT`, `OPENROUTER_TEST_TRANSLATOR_TIMEOUT`, `OPENROUTER_HTTP_TIMEOUT`, `OPENROUTER_NUM_PREDICT`, `OPENROUTER_TEMPERATURE`, `USE_MOCK`, `DEBUG_ERRORS`, `LOG_LEVEL`
-- **Mock mode** (`USE_MOCK=true`) : retourne des données statiques sans appeler OpenRouter
+### 6. AI Decision & Selenium Test Runner
+- Exécution UI automatisée avec capture DOM, smart finding CSS/XPath positionnel, et screenshots par étape.
+- Fallback automatique du DOM si le LLM ne produit pas d'actions valides.
+
+### 7. Annulation
+- Système thread-safe in-memory avec TTL (15 min) et consommateur unique (one-shot).
 
 ---
 
 ## Ce qui est manquant / TODO
 
-### Bugs connus
-- `main.py` ligne 84 : référence à `resolved_test_case` dans le handler `GET /` → erreur au runtime si appelé (variable non définie dans ce scope)
-- `services/ai/ai_service.py` : importe `from json_utils import safe_json_loads` → module inexistant (`utils.json_cleaner` est le bon)
-- Duplication d'imports dans `routers/test_plans.py` (Form, UploadFile, File importés deux fois)
-
-### Qualité / Robustesse
-- Pas de `pyproject.toml` (pas de ruff, black, mypy configurés)
-- Pas de tests automatisés (ni smoke, ni unit, ni integration)
-- Pas de CI (GitHub Actions)
-- `requirements.txt` sans versions figées → risque de régression
-- CORS ouvert (`allow_origins=["*"]`) → à restreindre en production
-- L'endpoint `translate-test-case` est commenté (`#app.include_router(test_case_translator.router)`)
-
-### Améliorations planifiées (README checklist)
-- [ ] Script de lancement standard (Makefile / PowerShell)
-- [ ] `pyproject.toml` avec ruff, black, pytest
-- [ ] Lockfile ou versions figées
-- [ ] Tests minimaux (health check, upload .docx, mock generation)
-- [ ] CI GitHub Actions (install → lint → test)
-- [ ] Dockerfile + `.dockerignore`
-- [ ] Environnements dev/prod explicites
-- [ ] Monitoring basique (latence, erreurs 5xx, timeouts)
-- [ ] Retry/backoff sur appels externes
+### Industrialisation & Étape suivante (Phase 5)
+- **Filtrage contextuel par tâche (Phase 5)** : connecter `filter_items()` au prompt builder de `generate_test_plans` et `generate_test_cases` pour restreindre le contexte LLM aux items pertinents par rôle et module.
+- Pas de `pyproject.toml` (ruff, black configurés).
+- CORS ouvert (`allow_origins=["*"]`) → à restreindre pour la prod.
 
 ---
 
@@ -162,7 +158,16 @@ python-2026/
 ```
 [Frontend Angular]
       │
-      ├─ POST /upload-spec (.docx) ──► spec_service ──► docx_reader ──► spec_text
+      ├─ POST /upload-spec (.docx) ──► spec_service ──► docx_reader
+      │                                     └─► ingest_spec()
+      │                                             ├─► chunker (HeadingTree)
+      │                                             ├─► expand_section_to_items()
+      │                                             ├─► tag_role() (Cascade: Regex ➔ Heading ➔ Embedding k-NN)
+      │                                             ├─► generate_module_list() (OpenRouter sur CONTEXT+FEATURE+NFR)
+      │                                             ├─► tag_module() (Cosine similarity vs descriptions générées)
+      │                                             └─► _STORE[spec_hash]
+      │
+      ├─ GET /debug/items/{hash} ────► get_items(spec_hash) ──► inspect Items (avec role, method & module)
       │
       ├─ POST /generate-plan ─────────► plan_service
       │                                     ├─ spec_service (chunk + modules + requirements)
@@ -193,33 +198,29 @@ uvicorn[standard]
 python-dotenv
 python-docx
 python-multipart
-# manquants dans requirements.txt mais utilisés :
+scipy
+sentence-transformers
+openai
+# requis pour runner & helpers :
 selenium
 requests
 ```
-
-> ATTENTION : `selenium` et `requests` sont utilisés dans `services/selenium/selenium_service.py` et `services/ai/ai_service.py` mais **absents de requirements.txt**.
 
 ---
 
 ## Lancement
 
 ```bash
-# 1. Créer et activer venv
-python -m venv .venv
+# 1. Activer venv
 .venv\Scripts\activate
 
 # 2. Installer les dépendances
 pip install -r requirements.txt
-pip install selenium requests  # manquants dans requirements.txt
+pip install selenium requests
 
-# 3. Configurer l'environnement
-copy .env.example .env
-# éditer .env
+# 3. Configurer l'environnement (.env)
+# OPENROUTER_API_KEY=sk-or-...
 
-# 4. Configurer la clé API OpenRouter
- # export OPENROUTER_API_KEY=sk-or-...
-
-# 5. Lancer l'API
+# 4. Lancer l'API
 uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```

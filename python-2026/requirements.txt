@@ -5,3 +5,5 @@ python-dotenv
 python-docx
 python-multipart
 openai
+sentence-transformers>=2.7,<3
+scipy>=1.11,<2
