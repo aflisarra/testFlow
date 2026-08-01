@@ -54,8 +54,8 @@ class Item:
     text: str
     role: str = "UNTAGGED"      # one of ROLE_LABELS or "UNTAGGED"
     module: str = "UNTAGGED"    # e.g. "Authentication"
-    role_score: float | None = None  # cosine similarity; None for deterministic tags
-    role_method: Literal["regex", "heading", "embedding", "none"] = "none"
+    role_score: float | None = None  # keeping this but it's not used at this time
+    role_method: Literal["regex", "heading", "none"] = "none"
     module_score: float = 0.0
 
 

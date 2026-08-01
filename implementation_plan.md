@@ -588,66 +588,185 @@ output), the comparison logging does not.
 
 ---
 
-## Phase 5 — Wire TASK_MANIFEST into /generate-plan
+# Corrections: Phase 5 onward — human review for UNTAGGED items
 
-**Goal**: replace the `spec_chunks[:10]` slice in `build_test_plan_prompt`
-with a filtered, token-budgeted set of Items; measure token reduction.
+Replaces Phase 5, 6, 7, Conflict-With-Good-Practice item 1, and adds one
+item to the Verification Plan, from the consolidated implementation plan.
+
+## Prerequisite (blocks everything below): Item store must be durable
+
+Open Question 1's in-process `dict[str, list[Item]]` cannot hold review
+state. A human review decision has to survive process restarts and an
+unbounded wait — an in-memory store loses both. Recommendation: back
+`services/ingestion/items.py`'s `store_items` / `get_items` with calls to
+Node's API instead of a local dict, keeping the function signatures
+identical so nothing calling them needs to change. This isn't new
+complexity — it's the persistence model the project already committed to
+(Node + Mongo owns state, FastAPI stays stateless); it just needs to
+actually land now instead of "later." The Node-side endpoint shapes aren't
+specified here — that's Node-side work, not covered by this plan.
+
+---
+
+## Phase 5a — Human review queue for UNTAGGED items (NEW)
+
+**Goal**: every item that falls through Phase 3's cascade (`role ==
+"UNTAGGED"`) becomes a durable, resolvable review item instead of a
+number in a log line.
 
 ### Done looks like
-- `POST /generate-plan` response is unchanged (same JSON shape).
-- Server logs: `prompt_chars_before=XXXX  prompt_chars_after=YYYY`.
-- Manually compare generated plans quality vs. pre-change baseline on a long spec.
+- Every UNTAGGED item is queryable via a review endpoint, with enough
+  context (text, heading_path, nearest heading) for a human to decide.
+- Each UNTAGGED item optionally carries an LLM-generated `suggested_role`
+  — a hint only, never auto-applied, never counted as tagged.
+- Resolving an item sets its role permanently and durably; it behaves
+  identically to a regex/heading match on every subsequent call.
+- No item is ever silently dropped or silently auto-assigned.
 
-### [NEW] services/ingestion/manifest.py
+### [MODIFY] services/ingestion/items.py
 
 ```python
-from dataclasses import dataclass
+@dataclass
+class Item:
+    ...
+    role_method: str = "none"          # existing, from Phase 3
+    reviewed: bool = False             # NEW
+    suggested_role: str | None = None  # NEW — LLM hint, never auto-applied
+```
 
-TASK_MANIFEST: dict[str, set[str]] = {
-    "generate-plan":        {"CONTEXT", "FEATURE", "ACTOR"},
-    "generate-test-cases":  {"FEATURE", "REQUIREMENT", "ACCEPTANCE"},
-    "ai-decide":            {"FEATURE", "REQUIREMENT"},   # future
-}
+### [NEW] services/ingestion/review_queue.py
 
-TOKEN_BUDGET_CHARS: dict[str, int] = {
-    "generate-plan":       6_000,   # ~1500 tokens
-    "generate-test-cases": 8_000,
-}
+```python
+def enqueue_for_review(spec_hash: str, items: list[Item]) -> int:
+    """
+    Called once, immediately after tag_role() in ingest.py (one added line
+    at the existing Phase 3 call site — see below). "Pending" needs no new
+    state: it's simply role == "UNTAGGED" and reviewed == False, already
+    true the moment tag_role finishes.
 
+    For each newly-UNTAGGED item, optionally makes one lightweight call to
+    the existing local Ollama model asking it to pick the single best-fit
+    role from ROLE_LABELS, and stores the result as item.suggested_role.
+    This is a hint surfaced to the reviewer as a one-click default — it is
+    never written to item.role and never counted as resolved. Skipped
+    entirely if the UNTAGGED count for this spec exceeds a small cap (e.g.
+    30) to avoid a slow ingest on a badly-behaved spec; log a warning if
+    the cap is hit.
+    Returns the count enqueued.
+    """
 
+def get_pending_review(spec_hash: str) -> list[Item]:
+    """Items with role == 'UNTAGGED' and reviewed == False for this spec."""
+
+def resolve_review(
+    spec_hash: str,
+    item_id: str,
+    role: str,
+    reviewer: str | None = None,
+) -> Item:
+    """
+    Human-confirmed resolution. Sets item.role = role,
+    item.role_method = "human", item.reviewed = True. Must go through the
+    durable store (see prerequisite above) — an in-memory resolution that
+    disappears on restart defeats the entire point of this phase.
+    Raises ValueError if role not in ROLE_LABELS or item not found.
+    """
+```
+
+### [NEW] routers/review.py
+
+```
+GET  /review-queue/{spec_hash}
+     -> [{item_id, text, heading_path, nearest_heading, suggested_role}, ...]
+
+POST /review-queue/{spec_hash}/{item_id}
+     body: {"role": "ACTOR"}
+     -> resolves the item via resolve_review(); returns the updated Item
+```
+
+### [MODIFY] services/ingestion/ingest.py
+
+One additional line at the existing tagging call site from Phase 3:
+
+```
+... -> items -> tag_role(items) -> enqueue_for_review(h, items) -> store_items(...)
+```
+
+### Sanity check
+- Upload a spec with a known ambiguous item (e.g. one of the previously
+  confirmed UNTAGGED items from the SonicWave eval). Confirm it appears in
+  `GET /review-queue/{spec_hash}` with a plausible `suggested_role`.
+- Resolve it via the POST endpoint, restart the server process, call
+  `GET /review-queue/{spec_hash}` again — the item must **not** reappear
+  as pending. If it does, the durable-storage prerequisite above isn't
+  actually wired in yet; stop and fix that before continuing.
+
+---
+
+## Phase 5b — Wire TASK_MANIFEST into /generate-plan (corrected)
+
+**Goal**: replace the `spec_chunks[:10]` slice in `build_test_plan_prompt`
+with a filtered, token-budgeted set of Items; measure token reduction;
+never silently include or silently drop UNTAGGED items.
+
+### Done looks like
+- `POST /generate-plan` response gains one additive field,
+  `pending_review_count` — this is a deliberate, visible change from the
+  original "response unchanged" goal, not an oversight. Silently
+  identical output would mean this phase is still hiding the gap it's
+  meant to surface.
+- Server logs: `prompt_chars_before`, `prompt_chars_after`,
+  `pending_review_count`.
+- Manually compare generated plans quality vs. pre-change baseline on a
+  long spec.
+
+### [MODIFY] services/ingestion/manifest.py
+
+```python
 def filter_items(
     items: list[Item],
     task: str,
     module: str | None = None,
     budget_chars: int | None = None,
-) -> list[Item]:
+) -> tuple[list[Item], int]:
     """
-    1. Keep items whose role ∈ TASK_MANIFEST[task].
-    2. If module is provided, further restrict to items where item.module == module
-       OR item.role in {"CONTEXT", "ACTOR"} (global context always included).
-    3. Sort by role_score DESC so highest-confidence items are kept when trimming.
-    4. Trim to budget_chars (cumulative item.text length).
-    Returns filtered list.  Raises KeyError if task not in TASK_MANIFEST.
+    1. candidates = [i for i in items if i.role in TASK_MANIFEST[task]].
+       UNTAGGED items are excluded here by design — not a silent loss:
+       once resolved through the Phase 5a review queue, a formerly-UNTAGGED
+       item enters `candidates` naturally on the next call, with role_method
+       "human". Guessing at inclusion (the earlier soft-include idea) is
+       no longer the right move once a real resolution path exists.
+    2. If module is provided, further restrict as before (item.module ==
+       module OR item.role in {"CONTEXT", "ACTOR"}).
+    3. Tiered sort — NOT a flat `role_score DESC`. role_score is None for
+       regex/heading/human-resolved items (they're deterministic, not
+       scored); sorting the raw field on a list mixing None and float
+       raises. Sort:
+         tier 0: role_method in {"regex", "heading", "human"}
+         tier 1: role_method == "embedding", sorted by role_score DESC
+    4. Trim to budget_chars across that tiered order.
+    Returns (filtered_items, pending_review_count), where
+    pending_review_count = number of this spec's UNTAGGED items still
+    awaiting review. Callers must surface this, not discard it.
+    Raises KeyError if task not in TASK_MANIFEST.
     """
 ```
 
-### [MODIFY] [spec_service.py](file:///d:/stage/testFlow/python-2026/services/spec_service.py)
+### [MODIFY] services/spec_service.py
 
 ```python
 def get_filtered_items_for_task(
     spec_hash: str,
     task: str,
     module: str | None = None,
-) -> list[Item]:
+) -> tuple[list[Item], int]:
     """
     Convenience wrapper: get_items(spec_hash) -> filter_items(...).
-    Returns [] if spec_hash not found (fallback to old path).
+    Returns ([], 0) if spec_hash not found (fallback to old path).
     """
 ```
 
-### [MODIFY] [plan_service.py](file:///d:/stage/testFlow/python-2026/services/plan_service.py)
-
-In `generate_test_plans`: add an `spec_hash: str = ""` kwarg.
+### [MODIFY] services/plan_service.py
 
 ```python
 def generate_test_plans(
@@ -655,74 +774,57 @@ def generate_test_plans(
     spec_text: str,
     style_config: str,
     project_title: str,
-    spec_hash: str = "",          # NEW
-) -> list[dict]:
+    spec_hash: str = "",
+) -> tuple[list[dict], int]:
+    """
+    Returns (plans, pending_review_count).
+    """
     ...
-    filtered = get_filtered_items_for_task(spec_hash, "generate-plan")
-    use_items = bool(filtered)    # False -> fall back to old chunks path
+    filtered, pending_review_count = get_filtered_items_for_task(spec_hash, "generate-plan")
+    use_items = bool(filtered)
 
     prompt = build_test_plan_prompt(
         project_title=project_title,
         style_config=style_config,
         modules=modules,
         requirements=requirements,
-        spec_chunks=chunks,       # kept as fallback
-        filtered_items=filtered,  # NEW — prompt builder prefers this
+        spec_chunks=chunks,
+        filtered_items=filtered,
     )
+    ...
+    return plans, pending_review_count
 ```
 
-### [MODIFY] [test_plan_prompt.py](file:///d:/stage/testFlow/python-2026/prompts/test_plan_prompt.py)
+### [MODIFY] routers/test_plans.py
 
 ```python
-def build_test_plan_prompt(
-    *,
-    project_title: str,
-    style_config: str,
-    modules: list[str],
-    requirements: list[dict],
-    spec_chunks: list[SpecChunk],      # fallback
-    filtered_items: list[Item] = (),   # NEW — preferred when non-empty
-) -> str:
-    """
-    If filtered_items is non-empty, build the SPECIFICATION block from
-    Item.text joined by newlines (role-annotated: '## FEATURE\n- text').
-    Otherwise fall back to the existing spec_chunks[:10] slice.
-    """
-```
-
-### [MODIFY] [test_plans.py router](file:///d:/stage/testFlow/python-2026/routers/test_plans.py)
-
-Pass `spec_hash` (computed at upload or re-computed from bytes in `generate_plan`)
-to `generate_test_plans`.
-
-```python
-from services.ingestion.items import spec_hash as compute_hash
-...
-h = compute_hash(file_bytes)
-plans = generate_test_plans(spec_text=..., spec_hash=h, ...)
+plans, pending_review_count = generate_test_plans(spec_text=..., spec_hash=h, ...)
+return {"plans": plans, "pending_review_count": pending_review_count}
 ```
 
 > [!NOTE]
-> If `spec_hash` not found in store (e.g., server restarted), `filter_items`
-> returns [] and the old path runs transparently. No error.
+> If `spec_hash` isn't found in the store, `filter_items` still returns
+> `([], 0)` and the old chunks path runs — same graceful fallback as
+> before, now just carrying the count through as 0.
 
 ### Sanity check
-- Log `prompt_chars_before` (len of old prompt) and `prompt_chars_after`.
-- On a 10 000-char spec, expect after < 30% of before.
-- Test plan titles should still match spec features (manual check).
+- Log `prompt_chars_before` / `prompt_chars_after`. On a 10 000-char spec,
+  expect after < 30% of before.
+- Upload a spec with a known-ambiguous item left unresolved; confirm
+  `pending_review_count > 0` in the response and that item's text does
+  not appear anywhere in the generated prompt. Resolve it via Phase 5a,
+  regenerate, confirm the count drops and the item's content now
+  influences the plan.
 
 ---
 
-## Phase 6 — Extend Filtering to /generate-test-cases with Module Scoping
+## Phase 6 — Extend filtering to /generate-test-cases with module scoping (corrected)
 
-**Goal**: scope item filtering to the module associated with the requested TP-N.
+**Goal**: unchanged — scope filtering to the module for the requested
+TP-N. Only change from the original: this now consumes `filter_items`'s
+tuple return, so `pending_review_count` propagates the same way.
 
-### Done looks like
-- Generating test cases for `TP-2 (Authentication)` only sees Authentication
-  items + global CONTEXT/ACTOR items — not Payments items.
-- Log shows `filtered_item_count` and `module_scope` per call.
-
-### [MODIFY] [case_service.py](file:///d:/stage/testFlow/python-2026/services/case_service.py)
+### [MODIFY] services/case_service.py
 
 ```python
 def generate_test_cases(
@@ -730,147 +832,92 @@ def generate_test_cases(
     spec_text: str,
     plan: dict,
     style_config: str,
-    spec_hash: str = "",           # NEW
-) -> list[dict]:
+    spec_hash: str = "",
+) -> tuple[list[dict], int]:
     """
-    Derives module scope from plan["title"] (or plan["module"] if present)
-    by matching against MODULE_DESCRIPTIONS keys, then calls
-    get_filtered_items_for_task(spec_hash, "generate-test-cases", module=scope).
-    Falls back to old path if no items found.
+    Same module-scope derivation as before. Returns
+    (test_cases, pending_review_count) — same pattern as Phase 5b.
     """
 ```
 
-### [MODIFY] [test_case_prompt.py](file:///d:/stage/testFlow/python-2026/prompts/test_case_prompt.py)
-
-Same pattern as `build_test_plan_prompt`: accept `filtered_items=()`, prefer
-over raw chunks when non-empty.
-
-### [MODIFY] [test_cases.py router](file:///d:/stage/testFlow/python-2026/routers/test_cases.py)
-
-Pass `spec_hash` from request body (add optional field to
-`GenerateTestCasesRequest` schema) or re-compute from `spec_text` bytes if
-not present.
-
-### [MODIFY] schemas/test_case_schema.py
-
-```python
-class GenerateTestCasesRequest(BaseModel):
-    ...
-    spec_hash: str = ""   # NEW optional field
-```
+> [!NOTE]
+> Module-level UNTAGGED (item.module == "UNTAGGED") is the same underlying
+> problem at a different axis, but it isn't gated yet — Phase 4 leaves
+> `MODULE_THRESHOLD = None`, so nothing currently excludes on module
+> confidence, and there's nothing to review yet. `review_queue.py`'s
+> `resolve_review` already accepts an arbitrary target field in spirit;
+> extending it to modules is a small follow-up once module hard-filtering
+> is actually turned on, not before.
 
 ### Sanity check
-- Generate test cases for two different plans on a multi-module spec; verify
-  the items logged for each differ (different modules in scope).
-- Check that CONTEXT/ACTOR items appear in both (they bypass module filter).
+Same as originally specified, plus: confirm `pending_review_count`
+reflects only items relevant to `generate-test-cases`'s manifest
+(FEATURE/REQUIREMENT/ACCEPTANCE), not the spec's total pending count.
 
 ---
 
-## Phase 7 — Threshold Tuning + UNTAGGED Handling
+## Phase 7 — Threshold tuning + review-assisted UNTAGGED handling (corrected)
 
-**Goal**: quantify classifier accuracy; decide what to do with UNTAGGED items.
-
-### Done looks like
-- `UNTAGGED` rate < 10 % on a representative spec.
-- Policy for UNTAGGED items is explicit and configurable.
-- Optionally: one batched LLM pass repairs residual UNTAGGED items.
+**Goal**: calibrate `ROLE_THRESHOLD`; the automatic `repair_untagged` LLM
+pass from the original draft is removed as a standalone feature — it's
+superseded by Phase 5a's `suggested_role`, which does the same LLM work
+but as a hint a human confirms, not an autonomous auto-tag.
 
 ### [MODIFY] services/ingestion/tagger.py
 
-Add tunable thresholds as env-configurable constants:
-
 ```python
-ROLE_THRESHOLD   = float(os.getenv("ITEM_ROLE_THRESHOLD",  "0.30"))
-MODULE_THRESHOLD = float(os.getenv("ITEM_MODULE_THRESHOLD","0.25"))
+ROLE_THRESHOLD = float(os.getenv("ITEM_ROLE_THRESHOLD", "0.30"))
 ```
 
-Add an optional LLM repair pass (disabled by default):
-
-```python
-def repair_untagged(
-    items: list[Item],
-    *,
-    max_batch: int = 20,
-    enabled: bool = False,
-) -> list[Item]:
-    """
-    Collect UNTAGGED items (up to max_batch), build a single prompt asking
-    the LLM to classify each as one of ROLE_LABELS, parse the response,
-    and update item.role.  Only called if enabled=True and
-    len(untagged) > 0.  Never called per generation — only at ingestion.
-    """
-```
+`repair_untagged` is deleted, not just disabled — its job is now done by
+`enqueue_for_review`'s `suggested_role` step in Phase 5a, which keeps a
+human in the loop instead of silently writing to `item.role`.
 
 ### [MODIFY] services/ingestion/manifest.py
 
-Add fallback: if after filtering by role the result is empty, fall back to
-all items (prevents silent empty context):
-
-```python
-def filter_items(...) -> list[Item]:
-    ...
-    if not result:
-        # graceful degradation: return all items trimmed to budget
-        result = sorted(items, key=lambda i: i.role_score, reverse=True)
-    return _trim_to_budget(result, budget_chars)
-```
+The original draft's empty-result fallback ("if no items match, return
+all items sorted by role_score") is **removed**, not fixed — it would
+silently reintroduce the exact grounding-decay problem this whole project
+exists to solve, and it crashes today on `None` scores regardless. If
+`filter_items` returns no candidates, that's real information: return
+`([], pending_review_count)` and let the caller fall back to the old
+chunks path, same as the already-established "spec_hash not found"
+behavior. Don't paper over it with unfiltered content.
 
 ### Sanity check
-- Sweep `ROLE_THRESHOLD` from 0.20 to 0.40 on a real spec; print UNTAGGED %.
-- Choose the highest threshold that keeps UNTAGGED < 10%.
-- If `repair_untagged` is enabled, verify the repaired roles look plausible
-  (spot-check 5–10 items).
+- Sweep `ROLE_THRESHOLD` from 0.20 to 0.40 on a real spec. This is no
+  longer "pick the highest threshold under 10% UNTAGGED" in isolation —
+  frame it as a tradeoff: lower threshold → smaller review queue but more
+  silent misclassification risk; higher threshold → more accurate
+  auto-tags but a heavier queue for whoever's reviewing. Pick a value with
+  that tradeoff stated, not just a number that clears a bar.
+- Confirm no code path still references the removed `repair_untagged` or
+  the removed sorted-fallback.
 
 ---
 
-## Conflicts With Good Practice — Direct Feedback
+## Conflicts With Good Practice — correction to item 1
 
-1. **In-process store vs. request/response**: The architecture says "persist the
-   Item store". For a FastAPI service without a database, an in-process dict is
-   the right first move — do not add SQLite or Redis just for this; that's over
-   engineering at this project size.
-
-2. **Embedding model at ingestion**: Loading `all-MiniLM-L6-v2` adds ~300 ms
-   to the first request. Use `@lru_cache` and log a warning if model load
-   exceeds 5 s. Do not block startup — lazy load on first `ingest_spec` call.
-
-3. **`sentence-transformers` version pin**: The `requirements.txt` is currently
-   unversioned. Adding `sentence-transformers>=2.7,<3` is safe but should
-   prompt you to pin the rest of the file at the same time (Phase 3 is the
-   moment to do it).
-
-4. **`SpecChunk` as dataclass vs. dict**: `plan_service.py` and
-   `case_service.py` both call `.get('title')` and `.get('text')` on chunks.
-   Switching the return type to a dataclass without updating those two callers
-   breaks silently (no AttributeError — `dataclass.get` returns `None`).
-   Update the two callers in Phase 1 rather than adding a shim.
-
-5. **The `<s>[INST]...[/INST]` wrapper** in `test_plan_prompt.py` is a
-   Llama-2/Mistral chat template — not needed for OpenRouter (which handles
-   message roles at the API level). This is pre-existing tech debt; not
-   introducing it, not removing it here either — noting it for awareness.
+Original: *"an in-process dict is the right first move... don't add
+SQLite/Redis for this."* Correct given a durable store was never actually
+new infrastructure to add — Node + Mongo was already the intended
+architecture from the start of this project, just not yet wired up in
+this consolidated plan. The review queue is what makes deferring it no
+longer viable: a pending review has to survive a restart and an
+unbounded wait, which an in-process dict cannot do. This isn't scope
+creep — it's finishing a decision already made, prompted by the first
+feature that actually depends on it.
 
 ---
 
-## Verification Plan
+## Verification Plan — addition
 
-### Automated (add after Phase 2)
-```bash
-python -m pytest services/ingestion/tests/ -v
-```
-Suggested test cases (create `services/ingestion/tests/test_items.py`):
-- `expand_section_to_items` on a known string → expected item count
-- `filter_items` with known role set → expected subset
-- `spec_hash` is stable across calls
-
-### Manual per phase
-Each phase section above lists a "Sanity check" command / endpoint to run
-before moving to the next phase.
-
-### End-to-end
-After Phase 6:
-1. Upload a spec with ≥ 3 distinct feature areas.
-2. `POST /generate-plan` — check plan count, plan titles match spec.
-3. `POST /generate-test-cases` for two different plans — check test cases are
-   feature-specific, not cross-contaminated.
-4. Compare prompt char counts in logs vs. baseline (expect ≥ 60% reduction).
+### End-to-end (add to the existing Phase 6 end-to-end sequence)
+5. Upload a spec, confirm `pending_review_count > 0` if any item is
+   genuinely ambiguous. Resolve every pending item via
+   `POST /review-queue/{spec_hash}/{item_id}`. Regenerate the plan and
+   test cases; confirm `pending_review_count == 0` and previously-excluded
+   item text now appears where it's role-relevant. Restart the server
+   between resolving and regenerating, to confirm the resolution survived
+   — this is the one check that actually proves the durable-storage
+   prerequisite is real, not assumed.
