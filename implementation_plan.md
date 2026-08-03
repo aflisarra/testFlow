@@ -975,6 +975,17 @@ from one example**:
   call from a real path, so it needs a real quality check, not just a
   shape check.
 
+> [!NOTE]
+> The current data model has no durable history of prior LLM plan batches,
+> so automatic before/after comparison is not implementable in this phase.
+> Log deterministic item/module/plan counts and perform the specified quality
+> comparison manually until a separate baseline-history phase is added.
+
+> [!NOTE]
+> No saved real-plan batch is available in this workspace for the cardinality
+> and boilerplate checks. The one-module-to-one-plan policy below is therefore
+> an explicit provisional contract, to validate against the next saved batch.
+
 ### [NEW] services/plan_service.py
 
 ```python
@@ -1019,7 +1030,7 @@ def generate_test_plans(*, spec_hash: str) -> tuple[list[dict], int]:
 
 ```python
 plans, pending_review_count = generate_test_plans(spec_hash=h)
-return {"plans": plans, "pending_review_count": pending_review_count}
+return {"test_plans": plans, "pending_review_count": pending_review_count}
 ```
 
 ### On `manifest.py` / `TASK_MANIFEST` / `filter_items`

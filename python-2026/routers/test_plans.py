@@ -137,13 +137,9 @@ async def generate_plan(
 
         # ── AI generation ───────────────────────────────────────────────────
         t_ai_start = time.monotonic()
-        plans, pending_review_count = generate_test_plans(
-            spec_text=spec_text_final,
-            style_config=(styleConfig or "").strip(),
-            project_title=(applicationUrl or "").strip(),
-            spec_chunks=spec_chunks_final,
-            spec_hash=spec_hash_final,
-        )
+        if not spec_hash_final:
+            return JSONResponse(status_code=400, content={"error": "spec_hash or file is required"})
+        plans, pending_review_count = generate_test_plans(spec_hash=spec_hash_final)
         t_ai_ms = int((time.monotonic() - t_ai_start) * 1000)
         t_total_ms = int((time.monotonic() - t_start) * 1000)
         print(f"⏱ [generate-plan] ai_ms={t_ai_ms}  total_ms={t_total_ms}  plans={len(plans)}")

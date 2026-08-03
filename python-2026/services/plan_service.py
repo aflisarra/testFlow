@@ -1,246 +1,99 @@
+"""Deterministic test-plan assembly from durable ingestion data (Phase 5b)."""
+
 from __future__ import annotations
 
-import re
-from typing import Any, Dict, List
+from typing import Any
 
-from core.config import get_settings
-from core.constants import DEFAULT_TEST_PLANS_MIN, DEFAULT_TEST_PLANS_MAX
-from prompts.test_plan_prompt import build_test_plan_prompt
-from services.ai_service import get_ai_service
 from services.ingestion.items import Item, get_items
-from services.ingestion.module_generation import get_module_list
-from services.spec_service import (
-    SRS_PLAN_SECTIONS,
-    extract_requirements,
-    filter_srs_sections,
-    get_filtered_items_for_task,
-    get_srs_sections,
+from services.ingestion.module_generation import (
+    flag_tiny_modules,
+    get_or_generate_module_list,
 )
-from utils.logger import get_logger, log_event, log_error
+from utils.logger import get_logger, log_event
 
 
 logger = get_logger("services.plan_service")
-PLAN_EVIDENCE_BUDGET_CHARS = 3_000
-PLAN_REQUIREMENT_BUDGET_CHARS = 2_000
 
 
-def requirements_from_items(
-    items: List[Item],
-    budget_chars: int | None = None,
-) -> List[Dict[str, str]]:
-    """Build traceable prompt requirements from retained requirement items.
+def _requirement_record(item: Item) -> dict[str, str]:
+    return {
+        "id": item.requirement_id or "",
+        "title": item.heading_path[-1] if item.heading_path else "Requirement",
+        "description": item.text,
+        "source": item.source_chunk_id,
+        "priority": "",
+    }
 
-    This is deliberately separate from the legacy whole-document extractor.
-    Phase 5 uses it after applying the task manifest, while this phase makes
-    the stable ``REQ-*`` identity available without changing current output.
+
+def requirements_from_items(items: list[Item]) -> list[dict[str, str]]:
+    """Return traceable requirement records in document order."""
+    return [
+        _requirement_record(item)
+        for item in items
+        if item.role == "REQUIREMENT" and item.requirement_id
+    ]
+
+
+def build_test_plans_deterministic(
+    module_list: list[dict[str, Any]],
+    items: list[Item],
+) -> list[dict[str, Any]]:
+    """Build one human-editable TP per non-tiny, requirement-backed module.
+
+    Module-card descriptions are generated once during ingestion. Plan wording
+    is intentionally simple and deterministic; it does not introduce another
+    model call or inferred priority.
     """
-    requirements: List[Dict[str, str]] = []
-    chars = 0
-    for item in items:
-        if item.role != "REQUIREMENT" or not item.requirement_id:
+    tiny_modules = set(flag_tiny_modules(module_list, items))
+    plans: list[dict[str, Any]] = []
+    for module in module_list:
+        name = str(module.get("name") or "").strip()
+        description = str(module.get("description") or "").strip()
+        if not name or name in tiny_modules:
             continue
-        if budget_chars is not None and requirements and chars + len(item.text) > budget_chars:
+        requirements = [
+            _requirement_record(item)
+            for item in items
+            if item.role == "REQUIREMENT"
+            and item.requirement_id
+            and item.module == name
+        ]
+        if not requirements:
+            logger.info("Skipping module without requirement links: %s", name)
             continue
-        requirements.append(
+        plan_number = len(plans) + 1
+        plans.append(
             {
-                "id": item.requirement_id,
-                "title": item.heading_path[-1] if item.heading_path else "Requirement",
-                "description": item.text,
-                "source": item.source_chunk_id,
-                "priority": "",
+                "id": f"TP-{plan_number}",
+                "title": name,
+                "description": f"Test coverage for {name}.",
+                "objective": f"Verify {name} behavior.",
+                "scope": description,
+                "priority": "Medium",
+                "module": name,
+                "requirements": requirements,
             }
         )
-        chars += len(item.text)
-    return requirements
+    return plans
 
 
-def _normalize_priority(value: str | None) -> str:
-    raw = (value or "").strip().lower()
-    mapping = {
-        "p0": "Critical",
-        "urgent": "Critical",
-        "critical": "Critical",
-        "p1": "High",
-        "high": "High",
-        "p2": "Medium",
-        "medium": "Medium",
-        "p3": "Low",
-        "low": "Low",
-    }
-    return mapping.get(raw, "Medium")
-
-
-def _format_requirement(req: Dict[str, str]) -> Dict[str, str]:
-    return {
-        "id": str(req.get("id") or req.get("requirementId") or req.get("reqId") or "").strip(),
-        "title": str(req.get("title") or req.get("module") or "").strip(),
-        "description": str(req.get("description") or req.get("text") or req.get("requirement") or "").strip(),
-        "source": str(req.get("source") or req.get("module") or "").strip(),
-        "priority": _normalize_priority(str(req.get("priority") or "")) if req.get("priority") else "",
-    }
-
-
-def _validated_plan_requirements(raw: object, requirements: List[Dict[str, str]]) -> List[Dict[str, str]]:
-    valid_requirement_ids = {
-        str(req.get("id")).strip().lower(): _format_requirement(req)
-        for req in requirements if req.get("id")
-    }
-    linked, seen = [], set()
-    values = raw if isinstance(raw, list) else ([raw] if raw else [])
-    for item in values:
-        candidate = item.get("id") if isinstance(item, dict) else item
-        key = str(candidate or "").strip().lower()
-        if key in valid_requirement_ids and key not in seen:
-            linked.append(valid_requirement_ids[key])
-            seen.add(key)
-    return linked
-
-def _normalize_plan_id(value: str | None, idx: int) -> str:
-    raw = str(value or "").strip().upper()
-    m = re.search(r"\d+", raw)
-    return f"TP-{int(m.group())}" if m else f"TP-{idx}"
-
-
-def _dedupe_plans(plans: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    seen: set[str] = set()
-    out: List[Dict[str, str]] = []
-    for p in plans:
-        title = (p.get("title") or "").strip()
-        if not title:
-            continue
-        key = title.lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(p)
-    return out
-
-
-def _extract_plans_payload(data: Any) -> List[Dict[str, Any]] | None:
-    """
-    Accept the most common JSON shapes produced by LLMs and keep backward
-    compatibility with older payloads.
-    """
-    if isinstance(data, list):
-        return data
-
-    if not isinstance(data, dict):
-        return None
-
-    for key in ("test_plans", "testPlans", "plans", "data"):
-        value = data.get(key)
-        if isinstance(value, list):
-            return value
-
-    return None
-
-
-def generate_test_plans(
-    *,
-    spec_text: str,
-    style_config: str,
-    project_title: str,
-    spec_chunks: List[Dict[str, str]] | None = None,
-    spec_hash: str = "",
-) -> tuple[List[Dict[str, Any]], int]:
-    settings = get_settings()
-    log_event(logger, "generate_plans_request_received", mock=settings.use_mock)
-
-    filtered_items, pending_review_count, stored_items_found = get_filtered_items_for_task(
-        spec_hash,
-        "generate-plan",
-        budget_chars=PLAN_EVIDENCE_BUDGET_CHARS,
-    )
-    stored_items = get_items(spec_hash) if stored_items_found else []
-    if stored_items_found:
-        if not filtered_items:
-            raise ValueError("No reviewed/tagged items are eligible for plan generation; resolve the review queue first")
-        requirements = requirements_from_items(stored_items, PLAN_REQUIREMENT_BUDGET_CHARS)
-        if not requirements:
-            raise ValueError("No retained requirement items are available for plan traceability")
-        chunks: List[Dict[str, str]] = []
-    else:
-        requirements = extract_requirements(spec_text)
-        chunks = (
-            filter_srs_sections(spec_chunks, SRS_PLAN_SECTIONS)
-            if spec_chunks is not None
-            else get_srs_sections(spec_text, SRS_PLAN_SECTIONS)
-        )
-
-    if settings.use_mock:
-        raise ValueError("Mock test plan generation is disabled for the SRS pipeline")
-
-    module_names = [
-        str(module.get("name")).strip()
-        for module in (get_module_list(spec_hash) if spec_hash else [])
-        if str(module.get("name") or "").strip()
-    ]
-    prompt = build_test_plan_prompt(
-        project_title=project_title,
-        style_config=style_config,
-        modules=module_names,
-        requirements=requirements,
-        spec_chunks=chunks,
-        filtered_items=filtered_items if stored_items_found else None,
-    )
+def generate_test_plans(*, spec_hash: str) -> tuple[list[dict[str, Any]], int]:
+    """Assemble plans from persisted items and cached/generated module cards."""
+    if not spec_hash:
+        raise ValueError("spec_hash is required for deterministic plan generation")
+    items = get_items(spec_hash)
+    if not items:
+        raise ValueError("No stored ingestion items found for spec_hash")
+    modules = get_or_generate_module_list(spec_hash, items)
+    plans = build_test_plans_deterministic(modules, items)
+    pending_review_count = sum(item.role == "UNTAGGED" and not item.reviewed for item in items)
     log_event(
         logger,
-        "generate_plans_prompt_selected",
-        prompt_chars_before=len(spec_text),
-        prompt_chars_after=len(prompt),
-        evidence_item_count=len(filtered_items),
+        "generate_plans_deterministic",
+        spec_hash=spec_hash,
+        item_count=len(items),
+        module_count=len(modules),
+        plan_count=len(plans),
         pending_review_count=pending_review_count,
-        stored_items_found=stored_items_found,
     )
-
-    ai = get_ai_service()
-    try:
-        data = ai.generate_json(prompt=prompt, timeout=settings.openrouter_test_plans_timeout)
-    except Exception as exc:
-        log_error(logger, "generate_plans_ai_failed", error=str(exc))
-        raise
-
-    # Accept the canonical payload and a few legacy/LLM variants.
-    plans_raw = _extract_plans_payload(data)
-
-    if not isinstance(plans_raw, list):
-        raise ValueError("AI returned invalid test plans")
-
-    normalized: List[Dict[str, Any]] = []
-    for i, item in enumerate(plans_raw, start=1):
-        if not isinstance(item, dict):
-            continue
-        plan_requirements = _validated_plan_requirements(item.get("requirements"), requirements)
-        if not plan_requirements:
-            logger.warning("Rejected test plan without valid extracted requirement IDs: %s", item.get("title"))
-            continue
-        normalized.append(
-            {
-                "id": _normalize_plan_id(item.get("id"), i),
-                "title": str(item.get("title") or "").strip() or f"Test Plan {i}",
-                "description": str(item.get("description") or "").strip(),
-                "objective": str(item.get("objective") or "").strip(),
-                "scope": str(item.get("scope") or "").strip(),
-                "priority": _normalize_priority(str(item.get("priority") or "Medium")),
-                "module": (
-                    str(item.get("module")).strip()
-                    if str(item.get("module") or "").strip() in module_names
-                    else None
-                ),
-                "requirements": plan_requirements,
-            }
-        )
-
-    normalized = _dedupe_plans(normalized)
-
-    if len(normalized) < DEFAULT_TEST_PLANS_MIN:
-        raise ValueError(
-            f"AI generated only {len(normalized)} plan(s), "
-            f"minimum required is {DEFAULT_TEST_PLANS_MIN}"
-        )
-
-    # Re-number sequentially to avoid gaps after dedupe
-    for i, p in enumerate(normalized[:DEFAULT_TEST_PLANS_MAX], start=1):
-        p["id"] = f"TP-{i}"
-
-    return normalized[:DEFAULT_TEST_PLANS_MAX], pending_review_count
+    return plans, pending_review_count

@@ -5,6 +5,8 @@ from __future__ import annotations
 from services.ingestion.items import (
     ROLE_LABELS,
     Item,
+    get_items,
+    store_ingestion,
 )
 
 
@@ -39,4 +41,26 @@ def resolve_review(
     if role not in ROLE_LABELS:
         raise ValueError(f"Invalid role {role!r}; expected one of: {', '.join(ROLE_LABELS)}")
     from services.ingestion.store_client import resolve_review as _resolve_review
-    return _resolve_review(spec_hash, item_id, role, reviewer)
+    resolved = _resolve_review(spec_hash, item_id, role, reviewer)
+
+    # A human-resolved item is eligible for the existing spec-local module
+    # vocabulary. Re-tag only this item; never regenerate the module list.
+    from services.ingestion.module_generation import get_module_list
+    from services.ingestion.module_tagger import tag_module
+
+    modules = get_module_list(spec_hash)
+    if not modules:
+        return resolved
+    try:
+        tag_module([resolved], modules)
+        items = get_items(spec_hash)
+        for index, item in enumerate(items):
+            if item.id == resolved.id:
+                items[index] = resolved
+                store_ingestion(spec_hash, items, modules)
+                break
+    except Exception:
+        # The role decision is already durable. Module re-tagging is
+        # observational and must not roll back a human classification.
+        pass
+    return resolved

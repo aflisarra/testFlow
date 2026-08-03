@@ -33,6 +33,7 @@ def test_resolution_uses_durable_store_response(monkeypatch: pytest.MonkeyPatch)
         lambda hash_, item_id, role, reviewer: item,
     )
     monkeypatch.setattr("services.ingestion.store_client.get_pending_review", lambda hash_: [])
+    monkeypatch.setattr("services.ingestion.module_generation.get_module_list", lambda hash_: [])
 
     resolved = resolve_review(spec_hash, "ITEM-00042", "requirement", reviewer="alice")
 
