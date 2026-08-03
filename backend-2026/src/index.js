@@ -20,7 +20,8 @@ const ollamaRoutes = require('./routes/ollama.routes')
 const seleniumRoutes = require('./routes/selenium.routes')
 const aiFixRoutes = require('./routes/ai-fix.routes')
 const specificationRoutes = require('./routes/specification.routes');
-///////////////////////////////////////////////
+const specIngestionInternalRoutes = require('./routes/spec-ingestion-internal.routes');
+
 
 
 
@@ -74,6 +75,7 @@ app.use((req, res, next) => {
 });
 
 app.use(cors(corsOptions));
+app.use('/api/internal', express.json({ limit: '20mb' }), specIngestionInternalRoutes);
 app.use(express.json()); ///parser les données au format JSON
 // Configuration CORS dynamique avec gestion des credentials
 /*app.use(cors({

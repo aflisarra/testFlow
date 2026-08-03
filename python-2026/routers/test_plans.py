@@ -22,6 +22,7 @@ from schemas.test_plan_schema import GeneratePlanRequest, GeneratePlanResponse
 from services.cancellation_service import is_cancelled
 from services.ingestion.ingest import ingest_spec
 from services.ingestion.items import get_items
+from services.ingestion.store_client import IngestionStoreError
 from services.plan_service import generate_test_plans
 from services.spec_service import chunk_docx_bytes, extract_spec_text_from_docx_bytes
 from utils.docx_reader import extract_doc_from_bytes
@@ -51,17 +52,10 @@ async def upload_spec(file: UploadFile = File(...)):
             return JSONResponse(status_code=422, content={"error": "Document is empty or has no readable text."})
 
         # Phase 2: itemise the spec (idempotent — safe to call on every upload)
-        spec_hash = ""
-        try:
-            doc = extract_doc_from_bytes(file_bytes)
-            h, items = ingest_spec(doc, file_bytes)
-            spec_hash = h
-            item_count = len(items)
-            print(f"[upload-spec] ingested hash={h[:8]}  items={item_count}")
-        except Exception as exc:
-            # Ingestion failure must not break the upload response
-            print(f"[upload-spec] ingest_spec warning: {exc}")
-            item_count = 0
+        doc = extract_doc_from_bytes(file_bytes)
+        spec_hash, items = ingest_spec(doc, file_bytes)
+        item_count = len(items)
+        print(f"[upload-spec] ingested hash={spec_hash[:8]}  items={item_count}")
 
         return {
             "filename": file.filename,
@@ -70,6 +64,8 @@ async def upload_spec(file: UploadFile = File(...)):
             "item_count": item_count,   # observability only
             "spec_hash": spec_hash,
         }
+    except IngestionStoreError as exc:
+        return JSONResponse(status_code=503, content={"error": str(exc)})
     except RuntimeError as exc:
         return JSONResponse(status_code=500, content={"error": str(exc)})
     except Exception as exc:
@@ -141,7 +137,7 @@ async def generate_plan(
 
         # ── AI generation ───────────────────────────────────────────────────
         t_ai_start = time.monotonic()
-        plans = generate_test_plans(
+        plans, pending_review_count = generate_test_plans(
             spec_text=spec_text_final,
             style_config=(styleConfig or "").strip(),
             project_title=(applicationUrl or "").strip(),
@@ -164,8 +160,10 @@ async def generate_plan(
                 content={"error": "Generation cancelled after processing"}
             )
 
-        return {"test_plans": plans, "pending_review_count": 0}
+        return {"test_plans": plans, "pending_review_count": pending_review_count}
 
+    except IngestionStoreError as exc:
+        return JSONResponse(status_code=503, content={"error": str(exc)})
     except Exception as exc:
         import traceback
         traceback.print_exc()

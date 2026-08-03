@@ -9,14 +9,25 @@ from prompts.test_plan_prompt import build_test_plan_prompt
 from services.ai_service import get_ai_service
 from services.ingestion.items import Item, get_items
 from services.ingestion.module_generation import get_module_list
-from services.spec_service import SRS_PLAN_SECTIONS, extract_requirements, filter_srs_sections, get_srs_sections
+from services.spec_service import (
+    SRS_PLAN_SECTIONS,
+    extract_requirements,
+    filter_srs_sections,
+    get_filtered_items_for_task,
+    get_srs_sections,
+)
 from utils.logger import get_logger, log_event, log_error
 
 
 logger = get_logger("services.plan_service")
+PLAN_EVIDENCE_BUDGET_CHARS = 3_000
+PLAN_REQUIREMENT_BUDGET_CHARS = 2_000
 
 
-def requirements_from_items(items: List[Item]) -> List[Dict[str, str]]:
+def requirements_from_items(
+    items: List[Item],
+    budget_chars: int | None = None,
+) -> List[Dict[str, str]]:
     """Build traceable prompt requirements from retained requirement items.
 
     This is deliberately separate from the legacy whole-document extractor.
@@ -24,8 +35,11 @@ def requirements_from_items(items: List[Item]) -> List[Dict[str, str]]:
     the stable ``REQ-*`` identity available without changing current output.
     """
     requirements: List[Dict[str, str]] = []
+    chars = 0
     for item in items:
         if item.role != "REQUIREMENT" or not item.requirement_id:
+            continue
+        if budget_chars is not None and requirements and chars + len(item.text) > budget_chars:
             continue
         requirements.append(
             {
@@ -36,6 +50,7 @@ def requirements_from_items(items: List[Item]) -> List[Dict[str, str]]:
                 "priority": "",
             }
         )
+        chars += len(item.text)
     return requirements
 
 
@@ -127,26 +142,37 @@ def generate_test_plans(
     project_title: str,
     spec_chunks: List[Dict[str, str]] | None = None,
     spec_hash: str = "",
-) -> List[Dict[str, Any]]:
+) -> tuple[List[Dict[str, Any]], int]:
     settings = get_settings()
     log_event(logger, "generate_plans_request_received", mock=settings.use_mock)
 
-    stored_items = get_items(spec_hash) if spec_hash else []
-    # A known uploaded spec must retain the requirement identities created at
-    # ingestion.  Text-only and unknown-hash requests keep the legacy path.
-    requirements = requirements_from_items(stored_items) or extract_requirements(spec_text)
-    chunks = (
-        filter_srs_sections(spec_chunks, SRS_PLAN_SECTIONS)
-        if spec_chunks is not None
-        else get_srs_sections(spec_text, SRS_PLAN_SECTIONS)
+    filtered_items, pending_review_count, stored_items_found = get_filtered_items_for_task(
+        spec_hash,
+        "generate-plan",
+        budget_chars=PLAN_EVIDENCE_BUDGET_CHARS,
     )
+    stored_items = get_items(spec_hash) if stored_items_found else []
+    if stored_items_found:
+        if not filtered_items:
+            raise ValueError("No reviewed/tagged items are eligible for plan generation; resolve the review queue first")
+        requirements = requirements_from_items(stored_items, PLAN_REQUIREMENT_BUDGET_CHARS)
+        if not requirements:
+            raise ValueError("No retained requirement items are available for plan traceability")
+        chunks: List[Dict[str, str]] = []
+    else:
+        requirements = extract_requirements(spec_text)
+        chunks = (
+            filter_srs_sections(spec_chunks, SRS_PLAN_SECTIONS)
+            if spec_chunks is not None
+            else get_srs_sections(spec_text, SRS_PLAN_SECTIONS)
+        )
 
     if settings.use_mock:
         raise ValueError("Mock test plan generation is disabled for the SRS pipeline")
 
     module_names = [
         str(module.get("name")).strip()
-        for module in get_module_list(spec_hash)
+        for module in (get_module_list(spec_hash) if spec_hash else [])
         if str(module.get("name") or "").strip()
     ]
     prompt = build_test_plan_prompt(
@@ -155,6 +181,16 @@ def generate_test_plans(
         modules=module_names,
         requirements=requirements,
         spec_chunks=chunks,
+        filtered_items=filtered_items if stored_items_found else None,
+    )
+    log_event(
+        logger,
+        "generate_plans_prompt_selected",
+        prompt_chars_before=len(spec_text),
+        prompt_chars_after=len(prompt),
+        evidence_item_count=len(filtered_items),
+        pending_review_count=pending_review_count,
+        stored_items_found=stored_items_found,
     )
 
     ai = get_ai_service()
@@ -207,4 +243,4 @@ def generate_test_plans(
     for i, p in enumerate(normalized[:DEFAULT_TEST_PLANS_MAX], start=1):
         p["id"] = f"TP-{i}"
 
-    return normalized[:DEFAULT_TEST_PLANS_MAX]
+    return normalized[:DEFAULT_TEST_PLANS_MAX], pending_review_count

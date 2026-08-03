@@ -30,6 +30,8 @@ class Settings:
     openrouter_test_plans_timeout: int
     openrouter_test_cases_timeout: int
     openrouter_test_translator_timeout: int
+    backend_api_base_url: str
+    internal_api_token: str
 
 
 def get_settings() -> Settings:
@@ -73,4 +75,6 @@ def get_settings() -> Settings:
             "OPENROUTER_TEST_TRANSLATOR_TIMEOUT",
             _get_int("XAI_TEST_TRANSLATOR_TIMEOUT", openrouter_timeout)
         ),
+        backend_api_base_url=(os.getenv("BACKEND_API_BASE_URL") or "http://localhost:3000").rstrip("/"),
+        internal_api_token=(os.getenv("INTERNAL_API_TOKEN") or os.getenv("FASTAPI_SECRET") or "").strip(),
     )

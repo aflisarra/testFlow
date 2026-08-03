@@ -25,8 +25,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from services.ingestion import ingest as ingestion_module
 from services.ingestion.ingest import ingest_spec
-from services.ingestion.items import get_items
 from utils.chunker import chunk_spec_recursive
 
 
@@ -78,11 +78,23 @@ An administrator can export the audit trail.
 
 def assert_ingestion(document: SimpleNamespace) -> None:
     file_bytes = b"pipeline-smoke-sonicwave-v1"
+    persisted: dict[str, tuple[list, list]] = {}
+
+    def get_persisted_items(spec_hash: str):
+        return list(persisted.get(spec_hash, ([], []))[0])
+
+    def persist(spec_hash: str, items: list, modules: list) -> None:
+        persisted[spec_hash] = (list(items), list(modules))
+
+    # This smoke test exercises chunking/itemisation without requiring a
+    # running Node/Mongo integration; adapter behavior has its own tests.
+    ingestion_module.get_items = get_persisted_items
+    ingestion_module.store_ingestion = persist
     spec_hash, items = ingest_spec(document, file_bytes)
 
     assert len(spec_hash) == 64
     assert items, "The headed document must yield atomic items"
-    assert get_items(spec_hash) == items
+    assert persisted[spec_hash][0] == items
     assert all(item.role == "UNTAGGED" and item.module == "UNTAGGED" for item in items)
     assert all(item.source_chunk_id.startswith("CHUNK-") for item in items)
     assert all(item.heading_path for item in items)

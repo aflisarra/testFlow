@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, List
+from typing import Dict, List, Sequence
 
 
 def build_test_plan_prompt(
@@ -10,20 +10,24 @@ def build_test_plan_prompt(
     style_config: str,
     modules: List[str],
     requirements: List[Dict[str, str]],
-    spec_chunks: List[Dict[str, str]],
+    spec_chunks: List[Dict[str, str]] | None = None,
+    filtered_items: Sequence[object] | None = None,
 ) -> str:
 
     project_block = project_title.strip() or "(not provided)"
     style_block = style_config.strip() or "(none)"
 
     chunk_lines = []
-
-    for ch in spec_chunks[:5]:
-        heading_path = ch.get("heading_path") or []
-        heading = " > ".join(heading_path) if heading_path else ch.get("title")
-        chunk_lines.append(
-            f"## {heading}\n{ch.get('text')[:500]}"
-        )
+    if filtered_items is not None:
+        for item in filtered_items:
+            heading_path = getattr(item, "heading_path", [])
+            heading = " > ".join(heading_path) if heading_path else "(no heading)"
+            chunk_lines.append(f"## [{getattr(item, 'role', 'UNKNOWN')}] {heading}\n{getattr(item, 'text', '')}")
+    else:
+        for ch in (spec_chunks or [])[:5]:
+            heading_path = ch.get("heading_path") or []
+            heading = " > ".join(heading_path) if heading_path else ch.get("title")
+            chunk_lines.append(f"## {heading}\n{ch.get('text')[:500]}")
 
     example = """
 {
@@ -67,7 +71,7 @@ def build_test_plan_prompt(
         "Do NOT generate test plans from UI Components, Business Rules, Validation Rules, Pass Criteria, or Fail Criteria.\n\n"
 
         "### REQUIREMENTS RULE\n"
-        "The provided REQUIREMENTS are extracted only from Features, Project Description, and Objectives.\n"
+        "The provided REQUIREMENTS are durable traceability records from the uploaded specification.\n"
         "Generate test plans ONLY from functionality represented in those REQUIREMENTS.\n"
         "Every test plan MUST be supported by at least one requirement.\n"
         "Every test plan MUST contain a non-empty requirements array.\n"

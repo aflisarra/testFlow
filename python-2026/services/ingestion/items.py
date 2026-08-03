@@ -57,26 +57,32 @@ class Item:
     role_score: float | None = None  # keeping this but it's not used at this time
     role_method: Literal["regex", "heading", "human", "none"] = "none"
     reviewed: bool = False
+    reviewed_by: str | None = None
     suggested_role: str | None = None
     requirement_id: str | None = None
     module_score: float = 0.0
 
 
 # ---------------------------------------------------------------------------
-# In-process store  (spec_hash -> list[Item])
+# Durable store facade (implemented by Node/Mongo through store_client)
 # ---------------------------------------------------------------------------
 
-_STORE: dict[str, list[Item]] = {}
-
-
-def store_items(spec_hash: str, items: list[Item]) -> None:
-    """Overwrite the item list for this spec hash."""
-    _STORE[spec_hash] = list(items)
+def store_ingestion(spec_hash: str, items: list[Item], modules: list[dict]) -> None:
+    """Persist one complete item/module snapshot in the Node-owned store."""
+    from services.ingestion.store_client import store_ingestion as _store_ingestion
+    _store_ingestion(spec_hash, items, modules)
 
 
 def get_items(hash_: str) -> list[Item]:
-    """Return items for *hash_*, or [] if not yet ingested."""
-    return list(_STORE.get(hash_, []))
+    """Return persisted items for *hash_*, or [] if the hash is unknown."""
+    from services.ingestion.store_client import get_items as _get_items
+    return _get_items(hash_)
+
+
+def get_items_with_status(hash_: str) -> tuple[list[Item], bool]:
+    """Return persisted items plus whether the specification hash exists."""
+    from services.ingestion.store_client import get_items_with_status as _get_items_with_status
+    return _get_items_with_status(hash_)
 
 
 def compute_spec_hash(file_bytes: bytes) -> str:

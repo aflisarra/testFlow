@@ -630,6 +630,7 @@ class Item:
     ...
     role_method: str = "none"
     reviewed: bool = False
+    reviewed_by: str | None = None
     suggested_role: str | None = None  # always None in Phase 5a
     requirement_id: str | None = None
 ```
@@ -683,19 +684,152 @@ phase.
 Replaces Phase 5, 6, 7, Conflict-With-Good-Practice item 1, and adds one
 item to the Verification Plan, from the consolidated implementation plan.
 
-## Prerequisite (blocks everything below): Item store must be durable
+## Phase 4c — Durable spec-ingestion persistence in Node/Mongo (NEW)
 
-Open Question 1's in-process `dict[str, list[Item]]` cannot hold review
-state. A human review decision has to survive process restarts and an
-unbounded wait — an in-memory store loses both. Back
-`services/ingestion/items.py`'s `store_items` / `get_items` with the Node
-API, keeping the function signatures identical so nothing calling them needs
-to change. The Node endpoint contract is owned externally and deliberately
-out of scope for this plan; Phase 5a assumes it is available. This isn't new
-complexity — it's the persistence model the project already committed to
-(Node + Mongo owns state, FastAPI stays stateless); it just needs to
-actually land now instead of "later." The Node-side endpoint shapes aren't
-specified here — that's Node-side work, not covered by this plan.
+**Goal**: replace FastAPI's process-local item/module dictionaries with a
+durable Node-owned MongoDB store. This is the prerequisite for human review:
+a resolution must survive FastAPI and Node process restarts, while FastAPI
+remains stateless.
+
+### Storage model
+
+Use two new Mongoose models, rather than embedding every Item in a single
+document. A 15 MiB specification can yield enough atomic items to approach
+MongoDB's 16 MiB document limit; a separate item collection avoids creating a
+size-dependent failure mode.
+
+`SpecIngestion` (`src/models/spec-ingestion.model.js`):
+
+```js
+{
+  specHash: String,             // sha256 of raw upload bytes; unique
+  status: 'writing' | 'ready',
+  itemCount: Number,
+  modules: [{
+    name: String,
+    description: String,
+    source_item_ids: [String],
+  }],                           // max 12, safely bounded
+  createdAt: Date,
+  updatedAt: Date,
+}
+```
+
+`SpecIngestionItem` (`src/models/spec-ingestion-item.model.js`):
+
+```js
+{
+  specHash: String,
+  itemId: String,               // Item.id, e.g. ITEM-00042
+  sourceChunkId: String,
+  headingPath: [String],
+  text: String,
+  role: String,                 // ROLE_LABELS plus UNTAGGED
+  roleMethod: String,           // regex | heading | human | none
+  roleScore: Number | null,
+  module: String,
+  moduleScore: Number,
+  reviewed: Boolean,
+  reviewedBy: String | null,
+  suggestedRole: String | null, // always null in Phase 5a
+  requirementId: String | null,
+  createdAt: Date,
+  updatedAt: Date,
+}
+```
+
+Indexes:
+
+- unique `{ specHash: 1 }` on `SpecIngestion`;
+- unique `{ specHash: 1, itemId: 1 }` on `SpecIngestionItem`;
+- `{ specHash: 1, role: 1, reviewed: 1 }` for review-queue reads.
+
+The Mongo field names use Node's camelCase convention; the internal HTTP
+contract maps to/from FastAPI's snake_case `Item` fields. `modules` belong on
+the ingestion document because their count and evidence list are explicitly
+bounded. Module assignments remain on individual items.
+
+### Internal Node API
+
+Add `src/routes/spec-ingestion-internal.routes.js` and mount it at
+`/api/internal/spec-ingestions`. These are service-to-service endpoints, not
+browser endpoints. Protect every route with a new `requireInternalToken`
+middleware which compares `X-Internal-Token` to the configured shared secret
+using `crypto.timingSafeEqual`; reject requests if the secret is absent or
+does not match. Do not expose these routes through the unauthenticated
+`/api/ollama` router.
+
+```text
+PUT   /api/internal/spec-ingestions/:specHash
+      body: {items: [...], modules: [...]}
+      idempotently replaces the ingestion snapshot for this hash.
+
+GET   /api/internal/spec-ingestions/:specHash
+      -> {items: [...], modules: [...]} | 404
+
+GET   /api/internal/spec-ingestions/:specHash/review-queue
+      -> pending items only
+
+PATCH /api/internal/spec-ingestions/:specHash/items/:itemId/review
+      body: {role: "ACTOR", reviewer?: string}
+      -> updated item
+```
+
+The PUT implementation marks the ingestion `writing`, upserts item rows by
+the unique compound index, removes stale rows for the same hash, then writes
+the module cards/count and marks it `ready`. GET requests return 404 unless
+the ingestion is ready, so FastAPI never observes a partial replacement.
+Review PATCH is a single-document atomic update requiring a valid
+`ROLE_LABELS` role; it sets `roleMethod: "human"`, `reviewed: true`, records
+the optional reviewer, clears `suggestedRole`, and derives `requirementId` when the selected role is
+`REQUIREMENT`. It returns 404 for an unknown spec/item and 422 for an invalid
+role. The first implementation may accept the complete bounded request body;
+if real item payloads exceed Express's JSON limit, add explicit batched PUTs
+before raising that limit globally.
+
+### FastAPI adapter
+
+Replace the private `_STORE` and `_MODULE_STORE` implementations with a small
+HTTP client in `services/ingestion/store_client.py`, configured with an
+explicit Node base URL and the same internal-token header. Add one atomic
+write used by `ingest_spec`, while keeping existing read helpers stable:
+
+```python
+store_ingestion(spec_hash, items, modules) -> None
+get_items(spec_hash) -> list[Item]
+get_module_list(spec_hash) -> list[dict]
+```
+
+`ingest_spec` must call `store_ingestion()` once after item and module work;
+remove its separate `store_items()` / `store_module_list()` writes so they
+cannot race. The adapter serializes/deserializes every Item field exactly,
+including review metadata and requirement IDs. `get_items()` returns `[]` for
+a 404 to retain the documented generation fallback; connection/auth failures
+must raise, never masquerade as an empty spec.
+
+`review_queue.py` stops mutating a process-local list. Its pending and
+resolve functions call the corresponding internal endpoints (or the shared
+adapter functions) so a human decision is durable. The existing FastAPI
+review endpoints remain the public review API; the Node endpoints remain
+internal implementation detail.
+
+### Verification
+
+- Add Node model/service tests for unique item identity, complete snapshot
+  replacement, only-ready reads, and atomic review resolution.
+- Add FastAPI adapter tests with mocked Node responses for field round trips,
+  404 fallback, and non-404 failure propagation.
+- Upload a real document, resolve one UNTAGGED item, restart both services,
+  then verify it remains absent from `GET /review-queue/{spec_hash}` and has
+  `role_method == "human"` when read again.
+- Verify an identical file hash is idempotent and its module cards and item
+  assignments can be read after restart.
+
+## Prerequisite (blocks Phase 5a and later): Phase 4c must be complete
+
+The current in-process dictionaries are only a development stand-in. Do not
+claim Phase 5a's review resolutions are durable, and do not start Phase 5b,
+until the Phase 4c Node/Mongo adapter has replaced them.
 
 ---
 
@@ -797,128 +931,131 @@ One additional line at the existing tagging call site from Phase 3:
 
 ---
 
-## Phase 5b — Wire TASK_MANIFEST into /generate-plan (corrected)
+## Phase 5b — Deterministic `/generate-plan` from the tagged store (corrected)
 
-**Goal**: replace the current `spec_chunks[:5]` slice in `build_test_plan_prompt`
-with a filtered, token-budgeted set of Items; measure token reduction;
-never silently include or silently drop UNTAGGED items.
+**Goal**: replace LLM-prompted test-plan generation entirely with a
+deterministic builder reading Phase 4's cached module list and Phase 2/3's
+tagged Items directly — no `build_test_plan_prompt()` call, no OpenRouter
+call, anywhere in this path. `/generate-plan` becomes a data-assembly
+endpoint. The only place an LLM call can still fire on this route is
+inside `get_or_generate_module_list()` on a cache miss (Phase 4) — that's
+module generation, not plan generation, and only on a spec's first call.
+
+**Before implementing — verify against real generated plans, don't assume
+from one example**:
+1. **Cardinality**: is it consistently one module → one test plan, or does
+   the current LLM sometimes split one module into multiple plans (e.g.
+   happy path vs. error handling)? If it's not strictly 1:1, that's an
+   open design question to resolve explicitly here, not something to force
+   into a 1:1 loop silently.
+2. **Requirements linkage**: does `extract_requirements()` (or whatever
+   currently populates `plan["requirements"]`) produce stable `REQ-N` ids
+   at Item granularity — i.e. can a `REQUIREMENT`-role Item be mapped to
+   the `REQ-N` id(s) it corresponds to? If that mapping doesn't exist yet,
+   it's a small prerequisite to add, not something to fake.
+3. **Boilerplate check**: diff `description` / `objective` across 8–10
+   real generated plans. Template them only if they're identical modulo
+   the module name; if the LLM is writing something more specific per
+   plan today, say so instead of flattening it.
 
 ### Done looks like
-- `POST /generate-plan` response gains one additive field,
-  `pending_review_count` — this is a deliberate, visible change from the
-  original "response unchanged" goal, not an oversight. Silently
-  identical output would mean this phase is still hiding the gap it's
-  meant to surface.
-- Server logs: `prompt_chars_before`, `prompt_chars_after`,
-  `pending_review_count`.
-- Manually compare generated plans quality vs. pre-change baseline on a
-  long spec.
+- `POST /generate-plan` returns TP-N records built entirely from stored
+  data — same shape as before (`id`, `title`, `description`, `objective`,
+  `scope`, `priority`, `requirements`) — plus the existing additive
+  `pending_review_count` field (unchanged meaning: count of this spec's
+  items still `role == "UNTAGGED"` at call time).
+- Modules `flag_tiny_modules()` catches as likely over-segmentation are
+  skipped rather than producing a spurious TP-N for them.
+- `priority` defaults to `"Medium"` on every generated plan, human-editable
+  afterward. No keyword-based priority heuristic — a guess dressed as a
+  signal isn't more grounded than no guess, and it's harder for a reviewer
+  to notice it's a guess.
+- Server logs a before/after comparison against the last LLM-generated
+  batch for the same spec (see Sanity check) — this phase removes an LLM
+  call from a real path, so it needs a real quality check, not just a
+  shape check.
 
-### [MODIFY] services/ingestion/manifest.py
+### [NEW] services/plan_service.py
 
 ```python
-def filter_items(
+def build_test_plans_deterministic(
+    module_list: list[dict],
     items: list[Item],
-    task: str,
-    module: str | None = None,
-    budget_chars: int | None = None,
-) -> tuple[list[Item], int]:
+) -> list[dict]:
     """
-    1. candidates = [i for i in items if i.role in TASK_MANIFEST[task]].
-       UNTAGGED items are excluded here by design — not a silent loss:
-       once resolved through the Phase 5a review queue, a formerly-UNTAGGED
-       item enters `candidates` naturally on the next call, with role_method
-       "human". Guessing at inclusion (the earlier soft-include idea) is
-       no longer the right move once a real resolution path exists.
-    2. If module is provided, further restrict as before (item.module ==
-       module OR item.role in {"CONTEXT", "ACTOR"}).
-    3. Sort by role_method in {"regex", "heading", "human"} — with no
-       embedding tier anywhere in this revision's role cascade (see
-       Phase 3), every candidate reaching this point already has one of
-       those three methods, so no scored tiering is needed. `role_score`
-       stays unused for role-based filtering; deterministic values are
-       unscored (`None`), so a flat score sort is invalid.
-    4. Trim to budget_chars across that order.
-    Returns (filtered_items, pending_review_count), where
-    pending_review_count = number of this spec's UNTAGGED items still
-    awaiting review. Callers must surface this, not discard it.
-    Raises KeyError if task not in TASK_MANIFEST.
-    """
-```
-
-### [MODIFY] services/spec_service.py
-
-```python
-def get_filtered_items_for_task(
-    spec_hash: str,
-    task: str,
-    module: str | None = None,
-) -> tuple[list[Item], int]:
-    """
-    Convenience wrapper: get_items(spec_hash) -> filter_items(...).
-    Returns ([], 0) if spec_hash not found (fallback to old path).
-    """
-```
-
-### [MODIFY] services/plan_service.py
-
-```python
-def requirements_from_items(items: list[Item]) -> list[dict]:
-    """Build prompt requirement records only from retained REQUIREMENT items.
-
-    Uses Item.requirement_id, Item.text, and Item.source_chunk_id. Never calls
-    the legacy whole-document extract_requirements() path when filtered items
-    are available.
+    One TP-N per module in module_list, skipping names present in
+    flag_tiny_modules(module_list, items). Per module:
+      id:          sequential "TP-{i}"
+      title:       module["name"]
+      scope:       module["description"]  — Phase 4's own generated text;
+                   no new boilerplate needed here
+      description: templated from module["name"] IFF the boilerplate
+                   check above confirmed it's template-safe; otherwise
+                   flag explicitly rather than silently templating over
+                   real per-plan content
+      objective:   same treatment as description
+      priority:    "Medium" (constant; human-editable, never guessed)
+      requirements: REQ-N ids for REQUIREMENT-role items tagged to this
+                   module, via the linkage confirmed in point 2 above
+    Returns the list of TP-N dicts.
     """
 
-def generate_test_plans(
-    *,
-    spec_text: str,
-    style_config: str,
-    project_title: str,
-    spec_hash: str = "",
-) -> tuple[list[dict], int]:
+def generate_test_plans(*, spec_hash: str) -> tuple[list[dict], int]:
     """
-    Returns (plans, pending_review_count).
+    Replaces the prompt-based version entirely for this path.
+      items = get_items(spec_hash)
+      module_list = get_or_generate_module_list(spec_hash)  # Phase 4,
+                    lazy + cached — may pay for one LLM call here on a
+                    spec's first call, never after
+      plans = build_test_plans_deterministic(module_list, items)
+      pending_review_count = sum(1 for i in items if i.role == "UNTAGGED")
+    Returns (plans, pending_review_count). No spec_text, style_config, or
+    project_title parameters — nothing here is LLM-prompted anymore, so
+    those inputs have nothing left to condition.
     """
-    ...
-    filtered, pending_review_count = get_filtered_items_for_task(spec_hash, "generate-plan")
-    use_items = bool(filtered)
-    requirements = requirements_from_items(filtered)
-    modules = get_module_list(spec_hash)
-
-    prompt = build_test_plan_prompt(
-        project_title=project_title,
-        style_config=style_config,
-        modules=modules,
-        requirements=requirements,
-        spec_chunks=chunks,
-        filtered_items=filtered,
-    )
-    ...
-    return plans, pending_review_count
 ```
 
 ### [MODIFY] routers/test_plans.py
 
 ```python
-plans, pending_review_count = generate_test_plans(spec_text=..., spec_hash=h, ...)
-return {"test_plans": plans, "pending_review_count": pending_review_count}
+plans, pending_review_count = generate_test_plans(spec_hash=h)
+return {"plans": plans, "pending_review_count": pending_review_count}
 ```
 
-> [!NOTE]
-> If `spec_hash` isn't found in the store, `filter_items` still returns
-> `([], 0)` and the old chunks path runs — same graceful fallback as
-> before, now just carrying the count through as 0.
+### On `manifest.py` / `TASK_MANIFEST` / `filter_items`
+
+These stay exactly as already built — Phase 6 still needs them — but this
+phase **stops calling them**: there's no more LLM prompt for
+`/generate-plan` to filter context for. `filter_items()`'s only live
+caller after this phase is `/generate-test-cases` (Phase 6). Don't delete
+`manifest.py`; just drop the now-unused `"generate-plan"` entry from
+`TASK_MANIFEST` rather than leaving an uncalled key sitting in the map.
+
+### `prompts/test_plan_prompt.py`
+
+Retired from the default flow, not deleted outright — kept in case a
+manual "regenerate this one plan via LLM" escape hatch is wanted later.
+Nothing in the default `/generate-plan` flow calls it anymore.
 
 ### Sanity check
-- Log `prompt_chars_before` / `prompt_chars_after`. On a 10 000-char spec,
-  expect after < 30% of before.
+- Confirm `/generate-plan` makes zero OpenRouter calls on a cache-hit spec
+  (module list already generated) — check request logs, not just output
+  shape.
+- On a spec's first-ever `/generate-plan` call, confirm exactly one
+  OpenRouter call fires (module generation) and one embedding pass runs
+  (module tagging) — not two, not on every subsequent call.
+- Pull the deterministically-built plans for a real spec side-by-side with
+  the last LLM-generated batch for the same spec. Check specifically for
+  cases the template can't reach: multi-plan modules (if cardinality
+  turned out not to be 1:1), missing `requirements` links, and whether
+  `description`/`objective` read noticeably worse without the LLM's
+  per-plan phrasing. Any gap here is real signal about whether the
+  boilerplate assumption held — not a rubber stamp.
 - Upload a spec with a known-ambiguous item left unresolved; confirm
-  `pending_review_count > 0` in the response and that item's text does
-  not appear anywhere in the generated prompt. Resolve it via Phase 5a,
-  regenerate, confirm the count drops and the item's content now
-  influences the plan.
+  `pending_review_count > 0` in the response. Resolve it via Phase 5a,
+  call `/generate-plan` again: confirm the count drops, and — via Phase
+  4's incremental re-tag, not a module-list regeneration — confirm that
+  item's `module` field is no longer `"UNTAGGED"`.
 
 ---
 

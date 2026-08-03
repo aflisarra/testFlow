@@ -9,8 +9,21 @@ from services.ingestion.module_generation import (
 from services.ingestion.module_validation import compare_module_detection
 
 
-def _item(id_: str, role: str, text: str, path: list[str]) -> Item:
-    return Item(id=id_, source_chunk_id="CHUNK-001", heading_path=path, text=text, role=role)
+def _item(
+    id_: str,
+    role: str,
+    text: str,
+    path: list[str],
+    role_method: str = "regex",
+) -> Item:
+    return Item(
+        id=id_,
+        source_chunk_id="CHUNK-001",
+        heading_path=path,
+        text=text,
+        role=role,
+        role_method=role_method,  # type: ignore[arg-type]
+    )
 
 
 def test_module_evidence_excludes_non_product_roles() -> None:
@@ -24,6 +37,12 @@ def test_module_evidence_excludes_non_product_roles() -> None:
     evidence = select_module_evidence(items)
 
     assert [item.id for item in evidence] == ["ITEM-00001", "ITEM-00002"]
+
+
+def test_module_evidence_excludes_untrusted_role_assignments() -> None:
+    item = _item("ITEM-00001", "FEATURE", "Search tracks.", ["Search"], role_method="none")
+
+    assert select_module_evidence([item]) == []
 
 
 def test_generated_cards_must_cite_selected_item_ids() -> None:

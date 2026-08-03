@@ -5,6 +5,8 @@ from typing import Dict, List
 
 from utils.chunker import SpecChunk, chunk_spec_recursive, detect_modules_from_chunks, normalize_spec_text
 from utils.docx_reader import extract_doc_from_bytes, extract_text_from_docx
+from services.ingestion.items import Item, get_items_with_status
+from services.ingestion.manifest import filter_items
 
 
 SRS_PLAN_SECTIONS = {"project description", "objectives", "features"}
@@ -54,6 +56,27 @@ def filter_srs_sections(
 
 def get_srs_sections(spec_text: str, allowed_sections: set[str] | None = None) -> List[SpecChunk]:
     return filter_srs_sections(chunk_spec(spec_text), allowed_sections)
+
+
+def get_filtered_items_for_task(
+    spec_hash: str,
+    task: str,
+    module: str | None = None,
+    budget_chars: int | None = None,
+) -> tuple[list[Item], int, bool]:
+    """Read and task-filter durable items.
+
+    The final boolean distinguishes an unknown hash from a stored spec with
+    zero candidates, preventing a legacy fallback from reintroducing pending
+    UNTAGGED content into a prompt.
+    """
+    if not spec_hash:
+        return [], 0, False
+    items, stored_items_found = get_items_with_status(spec_hash)
+    if not stored_items_found:
+        return [], 0, False
+    filtered, pending_review_count = filter_items(items, task, module, budget_chars)
+    return filtered, pending_review_count, True
 
 
 def extract_requirements(spec_text: str) -> List[Dict[str, str]]:

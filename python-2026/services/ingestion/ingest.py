@@ -16,7 +16,7 @@ from services.ingestion.items import (
     compute_spec_hash,
     expand_section_to_items,
     get_items,
-    store_items,
+    store_ingestion,
 )
 from services.ingestion.tagger import tag_role
 from services.ingestion.review_queue import enqueue_for_review
@@ -24,7 +24,6 @@ from services.ingestion.module_generation import (
     flag_tiny_modules,
     generate_module_list,
     select_module_evidence,
-    store_module_list,
 )
 from services.ingestion.module_tagger import tag_module
 from services.ingestion.module_validation import compare_module_detection, score_against_gold
@@ -49,7 +48,7 @@ def ingest_spec(
     4. expand_section_to_items(chunk) for each chunk → flat list[Item]
     5. tag_role(items) using deterministic cascade stages
     6. generate spec-local module cards and tag items when dependencies exist
-    7. store_items(hash, items)
+    7. store_ingestion(hash, items, modules) through the Node/Mongo adapter
 
     Returns
     -------
@@ -91,7 +90,6 @@ def ingest_spec(
         modules = generate_module_list(evidence)
         if modules:
             tag_module(all_items, modules)
-            store_module_list(h, modules)
     except Exception as exc:
         # Upload/item ingestion remains usable when OpenRouter, the model, or
         # a first-download dependency is unavailable.
@@ -127,5 +125,5 @@ def ingest_spec(
         module_error=module_error,
     )
 
-    store_items(h, all_items)
+    store_ingestion(h, all_items, modules)
     return h, all_items

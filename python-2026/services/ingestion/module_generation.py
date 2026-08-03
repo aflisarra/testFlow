@@ -15,7 +15,6 @@ MODULE_EVIDENCE_ROLES = frozenset({"CONTEXT", "FEATURE", "REQUIREMENT", "NON_FUN
 TRUSTED_METHODS_FOR_EVIDENCE = frozenset({"regex", "heading", "human"})
 MAX_EVIDENCE_ITEMS = 80
 MAX_EVIDENCE_CHARS = 16_000
-_MODULE_STORE: dict[str, list[dict[str, Any]]] = {}
 
 
 def select_module_evidence(items: list[Item]) -> list[Item]:
@@ -105,12 +104,9 @@ def generate_module_list(
     return _normalise_module_cards(payload, {item.id for item in module_evidence_items})
 
 
-def store_module_list(spec_hash: str, modules: list[dict[str, Any]]) -> None:
-    _MODULE_STORE[spec_hash] = [dict(module) for module in modules]
-
-
 def get_module_list(spec_hash: str) -> list[dict[str, Any]]:
-    return [dict(module) for module in _MODULE_STORE.get(spec_hash, [])]
+    from services.ingestion.store_client import get_module_list as _get_module_list
+    return _get_module_list(spec_hash)
 
 
 def flag_tiny_modules(modules: list[dict[str, Any]], items: list[Item], min_items: int = 2) -> list[str]:
