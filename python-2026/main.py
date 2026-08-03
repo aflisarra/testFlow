@@ -18,6 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from routers import test_plans, test_cases
+from routers.review import router as review_router
 import subprocess
 import os
 from dotenv import load_dotenv
@@ -71,6 +72,7 @@ app.add_middleware(
 # ── Routers ────────────────────────────────────────────────
 app.include_router(test_plans.router)
 app.include_router(test_cases.router)
+app.include_router(review_router)
 #app.include_router(test_case_translator.router)
 app.include_router(ai_router)        
 app.include_router(ai_fix_router)

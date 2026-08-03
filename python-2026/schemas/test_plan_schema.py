@@ -15,6 +15,7 @@ class GeneratePlanRequest(BaseModel):
     project_title: Optional[str] = Field(default=None, description="Optional project name/title (context only)")
     project_id: Optional[str] = Field(default=None, description="Optional project id (context only)")
     test_suite_id: Optional[str] = Field(default=None, description="Optional test suite id used for cancellation scope")
+    spec_hash: Optional[str] = Field(default=None, description="Uploaded specification hash")
     generation_scope: Optional[str] = Field(default="plans", description="Optional generation scope for cancellation")
     generation_request_id: Optional[str] = Field(default=None, description="Optional generation request id used for cancellation")
 
@@ -34,8 +35,10 @@ class TestPlan(BaseModel):
     objective: str = ""
     scope: str = ""
     priority: str = "Medium"
+    module: Optional[str] = None
     requirements: List[Requirement] = Field(default_factory=list)
     
 
 class GeneratePlanResponse(BaseModel):
     test_plans: List[TestPlan]
+    pending_review_count: int = 0

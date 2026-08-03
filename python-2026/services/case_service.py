@@ -160,6 +160,8 @@ def generate_test_cases(
     spec_text: str,
     style_config: str,
     project_title: str,
+    plan_module: str | None = None,
+    spec_hash: str = "",
 ) -> List[Dict[str, Any]]:
     settings = get_settings()
     log_event(logger, "generate_cases_request_received", plan_id=plan_id, mock=settings.use_mock)

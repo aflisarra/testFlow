@@ -22,7 +22,9 @@ class GenerateTestCasesRequest(BaseModel):
     plan_id: str = Field(..., alias="planId", description="ID of the confirmed plan (e.g. TP-1)")
     plan_title: str = Field(..., alias="planTitle", description="Title of the confirmed plan")
     plan_description: str = Field(..., alias="planDescription", description="Description of the confirmed plan")
+    plan_module: Optional[str] = Field(default=None, alias="planModule", description="Spec-local module assigned to the plan")
     spec_text: str = Field(..., alias="specText", description="Original spec text")
+    spec_hash: Optional[str] = Field(default=None, alias="specHash", description="Uploaded specification hash")
     style_config: Optional[str] = Field(default=None, alias="styleConfig", description="UI style config")
     project_title: Optional[str] = Field(default=None, alias="projectTitle", description="Optional project name/title (context only)")
     project_id: Optional[str] = Field(default=None, alias="projectId", description="Optional project id (context only)")
@@ -73,3 +75,4 @@ class TestCasesResponse(BaseModel):
     plan_id: str
     plan_title: str
     test_cases: List[TestCase]
+    pending_review_count: int = 0

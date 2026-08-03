@@ -51,9 +51,11 @@ async def upload_spec(file: UploadFile = File(...)):
             return JSONResponse(status_code=422, content={"error": "Document is empty or has no readable text."})
 
         # Phase 2: itemise the spec (idempotent — safe to call on every upload)
+        spec_hash = ""
         try:
             doc = extract_doc_from_bytes(file_bytes)
             h, items = ingest_spec(doc, file_bytes)
+            spec_hash = h
             item_count = len(items)
             print(f"[upload-spec] ingested hash={h[:8]}  items={item_count}")
         except Exception as exc:
@@ -66,6 +68,7 @@ async def upload_spec(file: UploadFile = File(...)):
             "spec_text": spec_text,
             "char_count": len(spec_text),
             "item_count": item_count,   # observability only
+            "spec_hash": spec_hash,
         }
     except RuntimeError as exc:
         return JSONResponse(status_code=500, content={"error": str(exc)})
@@ -83,11 +86,13 @@ async def generate_plan(
     test_suite_id: Optional[str] = Form(None),
     generation_request_id: Optional[str] = Form(None),
     generation_scope: Optional[str] = Form("plans"),
+    spec_hash: Optional[str] = Form(None),
 
     spec_text: Optional[str] = Form(None),
 ):
     try:
         t_start = time.monotonic()
+        spec_hash_final = (spec_hash or "").strip()
 
         # ── spec extraction ────────────────────────────────────────────────
         t_spec_start = time.monotonic()
@@ -102,6 +107,7 @@ async def generate_plan(
 
             spec_text_final = extract_spec_text_from_docx_bytes(file_bytes)
             spec_chunks_final = chunk_docx_bytes(file_bytes)
+            spec_hash_final, _ = ingest_spec(extract_doc_from_bytes(file_bytes), file_bytes)
 
         elif spec_text:
             spec_text_final = spec_text.strip()
@@ -140,6 +146,7 @@ async def generate_plan(
             style_config=(styleConfig or "").strip(),
             project_title=(applicationUrl or "").strip(),
             spec_chunks=spec_chunks_final,
+            spec_hash=spec_hash_final,
         )
         t_ai_ms = int((time.monotonic() - t_ai_start) * 1000)
         t_total_ms = int((time.monotonic() - t_start) * 1000)
@@ -157,7 +164,7 @@ async def generate_plan(
                 content={"error": "Generation cancelled after processing"}
             )
 
-        return {"test_plans": plans}
+        return {"test_plans": plans, "pending_review_count": 0}
 
     except Exception as exc:
         import traceback

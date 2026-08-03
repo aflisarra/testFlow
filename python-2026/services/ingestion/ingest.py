@@ -19,6 +19,7 @@ from services.ingestion.items import (
     store_items,
 )
 from services.ingestion.tagger import tag_role
+from services.ingestion.review_queue import enqueue_for_review
 from services.ingestion.module_generation import (
     flag_tiny_modules,
     generate_module_list,
@@ -81,6 +82,7 @@ def ingest_spec(
         all_items.extend(new_items)
 
     tag_role(all_items)
+    pending_review_count = enqueue_for_review(h, all_items)
 
     modules: list[dict[str, Any]] = []
     module_error: str | None = None
@@ -115,7 +117,8 @@ def ingest_spec(
         item_count=len(all_items),
         chunk_count=len(chunks),
         role_dist={role: role_counts.get(role, 0) for role in [*ROLE_LABELS, "UNTAGGED"]},
-        method_dist={method: method_counts.get(method, 0) for method in ("regex", "heading", "embedding", "none")},
+        method_dist={method: method_counts.get(method, 0) for method in ("regex", "heading", "human", "none")},
+        pending_review_count=pending_review_count,
         module_count=len(modules),
         module_dist=dict(module_counts),
         tiny_modules=flag_tiny_modules(modules, all_items),

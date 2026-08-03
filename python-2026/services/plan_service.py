@@ -7,11 +7,36 @@ from core.config import get_settings
 from core.constants import DEFAULT_TEST_PLANS_MIN, DEFAULT_TEST_PLANS_MAX
 from prompts.test_plan_prompt import build_test_plan_prompt
 from services.ai_service import get_ai_service
+from services.ingestion.items import Item, get_items
+from services.ingestion.module_generation import get_module_list
 from services.spec_service import SRS_PLAN_SECTIONS, extract_requirements, filter_srs_sections, get_srs_sections
 from utils.logger import get_logger, log_event, log_error
 
 
 logger = get_logger("services.plan_service")
+
+
+def requirements_from_items(items: List[Item]) -> List[Dict[str, str]]:
+    """Build traceable prompt requirements from retained requirement items.
+
+    This is deliberately separate from the legacy whole-document extractor.
+    Phase 5 uses it after applying the task manifest, while this phase makes
+    the stable ``REQ-*`` identity available without changing current output.
+    """
+    requirements: List[Dict[str, str]] = []
+    for item in items:
+        if item.role != "REQUIREMENT" or not item.requirement_id:
+            continue
+        requirements.append(
+            {
+                "id": item.requirement_id,
+                "title": item.heading_path[-1] if item.heading_path else "Requirement",
+                "description": item.text,
+                "source": item.source_chunk_id,
+                "priority": "",
+            }
+        )
+    return requirements
 
 
 def _normalize_priority(value: str | None) -> str:
@@ -101,11 +126,15 @@ def generate_test_plans(
     style_config: str,
     project_title: str,
     spec_chunks: List[Dict[str, str]] | None = None,
+    spec_hash: str = "",
 ) -> List[Dict[str, Any]]:
     settings = get_settings()
     log_event(logger, "generate_plans_request_received", mock=settings.use_mock)
 
-    requirements = extract_requirements(spec_text)
+    stored_items = get_items(spec_hash) if spec_hash else []
+    # A known uploaded spec must retain the requirement identities created at
+    # ingestion.  Text-only and unknown-hash requests keep the legacy path.
+    requirements = requirements_from_items(stored_items) or extract_requirements(spec_text)
     chunks = (
         filter_srs_sections(spec_chunks, SRS_PLAN_SECTIONS)
         if spec_chunks is not None
@@ -115,10 +144,15 @@ def generate_test_plans(
     if settings.use_mock:
         raise ValueError("Mock test plan generation is disabled for the SRS pipeline")
 
+    module_names = [
+        str(module.get("name")).strip()
+        for module in get_module_list(spec_hash)
+        if str(module.get("name") or "").strip()
+    ]
     prompt = build_test_plan_prompt(
         project_title=project_title,
         style_config=style_config,
-        modules=[],
+        modules=module_names,
         requirements=requirements,
         spec_chunks=chunks,
     )
@@ -152,6 +186,11 @@ def generate_test_plans(
                 "objective": str(item.get("objective") or "").strip(),
                 "scope": str(item.get("scope") or "").strip(),
                 "priority": _normalize_priority(str(item.get("priority") or "Medium")),
+                "module": (
+                    str(item.get("module")).strip()
+                    if str(item.get("module") or "").strip() in module_names
+                    else None
+                ),
                 "requirements": plan_requirements,
             }
         )

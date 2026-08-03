@@ -45,6 +45,8 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
     spec_text = (payload.spec_text or "").strip()
     style_config = (payload.style_config or "").strip()
     project_title = (payload.project_title or "").strip()
+    plan_module = (payload.plan_module or "").strip() or None
+    spec_hash = (payload.spec_hash or "").strip()
 
     if not plan_id:
         return JSONResponse(status_code=400, content={"error": "plan_id is required"})
@@ -74,6 +76,8 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
             spec_text=spec_text,
             style_config=style_config,
             project_title=project_title,
+            plan_module=plan_module,
+            spec_hash=spec_hash,
         )
         t_ai_ms = int((time.monotonic() - t_ai_start) * 1000)
         t_total_ms = int((time.monotonic() - t_start) * 1000)
@@ -86,7 +90,12 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
             request_id=payload.generation_request_id,
         ):
             return JSONResponse(status_code=409, content={"error": "Generation cancelled by user."})
-        return TestCasesResponse(plan_id=plan_id, plan_title=plan_title, test_cases=cases)
+        return TestCasesResponse(
+            plan_id=plan_id,
+            plan_title=plan_title,
+            test_cases=cases,
+            pending_review_count=0,
+        )
     except FileNotFoundError:
         t_total_ms = int((time.monotonic() - t_start) * 1000)
         print(f"⏱ [generate-test-cases] FAILED FileNotFoundError  total_ms={t_total_ms}")

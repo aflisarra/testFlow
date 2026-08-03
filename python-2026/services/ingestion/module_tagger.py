@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 from functools import lru_cache
 from typing import Any
@@ -11,7 +10,9 @@ from services.ingestion.items import Item
 
 
 EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
-MODULE_THRESHOLD = float(os.getenv("ITEM_MODULE_THRESHOLD", "0.25"))
+# Phase 4 records the best module as observational metadata. A threshold is
+# introduced only when a later phase deliberately enables hard filtering.
+MODULE_THRESHOLD: float | None = None
 HEADING_BOOST = 0.08
 
 
@@ -52,5 +53,5 @@ def tag_module(items: list[Item], module_list: list[dict[str, Any]]) -> list[Ite
         score = float(scores[best_index])
         module_name = str(module_list[best_index]["name"])
         item.module_score = round(score, 4)
-        item.module = module_name if score >= MODULE_THRESHOLD else "UNTAGGED"
+        item.module = module_name
     return items

@@ -24,9 +24,10 @@ def test_regex_stage_wins_before_heading_prior() -> None:
     assert item.role == "REQUIREMENT"
     assert item.role_method == "regex"
     assert item.role_score is None
+    assert item.requirement_id == "REQ-00000"
 
 
-def test_nearest_heading_prior_classifies_actor() -> None:
+def test_closest_matching_heading_wins_over_a_matching_parent() -> None:
     item = _item("Compte gratuit avec publicitÃ©.", ["PrÃ©sentation", "Utilisateurs"])
 
     tag_role([item])
@@ -35,7 +36,16 @@ def test_nearest_heading_prior_classifies_actor() -> None:
     assert item.role_method == "heading"
 
 
-def test_nearest_heading_not_ancestor_is_used() -> None:
+def test_parent_heading_is_used_when_closest_heading_has_no_role_signal() -> None:
+    item = _item("Plateforme musicale disponible sur mobile et web.", ["Contexte", "Vue d'ensemble"])
+
+    tag_role([item])
+
+    assert item.role == "CONTEXT"
+    assert item.role_method == "heading"
+
+
+def test_closest_heading_wins_when_multiple_headings_are_relevant() -> None:
     item = _item("Compte gratuit avec publicitÃ©.", ["Contexte", "Utilisateurs"])
 
     tag_role([item])
@@ -63,3 +73,4 @@ def test_unresolved_item_remains_diagnostic_untagged() -> None:
 
     assert item.role == "UNTAGGED"
     assert item.role_method == "none"
+    assert item.requirement_id is None

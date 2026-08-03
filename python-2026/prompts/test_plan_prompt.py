@@ -35,6 +35,7 @@ def build_test_plan_prompt(
       "objective": "Ensure the feature satisfies its SRS objectives and requirements",
       "scope": "Feature behavior, supported workflow, and related business outcomes",
       "priority": "High",
+      "module": null,
       "requirements": ["REQ-001"]
     },
     {
@@ -44,6 +45,7 @@ def build_test_plan_prompt(
       "objective": "Ensure users can access the application according to SRS objectives",
       "scope": "Login feature behavior and expected business outcome",
       "priority": "Medium",
+      "module": null,
       "requirements": ["REQ-002"]
     }
   ]
@@ -114,6 +116,7 @@ def build_test_plan_prompt(
 "- objective\n"
 "- scope\n"
 "- priority\n"
+"- module (one exact SPEC-LOCAL MODULES value or null)\n"
 "- requirements\n\n"
 
 "### WRITING STYLE RULE\n"
@@ -151,6 +154,10 @@ def build_test_plan_prompt(
 
         "### REQUIREMENTS\n"
         f"{json.dumps(requirements, indent=2, ensure_ascii=False)}\n\n"
+
+        "### SPEC-LOCAL MODULES\n"
+        f"{json.dumps(modules, ensure_ascii=False)}\n"
+        "Set module to one of these exact names when applicable; otherwise null.\n\n"
 
         "### SPECIFICATION\n"
         + "\n\n".join(chunk_lines)

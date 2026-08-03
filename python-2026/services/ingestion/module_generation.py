@@ -12,6 +12,7 @@ from services.ai_service import get_ai_service
 
 
 MODULE_EVIDENCE_ROLES = frozenset({"CONTEXT", "FEATURE", "REQUIREMENT", "NON_FUNCTIONAL"})
+TRUSTED_METHODS_FOR_EVIDENCE = frozenset({"regex", "heading", "human"})
 MAX_EVIDENCE_ITEMS = 80
 MAX_EVIDENCE_CHARS = 16_000
 _MODULE_STORE: dict[str, list[dict[str, Any]]] = {}
@@ -19,7 +20,11 @@ _MODULE_STORE: dict[str, list[dict[str, Any]]] = {}
 
 def select_module_evidence(items: list[Item]) -> list[Item]:
     """Select bounded, heading-diverse evidence without using full spec text."""
-    eligible = [item for item in items if item.role in MODULE_EVIDENCE_ROLES]
+    eligible = [
+        item for item in items
+        if item.role in MODULE_EVIDENCE_ROLES
+        and item.role_method in TRUSTED_METHODS_FOR_EVIDENCE
+    ]
     selected: list[Item] = []
     chars = 0
     # First pass ensures that a long section cannot crowd out every other path.

@@ -30,7 +30,7 @@ ROLE_LABELS = [
     "GLOSSARY",
 ]
 
-ROLE_METHODS = ("regex", "heading", "embedding", "none")
+ROLE_METHODS = ("regex", "heading", "human", "none")
 
 MIN_ITEM_CHARS = 10  # items shorter than this are discarded
 
@@ -55,7 +55,10 @@ class Item:
     role: str = "UNTAGGED"      # one of ROLE_LABELS or "UNTAGGED"
     module: str = "UNTAGGED"    # e.g. "Authentication"
     role_score: float | None = None  # keeping this but it's not used at this time
-    role_method: Literal["regex", "heading", "none"] = "none"
+    role_method: Literal["regex", "heading", "human", "none"] = "none"
+    reviewed: bool = False
+    suggested_role: str | None = None
+    requirement_id: str | None = None
     module_score: float = 0.0
 
 
@@ -79,6 +82,12 @@ def get_items(hash_: str) -> list[Item]:
 def compute_spec_hash(file_bytes: bytes) -> str:
     """sha256 hex digest of raw file bytes."""
     return hashlib.sha256(file_bytes).hexdigest()
+
+
+def requirement_id_from_item_id(item_id: str) -> str:
+    """Derive the stable external requirement ID from an immutable item ID."""
+    suffix = item_id.removeprefix("ITEM-")
+    return f"REQ-{suffix}" if suffix else item_id
 
 
 # ---------------------------------------------------------------------------

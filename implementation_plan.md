@@ -16,11 +16,16 @@ type needs.
    **Recommendation**: start in-process (a module-level `dict[str, list[Item]]`
    keyed by `spec_hash`), add disk persistence later if needed.
    
-2. **`sentence-transformers` dependency**: `all-MiniLM-L6-v2` (~90 MB download
-   on first use). This is the largest new dependency. Confirm it's acceptable.
-   If not, a pure keyword fallback (similar to existing
-   `detect_modules_from_chunks`) can substitute for module tagging, with only
-   role tagging using embeddings.
+2. **`sentence-transformers` dependency**: multilingual model
+   (`paraphrase-multilingual-MiniLM-L12-v2`) — required because an
+   English-only model tested on this project's French specs produced
+   near-random accuracy. This is the largest new dependency, and in this
+   revision it's needed for **module tagging only** (Phase 4): role
+   tagging (Phase 3) is regex + heading only, no embedding fallback and no
+   LLM calls, so it pulls in no model dependency of its own. Confirm the
+   module-tagging use is acceptable; if not, `detect_modules_from_chunks`'s
+   keyword approach remains as a fallback path (kept as baseline
+   regardless, see Phase 4).
 
 3. **docx heading styles**: `docx_reader.py` currently flattens all paragraphs
    to plain text, discarding `p.style.name`. Phase 1 needs raw `Document`
@@ -55,13 +60,13 @@ services/ingestion/           ← NEW package, Phases 2–4
 services/ingestion/__init__.py
 services/ingestion/items.py   ← Item dataclass + store (Phase 2)
 services/ingestion/tagger.py  ← tag_role / tag_module (Phases 3–4)
-services/ingestion/manifest.py← TASK_MANIFEST + filter (Phase 5–6)
+services/ingestion/manifest.py← TASK_MANIFEST + filter (Phase 4b, 5–6)
 services/spec_service.py      ← wired in Phase 5–6
 routers/test_plans.py         ← wired in Phase 5
 routers/test_cases.py         ← wired in Phase 6
 prompts/test_plan_prompt.py   ← signature change Phase 5
 prompts/test_case_prompt.py   ← signature change Phase 6
-requirements.txt              ← sentence-transformers added Phase 3
+requirements.txt              ← sentence-transformers added Phase 4 (module tagging only)
 ```
 
 ---
@@ -260,9 +265,22 @@ look correct on your real spec.
 
 ## Phase 3 — Role Classifier (tag_role, log-only)
 
-**Goal**: classify each Item's `role` using a lexical-first cascade —
-regex → heading-based prior → embedding fallback — not embedding alone.
-Log tags but do not filter prompts yet.
+**Goal**: classify each Item's `role` using a two-stage deterministic
+cascade — regex → heading-based prior — only. No embedding tier and no
+LLM calls in this phase: anything neither stage resolves goes to
+`UNTAGGED` and on to Phase 5a's human review queue, with no automated
+suggestion attached. Log tags but do not filter prompts yet.
+
+> [!NOTE]
+> The k-NN embedding fallback from the earlier draft is removed, not
+> deferred. It only had validated accuracy as part of the full cascade
+> (66.7%), never isolated on the subset only it would resolve — and k-NN
+> against a single-domain (~75-example, SonicWave/audio) gold set is
+> expected to misgeneralize on specs from other domains, the same
+> overfit failure mode that ruled out the description-vector approach
+> (13.3% role accuracy) earlier in this same phase. Rather than trust an
+> unvalidated, domain-fragile signal, items it would have covered now
+> fall straight through to human review instead (Phase 5a).
 
 **Note on scope**: `tag_module` is intentionally **not** part of this phase.
 The original draft used a fixed global `MODULE_DESCRIPTIONS` list (which
@@ -274,27 +292,16 @@ Role tagging only in this phase.
 
 ### Done looks like
 - After ingestion, every item has `role` set to one of the 8 labels, or
-  `UNTAGGED` if all three cascade stages fail to reach threshold.
-- Every item also has `role_method` logged (`"regex"`, `"heading"`,
-  `"embedding"`, or `"none"`) — needed so the log-only phase is actually
-  diagnostic, not just a final distribution with no way to tell which
-  signal produced it.
+  `UNTAGGED` if both cascade stages fail to match.
+- Every item also has `role_method` logged (`"regex"`, `"heading"`, or
+  `"none"`) — needed so the log-only phase is actually diagnostic, not
+  just a final distribution with no way to tell which signal produced it.
 - A debug endpoint / log line shows role distribution **and** the
   per-method breakdown (e.g. "regex resolved 60%, heading resolved 8%,
-  embedding resolved 22%, UNTAGGED 10%").
+  UNTAGGED 32%"). A higher UNTAGGED share than earlier cascade drafts is
+  expected — that volume is now Phase 5a's review queue, not lost
+  information.
 - No change to generation output.
-
-### [MODIFY] requirements.txt
-
-```
-sentence-transformers>=2.7,<3
-```
-
-> [!IMPORTANT]
-> Multilingual model required — an English-only model was tested earlier on
-> this project's French specs and produced near-random role/module accuracy
-> (10.7% / 22.7%). First `ingest_spec` call triggers model download. Use
-> lazy loading (`functools.lru_cache`) so the server starts instantly.
 
 ### [NEW] services/ingestion/role_rules.py
 
@@ -347,43 +354,6 @@ def match_heading(nearest_heading_text: str) -> str | None:
     """
 ```
 
-### [NEW] services/ingestion/role_embedding_fallback.py
-
-```python
-from functools import lru_cache
-
-EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
-ROLE_THRESHOLD = 0.30   # avg cosine similarity to nearest labeled examples
-K_NEIGHBORS = 5
-
-@lru_cache(maxsize=1)
-def _get_model():
-    from sentence_transformers import SentenceTransformer
-    return SentenceTransformer(EMBEDDING_MODEL_NAME)
-
-@lru_cache(maxsize=1)
-def _get_labeled_examples() -> tuple[list[str], list[str]]:
-    """
-    Loads the existing ~75-item gold set (SonicWave eval) as (texts, roles),
-    embeds once, caches for process lifetime.
-
-    Deliberately NOT one hand-written description vector per role. Role is
-    a grammatical/functional class, not a topic cluster — validated: a
-    description-vector approach scored 13.3% role accuracy vs 66.7% for the
-    lexical-first cascade, because two REQUIREMENT sentences on unrelated
-    topics share almost no vocabulary and sit far apart in embedding space
-    despite the same role. Real labeled sentences give the model actual
-    sentence-level context to compare against instead.
-    """
-
-def match_embedding(text: str) -> tuple[str | None, float]:
-    """
-    Embeds `text`, finds the K_NEIGHBORS nearest labeled examples by cosine
-    similarity, returns the majority role among them if average similarity
-    clears ROLE_THRESHOLD, else (None, score).
-    """
-```
-
 ### [MODIFY] services/ingestion/tagger.py
 
 ```python
@@ -392,11 +362,12 @@ def tag_role(items: list[Item]) -> list[Item]:
     Cascade, per item, first hit wins:
       1. match_regex(item.text)                    -> role_method = "regex"
       2. match_heading(item.nearest_heading_text)   -> role_method = "heading"
-      3. match_embedding(item.text)                 -> role_method = "embedding"
-      4. none of the above                          -> role = "UNTAGGED",
+      3. neither matches                            -> role = "UNTAGGED",
                                                          role_method = "none"
-    Sets item.role, item.role_score (None for regex/heading — deterministic,
-    not scored), item.role_method. Returns items.
+    Sets item.role, item.role_method. Both stages are deterministic —
+    item.role_score has no populated signal in this phase and stays at the
+    Item dataclass default (0.0); kept on the schema for forward
+    compatibility only, not read by any consumer here. Returns items.
     """
 ```
 
@@ -413,26 +384,27 @@ log_event(logger, "ingestion_complete",
     spec_hash=h, item_count=len(items),
     role_dist={r: sum(1 for i in items if i.role == r) for r in ROLE_LABELS},
     method_dist={m: sum(1 for i in items if i.role_method == m)
-                 for m in ("regex", "heading", "embedding", "none")})
+                 for m in ("regex", "heading", "none")})
 ```
 
 ### Sanity check
 
-- `UNTAGGED` rate should be well under the ~13% observed pre-fix in the
-  notebook eval. If it's higher, something regressed — don't just lower
-  `ROLE_THRESHOLD` to compensate; check the method breakdown first.
-- Method breakdown should roughly track the earlier finding: regex resolves
-  the large majority, heading resolves a small targeted slice
-  (ACTOR/GLOSSARY/CONTEXT), embedding covers the genuine remainder. If
-  embedding is resolving more than ~25–30% of items, the regex/heading
-  layers are under-firing — fix those before trusting the embedding numbers.
-- `REQUIREMENT` should be the largest bucket.
+- Record the raw `UNTAGGED` rate for regex+heading alone on a real spec
+  before deciding anything about it. This number is no longer just a log
+  line — it's the actual size of Phase 5a's review queue. Treat a high
+  number as real information: the fix is extending `role_rules.py` /
+  `HEADING_KEYWORDS` coverage, not adding a scored fallback tier back in.
+- `REQUIREMENT` should be the largest bucket among items that do get
+  tagged.
 - Sample 5 items per role manually, **including `role_method`** — verify
   both the label and the signal that produced it make sense.
+  `role_method` should only ever be `"regex"`, `"heading"`, or `"none"`
+  at this phase — anything else is a bug.
 - If the test upload is the SonicWave spec, run the existing bucket-scoring
-  script from `probe_classifier.ipynb` against this real pipeline output —
-  first chance to validate against actual output instead of
-  notebook-simulated predictions.
+  script from `probe_classifier.ipynb` against this real pipeline output.
+  Expect a lower resolved-rate than the notebook's cascade-with-embedding
+  numbers; that gap is now review-queue volume, not silent
+  misclassification, so it isn't itself a regression.
 
 ---
 
@@ -444,13 +416,25 @@ items against it, and validate quality against the legacy
 hand-authored gold set — not just agreement between two heuristics that
 share the same flawed taxonomy.
 
-**Execution gate**: complete Phase 3's multilingual embedding fallback and
-make its lazy model loader reusable before implementing `module_tagger.py`.
-The current deterministic-only role tagger is sufficient to assemble evidence
-items, but it cannot supply the embedding similarity required for module
-classification. Module generation/alignment may be prototyped independently;
-hard module-based filtering must remain disabled until this gate and gold
-calibration are complete.
+**Execution gate**: `sentence-transformers` is introduced fresh in this
+phase — Phase 3's role tagger is regex + heading only and has no
+embedding model to reuse. Module generation/alignment may be prototyped
+independently; hard module-based filtering must remain disabled until
+gold calibration (`score_against_gold`) is complete.
+
+### [MODIFY] requirements.txt
+
+```
+sentence-transformers>=2.7,<3
+```
+
+> [!IMPORTANT]
+> Multilingual model required — an English-only model was tested earlier
+> on this project's French specs and produced near-random module accuracy
+> (22.7%). First `ingest_spec` call with module tagging enabled triggers
+> model download. Use lazy loading (`functools.lru_cache`) so the server
+> starts instantly. This is the only `sentence-transformers` consumer in
+> the project now — role tagging (Phase 3) doesn't use it.
 
 **Note on scope**: this phase builds what Phase 3's revision deferred.
 Comparing generated modules with a fixed legacy taxonomy only made sense while both drew from the
@@ -468,6 +452,14 @@ here.
   ACTOR, GLOSSARY, and OUT_OF_SCOPE items and never receives full `spec_text`.
   REQUIREMENT must be included: the SonicWave gold set has no FEATURE examples
   and most functional-module evidence lives in REQUIREMENT items.
+- Evidence selection is also gated on `role_method`, not just `role`: only
+  `regex`/`heading`/`human`-tagged items count as evidence (see
+  `select_module_evidence()` below). A misclassified item here doesn't
+  just cost one prompt — it can seed or blur an entry in the generated
+  module list, and every item in the spec is later classified against
+  that list via `tag_module()`. That risk is higher than in Phase 5b's
+  per-prompt filtering, so evidence selection stays stricter than
+  ordinary role filtering.
 - `tag_module()` classifies every item against *that spec's* generated
   list, not a global one.
 - A comparison log/endpoint shows: legacy-detector modules, generated+
@@ -487,14 +479,35 @@ here.
 ### [NEW] services/ingestion/module_generation.py
 
 ```python
+MODULE_EVIDENCE_ROLES = frozenset({"CONTEXT", "FEATURE", "REQUIREMENT", "NON_FUNCTIONAL"})
+TRUSTED_METHODS_FOR_EVIDENCE = frozenset({"regex", "heading", "human"})
+
+def select_module_evidence(items: list[Item]) -> list[Item]:
+    """
+    Evidence for generate_module_list(): role in MODULE_EVIDENCE_ROLES AND
+    role_method in TRUSTED_METHODS_FOR_EVIDENCE. The method gate matters
+    more here than anywhere else `role` is read — a bad item here can seed
+    or blur an entry in the generated module list, and every item in the
+    spec is later classified against that list via tag_module(). Since
+    Phase 3 has no scored/embedding role tier, this reduces in practice to
+    "role_method != 'none'", i.e. UNTAGGED items are excluded — including
+    items still sitting in Phase 5a's review queue. Once a UNTAGGED item
+    is resolved by a human, role_method becomes "human" and it becomes
+    eligible as evidence on the next call, the same mechanism Phase 5b
+    uses for prompt filtering.
+    """
+
 def generate_module_list(module_evidence_items: list[Item]) -> list[dict]:
     """
-    One LLM call over CONTEXT + FEATURE + REQUIREMENT + NON_FUNCTIONAL items
-    only (same grounding-decay guard as everywhere else — never full
-    spec_text). Apply a fixed character/item budget with per-heading diversity
-    before the call. Returns 1-12 {"name": str, "description": str} module
-    cards, specific to this spec. The prompt must permit fewer modules for a
-    small spec and require every module to cite supporting item IDs; this avoids
+    One LLM call over the output of select_module_evidence() only (same
+    grounding-decay guard as everywhere else — never full spec_text).
+    Apply a fixed character/item budget with per-heading-path diversity
+    before the call — cap items per top-level heading_path prefix rather
+    than truncating by raw order/length, so one heavily-detailed section
+    doesn't crowd out sparser ones the module list still needs to cover.
+    Returns 1-12 {"name": str, "description": str} module cards, specific
+    to this spec. The prompt must permit fewer modules for a small spec
+    and require every module to cite supporting item IDs; this avoids
     forcing six hallucinated modules when the source has less evidence.
     """
 
@@ -515,7 +528,7 @@ def flag_tiny_modules(modules: list[dict], items: list[Item], min_items: int = 2
 ### [NEW] services/ingestion/module_tagger.py
 
 ```python
-MODULE_THRESHOLD = None  # do not enable hard module filtering until calibrated
+MODULE_THRESHOLD = None  # no hard module filter until calibrated
 
 def tag_module(items: list[Item], module_list: list[dict]) -> list[Item]:
     """
@@ -528,10 +541,9 @@ def tag_module(items: list[Item], module_list: list[dict]) -> list[Item]:
     Secondary signal: if a module's generated name appears in the item's
     nearest heading text, boost that module's score (mirrors the role
     heading prior, same rationale).
-    Sets item.module, item.module_score. Returns items. Until the threshold is
-    calibrated against the SonicWave alignment evaluation, retain low-score
-    results as UNTAGGED/supporting context rather than using them to exclude
-    material from a generation prompt.
+    Sets item.module to the best generated module and records
+    item.module_score. Returns items. Until calibration, module scores are
+    observational: no low-score item is excluded from a generation prompt.
     """
 ```
 
@@ -584,7 +596,85 @@ output), the comparison logging does not.
 - Do not adopt a blind "> X% agreement = trustworthy" threshold the way the
   original draft did. If a numeric bar is wanted for the keyword-diff
   signal, calibrate it against the gold alignment score on SonicWave first
-  — same reasoning already applied to `ROLE_THRESHOLD`.
+  — the same "don't trust an uncalibrated number" reasoning that led to
+  dropping `ROLE_THRESHOLD` outright on the role side (see Phase 7).
+
+---
+
+## Phase 4b — Item identity, manifest, and generation handoff (NEW)
+
+**Goal**: establish the contracts Phase 5 and 6 need before either route
+filters stored items. This phase does not change prompt selection and does not
+soft-include UNTAGGED items.
+
+### [NEW] services/ingestion/manifest.py
+
+```python
+TASK_MANIFEST: dict[str, set[str]] = {
+    "generate-plan": {"CONTEXT", "FEATURE", "ACTOR"},
+    "generate-test-cases": {"FEATURE", "REQUIREMENT", "ACCEPTANCE"},
+}
+```
+
+This is the sole role-to-task contract. UNTAGGED items are excluded from both
+task candidate sets; their omission is surfaced through the review count, not
+reintroduced through soft inclusion.
+
+### [MODIFY] services/ingestion/items.py
+
+```python
+ROLE_METHODS = ("regex", "heading", "human", "none")
+
+@dataclass
+class Item:
+    ...
+    role_method: str = "none"
+    reviewed: bool = False
+    suggested_role: str | None = None  # always None in Phase 5a
+    requirement_id: str | None = None
+```
+
+When an item is tagged or resolved as REQUIREMENT, assign a stable
+`requirement_id` derived from its immutable item ID (for example
+`ITEM-00042` -> `REQ-00042`). Generation must build its requirement list from
+the retained requirement items and these IDs, rather than calling the legacy
+whole-document `extract_requirements()` path. This preserves the existing
+`REQ-*` response contract without allowing a plan to cite a requirement whose
+source item was filtered out.
+
+### [MODIFY] upload and generation contracts
+
+- `POST /upload-spec` returns the additive `spec_hash` field alongside
+  `item_count`.
+- `POST /generate-plan` accepts an optional `spec_hash`. When a file is sent
+  to this endpoint, it must ingest that same byte sequence and use the returned
+  hash; when only `spec_text` is sent, missing/unknown hash triggers the
+  documented legacy-chunk fallback.
+- `GenerateTestCasesRequest` accepts optional `spec_hash` and `plan_module`.
+  The caller returns the upload hash and generated plan module unchanged.
+- `GeneratePlanResponse` retains `test_plans` and adds
+  `pending_review_count`. `TestCasesResponse` retains `test_cases` and adds
+  `pending_review_count`. Do not rename either existing collection key.
+- Add `module: str | None` to each generated TestPlan. Its value must be one
+  of the stored spec-local module names (or null); test-case generation uses
+  this explicit value, never title-to-module fuzzy matching.
+
+### [MODIFY] services/ingestion/module_tagger.py
+
+Phase 4 is observational. Select the best generated module for every item and
+record its score; do not apply `MODULE_THRESHOLD` to set module UNTAGGED until
+gold calibration is complete. Items remain module UNTAGGED only if no module
+cards were generated. No prompt filtering may depend on module score in this
+phase.
+
+### Done looks like
+
+- A stored requirement item can be traced as `Item -> requirement_id -> plan
+  requirement ID` with no whole-document side channel.
+- The same uploaded document's `spec_hash` reaches plan and test-case routes.
+- Existing clients continue to receive `test_plans` and `test_cases` keys.
+- UNTAGGED items remain excluded from task candidates and visible through the
+  review count.
 
 ---
 
@@ -597,10 +687,11 @@ item to the Verification Plan, from the consolidated implementation plan.
 
 Open Question 1's in-process `dict[str, list[Item]]` cannot hold review
 state. A human review decision has to survive process restarts and an
-unbounded wait — an in-memory store loses both. Recommendation: back
-`services/ingestion/items.py`'s `store_items` / `get_items` with calls to
-Node's API instead of a local dict, keeping the function signatures
-identical so nothing calling them needs to change. This isn't new
+unbounded wait — an in-memory store loses both. Back
+`services/ingestion/items.py`'s `store_items` / `get_items` with the Node
+API, keeping the function signatures identical so nothing calling them needs
+to change. The Node endpoint contract is owned externally and deliberately
+out of scope for this plan; Phase 5a assumes it is available. This isn't new
 complexity — it's the persistence model the project already committed to
 (Node + Mongo owns state, FastAPI stays stateless); it just needs to
 actually land now instead of "later." The Node-side endpoint shapes aren't
@@ -617,8 +708,13 @@ number in a log line.
 ### Done looks like
 - Every UNTAGGED item is queryable via a review endpoint, with enough
   context (text, heading_path, nearest heading) for a human to decide.
-- Each UNTAGGED item optionally carries an LLM-generated `suggested_role`
-  — a hint only, never auto-applied, never counted as tagged.
+- No automated `suggested_role` in this phase — no LLM calls. The
+  reviewer works from raw text + heading_path + nearest_heading and picks
+  a role cold. `Item.suggested_role` stays on the dataclass for forward
+  compatibility but is always `None` for now; revisit only if the
+  regex/heading review queue proves too large to work through by hand —
+  that's the trigger to reconsider a hint source, not a reason to add
+  one preemptively.
 - Resolving an item sets its role permanently and durably; it behaves
   identically to a regex/heading match on every subsequent call.
 - No item is ever silently dropped or silently auto-assigned.
@@ -629,9 +725,10 @@ number in a log line.
 @dataclass
 class Item:
     ...
-    role_method: str = "none"          # existing, from Phase 3
-    reviewed: bool = False             # NEW
-    suggested_role: str | None = None  # NEW — LLM hint, never auto-applied
+    reviewed: bool = False              # NEW
+    suggested_role: str | None = None  # NEW — reserved for a future hint
+                                        # source; always None for now, no
+                                        # LLM calls in this phase
 ```
 
 ### [NEW] services/ingestion/review_queue.py
@@ -644,14 +741,10 @@ def enqueue_for_review(spec_hash: str, items: list[Item]) -> int:
     state: it's simply role == "UNTAGGED" and reviewed == False, already
     true the moment tag_role finishes.
 
-    For each newly-UNTAGGED item, optionally makes one lightweight call to
-    the existing local Ollama model asking it to pick the single best-fit
-    role from ROLE_LABELS, and stores the result as item.suggested_role.
-    This is a hint surfaced to the reviewer as a one-click default — it is
-    never written to item.role and never counted as resolved. Skipped
-    entirely if the UNTAGGED count for this spec exceeds a small cap (e.g.
-    30) to avoid a slow ingest on a badly-behaved spec; log a warning if
-    the cap is hit.
+    No automated suggestion in this phase — no LLM calls, so no added
+    ingest-time latency regardless of UNTAGGED count. Each newly-UNTAGGED
+    item's `suggested_role` stays None; the reviewer works from text +
+    heading_path + nearest_heading alone.
     Returns the count enqueued.
     """
 
@@ -695,7 +788,8 @@ One additional line at the existing tagging call site from Phase 3:
 ### Sanity check
 - Upload a spec with a known ambiguous item (e.g. one of the previously
   confirmed UNTAGGED items from the SonicWave eval). Confirm it appears in
-  `GET /review-queue/{spec_hash}` with a plausible `suggested_role`.
+  `GET /review-queue/{spec_hash}` with `suggested_role: null` and enough
+  context (text, heading_path, nearest_heading) to resolve it by hand.
 - Resolve it via the POST endpoint, restart the server process, call
   `GET /review-queue/{spec_hash}` again — the item must **not** reappear
   as pending. If it does, the durable-storage prerequisite above isn't
@@ -705,7 +799,7 @@ One additional line at the existing tagging call site from Phase 3:
 
 ## Phase 5b — Wire TASK_MANIFEST into /generate-plan (corrected)
 
-**Goal**: replace the `spec_chunks[:10]` slice in `build_test_plan_prompt`
+**Goal**: replace the current `spec_chunks[:5]` slice in `build_test_plan_prompt`
 with a filtered, token-budgeted set of Items; measure token reduction;
 never silently include or silently drop UNTAGGED items.
 
@@ -738,13 +832,13 @@ def filter_items(
        no longer the right move once a real resolution path exists.
     2. If module is provided, further restrict as before (item.module ==
        module OR item.role in {"CONTEXT", "ACTOR"}).
-    3. Tiered sort — NOT a flat `role_score DESC`. role_score is None for
-       regex/heading/human-resolved items (they're deterministic, not
-       scored); sorting the raw field on a list mixing None and float
-       raises. Sort:
-         tier 0: role_method in {"regex", "heading", "human"}
-         tier 1: role_method == "embedding", sorted by role_score DESC
-    4. Trim to budget_chars across that tiered order.
+    3. Sort by role_method in {"regex", "heading", "human"} — with no
+       embedding tier anywhere in this revision's role cascade (see
+       Phase 3), every candidate reaching this point already has one of
+       those three methods, so no scored tiering is needed. `role_score`
+       stays unused for role-based filtering; deterministic values are
+       unscored (`None`), so a flat score sort is invalid.
+    4. Trim to budget_chars across that order.
     Returns (filtered_items, pending_review_count), where
     pending_review_count = number of this spec's UNTAGGED items still
     awaiting review. Callers must surface this, not discard it.
@@ -769,6 +863,14 @@ def get_filtered_items_for_task(
 ### [MODIFY] services/plan_service.py
 
 ```python
+def requirements_from_items(items: list[Item]) -> list[dict]:
+    """Build prompt requirement records only from retained REQUIREMENT items.
+
+    Uses Item.requirement_id, Item.text, and Item.source_chunk_id. Never calls
+    the legacy whole-document extract_requirements() path when filtered items
+    are available.
+    """
+
 def generate_test_plans(
     *,
     spec_text: str,
@@ -782,6 +884,8 @@ def generate_test_plans(
     ...
     filtered, pending_review_count = get_filtered_items_for_task(spec_hash, "generate-plan")
     use_items = bool(filtered)
+    requirements = requirements_from_items(filtered)
+    modules = get_module_list(spec_hash)
 
     prompt = build_test_plan_prompt(
         project_title=project_title,
@@ -799,7 +903,7 @@ def generate_test_plans(
 
 ```python
 plans, pending_review_count = generate_test_plans(spec_text=..., spec_hash=h, ...)
-return {"plans": plans, "pending_review_count": pending_review_count}
+return {"test_plans": plans, "pending_review_count": pending_review_count}
 ```
 
 > [!NOTE]
@@ -829,70 +933,84 @@ tuple return, so `pending_review_count` propagates the same way.
 ```python
 def generate_test_cases(
     *,
+    plan_id: str,
+    plan_title: str,
+    plan_description: str,
+    plan_module: str | None,
     spec_text: str,
-    plan: dict,
     style_config: str,
+    project_title: str,
     spec_hash: str = "",
 ) -> tuple[list[dict], int]:
     """
-    Same module-scope derivation as before. Returns
+    Uses the explicit ``plan_module`` returned with the selected TestPlan;
+    never derives scope from plan title text. Returns
     (test_cases, pending_review_count) — same pattern as Phase 5b.
     """
 ```
 
 > [!NOTE]
-> Module-level UNTAGGED (item.module == "UNTAGGED") is the same underlying
-> problem at a different axis, but it isn't gated yet — Phase 4 leaves
-> `MODULE_THRESHOLD = None`, so nothing currently excludes on module
-> confidence, and there's nothing to review yet. `review_queue.py`'s
-> `resolve_review` already accepts an arbitrary target field in spirit;
-> extending it to modules is a small follow-up once module hard-filtering
-> is actually turned on, not before.
+> Module tags are observational in Phase 4: every item receives its
+> best-generated module when cards exist, but no module score is used to
+> exclude an item. Module review is deferred until a calibrated hard module
+> filter is intentionally introduced.
 
 ### Sanity check
-Same as originally specified, plus: confirm `pending_review_count`
-reflects only items relevant to `generate-test-cases`'s manifest
-(FEATURE/REQUIREMENT/ACCEPTANCE), not the spec's total pending count.
+Same as originally specified, plus: `pending_review_count` is deliberately
+the spec-wide unresolved queue count, consistent with Phase 5b. Do not claim
+it is task-relevant: an UNTAGGED item has no trustworthy role yet, so task
+relevance cannot be computed without guessing.
 
 ---
 
-## Phase 7 — Threshold tuning + review-assisted UNTAGGED handling (corrected)
+## Phase 7 — Regex/heading coverage tuning (corrected)
 
-**Goal**: calibrate `ROLE_THRESHOLD`; the automatic `repair_untagged` LLM
-pass from the original draft is removed as a standalone feature — it's
-superseded by Phase 5a's `suggested_role`, which does the same LLM work
-but as a hint a human confirms, not an autonomous auto-tag.
+**Goal**: with the embedding tier cut (Phase 3) and no automated
+`suggested_role` hint (Phase 5a), the UNTAGGED rate is now entirely a
+function of `role_rules.py` / `role_heading_prior.py` coverage. This
+phase narrows the review queue by improving those two deterministic
+layers using real resolved-item data — it is not threshold tuning, since
+no scored/numeric tier remains anywhere in the role cascade.
 
-### [MODIFY] services/ingestion/tagger.py
+`ROLE_THRESHOLD` and the k-NN tier it gated are deleted, not tuned — they
+never ship past Phase 3 in this revision (see Phase 3's note). The
+automatic `repair_untagged` LLM pass from the original draft is likewise
+deleted outright, with no replacement: there is no LLM auto-tag or
+auto-hint path anywhere in the role pipeline, by design. Resolving
+UNTAGGED items is a human-only action (Phase 5a).
 
-```python
-ROLE_THRESHOLD = float(os.getenv("ITEM_ROLE_THRESHOLD", "0.30"))
-```
+### [MODIFY] services/ingestion/role_rules.py, role_heading_prior.py
 
-`repair_untagged` is deleted, not just disabled — its job is now done by
-`enqueue_for_review`'s `suggested_role` step in Phase 5a, which keeps a
-human in the loop instead of silently writing to `item.role`.
+Use Phase 5a's *resolved* items (`role_method == "human"`) as a feedback
+source: periodically sample recently-resolved items, group by the role a
+human assigned, and look for recurring surface patterns — a phrase, a
+heading keyword — that regex/heading currently miss. Promote confirmed
+patterns into `ROLE_REGEX_RULES` / `HEADING_KEYWORDS` by hand; this stays
+a manual, reviewed code change, not an automated rule-learning step, to
+avoid quietly reintroducing the single-spec overfit risk that ruled out
+the embedding tier in the first place.
 
 ### [MODIFY] services/ingestion/manifest.py
 
 The original draft's empty-result fallback ("if no items match, return
 all items sorted by role_score") is **removed**, not fixed — it would
 silently reintroduce the exact grounding-decay problem this whole project
-exists to solve, and it crashes today on `None` scores regardless. If
-`filter_items` returns no candidates, that's real information: return
-`([], pending_review_count)` and let the caller fall back to the old
-chunks path, same as the already-established "spec_hash not found"
-behavior. Don't paper over it with unfiltered content.
+exists to solve, and `role_score` has no populated signal for any
+role-tagged item in this revision (regex/heading are unscored; no
+embedding tier exists to score anything). If `filter_items` returns no
+candidates, that's real information: return `([], pending_review_count)`
+and let the caller fall back to the old chunks path, same as the
+already-established "spec_hash not found" behavior. Don't paper over it
+with unfiltered content.
 
 ### Sanity check
-- Sweep `ROLE_THRESHOLD` from 0.20 to 0.40 on a real spec. This is no
-  longer "pick the highest threshold under 10% UNTAGGED" in isolation —
-  frame it as a tradeoff: lower threshold → smaller review queue but more
-  silent misclassification risk; higher threshold → more accurate
-  auto-tags but a heavier queue for whoever's reviewing. Pick a value with
-  that tradeoff stated, not just a number that clears a bar.
-- Confirm no code path still references the removed `repair_untagged` or
-  the removed sorted-fallback.
+- Track the UNTAGGED rate over time as regex/heading rules are extended.
+  A falling rate with a stable or shrinking review queue means the added
+  rules are generalizing, not just fitting one spec's resolved items —
+  the thing k-NN against a single-domain gold set failed to do.
+- Confirm no code path still references `ROLE_THRESHOLD`,
+  `role_embedding_fallback.py`, or `repair_untagged` — all three are
+  gone in this revision, not just disabled.
 
 ---
 
