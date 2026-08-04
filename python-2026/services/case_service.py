@@ -7,11 +7,26 @@ from core.config import get_settings
 from core.constants import DEFAULT_TEST_CASES_MIN, DEFAULT_TEST_CASES_MAX, PRIORITIES, SEVERITIES, TEST_CASE_TYPES
 from prompts.test_case_prompt import build_test_case_prompt
 from services.ai_service import get_ai_service
-from services.spec_service import SRS_CASE_SECTIONS, extract_requirements, get_srs_sections
+from services.spec_service import SRS_CASE_SECTIONS, extract_requirements, get_filtered_items_for_task, get_srs_sections
+from services.ingestion.items import Item
 from utils.logger import get_logger, log_event, log_error
 
 
 logger = get_logger("services.case_service")
+
+
+def _requirements_from_items(items: list[Item]) -> list[dict[str, str]]:
+    return [
+        {
+            "id": item.requirement_id or "",
+            "title": item.heading_path[-1] if item.heading_path else "Requirement",
+            "description": item.text,
+            "source": item.source_chunk_id,
+            "priority": "",
+        }
+        for item in items
+        if item.role == "REQUIREMENT" and item.requirement_id
+    ]
 
 
 def _tc_prefix(plan_id: str) -> str:
@@ -162,12 +177,25 @@ def generate_test_cases(
     project_title: str,
     plan_module: str | None = None,
     spec_hash: str = "",
-) -> List[Dict[str, Any]]:
+) -> tuple[List[Dict[str, Any]], int]:
     settings = get_settings()
     log_event(logger, "generate_cases_request_received", plan_id=plan_id, mock=settings.use_mock)
 
-    reqs = extract_requirements(spec_text)
-    chunks = get_srs_sections(spec_text, SRS_CASE_SECTIONS)
+    filtered_items, pending_review_count, stored_items_found = get_filtered_items_for_task(
+        spec_hash,
+        "generate-test-cases",
+        module=plan_module,
+    )
+    if stored_items_found:
+        if not filtered_items:
+            raise ValueError("No reviewed/tagged items are eligible for this plan module")
+        reqs = _requirements_from_items(filtered_items)
+        if not reqs:
+            raise ValueError("No retained requirement items are linked to this plan module")
+        chunks: List[Dict[str, str]] = []
+    else:
+        reqs = extract_requirements(spec_text)
+        chunks = get_srs_sections(spec_text, SRS_CASE_SECTIONS)
 
     if settings.use_mock:
         raise ValueError("Mock test case generation is disabled for the SRS pipeline")
@@ -180,6 +208,16 @@ def generate_test_cases(
         style_config=style_config,
         linked_requirements=reqs,
         spec_chunks=chunks,
+        filtered_items=filtered_items if stored_items_found else None,
+    )
+    log_event(
+        logger,
+        "generate_cases_prompt_selected",
+        plan_id=plan_id,
+        plan_module=plan_module,
+        evidence_item_count=len(filtered_items),
+        pending_review_count=pending_review_count,
+        stored_items_found=stored_items_found,
     )
 
     ai = get_ai_service()
@@ -248,4 +286,4 @@ def generate_test_cases(
     normalized = normalized[:DEFAULT_TEST_CASES_MAX]
     for i, tc in enumerate(normalized, start=1):
         tc["id"] = f"{prefix}.{i}"
-    return normalized
+    return normalized, pending_review_count

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import List, Dict
+from typing import List, Dict, Sequence
 
 
 def build_test_case_prompt(
@@ -12,7 +12,8 @@ def build_test_case_prompt(
     project_title: str,
     style_config: str,
     linked_requirements: List[Dict[str, str]],
-    spec_chunks: List[Dict[str, str]],
+    spec_chunks: List[Dict[str, str]] | None = None,
+    filtered_items: Sequence[object] | None = None,
 ) -> str:
 
     project_block = project_title.strip() or "(not provided)"
@@ -20,10 +21,14 @@ def build_test_case_prompt(
 
     chunk_lines = []
 
-    for ch in spec_chunks[:5]:
-        chunk_lines.append(
-            f"## {ch.get('title')}\n{ch.get('text')[:500]}"
-        )
+    if filtered_items is not None:
+        for item in filtered_items:
+            heading_path = getattr(item, "heading_path", [])
+            heading = " > ".join(heading_path) if heading_path else "(no heading)"
+            chunk_lines.append(f"## [{getattr(item, 'role', 'UNKNOWN')}] {heading}\n{getattr(item, 'text', '')}")
+    else:
+        for ch in (spec_chunks or [])[:5]:
+            chunk_lines.append(f"## {ch.get('title')}\n{ch.get('text')[:500]}")
 
     example = """
 {

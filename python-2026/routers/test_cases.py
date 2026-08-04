@@ -69,7 +69,7 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
 
     try:
         t_ai_start = time.monotonic()
-        cases = generate_test_cases(
+        cases, pending_review_count = generate_test_cases(
             plan_id=plan_id,
             plan_title=plan_title,
             plan_description=plan_description,
@@ -94,7 +94,7 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
             plan_id=plan_id,
             plan_title=plan_title,
             test_cases=cases,
-            pending_review_count=0,
+            pending_review_count=pending_review_count,
         )
     except FileNotFoundError:
         t_total_ms = int((time.monotonic() - t_start) * 1000)
