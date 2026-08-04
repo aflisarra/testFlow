@@ -87,6 +87,19 @@ function serialize(item) {
   }
 }
 
+function pendingReviewFilter(specHash) {
+  return {
+    specHash,
+    role: 'UNTAGGED',
+    reviewed: false,
+    $or: [
+      { reviewState: 'pending' },
+      // Legacy documents are pending until the R1 migration is run.
+      { reviewState: { $exists: false } },
+    ],
+  }
+}
+
 async function replaceSnapshot(rawSpecHash, rawItems, rawModules) {
   const hash = specHash(rawSpecHash)
   if (!Array.isArray(rawItems) || !Array.isArray(rawModules)) throw inputError('items and modules must be arrays')
@@ -105,6 +118,35 @@ async function replaceSnapshot(rawSpecHash, rawItems, rawModules) {
   )
   try {
     if (items.length) {
+      const existingItems = await SpecIngestionItem.find({
+        specHash: hash,
+        itemId: { $in: [...itemIds] },
+        $or: [{ reviewed: true }, { reviewState: 'dismissed' }],
+      }).lean()
+      const existingById = new Map(existingItems.map((item) => [item.itemId, item]))
+
+      // Re-ingesting identical bytes must not erase a human role decision or
+      // a dismissal. The deterministic source fields can refresh, but the
+      // review outcome remains durable.
+      for (const item of items) {
+        const existing = existingById.get(item.itemId)
+        if (!existing) continue
+        if (existing.reviewed && existing.roleMethod === 'human') {
+          item.role = existing.role
+          item.roleMethod = existing.roleMethod
+          item.roleScore = existing.roleScore
+          item.reviewed = true
+          item.reviewedBy = existing.reviewedBy
+          item.reviewState = 'resolved'
+          item.requirementId = existing.requirementId
+        } else if (existing.reviewState === 'dismissed') {
+          item.reviewState = 'dismissed'
+          item.dismissedAt = existing.dismissedAt
+          item.dismissedBy = existing.dismissedBy
+          item.dismissalReason = existing.dismissalReason
+        }
+      }
+
       await SpecIngestionItem.bulkWrite(items.map((item) => ({
         updateOne: { filter: { specHash: hash, itemId: item.itemId }, update: { $set: item }, upsert: true },
       })), { ordered: true })
@@ -131,8 +173,14 @@ async function getSnapshot(specHash) {
 async function getPendingReview(specHash) {
   const ingestion = await readyIngestion(specHash)
   if (!ingestion) return null
-  const items = await SpecIngestionItem.find({ specHash: ingestion.specHash, role: 'UNTAGGED', reviewed: false }).sort({ itemId: 1 }).lean()
+  const items = await SpecIngestionItem.find(pendingReviewFilter(ingestion.specHash)).sort({ itemId: 1 }).lean()
   return items.map(serialize)
+}
+
+async function countPendingReview(rawSpecHash) {
+  const ingestion = await readyIngestion(rawSpecHash)
+  if (!ingestion) return null
+  return SpecIngestionItem.countDocuments(pendingReviewFilter(ingestion.specHash))
 }
 
 async function resolveReview(specHash, itemId, role, reviewer = null) {
@@ -142,13 +190,17 @@ async function resolveReview(specHash, itemId, role, reviewer = null) {
   if (!ROLE_LABELS.includes(resolvedRole) || resolvedRole === 'UNTAGGED') throw inputError('Invalid review role')
   const id = text(itemId, 'item id')
   const item = await SpecIngestionItem.findOneAndUpdate(
-    { specHash: ingestion.specHash, itemId: id },
+    { ...pendingReviewFilter(ingestion.specHash), itemId: id },
     { $set: {
       role: resolvedRole,
       roleMethod: 'human',
       roleScore: null,
       reviewed: true,
       reviewedBy: reviewer ? String(reviewer).trim() || null : null,
+      reviewState: 'resolved',
+      dismissedAt: null,
+      dismissedBy: null,
+      dismissalReason: null,
       suggestedRole: null,
       requirementId: resolvedRole === 'REQUIREMENT' ? `REQ-${id.replace(/^ITEM-/, '')}` : null,
     } },
@@ -157,4 +209,29 @@ async function resolveReview(specHash, itemId, role, reviewer = null) {
   return item ? serialize(item) : null
 }
 
-module.exports = { replaceSnapshot, getSnapshot, getPendingReview, resolveReview }
+async function dismissReview(specHash, itemId, reviewer = null, reason = null) {
+  const ingestion = await readyIngestion(specHash)
+  if (!ingestion) return null
+  const id = text(itemId, 'item id')
+  const item = await SpecIngestionItem.findOneAndUpdate(
+    { ...pendingReviewFilter(ingestion.specHash), itemId: id },
+    { $set: {
+      reviewState: 'dismissed',
+      dismissedAt: new Date(),
+      dismissedBy: reviewer ? String(reviewer).trim() || null : null,
+      dismissalReason: reason ? String(reason).trim() || null : null,
+    } },
+    { new: true, runValidators: true }
+  ).lean()
+  return item ? serialize(item) : null
+}
+
+module.exports = {
+  replaceSnapshot,
+  getSnapshot,
+  getPendingReview,
+  countPendingReview,
+  resolveReview,
+  dismissReview,
+  pendingReviewFilter,
+}

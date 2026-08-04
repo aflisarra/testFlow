@@ -3,6 +3,7 @@ const router = express.Router();
 const controllerTestSuite = require('../controllers/testsuite.controller');
 const controllerTestPlan = require('../controllers/testplan.controller');
 const controllerTestCase = require('../controllers/testcase.controller');
+const roleReviewController = require('../controllers/role-review.controller');
 const exportController = require('../controllers/export.controller');
 const authenticateUser = require('../middleware/authenticateUser');
 const { requireTestSuiteAccess } = require('../middleware/testsuite-access.middleware');
@@ -40,6 +41,10 @@ router.post('/:id/plans', requireTestSuiteAccess, (req, res) => {
   req.body = { ...req.body, testSuiteId: req.params.id };
   return controllerTestPlan.create(req, res);
 });
+
+router.get('/:id/role-reviews', requireTestSuiteAccess, roleReviewController.list);
+router.patch('/:id/role-reviews/:itemId', requireTestSuiteAccess, roleReviewController.resolve);
+router.delete('/:id/role-reviews/:itemId', requireTestSuiteAccess, roleReviewController.dismiss);
 
 router.patch('/:id/session', requireTestSuiteAccess, controllerTestSuite.saveSession);
 router.patch('/:id/status', requireTestSuiteAccess, controllerTestSuite.updateStatus);
