@@ -2239,3 +2239,71 @@
     outline: none !important;
     transform: none !important;
 }
+
+.role-review-panel {
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.role-review-toggle {
+  inline-size: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #1e3a5f;
+  font-weight: 650;
+  text-align: start;
+}
+
+.role-review-count {
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+}
+
+.role-review-body { padding: 0 14px 14px; }
+.role-review-warning { color: #475569; font-size: 0.85rem; }
+.role-review-list { display: grid; gap: 10px; }
+
+.role-review-item {
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px;
+}
+
+.role-review-item-text { color: #1e293b; font-weight: 600; }
+.role-review-breadcrumbs, .role-review-nearest, .role-review-suggestion {
+  color: #64748b;
+  font-size: 0.78rem;
+  margin-top: 5px;
+}
+
+.role-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.role-review-actions select { min-inline-size: 180px; flex: 1; }
+
+:host-context([data-bs-theme='dark']) .role-review-panel {
+  background: #172033;
+  border-color: #294266;
+}
+:host-context([data-bs-theme='dark']) .role-review-toggle { color: #dbeafe; }
+:host-context([data-bs-theme='dark']) .role-review-item {
+  background: #0f172a;
+  border-color: #294266;
+}
+:host-context([data-bs-theme='dark']) .role-review-item-text { color: #e2e8f0; }

@@ -10,6 +10,7 @@ export interface TestPlanDto {
   id: string
   title: string
   description: string
+  module?: string | null
   testCases?: TestCaseDto[]
   casesCount?: number
   objective?: string   // ← nouveau
@@ -28,6 +29,7 @@ export interface TestPlanDto {
 export interface GeneratePlanResponse {
   testSuiteId: string
   projectId?: string
+  pendingReviewCount?: number
   testPlans?: TestPlanDto[]
   steps?: string[]
   plans?: PlanTestDto[]
@@ -137,6 +139,41 @@ export interface GenerateTestCasesResponse {
   planTitle: string
   testCases: TestCaseDto[]
   reused?: boolean
+  pendingReviewCount?: number
+}
+
+export type RoleLabel =
+  | 'CONTEXT'
+  | 'ACTOR'
+  | 'FEATURE'
+  | 'REQUIREMENT'
+  | 'ACCEPTANCE'
+  | 'NON_FUNCTIONAL'
+  | 'OUT_OF_SCOPE'
+  | 'GLOSSARY'
+
+export interface RoleReviewItem {
+  itemId: string
+  text: string
+  headingPath: string[]
+  nearestHeading: string | null
+  suggestedRole: RoleLabel | null
+}
+
+export interface RoleReviewQueueResponse {
+  specHash: string
+  pendingCount: number
+  items: RoleReviewItem[]
+}
+
+export interface ResolveRoleReviewResponse {
+  item: RoleReviewItem & {
+    role: RoleLabel
+    roleMethod: 'human'
+    reviewed: true
+    reviewState: 'resolved'
+  }
+  pendingCount: number
 }
 
 export interface PlanStatusRow {

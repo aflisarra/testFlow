@@ -8,6 +8,8 @@ import {
   type TestCaseDto,
   type TestPlanDto,
   type TestSuiteDto,
+  type RoleLabel,
+  type RoleReviewItem,
 } from '@/app/core/services/testlab.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
 import type { AppProject } from '@/app/interfaces/admin-management.interface'
@@ -90,6 +92,19 @@ isEditMode = false
   testPlans: TestPlanDto[] = []
   testCasesByPlan: Record<string, TestCaseDto[]> = {}
   editingPlanIds: Record<string, boolean> = {}
+
+  readonly roleLabels: RoleLabel[] = [
+    'CONTEXT', 'ACTOR', 'FEATURE', 'REQUIREMENT', 'ACCEPTANCE',
+    'NON_FUNCTIONAL', 'OUT_OF_SCOPE', 'GLOSSARY',
+  ]
+  roleReviewOpen = false
+  roleReviewLoading = false
+  roleReviewBusyItemId = ''
+  roleReviewItems: RoleReviewItem[] = []
+  roleReviewSelections: Record<string, RoleLabel | ''> = {}
+  pendingRoleReviewCount = 0
+  roleReviewLegacySuite = false
+  roleReviewError = ''
 
   // â”€â”€â”€ Flux sÃ©quentiel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   /** Index du plan actuellement affichÃ©/traitÃ© (0-based). -1 = pas encore dÃ©marrÃ© */
@@ -425,6 +440,7 @@ private prepareFreshTestForSelectedProject(): void {
 
     this.suppressExistingProjectModal = true
     this.currentTestSuiteId = suiteId
+    this.resetRoleReviewState()
     this.currentPlanIndex = -1
     this.errorMessage = ''
     this.generatingPlans = false
@@ -871,6 +887,104 @@ getValidateButtonClass(planId: string): string {
     }
   }*/
 specText = ''
+
+  async toggleRoleReview(): Promise<void> {
+    this.roleReviewOpen = !this.roleReviewOpen
+    if (this.roleReviewOpen) await this.loadRoleReviews()
+  }
+
+  onRoleReviewSelection(itemId: string, event: Event): void {
+    const value = String((event.target as HTMLSelectElement | null)?.value || '')
+    this.roleReviewSelections[itemId] = this.roleLabels.includes(value as RoleLabel)
+      ? value as RoleLabel
+      : ''
+  }
+
+  async resolveRoleReview(item: RoleReviewItem): Promise<void> {
+    const role = this.roleReviewSelections[item.itemId]
+    if (!role || !this.currentTestSuiteId) return
+
+    this.roleReviewBusyItemId = item.itemId
+    try {
+      await firstValueFrom(this.testLabService.resolveRoleReview(this.currentTestSuiteId, item.itemId, role))
+      this.toastr.success('Role saved for this specification item.', 'Specification review')
+      await this.loadRoleReviews()
+    } catch (error: unknown) {
+      this.handleRoleReviewError(error)
+    } finally {
+      this.roleReviewBusyItemId = ''
+    }
+  }
+
+  async dismissRoleReview(item: RoleReviewItem): Promise<void> {
+    if (!this.currentTestSuiteId) return
+    const confirmed = this.document.defaultView?.confirm(
+      'Dismiss this item from the review queue? It will remain available for audit.'
+    ) ?? true
+    if (!confirmed) return
+
+    this.roleReviewBusyItemId = item.itemId
+    try {
+      await firstValueFrom(this.testLabService.dismissRoleReview(this.currentTestSuiteId, item.itemId))
+      this.toastr.success('Item dismissed from the review queue.', 'Specification review')
+      await this.loadRoleReviews()
+    } catch (error: unknown) {
+      this.handleRoleReviewError(error)
+    } finally {
+      this.roleReviewBusyItemId = ''
+    }
+  }
+
+  focusSpecificationUpload(): void {
+    this.document.getElementById('specDocument')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  private async loadRoleReviews(): Promise<void> {
+    if (!this.currentTestSuiteId) return
+    this.roleReviewLoading = true
+    this.roleReviewError = ''
+    this.roleReviewLegacySuite = false
+    try {
+      const response = await firstValueFrom(this.testLabService.getRoleReviews(this.currentTestSuiteId))
+      this.roleReviewItems = Array.isArray(response?.items) ? response.items : []
+      this.pendingRoleReviewCount = Number(response?.pendingCount || 0)
+      this.roleReviewSelections = Object.fromEntries(
+        this.roleReviewItems.map((item) => [item.itemId, ''])
+      ) as Record<string, RoleLabel | ''>
+    } catch (error: unknown) {
+      this.handleRoleReviewError(error)
+    } finally {
+      this.roleReviewLoading = false
+    }
+  }
+
+  private handleRoleReviewError(error: unknown): void {
+    if (getErrorStatus(error) === 409 && this.errorCode(error) === 'SPEC_NOT_INGESTED') {
+      this.roleReviewLegacySuite = true
+      this.roleReviewItems = []
+      this.pendingRoleReviewCount = 0
+      return
+    }
+    this.roleReviewError = getErrorMessage(error, 'Unable to load the specification review queue.')
+    this.toastr.error(this.roleReviewError, 'Specification review')
+  }
+
+  private errorCode(error: unknown): string {
+    const value = error as { code?: unknown; error?: { code?: unknown } }
+    return String(value?.error?.code || value?.code || '').trim()
+  }
+
+  private resetRoleReviewState(): void {
+    this.roleReviewOpen = false
+    this.roleReviewLoading = false
+    this.roleReviewBusyItemId = ''
+    this.roleReviewItems = []
+    this.roleReviewSelections = {}
+    this.pendingRoleReviewCount = 0
+    this.roleReviewLegacySuite = false
+    this.roleReviewError = ''
+  }
+
   // Remplacer onValidateAndGoToCases()
 async onValidateAndGoToCases() {
   if (!this.testPlans.length) {
@@ -1018,6 +1132,7 @@ get canGenerateTestPlan(): boolean {
     this.uploadedFileName = ''
     this.selectedFile = null
     this.currentTestSuiteId = ''
+    this.resetRoleReviewState()
     this.testPlans = []
     this.testCasesByPlan = {}
     this.currentPlanIndex = -1
@@ -1345,8 +1460,8 @@ get canGenerateTestPlan(): boolean {
 
     if (currentPlanToken !== this.plansGenerationToken) return
 
-    // ✅ NE PAS créer de suite ici
-    //this.currentTestSuiteId = ''
+    this.currentTestSuiteId = String(result?.testSuiteId || '').trim()
+    this.resetRoleReviewState()
 
     // ✅ affichage seulement
     this.testPlans = Array.isArray(result?.testPlans) ? result.testPlans : []

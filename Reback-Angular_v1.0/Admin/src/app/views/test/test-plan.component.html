@@ -172,7 +172,7 @@
             </div>
             <p class="testlab-card-subtitle mb-3">Upload your test specifications</p>
 
-            <input #fileInput type="file" accept=".docx,.md,.txt" class="d-none" (change)="onFileSelected($event)" />
+            <input #fileInput id="specDocument" type="file" accept=".docx" class="d-none" (change)="onFileSelected($event)" />
             <div
               class="testlab-dropzone"
               role="button"
@@ -186,7 +186,7 @@
               </div>
               <p class="testlab-dropzone-title">Upload Word Doc</p>
               <p class="testlab-dropzone-hint">or click to browse</p>
-              <p class="testlab-dropzone-format">Supports Word (.docx), Markdown (.md), or Text (.txt)</p>
+              <p class="testlab-dropzone-format">Supports Word (.docx)</p>
               @if (uploadedFileName) {
               <div class="testlab-file-selected">
                 <iconify-icon icon="iconamoon:check-circle-1-duotone"></iconify-icon>
@@ -291,6 +291,78 @@
           <span class="testlab-pill">{{ testPlans.length }} Plans</span>
         </div>
       </div>
+
+      @if (currentTestSuiteId) {
+      <section class="role-review-panel mb-4">
+        <button type="button" class="role-review-toggle" (click)="toggleRoleReview()">
+          <span class="d-flex align-items-center gap-2">
+            <iconify-icon icon="iconamoon:eye-duotone"></iconify-icon>
+            <span>Specification review</span>
+            @if (pendingRoleReviewCount > 0) {
+            <span class="role-review-count">{{ pendingRoleReviewCount }} items need review</span>
+            }
+          </span>
+          <iconify-icon [icon]="roleReviewOpen ? 'iconamoon:arrow-up-2-duotone' : 'iconamoon:arrow-down-2-duotone'"></iconify-icon>
+        </button>
+
+        @if (roleReviewOpen) {
+        <div class="role-review-body">
+          @if (roleReviewLoading) {
+          <p class="text-muted mb-0">Loading specification review…</p>
+          } @else if (roleReviewLegacySuite) {
+          <div class="alert alert-info mb-0">
+            This test suite was generated before role tagging was introduced.
+            <button type="button" class="btn btn-link p-0 ms-1 align-baseline" (click)="focusSpecificationUpload()">
+              Re-upload the original specification to enable review.
+            </button>
+          </div>
+          } @else if (roleReviewError) {
+          <div class="alert alert-danger mb-0">{{ roleReviewError }}</div>
+          } @else if (!roleReviewItems.length) {
+          <p class="text-muted mb-0">No specification items need review.</p>
+          } @else {
+          <p class="role-review-warning">You can continue generation with pending items, but reviewing them improves the evidence available to test generation.</p>
+          <div class="role-review-list">
+            @for (item of roleReviewItems; track item.itemId) {
+            <article class="role-review-item">
+              <div class="role-review-item-text">{{ item.text }}</div>
+              @if (item.headingPath.length) {
+              <div class="role-review-breadcrumbs">{{ item.headingPath.join(' › ') }}</div>
+              }
+              @if (item.nearestHeading) {
+              <div class="role-review-nearest">Nearest heading: {{ item.nearestHeading }}</div>
+              }
+              @if (item.suggestedRole) {
+              <div class="role-review-suggestion">Suggested role: {{ item.suggestedRole }}</div>
+              }
+              <div class="role-review-actions">
+                <select class="form-select form-select-sm" [value]="roleReviewSelections[item.itemId]"
+                  [disabled]="roleReviewBusyItemId === item.itemId"
+                  (change)="onRoleReviewSelection(item.itemId, $event)">
+                  <option value="">Choose a role…</option>
+                  @for (role of roleLabels; track role) {
+                  <option [value]="role">{{ role }}</option>
+                  }
+                </select>
+                <button type="button" class="btn btn-sm btn-primary"
+                  [disabled]="!roleReviewSelections[item.itemId] || roleReviewBusyItemId === item.itemId"
+                  (click)="resolveRoleReview(item)">
+                  Apply role
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                  [disabled]="roleReviewBusyItemId === item.itemId"
+                  (click)="dismissRoleReview(item)">
+                  Dismiss
+                </button>
+              </div>
+            </article>
+            }
+          </div>
+          }
+        </div>
+        }
+      </section>
+      }
 
       <div class="testlab-plan-list">
         @for (plan of testPlans; track plan.id; let i = $index) {

@@ -15,6 +15,9 @@ import type {
   TestCasesByPlanDto,
   TestPlanDto,
   TestSuiteDto,
+  RoleLabel,
+  RoleReviewQueueResponse,
+  ResolveRoleReviewResponse,
 } from '@/app/interfaces/testlab.interface'
 
 export type {
@@ -27,7 +30,11 @@ export type {
   TestLabProjectDto,
   TestLabProjectUserDto,
   TestPlanDto,
-  TestSuiteDto
+  TestSuiteDto,
+  RoleLabel,
+  RoleReviewItem,
+  RoleReviewQueueResponse,
+  ResolveRoleReviewResponse,
 } from '@/app/interfaces/testlab.interface'
 
 export interface TestExecutionDto {
@@ -153,6 +160,25 @@ generateTestCases(
   // ✅ GET /api/testsuites/:id/plans
   getTestPlans(testSuiteId: string): Observable<GetTestPlansResponse> {
     return this.api.get<GetTestPlansResponse>(`/api/testsuites/${testSuiteId}/plans`)
+  }
+
+  getRoleReviews(testSuiteId: string): Observable<RoleReviewQueueResponse> {
+    return this.api.get<RoleReviewQueueResponse>(`/api/testsuites/${testSuiteId}/role-reviews`)
+  }
+
+  resolveRoleReview(
+    testSuiteId: string,
+    itemId: string,
+    role: RoleLabel
+  ): Observable<ResolveRoleReviewResponse> {
+    return this.api.patch<ResolveRoleReviewResponse>(
+      `/api/testsuites/${testSuiteId}/role-reviews/${itemId}`,
+      { role }
+    )
+  }
+
+  dismissRoleReview(testSuiteId: string, itemId: string, _reason?: string): Observable<void> {
+    return this.api.delete<void>(`/api/testsuites/${testSuiteId}/role-reviews/${itemId}`)
   }
 
   getTestExecutions(testSuiteId: string): Observable<TestExecutionDto[]> {
