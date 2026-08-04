@@ -109,17 +109,25 @@ async def generate_plan(
             spec_text_final = spec_text.strip()
             spec_chunks_final = None
 
+        elif spec_hash_final:
+            # Node has already sent the exact uploaded bytes to /upload-spec.
+            # Deterministic plan assembly needs the durable snapshot, not a
+            # second local extraction of its text.
+            spec_text_final = ""
+            spec_chunks_final = None
+
         else:
             return JSONResponse(
                 status_code=400,
-                content={"error": "spec_text or file is required"}
+                content={"error": "spec_hash, spec_text, or file is required"}
             )
 
-        if not spec_text_final.strip():
-            return JSONResponse(
-                status_code=422,
-                content={"error": "Document empty"}
-            )
+        if file or spec_text:
+            if not spec_text_final.strip():
+                return JSONResponse(
+                    status_code=422,
+                    content={"error": "Document empty"}
+                )
         t_spec_ms = int((time.monotonic() - t_spec_start) * 1000)
         print(f"\n⏱ [generate-plan] spec_extraction_ms={t_spec_ms}  spec_chars={len(spec_text_final)}")
 

@@ -5,6 +5,7 @@ const os = require('os')
 const { spawn } = require('child_process')
 const axios = require('axios')
 const jwt = require('jsonwebtoken')
+const FormData = require('form-data')
 
 const TestSuite = require('../models/testsuite')
 const TestPlan = require('../models/testplan.model')
@@ -25,9 +26,10 @@ const {
   validateTestCaseType,
 } = require('../utils/test-artifact-fields')
 
-function httpError(statusCode, message) {
+function httpError(statusCode, message, code = null) {
   const err = new Error(message || 'Error')
   err.statusCode = Number(statusCode) || 500
+  if (code) err.code = code
   return err
 }
 
@@ -85,6 +87,7 @@ function normalizeUniqueTestPlans(rawPlans) {
         id: nextId,
         title: String(p?.title || `Test Plan ${idx + 1}`).trim(),
         description: String(p?.description || '').trim(),
+        module: normalizeString(p?.module) || null,
         objective: normalizeString(p?.objective),
         scope: normalizeString(p?.scope),
         priority: validatePriority(p?.priority),
@@ -253,6 +256,7 @@ async function dualWriteTestPlans({ testSuiteId, testPlans }) {
               description: String(p?.description || '').trim(),
               objective: normalizeString(p?.objective),
               scope: normalizeString(p?.scope),
+              module: normalizeString(p?.module) || null,
               priority: validatePriority(p?.priority),
               requirements: normalizeRequirements(p?.requirements),
             },
@@ -278,6 +282,7 @@ async function dualWriteTestCases({ testSuiteId, planKey, planTitle, planData, t
       id: stablePlanId,
       title: String(planTitle || stablePlanId).trim(),
       description: normalizeString(planData?.description),
+      module: normalizeString(planData?.module) || null,
       // ✅ métadonnées préservées
       objective: normalizeString(planData?.objective),
       scope: normalizeString(planData?.scope),
@@ -473,6 +478,41 @@ async function readSpecTextFromUpload(file) {
   return specText
 }
 
+async function uploadSpecToFastApi(file) {
+  const filename = String(file?.originalname || '').trim()
+  if (path.extname(filename).toLowerCase() !== '.docx') {
+    throw httpError(400, 'Role-tagging ingestion currently requires a .docx specification.')
+  }
+
+  const form = new FormData()
+  if (file?.path) {
+    form.append('file', fsSync.createReadStream(file.path), { filename })
+  } else if (file?.buffer) {
+    form.append('file', file.buffer, { filename })
+  } else {
+    throw httpError(400, 'Specification file data is missing.')
+  }
+
+  const response = await axios.post(`${getFastApiBaseUrl()}/upload-spec`, form, {
+    timeout: getFastApiTimeoutMs(420_000),
+    headers: { ...form.getHeaders(), ...getFastApiHeaders() },
+  })
+  const specHash = String(response?.data?.spec_hash || '').trim().toLowerCase()
+  const specText = String(response?.data?.spec_text || '').trim()
+  if (!/^[a-f0-9]{64}$/.test(specHash) || !specText) {
+    throw httpError(502, 'FastAPI upload did not return a valid spec_hash and spec_text.')
+  }
+  return { specHash, specText }
+}
+
+function specNotIngestedError() {
+  return httpError(
+    409,
+    'This test suite was generated before role tagging was introduced. Re-upload the original specification.',
+    'SPEC_NOT_INGESTED'
+  )
+}
+
 async function fastApiHealth() {
   const baseUrl = getFastApiBaseUrl()
   const response = await axios.get(`${baseUrl}/`, { timeout: 10_000, headers: getFastApiHeaders() })
@@ -544,6 +584,7 @@ async function getTestsuiteTestPlans(testSuiteId) {
     description: plan.description || '',
     objective: plan.objective || '',
     scope: plan.scope || '',
+    module: plan.module || null,
     priority: plan.priority || 'medium',
     requirements: plan.requirements || [],
     casesCount: (casesByPlanId.get(String(plan._id)) || []).length,
@@ -593,6 +634,7 @@ async function generatePlan({ req, body, file }) {
   let projectTitle = ''
   let previousTestStatus = 'Draft'
   let newSuitePayload = null
+  let uploadedSpec = null
 
   if (providedTestSuiteId) {
     suite = await TestSuite.findById(providedTestSuiteId)
@@ -600,10 +642,12 @@ async function generatePlan({ req, body, file }) {
     previousTestStatus = String(suite.testStatus || 'Draft')
 
     if (file) {
-      specText = await readSpecTextFromUpload(file)
-    } else {
+      uploadedSpec = await uploadSpecToFastApi(file)
+      specText = uploadedSpec.specText
+    } else if (suite.specHash) {
       specText = String(suite.specText || '').trim()
-      if (!specText) throw httpError(400, 'file (.docx/.md/.txt) is required')
+    } else {
+      throw specNotIngestedError()
     }
     const specTextStored = specText.slice(0, 50_000)
     const combinedDescription = [styleConfig, '', '---- SPEC EXTRACT ----', specText]
@@ -616,6 +660,7 @@ async function generatePlan({ req, body, file }) {
       urlCible,
       specText: specTextStored,
       styleConfig,
+      specHash: uploadedSpec?.specHash || suite.specHash || null,
     }
     if (file?.originalname) updates.specFileName = file.originalname
     if (file?.filename) updates.specFilePath = `uploads/specs/${file.filename}`
@@ -636,9 +681,10 @@ async function generatePlan({ req, body, file }) {
   } else {
     if (!userId) throw httpError(400, 'userId is required to create a TestSuite')
     if (!projectId) throw httpError(400, 'projectId is required to create a TestSuite')
-    if (!file) throw httpError(400, 'file (.docx/.md/.txt) is required')
+    if (!file) throw httpError(400, 'file (.docx) is required')
 
-    specText = await readSpecTextFromUpload(file)
+    uploadedSpec = await uploadSpecToFastApi(file)
+    specText = uploadedSpec.specText
     const specTextStored = specText.slice(0, 50_000)
     const combinedDescription = [styleConfig, '', '---- SPEC EXTRACT ----', specText]
       .join('\n')
@@ -658,6 +704,7 @@ async function generatePlan({ req, body, file }) {
       urlCible,
       userId,
       specText: specTextStored,
+      specHash: uploadedSpec.specHash,
       styleConfig,
       specFileName: file?.originalname || null,
       specFilePath: file?.filename ? `uploads/specs/${file.filename}` : null,
@@ -678,6 +725,7 @@ async function generatePlan({ req, body, file }) {
           description: plan.description || '',
           objective: plan.objective || '',
           scope: plan.scope || '',
+          module: plan.module || null,
           priority: plan.priority || 'medium',
           requirements: plan.requirements || [],
         })),
@@ -691,23 +739,23 @@ async function generatePlan({ req, body, file }) {
     await suite.save()
   }
 
+  const specHash = String(uploadedSpec?.specHash || suite?.specHash || '').trim().toLowerCase()
+  if (!specHash) throw specNotIngestedError()
+
   const baseUrl = getFastApiBaseUrl()
   let fastApiResponse
   try {
+    const form = new FormData()
+    form.append('spec_hash', specHash)
+    form.append('styleConfig', styleConfig)
+    form.append('applicationUrl', urlCible)
+    form.append('test_suite_id', testSuiteId)
+    form.append('generation_scope', 'plans')
+    if (generationRequestId) form.append('generation_request_id', generationRequestId)
     fastApiResponse = await axios.post(
       `${baseUrl}/generate-plan`,
-      {
-        spec_text: specText,
-        url_cible: urlCible,
-        style_config: styleConfig,
-        description: styleConfig,
-        project_id: projectId || undefined,
-        project_title: projectTitle || undefined,
-        test_suite_id: testSuiteId,
-        generation_scope: 'plans',
-        generation_request_id: generationRequestId || undefined,
-      },
-      { timeout: getFastApiTimeoutMs(420_000), headers: getFastApiHeaders() }
+      form,
+      { timeout: getFastApiTimeoutMs(420_000), headers: { ...form.getHeaders(), ...getFastApiHeaders() } }
     )
   } catch (error) {
     const status = Number(error?.response?.status || error?.statusCode || 500)
@@ -772,6 +820,7 @@ async function generatePlan({ req, body, file }) {
     testSuiteId: String(suite._id),
     testPlans: normalizedPlansList,
     projectId: String(suite.projectId || projectId || ''),
+    pendingReviewCount: Number(fastApiResponse?.data?.pending_review_count || 0),
     reused: false,
   }
 }
@@ -795,6 +844,7 @@ async function generateTestCases({ req, body }) {
 
   const suite = await TestSuite.findById(testSuiteId)
   if (!suite) throw httpError(404, 'TestSuite not found')
+  if (!suite.specHash) throw specNotIngestedError()
   const previousTestStatus = String(suite.testStatus || 'Draft')
 
   const existingPlan = await TestPlan.findOne({ testSuiteId, id: planId }).lean()
@@ -816,6 +866,7 @@ async function generateTestCases({ req, body }) {
   const existingPlanData = existingPlan
     ? {
         description: existingPlan.description,
+        module: existingPlan.module,
         objective: existingPlan.objective,
         scope: existingPlan.scope,
         priority: existingPlan.priority,
@@ -839,6 +890,8 @@ async function generateTestCases({ req, body }) {
         plan_id: planId,
         plan_title: planTitle || planId,
         plan_description: planDescription || '',
+        plan_module: existingPlan?.module || null,
+        spec_hash: suite.specHash,
         spec_text: truncateSpecText(specTextToSend, 800),
         style_config: String(suite.styleConfig || ''),
         project_id: project ? String(project._id) : undefined,
@@ -983,4 +1036,6 @@ module.exports = {
   generateTestCases,
   cancelGeneration,
   readSpecTextFromUpload,
+  uploadSpecToFastApi,
+  normalizeUniqueTestPlans,
 }

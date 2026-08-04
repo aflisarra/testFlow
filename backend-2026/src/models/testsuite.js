@@ -204,6 +204,14 @@ const testSuiteSchema = new mongoose.Schema({
         type: String,
         default: null
     },
+    // SHA-256 returned by FastAPI /upload-spec. Links this suite to its
+    // durable ingestion snapshot (items, roles, and module cards).
+    specHash: {
+        type: String,
+        default: null,
+        trim: true,
+        index: true
+    },
     // Style configuration entered by the user (frontend)
     styleConfig: {
         type: String,

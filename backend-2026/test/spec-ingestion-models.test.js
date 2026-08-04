@@ -24,7 +24,7 @@ test('SpecIngestionItem accepts human review metadata and rejects unknown roles'
   const valid = new SpecIngestionItem({
     specHash: 'a'.repeat(64), itemId: 'ITEM-00001', sourceChunkId: 'CHUNK-001',
     text: 'The player must work offline.', role: 'REQUIREMENT', roleMethod: 'human',
-    reviewed: true, reviewedBy: 'alice', requirementId: 'REQ-00001',
+    reviewed: true, reviewedBy: 'alice', reviewState: 'resolved', requirementId: 'REQ-00001',
   })
   assert.equal(valid.validateSync(), undefined)
 
@@ -33,4 +33,16 @@ test('SpecIngestionItem accepts human review metadata and rejects unknown roles'
     text: 'Invalid role.', role: 'GUESS', roleMethod: 'none',
   })
   assert.ok(invalid.validateSync()?.errors.role)
+})
+
+test('SpecIngestionItem retains dismissed-review audit metadata', () => {
+  const item = new SpecIngestionItem({
+    specHash: 'a'.repeat(64), itemId: 'ITEM-00003', sourceChunkId: 'CHUNK-001',
+    text: 'Editorial note.', role: 'UNTAGGED', roleMethod: 'none',
+    reviewState: 'dismissed', dismissedBy: 'alice', dismissalReason: 'Not testable',
+  })
+
+  assert.equal(item.validateSync(), undefined)
+  assert.equal(item.reviewState, 'dismissed')
+  assert.equal(item.dismissalReason, 'Not testable')
 })

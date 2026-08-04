@@ -4,12 +4,15 @@ const mongoose = require('mongoose')
 
 const TestCase = require('../src/models/testcase.model')
 const TestPlan = require('../src/models/testplan.model')
+const TestSuite = require('../src/models/testsuite')
+const { normalizeUniqueTestPlans } = require('../src/services/ollama.service')
 
 test('TestPlan stores professional metadata with normalized values', async () => {
   const plan = new TestPlan({
     testSuiteId: new mongoose.Types.ObjectId(),
     id: 'TP-1',
     title: 'Authentication',
+    module: 'Identity',
     objective: 'Verify login flows',
     scope: 'Login, logout, and sessions',
     priority: 'High',
@@ -27,8 +30,20 @@ test('TestPlan stores professional metadata with normalized values', async () =>
   await plan.validate()
 
   assert.equal(plan.priority, 'high')
+  assert.equal(plan.module, 'Identity')
   assert.equal(plan.requirements[0].id, 'REQ-1')
   assert.equal(plan.requirements[0].description, 'Users can sign in')
+})
+
+test('TestSuite exposes indexed specHash and plan normalization preserves module', () => {
+  assert.equal(TestSuite.schema.path('specHash').instance, 'String')
+  assert.equal(TestSuite.schema.path('specHash').options.index, true)
+
+  const [plan] = normalizeUniqueTestPlans([
+    { id: 'TP-1', title: 'Authentication', module: 'Identity' },
+  ])
+
+  assert.equal(plan.module, 'Identity')
 })
 
 test('TestPlan rejects invalid priority values', async () => {

@@ -78,6 +78,12 @@ async function generatePlan(req, res) {
     return res.json(data)
   } catch (error) {
     const status = statusFromError(error, 500)
+    if (status === 409 && error?.code === 'SPEC_NOT_INGESTED') {
+      return res.status(409).json({
+        code: 'SPEC_NOT_INGESTED',
+        message: messageFromError(error, 'Specification has not been ingested.'),
+      })
+    }
     if (status === 409) {
       return res.status(409).json({ message: messageFromError(error, MESSAGES.FASTAPI.GENERATION_CANCELLED_BY_USER) })
     }
@@ -101,6 +107,12 @@ async function generateTestCases(req, res) {
     return res.json(data)
   } catch (error) {
     const status = statusFromError(error, 500)
+    if (status === 409 && error?.code === 'SPEC_NOT_INGESTED') {
+      return res.status(409).json({
+        code: 'SPEC_NOT_INGESTED',
+        message: messageFromError(error, 'Specification has not been ingested.'),
+      })
+    }
     if (status === 409) {
       return res.status(409).json({ message: messageFromError(error, MESSAGES.FASTAPI.GENERATION_CANCELLED_BY_USER) })
     }

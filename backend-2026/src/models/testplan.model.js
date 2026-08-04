@@ -29,6 +29,7 @@ const testPlanSchema = new mongoose.Schema(
     description: { type: String, default: '', trim: true },
     objective: { type: String, default: '', trim: true },
     scope: { type: String, default: '', trim: true },
+    module: { type: String, default: null, trim: true },
     priority: {
       type: String,
       enum: PRIORITY_VALUES,

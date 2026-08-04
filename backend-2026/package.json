@@ -10,7 +10,8 @@
     "start": "node src/index.js",
     "seed": "echo \"No seed entrypoint configured\"",
     "test": "node --test",
-    "migrate:test-artifacts": "node src/migrations/20260618-add-test-artifact-metadata.js"
+    "migrate:test-artifacts": "node src/migrations/20260618-add-test-artifact-metadata.js",
+    "migrate:role-review-state": "node src/migrations/20260804-add-role-review-state.js"
   },
   "keywords": [],
   "author": "",

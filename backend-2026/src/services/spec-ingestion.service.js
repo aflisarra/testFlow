@@ -28,19 +28,29 @@ function numberOr(value, fallback = null) {
 
 function asItem(specHash, raw) {
   const path = raw?.heading_path ?? raw?.headingPath
+  const role = String(raw?.role || 'UNTAGGED').trim().toUpperCase()
+  const reviewed = Boolean(raw?.reviewed)
+  const requestedReviewState = String(raw?.review_state ?? raw?.reviewState ?? '').trim().toLowerCase()
+  const reviewState = ['pending', 'resolved', 'dismissed'].includes(requestedReviewState)
+    ? requestedReviewState
+    : (reviewed || role !== 'UNTAGGED' ? 'resolved' : 'pending')
   return {
     specHash,
     itemId: text(raw?.id ?? raw?.item_id, 'item id'),
     sourceChunkId: text(raw?.source_chunk_id ?? raw?.sourceChunkId, 'source_chunk_id'),
     headingPath: Array.isArray(path) ? path.map(String) : [],
     text: text(raw?.text, 'item text'),
-    role: String(raw?.role || 'UNTAGGED').trim().toUpperCase(),
+    role,
     roleMethod: String(raw?.role_method ?? raw?.roleMethod ?? 'none').trim(),
     roleScore: numberOr(raw?.role_score ?? raw?.roleScore),
     module: String(raw?.module || 'UNTAGGED').trim() || 'UNTAGGED',
     moduleScore: numberOr(raw?.module_score ?? raw?.moduleScore, 0),
-    reviewed: Boolean(raw?.reviewed),
+    reviewed,
     reviewedBy: raw?.reviewed_by ?? raw?.reviewedBy ?? null,
+    reviewState,
+    dismissedAt: raw?.dismissed_at ?? raw?.dismissedAt ?? null,
+    dismissedBy: raw?.dismissed_by ?? raw?.dismissedBy ?? null,
+    dismissalReason: raw?.dismissal_reason ?? raw?.dismissalReason ?? null,
     // Phase 5a intentionally has no automated suggestion path.
     suggestedRole: null,
     requirementId: raw?.requirement_id ?? raw?.requirementId ?? null,
@@ -68,6 +78,10 @@ function serialize(item) {
     module_score: item.moduleScore,
     reviewed: item.reviewed,
     reviewed_by: item.reviewedBy,
+    review_state: item.reviewState,
+    dismissed_at: item.dismissedAt,
+    dismissed_by: item.dismissedBy,
+    dismissal_reason: item.dismissalReason,
     suggested_role: item.suggestedRole,
     requirement_id: item.requirementId,
   }

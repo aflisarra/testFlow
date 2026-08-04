@@ -20,6 +20,10 @@ function normalizeTestPlanMetadata(data = {}, { includeDefaults = false } = {}) 
     payload.scope = normalizeString(data.scope)
   }
 
+  if (includeDefaults || hasOwn(data, 'module')) {
+    payload.module = normalizeString(data.module) || null
+  }
+
   if (includeDefaults || hasOwn(data, 'priority')) {
     payload.priority = validatePriority(data.priority)
   }
@@ -205,6 +209,7 @@ const response = await axios.post(
       id: plan.id || `TP-${index + 1}`,
       title: normalizeString(plan.title) || `Test Plan ${index + 1}`,
       description: normalizeString(plan.description),
+      module: normalizeString(plan.module) || null,
       objective: normalizeString(plan.objective),
       scope: normalizeString(plan.scope),
       priority: validatePriority(plan.priority),
