@@ -34,10 +34,10 @@ function toResolvedReviewItem(item) {
 }
 
 async function suiteSpecHash(testSuiteId) {
-  const suite = await TestSuite.findById(testSuiteId).select('_id specHash').lean()
+  const suite = await TestSuite.findById(testSuiteId).select('_id specHash ingestionScope').lean()
   if (!suite) throw httpError(404, 'TestSuite not found')
   const specHash = String(suite.specHash || '').trim()
-  if (!specHash) {
+  if (!specHash || !String(suite.ingestionScope || '').trim()) {
     throw httpError(
       409,
       'This test suite was generated before role tagging was introduced. Re-upload the original specification.',

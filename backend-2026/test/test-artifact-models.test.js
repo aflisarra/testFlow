@@ -35,9 +35,11 @@ test('TestPlan stores professional metadata with normalized values', async () =>
   assert.equal(plan.requirements[0].description, 'Users can sign in')
 })
 
-test('TestSuite exposes indexed specHash and plan normalization preserves module', () => {
+test('TestSuite separates suite-scoped ingestion from its raw-byte source hash', () => {
   assert.equal(TestSuite.schema.path('specHash').instance, 'String')
   assert.equal(TestSuite.schema.path('specHash').options.index, true)
+  assert.equal(TestSuite.schema.path('sourceSpecHash').instance, 'String')
+  assert.equal(TestSuite.schema.path('ingestionScope').instance, 'String')
 
   const [plan] = normalizeUniqueTestPlans([
     { id: 'TP-1', title: 'Authentication', module: 'Identity' },

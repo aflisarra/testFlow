@@ -180,7 +180,7 @@ RULES:
 - Use the exact TEST DATA supplied by the test case. Never replace, transform,
   supplement, or invent credentials, emails, passwords, names, dates, or other
   business data.
-- If a required value is absent, return {"data":[]} rather than guessing. The
+- If a required value is absent, return {{"data":[]}} rather than guessing. The
   test must be corrected by its author; a guessed value invalidates the test.
 - The step text and its expected result define intent. A click such as Login is
   only a click; it must not be treated as proof that login or navigation worked.

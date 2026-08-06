@@ -36,6 +36,8 @@ logger = get_logger(__name__)
 def ingest_spec(
     doc_or_text: Any,        # python-docx Document or plain str
     file_bytes: bytes,
+    *,
+    storage_hash: str | None = None,
 ) -> tuple[str, list[Item]]:
     """
     Full ingestion pipeline (Phase 4: itemisation, roles, and spec-local modules).
@@ -62,7 +64,7 @@ def ingest_spec(
     - Module tagging is observational: no prompt filters on it in this phase.
     - The existing generation path (generate_test_plans) is unchanged.
     """
-    h = compute_spec_hash(file_bytes)
+    h = (storage_hash or compute_spec_hash(file_bytes)).strip().lower()
 
     # Idempotency: skip if already ingested
     existing = get_items(h)

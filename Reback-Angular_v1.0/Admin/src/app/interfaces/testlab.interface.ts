@@ -142,6 +142,11 @@ export interface GenerateTestCasesResponse {
   pendingReviewCount?: number
 }
 
+export interface IngestSpecResponse {
+  testSuiteId: string
+  pendingReviewCount: number
+}
+
 export type RoleLabel =
   | 'CONTEXT'
   | 'ACTOR'

@@ -13,7 +13,15 @@ async function runStructuredUiStep(driver, step, ctx, stepIndex) {
     // ✅ STEP 1: OPEN PAGE
     if (stepIndex === 1) {
 
-      const url = ctx.baseUrl
+      // driver.get() requires a fully-qualified URL with a protocol.
+      // A bare hostname like "google.com" causes Chrome to navigate to
+      // "data:,google.com" instead of the intended page, making the DOM
+      // wait time out. Normalise to https:// when no protocol is present.
+      const rawUrl = String(ctx.baseUrl || '').trim()
+      const url = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`
+      if (url !== rawUrl) {
+        console.warn(`⚠️ URL had no protocol — normalised to: ${url}`)
+      }
       console.log("🌍 OPEN:", url)
 
       try {

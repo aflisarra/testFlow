@@ -212,6 +212,20 @@ const testSuiteSchema = new mongoose.Schema({
         trim: true,
         index: true
     },
+    // Immutable raw-byte hash returned by FastAPI alongside the suite-scoped
+    // ingestion key above. It is audit metadata, never used to fetch reviews.
+    sourceSpecHash: {
+        type: String,
+        default: null,
+        trim: true
+    },
+    // Random, per-suite namespace supplied to FastAPI at upload time. It
+    // prevents two suites with identical document bytes sharing review state.
+    ingestionScope: {
+        type: String,
+        default: null,
+        trim: true
+    },
     // Style configuration entered by the user (frontend)
     styleConfig: {
         type: String,

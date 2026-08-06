@@ -211,6 +211,61 @@
             @if (testPlanForm.get('specDocument')?.touched && testPlanForm.get('specDocument')?.errors?.['required']) {
             <div class="invalid-feedback d-block mt-2">Specification document is required.</div>
             }
+
+            @if (selectedFile && !specificationUploaded) {
+            <button type="button" class="btn btn-primary w-100 mt-3" [disabled]="!canUploadSpecification"
+              (click)="onUploadSpecification()">
+              {{ uploadingSpecification ? 'Uploading specification…' : 'Upload specification' }}
+            </button>
+            }
+
+            @if (specificationUploaded) {
+            <section class="role-review-panel mt-3">
+              <button type="button" class="role-review-toggle" (click)="toggleRoleReview()">
+                <span>Specification role review</span>
+                @if (pendingRoleReviewCount > 0) {
+                <span class="role-review-count">{{ pendingRoleReviewCount }} pending</span>
+                }
+              </button>
+              @if (roleReviewOpen) {
+              <div class="role-review-body">
+                @if (roleReviewLoading) {
+                <p class="text-muted mb-0">Loading roles…</p>
+                } @else if (roleReviewLegacySuite) {
+                <div class="alert alert-info mb-0">Re-upload the original specification to enable role review.</div>
+                } @else if (roleReviewError) {
+                <div class="alert alert-danger mb-0">{{ roleReviewError }}</div>
+                } @else if (!roleReviewItems.length) {
+                <p class="text-muted mb-0">No items need review.</p>
+                } @else {
+                <p class="role-review-warning">You can generate plans with pending items, but reviewing them improves the available evidence.</p>
+                <div class="role-review-list">
+                  @for (item of roleReviewItems; track item.itemId) {
+                  <article class="role-review-item">
+                    <div class="role-review-item-text">{{ item.text }}</div>
+                    <div class="role-review-breadcrumbs">{{ item.headingPath.join(' › ') }}</div>
+                    <div class="role-review-actions">
+                      <select class="form-select form-select-sm" [value]="roleReviewSelections[item.itemId]"
+                        [disabled]="roleReviewBusyItemId === item.itemId"
+                        (change)="onRoleReviewSelection(item.itemId, $event)">
+                        <option value="">Choose a role…</option>
+                        @for (role of roleLabels; track role) { <option [value]="role">{{ role }}</option> }
+                      </select>
+                      <button type="button" class="btn btn-sm btn-primary"
+                        [disabled]="!roleReviewSelections[item.itemId] || roleReviewBusyItemId === item.itemId"
+                        (click)="resolveRoleReview(item)">Apply</button>
+                      <button type="button" class="btn btn-sm btn-outline-danger"
+                        [disabled]="roleReviewBusyItemId === item.itemId"
+                        (click)="dismissRoleReview(item)">Dismiss</button>
+                    </div>
+                  </article>
+                  }
+                </div>
+                }
+              </div>
+              }
+            </section>
+            }
           </div>
 
           <!-- Finalize + CTA -->
@@ -220,7 +275,7 @@
             <div class="testlab-summary-meta">Estimated time: 1-2 minutes</div>
 
             <button class="btn btn-generate w-100 mt-3 py-3 testlab-generate-btn testlab-generate-btn--wide" type="button"
-              [disabled]="!canGenerateTestPlan" (click)="scrollToTop(); onGeneratePlan()">
+              [disabled]="!specificationUploaded || generatingPlans" (click)="scrollToTop(); onGeneratePlan()">
               <span>{{ generatingPlans ? 'Generating Test Plans...' : 'Generate Test Plan' }}</span>
               <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
             </button>
@@ -292,7 +347,7 @@
         </div>
       </div>
 
-      @if (currentTestSuiteId) {
+      @if (false) {
       <section class="role-review-panel mb-4">
         <button type="button" class="role-review-toggle" (click)="toggleRoleReview()">
           <span class="d-flex align-items-center gap-2">

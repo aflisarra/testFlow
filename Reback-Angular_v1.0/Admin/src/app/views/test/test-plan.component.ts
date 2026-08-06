@@ -83,6 +83,8 @@ testPlanForm: FormGroup = this.fb.group({
   styleConfig = ''
   uploadedFileName = ''
   selectedFile: File | null = null
+  uploadingSpecification = false
+  specificationUploaded = false
 isEditMode = false
   generatingPlans = false
   regeneratingPlanId: string | null = null
@@ -568,6 +570,49 @@ this.styleConfig = suite.styleConfig || '' // ✅ BONUS
     this.selectedFile = file
     this.uploadedFileName = file?.name || ''
     this.testPlanForm.patchValue({ specDocument: file?.name || '' })
+    this.specificationUploaded = false
+    this.currentTestSuiteId = ''
+    this.testPlans = []
+    this.resetRoleReviewState()
+  }
+
+  get canUploadSpecification(): boolean {
+    return this.testPlanForm.valid && !!this.selectedFile && !this.uploadingSpecification
+  }
+
+  async onUploadSpecification(): Promise<void> {
+    this.testPlanForm.markAllAsTouched()
+    if (!this.canUploadSpecification || !this.selectedFile) {
+      this.toastr.warning('Choose a DOCX file and complete the required fields first.', 'Specification upload')
+      return
+    }
+
+    this.uploadingSpecification = true
+    this.errorMessage = ''
+    try {
+      const raw = this.testPlanForm.getRawValue()
+      const form = new FormData()
+      form.append('file', this.selectedFile)
+      form.append('projectId', String(raw.projectId || '').trim())
+      form.append('nom', this.nameTest.trim())
+      form.append('nametest', this.nameTest.trim())
+      form.append('urlCible', String(raw.applicationUrl || '').trim())
+      form.append('styleConfig', this.styleConfig.trim())
+
+      const response = await firstValueFrom(this.testLabService.ingestSpecification(form))
+      this.currentTestSuiteId = String(response?.testSuiteId || '').trim()
+      this.specificationUploaded = Boolean(this.currentTestSuiteId)
+      this.resetRoleReviewState()
+      this.roleReviewOpen = true
+      this.pendingRoleReviewCount = Number(response?.pendingReviewCount || 0)
+      await this.loadRoleReviews()
+      this.toastr.success('Specification uploaded and ready for role review.', 'Specification upload')
+    } catch (error: unknown) {
+      this.errorMessage = getErrorMessage(error, 'Unable to upload specification.')
+      this.toastr.error(this.errorMessage, 'Specification upload')
+    } finally {
+      this.uploadingSpecification = false
+    }
   }
 
   // ðŸ”¹ Bouton "Generate Plan"
@@ -581,7 +626,11 @@ this.styleConfig = suite.styleConfig || '' // ✅ BONUS
       this.toastr.warning('Please fill all required fields.', 'Validation')
       return
     }
-    void this.generatePlans()
+    if (!this.specificationUploaded || !this.currentTestSuiteId) {
+      this.toastr.warning('Upload the specification before generating test plans.', 'Test Plan')
+      return
+    }
+    void this.generateStoredPlans()
   }
 
   onRequestStopGeneration(): void {
@@ -906,9 +955,11 @@ specText = ''
 
     this.roleReviewBusyItemId = item.itemId
     try {
-      await firstValueFrom(this.testLabService.resolveRoleReview(this.currentTestSuiteId, item.itemId, role))
+      const response = await firstValueFrom(this.testLabService.resolveRoleReview(this.currentTestSuiteId, item.itemId, role))
+      this.roleReviewItems = this.roleReviewItems.filter((candidate) => candidate.itemId !== item.itemId)
+      delete this.roleReviewSelections[item.itemId]
+      this.pendingRoleReviewCount = Number(response?.pendingCount || 0)
       this.toastr.success('Role saved for this specification item.', 'Specification review')
-      await this.loadRoleReviews()
     } catch (error: unknown) {
       this.handleRoleReviewError(error)
     } finally {
@@ -926,8 +977,10 @@ specText = ''
     this.roleReviewBusyItemId = item.itemId
     try {
       await firstValueFrom(this.testLabService.dismissRoleReview(this.currentTestSuiteId, item.itemId))
+      this.roleReviewItems = this.roleReviewItems.filter((candidate) => candidate.itemId !== item.itemId)
+      delete this.roleReviewSelections[item.itemId]
+      this.pendingRoleReviewCount = Math.max(0, this.pendingRoleReviewCount - 1)
       this.toastr.success('Item dismissed from the review queue.', 'Specification review')
-      await this.loadRoleReviews()
     } catch (error: unknown) {
       this.handleRoleReviewError(error)
     } finally {
@@ -1376,6 +1429,35 @@ get canGenerateTestPlan(): boolean {
     }
   }
 
+  private async generateStoredPlans(regenerate = false): Promise<void> {
+    if (!this.currentTestSuiteId) return
+    this.generatingPlans = true
+    this.errorMessage = ''
+    this.testPlans = []
+    this.planStatuses = {}
+    try {
+      const raw = this.testPlanForm.getRawValue()
+      const response = await firstValueFrom(this.testLabService.generateStoredPlan(this.currentTestSuiteId, {
+        styleConfig: this.styleConfig.trim(),
+        urlCible: String(raw.applicationUrl || '').trim(),
+        nametest: this.nameTest.trim(),
+        regenerate,
+      }))
+      this.testPlans = Array.isArray(response?.testPlans) ? response.testPlans : []
+      this.pendingRoleReviewCount = Number(response?.pendingReviewCount || this.pendingRoleReviewCount)
+      for (const plan of this.testPlans) this.planStatuses[plan.id] = 'pending'
+      if (!this.testPlans.length) {
+        this.toastr.warning('No test plans were generated.', 'Test Plan')
+      }
+      this.scrollToPlansResult()
+    } catch (error: unknown) {
+      this.errorMessage = getErrorMessage(error, 'Unable to generate test plans.')
+      this.toastr.error(this.errorMessage, 'Test Plan')
+    } finally {
+      this.generatingPlans = false
+    }
+  }
+
   private async generatePlans(regenerate = false) {
   const currentPlanToken = ++this.plansGenerationToken
   const requestId = this.newGenerationRequestId('plans')
@@ -1462,6 +1544,7 @@ get canGenerateTestPlan(): boolean {
 
     this.currentTestSuiteId = String(result?.testSuiteId || '').trim()
     this.resetRoleReviewState()
+    this.pendingRoleReviewCount = Number(result?.pendingReviewCount || 0)
 
     // ✅ affichage seulement
     this.testPlans = Array.isArray(result?.testPlans) ? result.testPlans : []
@@ -1651,6 +1734,7 @@ private resetFullState(): void {
   const projectId = this.testPlanForm.value.projectId  // ✅ garder
 
   this.currentTestSuiteId = ''
+  this.resetRoleReviewState()
   this.errorMessage = ''
   this.generatingPlans = false
   this.regeneratingPlanId = null

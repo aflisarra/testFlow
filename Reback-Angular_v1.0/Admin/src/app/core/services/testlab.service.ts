@@ -15,6 +15,7 @@ import type {
   TestCasesByPlanDto,
   TestPlanDto,
   TestSuiteDto,
+  IngestSpecResponse,
   RoleLabel,
   RoleReviewQueueResponse,
   ResolveRoleReviewResponse,
@@ -31,6 +32,7 @@ export type {
   TestLabProjectUserDto,
   TestPlanDto,
   TestSuiteDto,
+  IngestSpecResponse,
   RoleLabel,
   RoleReviewItem,
   RoleReviewQueueResponse,
@@ -162,6 +164,17 @@ generateTestCases(
     return this.api.get<GetTestPlansResponse>(`/api/testsuites/${testSuiteId}/plans`)
   }
 
+  ingestSpecification(formData: FormData, testSuiteId?: string): Observable<IngestSpecResponse> {
+    const path = testSuiteId
+      ? `/api/testsuites/${testSuiteId}/ingest-spec`
+      : '/api/testsuites/ingest-spec'
+    return this.api.post<IngestSpecResponse>(path, formData)
+  }
+
+  generateStoredPlan(testSuiteId: string, payload: Record<string, string | boolean> = {}): Observable<GeneratePlanResponse> {
+    return this.api.post<GeneratePlanResponse>(`/api/testsuites/${testSuiteId}/generate-plan`, payload)
+  }
+
   getRoleReviews(testSuiteId: string): Observable<RoleReviewQueueResponse> {
     return this.api.get<RoleReviewQueueResponse>(`/api/testsuites/${testSuiteId}/role-reviews`)
   }
@@ -185,11 +198,8 @@ generateTestCases(
     return this.api.get<TestExecutionDto[]>(`/api/testsuites/${testSuiteId}/executions`)
   }
   
-generatePlanPreview(formData: FormData): Observable<{ testPlans: TestPlanDto[] }> {
-  return this.api.post<{ testPlans: TestPlanDto[] }>(
-    `/api/testsuites/preview`,   // ✅ correspond à ton backend
-    formData
-  )
+generatePlanPreview(formData: FormData): Observable<GeneratePlanResponse> {
+  return this.api.post<GeneratePlanResponse>(`/api/ollama/generate-plan`, formData)
 }
 
 createSuiteWithPlans(payload: {

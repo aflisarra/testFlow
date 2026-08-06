@@ -4,12 +4,25 @@ const controllerTestSuite = require('../controllers/testsuite.controller');
 const controllerTestPlan = require('../controllers/testplan.controller');
 const controllerTestCase = require('../controllers/testcase.controller');
 const roleReviewController = require('../controllers/role-review.controller');
+const specIngestController = require('../controllers/spec-ingest.controller');
 const exportController = require('../controllers/export.controller');
 const authenticateUser = require('../middleware/authenticateUser');
 const { requireTestSuiteAccess } = require('../middleware/testsuite-access.middleware');
 
 const multer = require('multer') // ✅ AJOUT
 const upload = multer({ storage: multer.memoryStorage() }) // ✅ AJOUT
+const { createSpecsUpload } = require('../utils/spec-upload')
+const specUpload = createSpecsUpload()
+
+function uploadSpecificationFile(req, res, next) {
+  return specUpload.single('file')(req, res, (error) => {
+    if (!error) return next()
+    return res.status(400).json({
+      message: error?.message || 'Unable to read the uploaded specification file.',
+      code: 'SPEC_UPLOAD_FAILED',
+    })
+  })
+}
 
 
 router.use(authenticateUser);
@@ -22,6 +35,7 @@ router.get('/user/:userId', controllerTestSuite.getByUser);
 
 router.get('/project/:projectId', controllerTestSuite.getByProject);
 router.get('/executions/recent', controllerTestSuite.getRecentExecutions);
+router.post('/ingest-spec', uploadSpecificationFile, specIngestController.ingest);
 
 router.get('/plans/:id', controllerTestPlan.getById);
 router.put('/plans/:id', controllerTestPlan.update);
@@ -41,6 +55,8 @@ router.post('/:id/plans', requireTestSuiteAccess, (req, res) => {
   req.body = { ...req.body, testSuiteId: req.params.id };
   return controllerTestPlan.create(req, res);
 });
+router.post('/:id/ingest-spec', requireTestSuiteAccess, uploadSpecificationFile, specIngestController.reingest);
+router.post('/:id/generate-plan', requireTestSuiteAccess, specIngestController.generatePlan);
 
 router.get('/:id/role-reviews', requireTestSuiteAccess, roleReviewController.list);
 router.patch('/:id/role-reviews/:itemId', requireTestSuiteAccess, roleReviewController.resolve);

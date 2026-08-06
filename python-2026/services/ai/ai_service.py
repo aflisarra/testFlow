@@ -76,13 +76,25 @@ class AIService:
         print("🧠 RAW:", raw)
  
         try:
-            return safe_json_loads(raw)
+            result = safe_json_loads(raw)
         except Exception as e:
             # Don't crash the whole request if the model output was
-            # imperfect — fall back to an empty list, consistent with
-            # _extract_actions() on the router side.
+            # imperfect — fall back to an empty dict, consistent with
+            # callers expecting a dict (e.g. detect_failure calls result.get(...)).
             print("❌ JSON parse failed:", e, "\nRAW WAS:\n", raw)
-            return {"data": []}
+            return {}
+
+        # safe_json_loads can return a list when the LLM emits a JSON array
+        # instead of an object.  Callers always call .get() on the result, so
+        # normalise: unwrap a single-element list of dicts, or return {} as a
+        # safe fallback so we never hand a raw list back to the caller.
+        if isinstance(result, list):
+            if result and isinstance(result[0], dict):
+                return result[0]
+            return {}
+        if not isinstance(result, dict):
+            return {}
+        return result
 
 
 def get_ai_service():

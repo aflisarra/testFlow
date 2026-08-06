@@ -10,6 +10,7 @@ This module intentionally contains no business logic.
 
 from __future__ import annotations
 
+import hashlib
 import subprocess
 import time
 from typing import Optional
@@ -39,7 +40,10 @@ def _error_payload(message: str, detail: Optional[str] = None) -> dict:
 
 
 @router.post("/upload-spec")
-async def upload_spec(file: UploadFile = File(...)):
+async def upload_spec(
+    file: UploadFile = File(...),
+    ingestion_scope: str | None = Form(default=None),
+):
     """Upload a .docx file and extract its text content."""
     if not (file.filename or "").lower().endswith(".docx"):
         return JSONResponse(status_code=400, content={"error": "Only .docx files are supported."})
@@ -53,7 +57,10 @@ async def upload_spec(file: UploadFile = File(...)):
 
         # Phase 2: itemise the spec (idempotent — safe to call on every upload)
         doc = extract_doc_from_bytes(file_bytes)
-        spec_hash, items = ingest_spec(doc, file_bytes)
+        source_spec_hash = hashlib.sha256(file_bytes).hexdigest()
+        scope = (ingestion_scope or "").strip()
+        storage_hash = hashlib.sha256(f"{source_spec_hash}:{scope}".encode()).hexdigest() if scope else source_spec_hash
+        spec_hash, items = ingest_spec(doc, file_bytes, storage_hash=storage_hash)
         item_count = len(items)
         print(f"[upload-spec] ingested hash={spec_hash[:8]}  items={item_count}")
 
@@ -63,6 +70,7 @@ async def upload_spec(file: UploadFile = File(...)):
             "char_count": len(spec_text),
             "item_count": item_count,   # observability only
             "spec_hash": spec_hash,
+            "source_spec_hash": source_spec_hash,
         }
     except IngestionStoreError as exc:
         return JSONResponse(status_code=503, content={"error": str(exc)})

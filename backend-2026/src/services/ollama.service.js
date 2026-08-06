@@ -2,6 +2,7 @@ const path = require('path')
 const fs = require('fs/promises')
 const fsSync = require('fs')
 const os = require('os')
+const crypto = require('crypto')
 const { spawn } = require('child_process')
 const axios = require('axios')
 const jwt = require('jsonwebtoken')
@@ -12,6 +13,7 @@ const TestPlan = require('../models/testplan.model')
 const TestCase = require('../models/testcase.model')
 const Project = require('../models/project.model')
 const User = require('../models/user.model')
+const specIngestionService = require('../services/spec-ingestion.service')
 
 const { getJwtSecret } = require('../utils/jwt-secrets')
 const {
@@ -478,7 +480,7 @@ async function readSpecTextFromUpload(file) {
   return specText
 }
 
-async function uploadSpecToFastApi(file) {
+async function uploadSpecToFastApi(file, ingestionScope) {
   const filename = String(file?.originalname || '').trim()
   if (path.extname(filename).toLowerCase() !== '.docx') {
     throw httpError(400, 'Role-tagging ingestion currently requires a .docx specification.')
@@ -492,17 +494,19 @@ async function uploadSpecToFastApi(file) {
   } else {
     throw httpError(400, 'Specification file data is missing.')
   }
+  form.append('ingestion_scope', String(ingestionScope || '').trim())
 
   const response = await axios.post(`${getFastApiBaseUrl()}/upload-spec`, form, {
     timeout: getFastApiTimeoutMs(420_000),
     headers: { ...form.getHeaders(), ...getFastApiHeaders() },
   })
   const specHash = String(response?.data?.spec_hash || '').trim().toLowerCase()
+  const sourceSpecHash = String(response?.data?.source_spec_hash || '').trim().toLowerCase()
   const specText = String(response?.data?.spec_text || '').trim()
-  if (!/^[a-f0-9]{64}$/.test(specHash) || !specText) {
+  if (!/^[a-f0-9]{64}$/.test(specHash) || !/^[a-f0-9]{64}$/.test(sourceSpecHash) || !specText) {
     throw httpError(502, 'FastAPI upload did not return a valid spec_hash and spec_text.')
   }
-  return { specHash, specText }
+  return { specHash, sourceSpecHash, specText }
 }
 
 function specNotIngestedError() {
@@ -511,6 +515,70 @@ function specNotIngestedError() {
     'This test suite was generated before role tagging was introduced. Re-upload the original specification.',
     'SPEC_NOT_INGESTED'
   )
+}
+
+async function ingestSpecification({ req, body, file, testSuiteId = '' }) {
+  if (!file) throw httpError(400, 'file (.docx) is required')
+  const projectId = String(body?.projectId || '').trim()
+  const suiteName = String(body?.nom || body?.name || '').trim()
+  const testName = String(body?.nametest || body?.nameTest || '').trim()
+  const urlCible = String(body?.urlCible || body?.applicationUrl || '').trim()
+  const styleConfig = String(body?.styleConfig || body?.style_config || '').trim()
+  const userId = String(req?.user?.userId || req?.user?.id || req?.user?._id || getUserIdFromAuthHeader(req)).trim()
+
+  let suite = null
+  if (testSuiteId) {
+    suite = await TestSuite.findById(testSuiteId)
+    if (!suite) throw httpError(404, 'TestSuite not found')
+  } else {
+    if (!userId) throw httpError(401, 'Authenticated user is required')
+    if (!projectId) throw httpError(400, 'projectId is required')
+    const project = await Project.findById(projectId).select('_id').lean()
+    if (!project) throw httpError(404, 'Project not found', 'PROJECT_NOT_FOUND')
+  }
+
+  const ingestionScope = String(suite?.ingestionScope || '').trim() || crypto.randomUUID()
+  const uploadedSpec = await uploadSpecToFastApi(file, ingestionScope)
+  const specText = uploadedSpec.specText
+  const description = [styleConfig, '', '---- SPEC EXTRACT ----', specText].join('\n').trim().slice(0, 20_000)
+  const payload = {
+    description,
+    urlCible,
+    specText: specText.slice(0, 50_000),
+    styleConfig,
+    specHash: uploadedSpec.specHash,
+    sourceSpecHash: uploadedSpec.sourceSpecHash,
+    ingestionScope,
+    specFileName: file.originalname || null,
+    specFilePath: file.filename ? `uploads/specs/${file.filename}` : null,
+  }
+
+  if (suite) {
+    if (suiteName) payload.nom = suiteName
+    if (testName) payload.nametest = testName
+    if (projectId) payload.projectId = projectId
+    suite = await TestSuite.findByIdAndUpdate(suite._id, payload, { new: true, runValidators: true })
+  } else {
+    const now = new Date()
+    const defaultName = `Test Suite - ${now.toISOString().slice(0, 19).replace('T', ' ')}`
+    suite = await TestSuite.create({
+      ...payload,
+      nom: suiteName || defaultName,
+      nametest: testName || suiteName || defaultName,
+      userId,
+      projectId,
+    })
+  }
+
+  const pendingReviewCount = await specIngestionService.countPendingReview(uploadedSpec.specHash)
+  return {
+    testSuiteId: String(suite._id),
+    pendingReviewCount: Number(pendingReviewCount || 0),
+  }
+}
+
+async function generatePlanForSuite({ req, testSuiteId, body }) {
+  return generatePlan({ req, body: { ...(body || {}), testSuiteId }, file: null })
 }
 
 async function fastApiHealth() {
@@ -635,14 +703,17 @@ async function generatePlan({ req, body, file }) {
   let previousTestStatus = 'Draft'
   let newSuitePayload = null
   let uploadedSpec = null
+  let ingestionScope = ''
 
   if (providedTestSuiteId) {
     suite = await TestSuite.findById(providedTestSuiteId)
     if (!suite) throw httpError(404, 'TestSuite not found')
     previousTestStatus = String(suite.testStatus || 'Draft')
 
+    ingestionScope = String(suite.ingestionScope || '').trim()
     if (file) {
-      uploadedSpec = await uploadSpecToFastApi(file)
+      ingestionScope = ingestionScope || crypto.randomUUID()
+      uploadedSpec = await uploadSpecToFastApi(file, ingestionScope)
       specText = uploadedSpec.specText
     } else if (suite.specHash) {
       specText = String(suite.specText || '').trim()
@@ -661,6 +732,8 @@ async function generatePlan({ req, body, file }) {
       specText: specTextStored,
       styleConfig,
       specHash: uploadedSpec?.specHash || suite.specHash || null,
+      sourceSpecHash: uploadedSpec?.sourceSpecHash || suite.sourceSpecHash || null,
+      ingestionScope,
     }
     if (file?.originalname) updates.specFileName = file.originalname
     if (file?.filename) updates.specFilePath = `uploads/specs/${file.filename}`
@@ -683,7 +756,8 @@ async function generatePlan({ req, body, file }) {
     if (!projectId) throw httpError(400, 'projectId is required to create a TestSuite')
     if (!file) throw httpError(400, 'file (.docx) is required')
 
-    uploadedSpec = await uploadSpecToFastApi(file)
+    ingestionScope = crypto.randomUUID()
+    uploadedSpec = await uploadSpecToFastApi(file, ingestionScope)
     specText = uploadedSpec.specText
     const specTextStored = specText.slice(0, 50_000)
     const combinedDescription = [styleConfig, '', '---- SPEC EXTRACT ----', specText]
@@ -705,6 +779,8 @@ async function generatePlan({ req, body, file }) {
       userId,
       specText: specTextStored,
       specHash: uploadedSpec.specHash,
+      sourceSpecHash: uploadedSpec.sourceSpecHash,
+      ingestionScope,
       styleConfig,
       specFileName: file?.originalname || null,
       specFilePath: file?.filename ? `uploads/specs/${file.filename}` : null,
@@ -1037,5 +1113,7 @@ module.exports = {
   cancelGeneration,
   readSpecTextFromUpload,
   uploadSpecToFastApi,
+  ingestSpecification,
+  generatePlanForSuite,
   normalizeUniqueTestPlans,
 }
