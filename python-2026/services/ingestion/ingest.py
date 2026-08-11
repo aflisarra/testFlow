@@ -66,14 +66,28 @@ def ingest_spec(
     """
     h = (storage_hash or compute_spec_hash(file_bytes)).strip().lower()
 
-    # Idempotency: skip if already ingested
+    # Idempotency: skip if already ingested. A legacy snapshot whose items all
+    # have empty heading paths is refreshed when the current chunker can now
+    # recover structural paths (for example, Markdown headings in a DOCX whose
+    # paragraphs all use the Word "Normal" style).
     existing = get_items(h)
+    chunks: list[SpecChunk] | None = None
     if existing:
-        logger.debug("ingest_spec: cache hit for hash %s (%d items)", h[:8], len(existing))
-        return h, existing
+        if any(item.heading_path for item in existing):
+            logger.debug("ingest_spec: cache hit for hash %s (%d items)", h[:8], len(existing))
+            return h, existing
+
+        candidate_chunks = chunk_spec_recursive(doc_or_text)
+        if not any(chunk.heading_path for chunk in candidate_chunks):
+            logger.debug("ingest_spec: cache hit without recoverable headings for hash %s", h[:8])
+            return h, existing
+
+        chunks = candidate_chunks
+        logger.info("ingest_spec: refreshing legacy empty heading paths for hash %s", h[:8])
 
     # Chunk the document
-    chunks: list[SpecChunk] = chunk_spec_recursive(doc_or_text)
+    if chunks is None:
+        chunks = chunk_spec_recursive(doc_or_text)
     logger.info("ingest_spec: %d chunks from document", len(chunks))
 
     # Expand each chunk into atomic items

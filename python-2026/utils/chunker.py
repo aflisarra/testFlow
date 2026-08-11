@@ -12,9 +12,8 @@ logger = logging.getLogger(__name__)
 # Plain-text regex helpers (retained for the semantic fallback path)
 # ---------------------------------------------------------------------------
 
-_HEADING_RE = re.compile(
-    r"^\s*(?:#{1,6}\s+.+|[A-Z][A-Z0-9 _-]{5,}|(?:\d+\.)+\s+\S.+|.+:\s*)\s*$"
-)
+_MARKDOWN_HEADING_RE = re.compile(r"^\s*(#{1,6})\s+(.+?)\s*$")
+_NUMBERED_HEADING_RE = re.compile(r"^\s*(\d+(?:\.\d+)*)(?:\.)?\s+(.+?)\s*$")
 
 # Retained for the heading-count guard; heading detection inside the tree
 # builder uses _heading_level_of() exclusively.
@@ -287,7 +286,41 @@ def iter_paragraphs(text: str) -> Iterable[str]:
             yield p
 
 
-def split_by_headings(text: str, max_chunk_chars: int = 2200) -> List[Dict[str, str]]:
+def _fallback_heading(line: str) -> tuple[int, str] | None:
+    """Return a best-effort ``(level, title)`` for unstyled/plain text.
+
+    Markdown heading markers provide the most reliable hierarchy. Numbered
+    headings are supported as a secondary convention, while numbered bold
+    list entries with a description (``1. **Name**: details``) remain body
+    content rather than becoming false section boundaries.
+    """
+    stripped = line.strip()
+    if not stripped or len(stripped) > 120:
+        return None
+
+    markdown = _MARKDOWN_HEADING_RE.match(stripped)
+    if markdown:
+        return len(markdown.group(1)), markdown.group(2).strip().strip(":").strip()
+
+    if re.fullmatch(r"[A-Z][A-Z0-9 _-]{5,}", stripped):
+        return 1, stripped
+
+    numbered = _NUMBERED_HEADING_RE.match(stripped)
+    if numbered:
+        title = numbered.group(2).strip()
+        if "**" not in title and ": " not in title:
+            return numbered.group(1).count(".") + 1, stripped.strip(":").strip()
+
+    # A short label such as ``Requirement:`` is a useful fallback heading.
+    # A full sentence ending in a colon usually introduces a list and must
+    # remain body content.
+    if stripped.endswith(":") and len(stripped[:-1].split()) <= 4:
+        return 1, stripped[:-1].strip()
+
+    return None
+
+
+def split_by_headings(text: str, max_chunk_chars: int = 2200) -> List[Dict[str, Any]]:
     """
     Split spec text into semantically meaningful chunks:
     - Detect headings
@@ -297,21 +330,33 @@ def split_by_headings(text: str, max_chunk_chars: int = 2200) -> List[Dict[str, 
     normalized = normalize_spec_text(text)
     lines = [ln.rstrip() for ln in normalized.split("\n")]
 
-    chunks: List[Dict[str, str]] = []
+    chunks: List[Dict[str, Any]] = []
     current_title = "General"
+    current_heading_path: list[str] = []
+    heading_stack: list[tuple[int, str]] = []
     current_lines: List[str] = []
 
     def flush() -> None:
         nonlocal current_lines
         body = "\n".join([l for l in current_lines if l.strip()]).strip()
         if body:
-            chunks.append({"title": current_title.strip() or "General", "text": body})
+            chunks.append({
+                "title": current_title.strip() or "General",
+                "heading_path": list(current_heading_path),
+                "text": body,
+            })
         current_lines = []
 
     for line in lines:
-        if _HEADING_RE.match(line) and len(line.strip()) <= 120:
+        heading = _fallback_heading(line)
+        if heading is not None:
             flush()
-            current_title = line.strip().strip("#").strip(":").strip()
+            level, title = heading
+            while heading_stack and heading_stack[-1][0] >= level:
+                heading_stack.pop()
+            heading_stack.append((level, title))
+            current_heading_path = [heading_title for _, heading_title in heading_stack]
+            current_title = title
             continue
         current_lines.append(line)
 
@@ -381,7 +426,7 @@ def chunk_spec_recursive(doc_or_text: Any, max_chunk_chars: int = 2200) -> list[
             SpecChunk(
                 id=str(chunk["id"]),
                 title=str(chunk["title"]),
-                heading_path=[],
+                heading_path=[str(value) for value in chunk.get("heading_path") or []],
                 text=str(chunk["text"]),
             )
             for chunk in split_by_headings(doc_or_text, max_chunk_chars)

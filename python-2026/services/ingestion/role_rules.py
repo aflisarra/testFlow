@@ -31,7 +31,15 @@ ROLE_REGEX_RULES: list[tuple[str, re.Pattern[str]]] = [
     ),
     (
         "REQUIREMENT",
-        re.compile(r"\b(?:shall|must|doit|devra)\b", re.IGNORECASE),
+        # 2026-08-07 — extended: devront, French obligation forms, English
+        # soft-but-clear modals ("will support", "il faut que", "est requis").
+        # Deliberately excludes bare "should" (too broad).
+        re.compile(
+            r"\b(?:shall|must|doit|devra|devront|"
+            r"will\s+(?:be|support|allow|provide|enable)|"
+            r"(?:il\s+)?faut\s+que|est\s+(?:requis|obligatoire))\b",
+            re.IGNORECASE,
+        ),
     ),
     # Actor labels are table/list entries, not every mention of a user.
     (
@@ -43,10 +51,32 @@ ROLE_REGEX_RULES: list[tuple[str, re.Pattern[str]]] = [
             re.IGNORECASE,
         ),
     ),
-    # A short term followed by a definition; actor rows are handled first.
+    # Feature / capability verbs — softer than shall/must but structurally
+    # describing what the system does.  Placed after REQUIREMENT so items
+    # carrying both a modal AND a capability verb resolve to REQUIREMENT first.
+    # 2026-08-07 — added: no FEATURE coverage existed before this change.
+    (
+        "FEATURE",
+        re.compile(
+            r"\b(?:permet(?:tre)?(?:\s+(?:\u00e0|de|aux))?|"
+            r"offre(?:r)?|affiche(?:r)?|g(?:\u00e8|e)re(?:r)?|"
+            r"the\s+system\s+(?:shall\s+)?(?:provide|support|allow|enable)|"
+            r"en\s+tant\s+qu[e\u2019]|as\s+a\s+user)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # A short term followed by a definition; actor and feature rows handled first.
+    # 2026-08-07 — tightened: was r"^\s*[^\n:]{2,60}:\s+\S+" which matched any
+    # colon-separated line (config key-value pairs, module descriptions, etc.).
+    # Now requires the definition part to be substantive (≥5 chars after colon).
     (
         "GLOSSARY",
-        re.compile(r"^\s*[^\n:]{2,60}:\s+\S+", re.IGNORECASE),
+        re.compile(
+            r"^\s*(?:[A-Z\u00c0-\u017ea-z\u00e0-\u017e][A-Z\u00c0-\u017ea-z\u00e0-\u017e\s\-]{1,50})"
+            r"(?:\s*\([^)]{0,30}\))?"
+            r":\s+(?:[A-Z\u00c0-\u017ea-z\u00e0-\u017e\d].{4,})",
+            re.IGNORECASE,
+        ),
     ),
     # Tightened: quality/constraint signals plus an explicit limit, or a
     # recognised non-functional standard/security property. Do not match a

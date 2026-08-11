@@ -79,7 +79,47 @@ def test_recursive_docx_chunking_falls_back_when_heading_styles_are_absent() -> 
 
     assert len(chunks) == 1
     assert chunks[0].title == "Requirement"
-    assert chunks[0].heading_path == []
+    assert chunks[0].heading_path == ["Requirement"]
+
+
+def test_unstyled_docx_markdown_headings_preserve_hierarchy() -> None:
+    document = _doc([
+        _para("# Product Specification", "Normal"),
+        _para("Overview of the product.", "Normal"),
+        _para("## 3. Requirements", "Normal"),
+        _para("### 3.1 Data Export", "Normal"),
+        _para("1. **JSON export**: The system must export data.", "Normal"),
+        _para("2. **JSON import**: The system must import data.", "Normal"),
+    ])
+
+    chunks = chunk_spec_recursive(document)
+
+    assert [chunk.heading_path for chunk in chunks] == [
+        ["Product Specification"],
+        ["Product Specification", "3. Requirements", "3.1 Data Export"],
+    ]
+    assert chunks[1].text.splitlines() == [
+        "1. **JSON export**: The system must export data.",
+        "2. **JSON import**: The system must import data.",
+    ]
+
+
+def test_fallback_keeps_sentence_that_introduces_a_list_as_body_text() -> None:
+    document = _doc([
+        _para("# Product Specification", "Normal"),
+        _para("## Context", "Normal"),
+        _para("This specification covers the following modules:", "Normal"),
+        _para("1. **Export**: Export data.", "Normal"),
+    ])
+
+    chunks = chunk_spec_recursive(document)
+
+    assert len(chunks) == 1
+    assert chunks[0].heading_path == ["Product Specification", "Context"]
+    assert chunks[0].text.splitlines() == [
+        "This specification covers the following modules:",
+        "1. **Export**: Export data.",
+    ]
 
 
 # ---------------------------------------------------------------------------
