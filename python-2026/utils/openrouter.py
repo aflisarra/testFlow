@@ -53,14 +53,20 @@ def _default_timeout() -> int:
         return 120
 
 
-def run_openrouter(prompt: str, timeout: int | None = None) -> str:
+def run_openrouter(
+    prompt: str,
+    timeout: int | None = None,
+    max_tokens: int | None = None,
+) -> str:
     """
     Send a prompt to OpenRouter and return the plain-text reply.
 
     Parameters
     ----------
-    prompt  : The full prompt string.
-    timeout : Max seconds to wait for a reply (falls back to OPENROUTER_TIMEOUT env var).
+    prompt     : The full prompt string.
+    timeout    : Max seconds to wait for a reply (falls back to OPENROUTER_TIMEOUT env var).
+    max_tokens : Output token cap. Falls back to OPENROUTER_MAX_TOKENS env var (default 1500).
+                 Pass a higher value for endpoints that produce large JSON objects.
 
     Returns
     -------
@@ -71,7 +77,8 @@ def run_openrouter(prompt: str, timeout: int | None = None) -> str:
 
     model = _get_model()
     temperature = float(os.getenv("OPENROUTER_TEMPERATURE", "0.1"))
-    max_tokens = int(os.getenv("OPENROUTER_MAX_TOKENS", "1500"))
+    # Per-call override takes precedence over the env-var default.
+    max_tokens = max_tokens if max_tokens is not None else int(os.getenv("OPENROUTER_MAX_TOKENS", "1500"))
 
     log_event(
         logger,
