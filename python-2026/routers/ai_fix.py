@@ -352,8 +352,15 @@ async def detect_failure(payload: FailureDetectionPayload) -> dict[str, Any]:
         try:
             analysis = ai_service.generate_json(
                 prompt=prompt,
-                timeout=60
+                timeout=60,
+                max_tokens=3000,  # failure JSON has many fields; 1500 default truncates it
             )
+            # Guard: LLM occasionally returns a JSON array instead of an object.
+            # Extract the first dict element, or fall back to rule-based analysis.
+            if isinstance(analysis, list):
+                analysis = next((item for item in analysis if isinstance(item, dict)), None)
+                if analysis is None:
+                    analysis = _fallback_analysis(normalized_payload, "AI returned a list with no dict elements")
         except Exception as exc:
             error_msg = str(exc)
             log_error(

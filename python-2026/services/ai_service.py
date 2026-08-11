@@ -17,7 +17,7 @@ class AiService:
     def __init__(self) -> None:
         self.settings = get_settings()
 
-    def generate_json(self, *, prompt: str, timeout: int) -> Any:
+    def generate_json(self, *, prompt: str, timeout: int, max_tokens: int | None = None) -> Any:
         started = time.monotonic()
 
         log_event(
@@ -31,7 +31,7 @@ class AiService:
         # ── STAGE 1: OpenRouter inference ──────────────────────────────────
         t_inference_start = time.monotonic()
         try:
-            reply = run_openrouter(prompt, timeout=timeout)
+            reply = run_openrouter(prompt, timeout=timeout, max_tokens=max_tokens)
         except Exception as exc:
             log_error(
                 logger,
@@ -77,7 +77,7 @@ class AiService:
             )
 
             t_repair_start = time.monotonic()
-            repaired_reply = run_openrouter(repair_prompt, timeout=90,json_mode=True)
+            repaired_reply = run_openrouter(repair_prompt, timeout=90, max_tokens=max_tokens)
             t_repair_ms = int((time.monotonic() - t_repair_start) * 1000)
 
             log_event(logger, "⏱ STAGE repair_inference",
