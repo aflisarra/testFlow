@@ -9,7 +9,7 @@
         <span>Generate Test Plan</span>
       </h1>
     </div>
-
+  }
     @if (errorMessage) {
     <div class="alert alert-danger mb-4">{{ errorMessage }}</div>
     }
@@ -220,7 +220,7 @@
             }
 
             @if (specificationUploaded) {
-            <section class="role-review-panel mt-3">
+            <section id="roleReviewPanel" class="role-review-panel mt-3">
               <button type="button" class="role-review-toggle" (click)="toggleRoleReview()">
                 <span>Specification role review</span>
                 @if (pendingRoleReviewCount > 0) {
@@ -284,7 +284,38 @@
       </div>
     </div>
 
-    @if (generatingPlans || testPlans.length) {
+    @if (currentTestSuiteId && !generatingPlans) {
+    <nav class="testlab-result-tabs mt-5" aria-label="Specification results">
+      <button
+        type="button"
+        class="testlab-result-tab"
+        [class.active]="activeResultTab === 'plans'"
+        [attr.aria-selected]="activeResultTab === 'plans'"
+        (click)="activeResultTab = 'plans'">
+        <iconify-icon icon="iconamoon:task-list-duotone" width="18" height="18"></iconify-icon>
+        <span>Plans</span>
+        <span class="testlab-result-tab-count">{{ testPlans.length }}</span>
+      </button>
+      <button
+        type="button"
+        class="testlab-result-tab"
+        [class.active]="activeResultTab === 'items'"
+        [attr.aria-selected]="activeResultTab === 'items'"
+        (click)="activeResultTab = 'items'">
+        <iconify-icon icon="iconamoon:file-document-duotone" width="18" height="18"></iconify-icon>
+        <span>Items</span>
+      </button>
+    </nav>
+    }
+
+    @if (currentTestSuiteId && activeResultTab === 'items' && !generatingPlans) {
+    <app-spec-items-explorer
+      [testSuiteId]="currentTestSuiteId"
+      (reviewRequested)="openRoleReviewFromExplorer()">
+    </app-spec-items-explorer>
+    }
+
+    @if (generatingPlans || (activeResultTab === 'plans' && testPlans.length)) {
     <div #plansResult id="plansResult" class="testlab-card p-4 mt-5">
       @if (generatingPlans) {
       <div class="d-flex align-items-start justify-content-between gap-3 mb-4">
@@ -312,19 +343,18 @@
         </div>
 
         <div class="testlab-actions mt-4 w-100">
-  <button type="button" class="btn btn-cancel px-4" (click)="onRequestStopGeneration()">
-    <iconify-icon icon="mdi:stop-circle-outline"></iconify-icon>
-    Stop
-  </button>
-  <button type="button" class="btn btn-regenerate px-4" disabled>
-    <iconify-icon icon="iconamoon:restart-duotone"></iconify-icon>
-    Regenerate
-  </button>
-  <button type="button" class="btn btn-validate px-4" disabled>
-    <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
-    Validate &amp; Next
-  </button>
-</div>
+          <button type="button" class="btn btn-cancel px-4" (click)="onRequestStopGeneration()">
+          <iconify-icon icon="mdi:stop-circle-outline"></iconify-icon>Stop
+          </button>
+          <button type="button" class="btn btn-regenerate px-4" disabled>
+            <iconify-icon icon="iconamoon:restart-duotone"></iconify-icon>
+            Regenerate
+          </button>
+          <button type="button" class="btn btn-validate px-4" disabled>
+            <iconify-icon icon="iconamoon:arrow-right-2-duotone"></iconify-icon>
+            Validate &amp; Next
+          </button>
+        </div>
       </div>
 
       } @else if (testPlans.length) {
@@ -335,89 +365,16 @@
         </div>
         <div class="d-flex align-items-center gap-2">
           <button
-  type="button"
-  class="btn-add-plan"
-  [disabled]="generatingPlans || finishing || !!regeneratingPlanId"
-  (click)="openManualAddPlan()"
->
-  <iconify-icon icon="mdi:plus-circle-outline" width="18" height="18"></iconify-icon>
-  <span>Add Plan</span>
-</button>
+            type="button"
+            class="btn-add-plan"
+            [disabled]="generatingPlans || finishing || !!regeneratingPlanId"
+            (click)="openManualAddPlan()">
+            <iconify-icon icon="mdi:plus-circle-outline" width="18" height="18"></iconify-icon>
+            <span>Add Plan</span>
+          </button>
           <span class="testlab-pill">{{ testPlans.length }} Plans</span>
         </div>
       </div>
-
-      @if (false) {
-      <section class="role-review-panel mb-4">
-        <button type="button" class="role-review-toggle" (click)="toggleRoleReview()">
-          <span class="d-flex align-items-center gap-2">
-            <iconify-icon icon="iconamoon:eye-duotone"></iconify-icon>
-            <span>Specification review</span>
-            @if (pendingRoleReviewCount > 0) {
-            <span class="role-review-count">{{ pendingRoleReviewCount }} items need review</span>
-            }
-          </span>
-          <iconify-icon [icon]="roleReviewOpen ? 'iconamoon:arrow-up-2-duotone' : 'iconamoon:arrow-down-2-duotone'"></iconify-icon>
-        </button>
-
-        @if (roleReviewOpen) {
-        <div class="role-review-body">
-          @if (roleReviewLoading) {
-          <p class="text-muted mb-0">Loading specification review…</p>
-          } @else if (roleReviewLegacySuite) {
-          <div class="alert alert-info mb-0">
-            This test suite was generated before role tagging was introduced.
-            <button type="button" class="btn btn-link p-0 ms-1 align-baseline" (click)="focusSpecificationUpload()">
-              Re-upload the original specification to enable review.
-            </button>
-          </div>
-          } @else if (roleReviewError) {
-          <div class="alert alert-danger mb-0">{{ roleReviewError }}</div>
-          } @else if (!roleReviewItems.length) {
-          <p class="text-muted mb-0">No specification items need review.</p>
-          } @else {
-          <p class="role-review-warning">You can continue generation with pending items, but reviewing them improves the evidence available to test generation.</p>
-          <div class="role-review-list">
-            @for (item of roleReviewItems; track item.itemId) {
-            <article class="role-review-item">
-              <div class="role-review-item-text">{{ item.text }}</div>
-              @if (item.headingPath.length) {
-              <div class="role-review-breadcrumbs">{{ item.headingPath.join(' › ') }}</div>
-              }
-              @if (item.nearestHeading) {
-              <div class="role-review-nearest">Nearest heading: {{ item.nearestHeading }}</div>
-              }
-              @if (item.suggestedRole) {
-              <div class="role-review-suggestion">Suggested role: {{ item.suggestedRole }}</div>
-              }
-              <div class="role-review-actions">
-                <select class="form-select form-select-sm" [value]="roleReviewSelections[item.itemId]"
-                  [disabled]="roleReviewBusyItemId === item.itemId"
-                  (change)="onRoleReviewSelection(item.itemId, $event)">
-                  <option value="">Choose a role…</option>
-                  @for (role of roleLabels; track role) {
-                  <option [value]="role">{{ role }}</option>
-                  }
-                </select>
-                <button type="button" class="btn btn-sm btn-primary"
-                  [disabled]="!roleReviewSelections[item.itemId] || roleReviewBusyItemId === item.itemId"
-                  (click)="resolveRoleReview(item)">
-                  Apply role
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-danger"
-                  [disabled]="roleReviewBusyItemId === item.itemId"
-                  (click)="dismissRoleReview(item)">
-                  Dismiss
-                </button>
-              </div>
-            </article>
-            }
-          </div>
-          }
-        </div>
-        }
-      </section>
-      }
 
       <div class="testlab-plan-list">
         @for (plan of testPlans; track plan.id; let i = $index) {
@@ -517,9 +474,7 @@
 
       }
     </div>
-    }
-
-    }<!-- fin @if currentPlanIndex === -1 -->
+    }<!-- fin plans result -->
 
 
     <!-- ═══════════════════════════════════════════════════════════════════
@@ -713,9 +668,6 @@
 
     }<!-- fin @if currentPlanIndex >= 0 -->
 
-  </div>
-</div>
-
 <app-plan-edit-modal
   [isOpen]="planEditModalOpen"
   [draft]="planEditDraft"
@@ -750,3 +702,6 @@
   </div>
 </div>
 }
+
+  </div>
+</div>

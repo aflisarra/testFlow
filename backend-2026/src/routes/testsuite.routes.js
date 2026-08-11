@@ -62,6 +62,8 @@ router.get('/:id/role-reviews', requireTestSuiteAccess, roleReviewController.lis
 router.patch('/:id/role-reviews/:itemId', requireTestSuiteAccess, roleReviewController.resolve);
 router.delete('/:id/role-reviews/:itemId', requireTestSuiteAccess, roleReviewController.dismiss);
 
+router.get('/:id/spec-items', requireTestSuiteAccess, roleReviewController.listAll);
+
 router.patch('/:id/session', requireTestSuiteAccess, controllerTestSuite.saveSession);
 router.patch('/:id/status', requireTestSuiteAccess, controllerTestSuite.updateStatus);
 router.patch('/:id/save', requireTestSuiteAccess, controllerTestSuite.save);

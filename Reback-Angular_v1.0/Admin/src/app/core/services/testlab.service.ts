@@ -1,6 +1,9 @@
 // ============================================================
 // services/testlab.service.ts
 // ============================================================
+// ============================================================
+// services/testlab.service.ts
+// ============================================================
 
 import { ApiService } from '@/app/core/services/api.service'
 import { Injectable, inject } from '@angular/core'
@@ -19,6 +22,8 @@ import type {
   RoleLabel,
   RoleReviewQueueResponse,
   ResolveRoleReviewResponse,
+  SpecItem,
+  SpecItemsResponse,
 } from '@/app/interfaces/testlab.interface'
 
 export type {
@@ -37,6 +42,8 @@ export type {
   RoleReviewItem,
   RoleReviewQueueResponse,
   ResolveRoleReviewResponse,
+  SpecItem,
+  SpecItemsResponse,
 } from '@/app/interfaces/testlab.interface'
 
 export interface TestExecutionDto {
@@ -192,6 +199,10 @@ generateTestCases(
 
   dismissRoleReview(testSuiteId: string, itemId: string, _reason?: string): Observable<void> {
     return this.api.delete<void>(`/api/testsuites/${testSuiteId}/role-reviews/${itemId}`)
+  }
+
+  getSpecItems(testSuiteId: string): Observable<SpecItemsResponse> {
+    return this.api.get<SpecItemsResponse>(`/api/testsuites/${testSuiteId}/spec-items`)
   }
 
   getTestExecutions(testSuiteId: string): Observable<TestExecutionDto[]> {

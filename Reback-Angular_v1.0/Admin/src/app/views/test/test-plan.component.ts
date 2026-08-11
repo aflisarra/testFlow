@@ -1,8 +1,9 @@
-﻿import { AdminManagementService } from '@/app/core/services/admin-management.service'
+import { AdminManagementService } from '@/app/core/services/admin-management.service'
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
 import { ProjectsStateService } from '@/app/core/services/projects-state.service'
 import { PlanEditModalComponent } from './plan-edit-modal.component'
+import { SpecItemsExplorerComponent } from './spec-items-explorer/spec-items-explorer.component'
 import {
   TestLabService,
   type TestCaseDto,
@@ -37,7 +38,13 @@ interface CreateSuiteResponse {
 @Component({
   selector: 'app-test-suite-configuration',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, NgbModalModule ,PlanEditModalComponent],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    NgbModalModule,
+    PlanEditModalComponent,
+    SpecItemsExplorerComponent,
+  ],
   templateUrl: './test-plan.component.html',
   styleUrl: './test-plan.component.css',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
@@ -107,18 +114,12 @@ isEditMode = false
   pendingRoleReviewCount = 0
   roleReviewLegacySuite = false
   roleReviewError = ''
+  activeResultTab: 'plans' | 'items' = 'plans'
 
-  // â”€â”€â”€ Flux sÃ©quentiel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  /** Index du plan actuellement affichÃ©/traitÃ© (0-based). -1 = pas encore dÃ©marrÃ© */
+  // ── Flux séquentiel ─────────────────────────────────────────
   currentPlanIndex = -1
-
-  /** Statut de chaque plan : pending â†’ generating â†’ reviewing â†’ confirmed */
   planStatuses: Record<string, PlanStatus> = {}
-
-  /** True pendant la gÃ©nÃ©ration des test cases du plan courant */
   generatingCases = false
-
-  /** True pendant la navigation finale vers /test-cases */
   finishing = false
   plansValidated = false
   sessionSaved = false
@@ -573,6 +574,7 @@ this.styleConfig = suite.styleConfig || '' // ✅ BONUS
     this.specificationUploaded = false
     this.currentTestSuiteId = ''
     this.testPlans = []
+    this.activeResultTab = 'plans'
     this.resetRoleReviewState()
   }
 
@@ -602,6 +604,7 @@ this.styleConfig = suite.styleConfig || '' // ✅ BONUS
       const response = await firstValueFrom(this.testLabService.ingestSpecification(form))
       this.currentTestSuiteId = String(response?.testSuiteId || '').trim()
       this.specificationUploaded = Boolean(this.currentTestSuiteId)
+      this.activeResultTab = 'items'
       this.resetRoleReviewState()
       this.roleReviewOpen = true
       this.pendingRoleReviewCount = Number(response?.pendingReviewCount || 0)
@@ -630,6 +633,7 @@ this.styleConfig = suite.styleConfig || '' // ✅ BONUS
       this.toastr.warning('Upload the specification before generating test plans.', 'Test Plan')
       return
     }
+    this.activeResultTab = 'plans'
     void this.generateStoredPlans()
   }
 
@@ -990,6 +994,12 @@ specText = ''
 
   focusSpecificationUpload(): void {
     this.document.getElementById('specDocument')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  async openRoleReviewFromExplorer(): Promise<void> {
+    this.roleReviewOpen = true
+    await this.loadRoleReviews()
+    this.document.getElementById('roleReviewPanel')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   private async loadRoleReviews(): Promise<void> {
@@ -1734,6 +1744,7 @@ private resetFullState(): void {
   const projectId = this.testPlanForm.value.projectId  // ✅ garder
 
   this.currentTestSuiteId = ''
+  this.activeResultTab = 'plans'
   this.resetRoleReviewState()
   this.errorMessage = ''
   this.generatingPlans = false

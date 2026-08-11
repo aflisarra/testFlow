@@ -181,6 +181,25 @@ export interface ResolveRoleReviewResponse {
   pendingCount: number
 }
 
+export interface SpecItem {
+  itemId: string
+  text: string
+  headingPath: string[]
+  nearestHeading: string | null
+  sourceChunkId: string
+  role: RoleLabel | 'UNTAGGED'
+  roleMethod: string
+  reviewed: boolean
+  reviewState: string
+  requirementId: string | null
+}
+
+export interface SpecItemsResponse {
+  specHash: string
+  totalCount: number
+  items: SpecItem[]
+}
+
 export interface PlanStatusRow {
   planId: string
   status: string

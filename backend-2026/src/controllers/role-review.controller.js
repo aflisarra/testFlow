@@ -33,6 +33,22 @@ function toResolvedReviewItem(item) {
   }
 }
 
+function toSpecItem(item) {
+  const headingPath = Array.isArray(item?.heading_path) ? item.heading_path.map(String) : []
+  return {
+    itemId: String(item?.id || ''),
+    text: String(item?.text || ''),
+    headingPath,
+    nearestHeading: headingPath.at(-1) || null,
+    sourceChunkId: String(item?.source_chunk_id || ''),
+    role: String(item?.role || 'UNTAGGED'),
+    roleMethod: String(item?.role_method || 'none'),
+    reviewed: Boolean(item?.reviewed),
+    reviewState: String(item?.review_state || 'pending'),
+    requirementId: item?.requirement_id ?? null,
+  }
+}
+
 async function suiteSpecHash(testSuiteId) {
   const suite = await TestSuite.findById(testSuiteId).select('_id specHash ingestionScope').lean()
   if (!suite) throw httpError(404, 'TestSuite not found')
@@ -101,4 +117,18 @@ async function dismiss(req, res) {
   }
 }
 
-module.exports = { list, resolve, dismiss, toReviewItem, toResolvedReviewItem }
+async function listAll(req, res) {
+  try {
+    const specHash = await suiteSpecHash(req.params.id)
+    const snapshot = await reviewService.getSnapshot(specHash)
+    if (!snapshot) {
+      throw httpError(404, 'Specification ingestion not found for this test suite.')
+    }
+    const items = snapshot.items.map(toSpecItem)
+    return res.json({ specHash, totalCount: items.length, items })
+  } catch (error) {
+    return sendError(res, error)
+  }
+}
+
+module.exports = { list, listAll, resolve, dismiss, toReviewItem, toResolvedReviewItem, toSpecItem }
