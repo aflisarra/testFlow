@@ -1,0 +1,136 @@
+<section class="items-explorer" aria-labelledby="items-explorer-title">
+  <header class="items-header">
+    <div>
+      <div class="items-heading">
+        <iconify-icon icon="iconamoon:file-document-duotone" width="22" height="22"></iconify-icon>
+        <h4 id="items-explorer-title">Spec Items Explorer</h4>
+        @if (!loading && !error) {
+        <span class="items-count">{{ filteredItems.length }} / {{ items.length }}</span>
+        }
+      </div>
+      <p>Audit the extracted specification evidence by source chunk and classification role.</p>
+    </div>
+    <button type="button" class="refresh-button" [disabled]="loading" (click)="loadItems()">
+      <iconify-icon icon="iconamoon:restart-duotone" width="16" height="16"></iconify-icon>
+      Refresh
+    </button>
+  </header>
+
+  <div class="items-toolbar">
+    <label class="items-search">
+      <span class="visually-hidden">Search specification items</span>
+      <iconify-icon icon="iconamoon:search-duotone" width="18" height="18"></iconify-icon>
+      <input
+        type="search"
+        placeholder="Search text, headings, chunks or roles"
+        [value]="searchQuery"
+        (input)="onSearch($event)"
+      />
+    </label>
+
+    <div class="role-filters" aria-label="Filter by role">
+      @for (role of roles; track role) {
+      <button
+        type="button"
+        class="role-filter"
+        [class.active]="selectedRoles.has(role)"
+        [attr.data-role]="role"
+        [attr.aria-pressed]="selectedRoles.has(role)"
+        (click)="toggleRole(role)">
+        {{ role }}
+      </button>
+      }
+    </div>
+
+    @if (searchQuery || selectedChunk || selectedRoles.size) {
+    <button type="button" class="clear-button" (click)="clearFilters()">Clear filters</button>
+    }
+  </div>
+
+  <div class="items-body">
+    <aside class="chunk-sidebar" aria-label="Source chunks">
+      <span class="sidebar-label">Source chunks</span>
+      <button
+        type="button"
+        class="chunk-button"
+        [class.active]="!selectedChunk"
+        (click)="selectChunk(null)">
+        All chunks
+      </button>
+      @for (chunk of chunkSummaries; track chunk.id) {
+      <button
+        type="button"
+        class="chunk-button"
+        [class.active]="selectedChunk === chunk.id"
+        (click)="selectChunk(chunk.id)">
+        <span class="chunk-button-id">{{ chunk.id }}</span>
+        @if (chunk.headingPath) {
+        <span class="chunk-button-headings">{{ chunk.headingPath }}</span>
+        } @else {
+        <span class="chunk-button-headings">No heading path</span>
+        }
+      </button>
+      }
+    </aside>
+
+    <div class="items-list-panel">
+      @if (selectedChunkSummary; as chunk) {
+      <div class="selected-chunk-context">
+        <span class="selected-chunk-label">Heading path for {{ chunk.id }}</span>
+        @if (chunk.headingPath) {
+        <div class="selected-chunk-headings">
+          <span>{{ chunk.headingPath }}</span>
+        </div>
+        } @else {
+        <span class="selected-chunk-empty">No heading path was captured for this chunk.</span>
+        }
+      </div>
+      }
+
+      @if (loading) {
+      <div class="items-state">
+        <iconify-icon icon="iconamoon:settings-duotone" class="spin" width="32" height="32"></iconify-icon>
+        <span>Loading specification items…</span>
+      </div>
+      } @else if (error) {
+      <div class="items-state error-state">
+        <iconify-icon icon="iconamoon:warning-circle-duotone" width="32" height="32"></iconify-icon>
+        <span>{{ error }}</span>
+        <button type="button" class="retry-button" (click)="loadItems()">Try again</button>
+      </div>
+      } @else if (!filteredItems.length) {
+      <div class="items-state">
+        <iconify-icon icon="iconamoon:search-duotone" width="32" height="32"></iconify-icon>
+        <span>No items match the current filters.</span>
+      </div>
+      } @else {
+      <div class="items-list">
+        @for (item of filteredItems; track item.itemId) {
+        <article class="item-card" [attr.data-role]="item.role">
+          <div class="item-meta">
+            <button
+              type="button"
+              class="role-badge"
+              [class.reviewable]="item.role === 'UNTAGGED' && item.reviewState === 'pending'"
+              [attr.data-role]="item.role"
+              [disabled]="item.role !== 'UNTAGGED' || item.reviewState !== 'pending'"
+              [title]="item.role === 'UNTAGGED' && item.reviewState === 'pending' ? 'Open this item in role review' : item.role"
+              (click)="requestReview(item)">
+              {{ item.role }}
+            </button>
+            <span class="chunk-tag">{{ item.sourceChunkId }}</span>
+          </div>
+          <p class="item-text">{{ item.text }}</p>
+          @if (item.headingPath.length) {
+          <div class="item-breadcrumb">
+            <iconify-icon icon="iconamoon:arrow-right-2-duotone" width="13" height="13"></iconify-icon>
+            <span>{{ item.headingPath.join(' › ') }}</span>
+          </div>
+          }
+        </article>
+        }
+      </div>
+      }
+    </div>
+  </div>
+</section>
