@@ -6,6 +6,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Iterable, List, Dict, Optional
 
+from utils.docx_reader import iter_document_paragraphs
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -432,9 +434,12 @@ def chunk_spec_recursive(doc_or_text: Any, max_chunk_chars: int = 2200) -> list[
             for chunk in split_by_headings(doc_or_text, max_chunk_chars)
         ]
 
-    paragraphs = getattr(doc_or_text, "paragraphs", None)
-    if paragraphs is None:
+    if getattr(doc_or_text, "paragraphs", None) is None:
         raise TypeError("chunk_spec_recursive expects text or a python-docx Document")
+
+    # ``Document.paragraphs`` omits tables. The shared iterator injects each
+    # flattened logical table record at its true position in the document.
+    paragraphs = list(iter_document_paragraphs(doc_or_text))
 
     # Use locale-aware count for the fallback threshold
     heading_count = _count_headings(paragraphs)

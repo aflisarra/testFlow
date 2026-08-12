@@ -45,9 +45,10 @@ ROLE_REGEX_RULES: list[tuple[str, re.Pattern[str]]] = [
     (
         "ACTOR",
         re.compile(
-            r"^\s*(?:utilisateur|administrateur|(?:\u00e9|e)quipe|visiteur|"
+            r"^\s*(?:(?:actor|acteur|r[o\u00f4]le)\s*:\s*\S+|"
+            r"(?:utilisateur|administrateur|(?:\u00e9|e)quipe|visiteur|"
             r"artiste(?:\s*/\s*label)?|support\s+client)\b[^\n:]{0,80}:"
-            r"\s*\S+",
+            r"\s*\S+)",
             re.IGNORECASE,
         ),
     ),

@@ -74,3 +74,12 @@ def test_unresolved_item_remains_diagnostic_untagged() -> None:
     assert item.role == "UNTAGGED"
     assert item.role_method == "none"
     assert item.requirement_id is None
+
+
+def test_labelled_actor_table_row_is_not_misclassified_as_glossary() -> None:
+    item = _item("Actor: Admin | Actions: Create users and deactivate accounts")
+
+    tag_role([item])
+
+    assert item.role == "ACTOR"
+    assert item.role_method == "regex"
