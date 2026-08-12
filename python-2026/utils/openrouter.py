@@ -53,7 +53,11 @@ def _default_timeout() -> int:
         return 120
 
 
-def run_openrouter(prompt: str, timeout: int | None = None) -> str:
+def run_openrouter(
+    prompt: str,
+    timeout: int | None = None,
+    max_tokens: int | None = None,
+) -> str:
     """
     Send a prompt to OpenRouter and return the plain-text reply.
 
@@ -61,6 +65,8 @@ def run_openrouter(prompt: str, timeout: int | None = None) -> str:
     ----------
     prompt  : The full prompt string.
     timeout : Max seconds to wait for a reply (falls back to OPENROUTER_TIMEOUT env var).
+    max_tokens : Optional response-token override (falls back to
+                 OPENROUTER_MAX_TOKENS when omitted).
 
     Returns
     -------
@@ -71,7 +77,12 @@ def run_openrouter(prompt: str, timeout: int | None = None) -> str:
 
     model = _get_model()
     temperature = float(os.getenv("OPENROUTER_TEMPERATURE", "0.1"))
-    max_tokens = int(os.getenv("OPENROUTER_MAX_TOKENS", "1500"))
+    effective_max_tokens = (
+        int(max_tokens)
+        if max_tokens is not None
+        else int(os.getenv("OPENROUTER_MAX_TOKENS", "1500"))
+    )
+    effective_max_tokens = max(1, effective_max_tokens)
 
     log_event(
         logger,
@@ -80,7 +91,7 @@ def run_openrouter(prompt: str, timeout: int | None = None) -> str:
         timeout=effective_timeout,
         prompt_chars=len(prompt),
         temperature=temperature,
-        max_tokens=max_tokens,
+        max_tokens=effective_max_tokens,
     )
 
     start = time.monotonic()
@@ -100,7 +111,7 @@ def run_openrouter(prompt: str, timeout: int | None = None) -> str:
                 {"role": "user", "content": prompt},
             ],
             temperature=temperature,
-            max_tokens=max_tokens,
+            max_tokens=effective_max_tokens,
             timeout=effective_timeout,
         )
 

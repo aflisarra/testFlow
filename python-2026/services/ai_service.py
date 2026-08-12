@@ -31,7 +31,10 @@ class AiService:
         # ── STAGE 1: OpenRouter inference ──────────────────────────────────
         t_inference_start = time.monotonic()
         try:
-            reply = run_openrouter(prompt, timeout=timeout, max_tokens=max_tokens)
+            inference_options: dict[str, int] = {"timeout": timeout}
+            if max_tokens is not None:
+                inference_options["max_tokens"] = max_tokens
+            reply = run_openrouter(prompt, **inference_options)
         except Exception as exc:
             log_error(
                 logger,
@@ -77,7 +80,10 @@ class AiService:
             )
 
             t_repair_start = time.monotonic()
-            repaired_reply = run_openrouter(repair_prompt, timeout=90, max_tokens=max_tokens)
+            repair_options: dict[str, int] = {"timeout": 90}
+            if max_tokens is not None:
+                repair_options["max_tokens"] = max_tokens
+            repaired_reply = run_openrouter(repair_prompt, **repair_options)
             t_repair_ms = int((time.monotonic() - t_repair_start) * 1000)
 
             log_event(logger, "⏱ STAGE repair_inference",
