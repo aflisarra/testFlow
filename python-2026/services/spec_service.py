@@ -62,6 +62,7 @@ def get_filtered_items_for_task(
     spec_hash: str,
     task: str,
     module: str | None = None,
+    module_id: str | None = None,
     budget_chars: int | None = None,
 ) -> tuple[list[Item], int, bool]:
     """Read and task-filter durable items.
@@ -75,7 +76,13 @@ def get_filtered_items_for_task(
     items, stored_items_found = get_items_with_status(spec_hash)
     if not stored_items_found:
         return [], 0, False
-    filtered, pending_review_count = filter_items(items, task, module, budget_chars)
+    filtered, pending_review_count = filter_items(
+        items,
+        task,
+        module=module,
+        module_id=module_id,
+        budget_chars=budget_chars,
+    )
     return filtered, pending_review_count, True
 
 

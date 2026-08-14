@@ -46,6 +46,7 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
     style_config = (payload.style_config or "").strip()
     project_title = (payload.project_title or "").strip()
     plan_module = (payload.plan_module or "").strip() or None
+    plan_module_id = (payload.plan_module_id or "").strip() or None
     spec_hash = (payload.spec_hash or "").strip()
 
     if not plan_id:
@@ -77,6 +78,7 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
             style_config=style_config,
             project_title=project_title,
             plan_module=plan_module,
+            plan_module_id=plan_module_id,
             spec_hash=spec_hash,
         )
         t_ai_ms = int((time.monotonic() - t_ai_start) * 1000)

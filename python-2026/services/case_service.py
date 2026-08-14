@@ -16,16 +16,17 @@ logger = get_logger("services.case_service")
 
 
 def _requirements_from_items(items: list[Item]) -> list[dict[str, str]]:
+    prefixes = {"REQUIREMENT": "REQ", "ACCEPTANCE": "AC", "NON_FUNCTIONAL": "NFR"}
     return [
         {
-            "id": item.requirement_id or "",
+            "id": item.requirement_id or f"{prefixes[item.role]}-{item.id.removeprefix('ITEM-')}",
             "title": item.heading_path[-1] if item.heading_path else "Requirement",
             "description": item.text,
             "source": item.source_chunk_id,
             "priority": "",
         }
         for item in items
-        if item.role == "REQUIREMENT" and item.requirement_id
+        if item.role in prefixes
     ]
 
 
@@ -176,6 +177,7 @@ def generate_test_cases(
     style_config: str,
     project_title: str,
     plan_module: str | None = None,
+    plan_module_id: str | None = None,
     spec_hash: str = "",
 ) -> tuple[List[Dict[str, Any]], int]:
     settings = get_settings()
@@ -185,13 +187,14 @@ def generate_test_cases(
         spec_hash,
         "generate-test-cases",
         module=plan_module,
+        module_id=plan_module_id,
     )
     if stored_items_found:
         if not filtered_items:
             raise ValueError("No reviewed/tagged items are eligible for this plan module")
         reqs = _requirements_from_items(filtered_items)
         if not reqs:
-            raise ValueError("No retained requirement items are linked to this plan module")
+            raise ValueError("No retained testable evidence is linked to this plan module")
         chunks: List[Dict[str, str]] = []
     else:
         reqs = extract_requirements(spec_text)
@@ -215,6 +218,7 @@ def generate_test_cases(
         "generate_cases_prompt_selected",
         plan_id=plan_id,
         plan_module=plan_module,
+        plan_module_id=plan_module_id,
         evidence_item_count=len(filtered_items),
         pending_review_count=pending_review_count,
         stored_items_found=stored_items_found,

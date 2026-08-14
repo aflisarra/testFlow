@@ -5,7 +5,7 @@ from __future__ import annotations
 from services.ingestion.items import Item
 
 TASK_MANIFEST: dict[str, set[str]] = {
-    "generate-test-cases": {"FEATURE", "REQUIREMENT", "ACCEPTANCE"},
+    "generate-test-cases": {"FEATURE", "REQUIREMENT", "ACCEPTANCE", "NON_FUNCTIONAL"},
 }
 
 
@@ -13,6 +13,7 @@ def filter_items(
     items: list[Item],
     task: str,
     module: str | None = None,
+    module_id: str | None = None,
     budget_chars: int | None = None,
 ) -> tuple[list[Item], int]:
     """Return task-relevant items in document order plus pending review count.
@@ -23,10 +24,14 @@ def filter_items(
     allowed_roles = TASK_MANIFEST[task]
     pending_review_count = sum(item.role == "UNTAGGED" and not item.reviewed for item in items)
     candidates = [item for item in items if item.role in allowed_roles]
-    if module:
+    if module_id:
+        candidates = [item for item in candidates if module_id in item.module_ids]
+    elif module:
         candidates = [
             item for item in candidates
-            if item.module == module or item.role in {"CONTEXT", "ACTOR"}
+            if item.module == module
+            or (module == "Cross-cutting quality" and item.module_disposition == "cross_cutting")
+            or item.role in {"CONTEXT", "ACTOR"}
         ]
     if budget_chars is None:
         return candidates, pending_review_count

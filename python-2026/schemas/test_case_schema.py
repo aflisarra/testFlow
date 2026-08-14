@@ -23,6 +23,7 @@ class GenerateTestCasesRequest(BaseModel):
     plan_title: str = Field(..., alias="planTitle", description="Title of the confirmed plan")
     plan_description: str = Field(..., alias="planDescription", description="Description of the confirmed plan")
     plan_module: Optional[str] = Field(default=None, alias="planModule", description="Spec-local module assigned to the plan")
+    plan_module_id: Optional[str] = Field(default=None, alias="planModuleId", description="Stable spec-local module ID assigned to the plan")
     spec_text: str = Field(..., alias="specText", description="Original spec text")
     spec_hash: Optional[str] = Field(default=None, alias="specHash", description="Uploaded specification hash")
     style_config: Optional[str] = Field(default=None, alias="styleConfig", description="UI style config")
