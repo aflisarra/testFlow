@@ -1,0 +1,249 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Architecture backend et pipeline IA de testFlow</title>
+  <desc id="desc">Diagramme de l'architecture actuelle reliant le frontend Angular, backend-2026 sous Express, python-2026 sous FastAPI, MongoDB, OpenRouter, les embeddings et Selenium.</desc>
+
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#073c43" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3f4d51"/>
+    </marker>
+    <marker id="arrowTeal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0b6970"/>
+    </marker>
+    <style>
+      .title { font: 700 50px 'Segoe UI', Arial, sans-serif; fill: #243236; letter-spacing: -0.8px; }
+      .subtitle { font: 400 18px 'Segoe UI', Arial, sans-serif; fill: #5b686b; }
+      .section { font: 700 15px 'Segoe UI', Arial, sans-serif; fill: #0b6970; letter-spacing: 1.6px; }
+      .nodeTitle { font: 700 22px 'Segoe UI', Arial, sans-serif; fill: #17383d; }
+      .nodeTitleWhite { font: 700 22px 'Segoe UI', Arial, sans-serif; fill: #ffffff; }
+      .nodeText { font: 400 15px 'Segoe UI', Arial, sans-serif; fill: #526165; }
+      .small { font: 400 13px 'Segoe UI', Arial, sans-serif; fill: #5a686b; }
+      .tiny { font: 600 12px 'Segoe UI', Arial, sans-serif; fill: #0b6970; }
+      .pipelineTitle { font: 700 16px 'Segoe UI', Arial, sans-serif; fill: #17383d; }
+      .pipelineText { font: 400 13px 'Segoe UI', Arial, sans-serif; fill: #566569; }
+      .takeawayTitle { font: 700 24px Georgia, 'Times New Roman', serif; fill: #ffffff; }
+      .takeaway { font: 400 16px 'Segoe UI', Arial, sans-serif; fill: #465458; }
+      .footer { font: 400 12px 'Segoe UI', Arial, sans-serif; fill: #7a8587; }
+      .line { fill: none; stroke: #3f4d51; stroke-width: 3; marker-end: url(#arrow); }
+      .lineBi { fill: none; stroke: #0b6970; stroke-width: 3; marker-start: url(#arrowTeal); marker-end: url(#arrowTeal); }
+      .thinArrow { fill: none; stroke: #8aa6a9; stroke-width: 2.2; marker-end: url(#arrowTeal); }
+      .dashed { stroke-dasharray: 10 9; }
+    </style>
+  </defs>
+
+  <!-- Canvas and decorative reference-style accents -->
+  <rect width="1600" height="900" fill="#ffffff"/>
+  <path d="M1420 0 H1600 V104 C1542 119 1479 99 1446 57 C1430 36 1422 17 1420 0 Z" fill="#a9d3d6"/>
+  <path d="M1474 0 C1494 67 1541 92 1600 82" fill="none" stroke="#1d3438" stroke-width="1.5"/>
+  <path d="M0 841 C73 815 142 821 218 900 H0 Z" fill="#a9d3d6" opacity="0.9"/>
+  <path d="M0 866 C79 833 157 842 223 900" fill="none" stroke="#1d3438" stroke-width="1.5"/>
+  <circle cx="16" cy="16" r="6" fill="#0b6970"/>
+  <circle cx="32" cy="16" r="6" fill="#a9d3d6"/>
+
+  <!-- Header -->
+  <text x="48" y="68" class="title">Architecture backend &amp; pipeline IA de testFlow</text>
+  <text x="48" y="106" class="subtitle">Express orchestre le produit et la persistance ; FastAPI structure les spécifications, génère les artefacts et pilote l’automatisation.</text>
+
+  <!-- Main architecture field -->
+  <rect x="42" y="145" width="1088" height="680" rx="2" fill="#f4f7f7"/>
+  <text x="72" y="177" class="section">EXPÉRIENCE &amp; ORCHESTRATION PRODUIT</text>
+  <line x1="72" y1="340" x2="1100" y2="340" stroke="#778588" stroke-width="2.5" stroke-dasharray="10 10"/>
+  <text x="72" y="369" class="section">CONTRAT INTER-SERVICES</text>
+  <line x1="72" y1="658" x2="1100" y2="658" stroke="#778588" stroke-width="2.5" stroke-dasharray="10 10"/>
+  <text x="72" y="687" class="section">DONNÉES &amp; DÉPENDANCES D’EXÉCUTION</text>
+
+  <!-- Connectors first: top tier -->
+  <path d="M278 256 H352" class="lineBi"/>
+  <path d="M824 256 H900" class="line"/>
+  <text x="294" y="244" class="small">JWT / REST</text>
+  <text x="844" y="244" class="small">artefacts</text>
+
+  <!-- Connectors first: service contract -->
+  <path d="M588 321 V386" class="lineBi"/>
+  <path d="M588 427 V455" class="lineBi"/>
+  <text x="608" y="353" class="small">appels HTTP, timeout &amp; annulation</text>
+
+  <!-- Connectors first: FastAPI pipeline -->
+  <path d="M375 549 H404" class="thinArrow"/>
+  <path d="M568 549 H597" class="thinArrow"/>
+  <path d="M761 549 H790" class="thinArrow"/>
+
+  <!-- Connectors first: dependencies -->
+  <path d="M505 321 V633 H194 V708" class="line"/>
+  <path d="M480 627 V683 H470 V708" class="line"/>
+  <path d="M660 627 V683 H738 V708" class="line"/>
+  <path d="M850 627 V683 H1005 V708" class="line"/>
+  <text x="213" y="646" class="small">snapshots • plans • cas • exécutions</text>
+  <text x="887" y="646" class="small">décisions UI</text>
+
+  <!-- Top nodes -->
+  <g filter="url(#shadow)">
+    <rect x="72" y="202" width="206" height="108" rx="10" fill="#ffffff" stroke="#0b6970" stroke-width="1.5"/>
+  </g>
+  <circle cx="102" cy="229" r="21" fill="#d5eef0"/>
+  <text x="102" y="236" text-anchor="middle" font-family="Segoe UI, Arial" font-size="16" font-weight="700" fill="#0b6970">UI</text>
+  <text x="130" y="229" class="nodeTitle">Frontend Angular</text>
+  <text x="94" y="267" class="nodeText">Suites • plans • cas</text>
+  <text x="94" y="289" class="nodeText">revue • exécutions</text>
+
+  <g filter="url(#shadow)">
+    <rect x="352" y="184" width="472" height="137" rx="12" fill="#d8f2f3" stroke="#0b6970" stroke-width="1.7"/>
+  </g>
+  <circle cx="390" cy="217" r="24" fill="#0b6970"/>
+  <text x="390" y="225" text-anchor="middle" font-family="Segoe UI, Arial" font-size="17" font-weight="700" fill="#ffffff">API</text>
+  <text x="426" y="218" class="nodeTitle">backend-2026 · Express 5</text>
+  <text x="378" y="255" class="nodeText">Façade produit : JWT / RBAC, utilisateurs, projets et suites</text>
+  <text x="378" y="279" class="nodeText">Orchestration FastAPI, Selenium, exports DOCX / PDF et email</text>
+  <rect x="378" y="291" width="142" height="20" rx="10" fill="#ffffff" opacity="0.9"/>
+  <text x="449" y="305" text-anchor="middle" class="tiny">Node.js + Mongoose</text>
+
+  <g filter="url(#shadow)">
+    <rect x="900" y="202" width="200" height="108" rx="10" fill="#ffffff" stroke="#0b6970" stroke-width="1.5"/>
+  </g>
+  <circle cx="930" cy="229" r="21" fill="#d5eef0"/>
+  <text x="930" y="236" text-anchor="middle" font-family="Segoe UI, Arial" font-size="15" font-weight="700" fill="#0b6970">QA</text>
+  <text x="958" y="224" class="nodeTitle" font-size="20">Livrables</text>
+  <text x="922" y="265" class="nodeText">TP-* / TC-*</text>
+  <text x="922" y="287" class="nodeText">rapports &amp; captures</text>
+
+  <!-- Service contract banner -->
+  <rect x="244" y="386" width="688" height="41" rx="4" fill="#0b6970"/>
+  <text x="588" y="412" text-anchor="middle" class="nodeTitleWhite" font-size="19">API REST inter-services · X-Internal-Token</text>
+  <text x="949" y="411" class="small">claim → lease → commit</text>
+
+  <!-- FastAPI node and internal pipeline -->
+  <g filter="url(#shadow)">
+    <rect x="143" y="455" width="890" height="172" rx="12" fill="#ffffff" stroke="#0b6970" stroke-width="1.7"/>
+  </g>
+  <rect x="143" y="455" width="890" height="48" rx="12" fill="#d8f2f3"/>
+  <rect x="143" y="491" width="890" height="12" fill="#d8f2f3"/>
+  <circle cx="179" cy="479" r="20" fill="#0b6970"/>
+  <text x="179" y="486" text-anchor="middle" font-family="Segoe UI, Arial" font-size="15" font-weight="700" fill="#ffffff">AI</text>
+  <text x="211" y="486" class="nodeTitle">python-2026 · FastAPI</text>
+  <text x="477" y="484" class="nodeText">microservice IA / NLP • génération ciblée • décisions Selenium</text>
+
+  <rect x="191" y="519" width="184" height="83" rx="8" fill="#f3fbfb" stroke="#9ccfd2"/>
+  <text x="207" y="543" class="pipelineTitle">1  Ingestion</text>
+  <text x="207" y="566" class="pipelineText">.docx → chunks → items</text>
+  <text x="207" y="588" class="tiny">sans LLM / embedding</text>
+
+  <rect x="404" y="519" width="164" height="83" rx="8" fill="#f3fbfb" stroke="#9ccfd2"/>
+  <text x="420" y="543" class="pipelineTitle">2  Rôles</text>
+  <text x="420" y="566" class="pipelineText">regex → titre → UNTAGGED</text>
+  <text x="420" y="588" class="tiny">revue humaine</text>
+
+  <rect x="597" y="519" width="164" height="83" rx="8" fill="#f3fbfb" stroke="#9ccfd2"/>
+  <text x="613" y="543" class="pipelineTitle">3  Modules &amp; plans</text>
+  <text x="613" y="566" class="pipelineText">ensure / regenerate</text>
+  <text x="613" y="588" class="tiny">plans déterministes</text>
+
+  <rect x="790" y="519" width="195" height="83" rx="8" fill="#f3fbfb" stroke="#9ccfd2"/>
+  <text x="806" y="543" class="pipelineTitle">4  Cas &amp; décisions</text>
+  <text x="806" y="566" class="pipelineText">scope moduleId + manifeste</text>
+  <text x="806" y="588" class="tiny">LLM JSON + actions UI</text>
+
+  <!-- Dependency nodes -->
+  <g filter="url(#shadow)">
+    <rect x="72" y="708" width="244" height="86" rx="9" fill="#d8f2f3" stroke="#0b6970" stroke-width="1.4"/>
+  </g>
+  <circle cx="103" cy="736" r="20" fill="#0b6970"/>
+  <text x="103" y="742" text-anchor="middle" font-family="Segoe UI, Arial" font-size="13" font-weight="700" fill="#ffffff">DB</text>
+  <text x="132" y="735" class="pipelineTitle">MongoDB</text>
+  <text x="94" y="764" class="pipelineText">source durable : ingestion,</text>
+  <text x="94" y="783" class="pipelineText">modules, plans, cas, traces</text>
+
+  <g filter="url(#shadow)">
+    <rect x="348" y="708" width="244" height="86" rx="9" fill="#ffffff" stroke="#0b6970" stroke-width="1.4"/>
+  </g>
+  <circle cx="379" cy="736" r="20" fill="#d5eef0"/>
+  <text x="379" y="742" text-anchor="middle" font-family="Segoe UI, Arial" font-size="13" font-weight="700" fill="#0b6970">LLM</text>
+  <text x="408" y="735" class="pipelineTitle">OpenRouter</text>
+  <text x="370" y="764" class="pipelineText">cartes modules, cas de test,</text>
+  <text x="370" y="783" class="pipelineText">analyse et réparation JSON</text>
+
+  <g filter="url(#shadow)">
+    <rect x="624" y="708" width="228" height="86" rx="9" fill="#ffffff" stroke="#0b6970" stroke-width="1.4"/>
+  </g>
+  <circle cx="655" cy="736" r="20" fill="#d5eef0"/>
+  <text x="655" y="742" text-anchor="middle" font-family="Segoe UI, Arial" font-size="13" font-weight="700" fill="#0b6970">ML</text>
+  <text x="684" y="735" class="pipelineTitle">Embeddings</text>
+  <text x="646" y="764" class="pipelineText">tagging module enrichi</text>
+
+  <g filter="url(#shadow)">
+    <rect x="884" y="708" width="216" height="86" rx="9" fill="#ffffff" stroke="#0b6970" stroke-width="1.4"/>
+  </g>
+  <circle cx="915" cy="736" r="20" fill="#d5eef0"/>
+  <text x="915" y="742" text-anchor="middle" font-family="Segoe UI, Arial" font-size="12" font-weight="700" fill="#0b6970">WEB</text>
+  <text x="944" y="735" class="pipelineTitle">Selenium + Chrome</text>
+  <text x="906" y="764" class="pipelineText">actions UI, annulation,</text>
+  <text x="906" y="783" class="pipelineText">logs et captures d’écran</text>
+
+  <!-- Right-side takeaways -->
+  <line x1="1190" y1="151" x2="1546" y2="151" stroke="#0b6970" stroke-width="5"/>
+  <circle cx="1190" cy="204" r="31" fill="#d5eef0"/>
+  <text x="1190" y="211" text-anchor="middle" font-family="Segoe UI, Arial" font-size="15" font-weight="700" fill="#0b6970">KEY</text>
+  <path d="M1211 178 H1512 L1537 204 L1512 230 H1211 Z" fill="#0b6970"/>
+  <text x="1240" y="213" class="takeawayTitle">Points clés</text>
+  <line x1="1190" y1="236" x2="1190" y2="797" stroke="#a4b6b8" stroke-width="1.5"/>
+
+  <circle cx="1190" cy="270" r="6" fill="#0b6970"/>
+  <path d="M1198 265 L1208 270 L1198 275 Z" fill="#0b6970"/>
+  <text x="1221" y="267" class="takeaway">
+    <tspan x="1221" dy="0">Express est la façade produit :</tspan>
+    <tspan x="1221" dy="22">sécurité, équipes, suites et exports.</tspan>
+  </text>
+
+  <circle cx="1190" cy="344" r="6" fill="#0b6970"/>
+  <path d="M1198 339 L1208 344 L1198 349 Z" fill="#0b6970"/>
+  <text x="1221" y="341" class="takeaway">
+    <tspan x="1221" dy="0">FastAPI porte l’ingestion NLP,</tspan>
+    <tspan x="1221" dy="22">la génération et les décisions UI.</tspan>
+  </text>
+
+  <circle cx="1190" cy="418" r="6" fill="#0b6970"/>
+  <path d="M1198 413 L1208 418 L1198 423 Z" fill="#0b6970"/>
+  <text x="1221" y="415" class="takeaway">
+    <tspan x="1221" dy="0">MongoDB est l’unique stockage</tspan>
+    <tspan x="1221" dy="22">durable partagé entre les services.</tspan>
+  </text>
+
+  <circle cx="1190" cy="492" r="6" fill="#0b6970"/>
+  <path d="M1198 487 L1208 492 L1198 497 Z" fill="#0b6970"/>
+  <text x="1221" y="489" class="takeaway">
+    <tspan x="1221" dy="0">L’upload reste déterministe :</tspan>
+    <tspan x="1221" dy="22">aucun appel LLM ni embedding.</tspan>
+  </text>
+
+  <circle cx="1190" cy="566" r="6" fill="#0b6970"/>
+  <path d="M1198 561 L1208 566 L1198 571 Z" fill="#0b6970"/>
+  <text x="1221" y="563" class="takeaway">
+    <tspan x="1221" dy="0">Les modules sont versionnés via</tspan>
+    <tspan x="1221" dy="22">claim → lease → commit atomique.</tspan>
+  </text>
+
+  <circle cx="1190" cy="640" r="6" fill="#0b6970"/>
+  <path d="M1198 635 L1208 640 L1198 645 Z" fill="#0b6970"/>
+  <text x="1221" y="637" class="takeaway">
+    <tspan x="1221" dy="0">Plans déterministes ; cas filtrés</tspan>
+    <tspan x="1221" dy="22">par moduleId et TASK_MANIFEST.</tspan>
+  </text>
+
+  <circle cx="1190" cy="714" r="6" fill="#0b6970"/>
+  <path d="M1198 709 L1208 714 L1198 719 Z" fill="#0b6970"/>
+  <text x="1221" y="711" class="takeaway">
+    <tspan x="1221" dy="0">X-Internal-Token protège le contrat</tspan>
+    <tspan x="1221" dy="22">inter-services et les snapshots.</tspan>
+  </text>
+
+  <circle cx="1190" cy="788" r="6" fill="#0b6970"/>
+  <path d="M1198 783 L1208 788 L1198 793 Z" fill="#0b6970"/>
+  <text x="1221" y="785" class="takeaway">
+    <tspan x="1221" dy="0">Selenium conserve logs, résultats</tspan>
+    <tspan x="1221" dy="22">par étape et captures d’écran.</tspan>
+  </text>
+
+  <!-- Footer -->
+  <text x="800" y="870" text-anchor="middle" class="footer">État du code — 14 août 2026 · Sources : backend-2026/context.md et python-2026/context.md</text>
+</svg>
