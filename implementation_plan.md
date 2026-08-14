@@ -1,5 +1,12 @@
 # Task-Conditioned Extraction Pipeline — Implementation Plan
 
+> Module timing and plan-evidence behavior in this historical plan are
+> superseded by `module_generation_on_generate_plan_implementation_plan.md`.
+> As of 2026-08-12, upload persists role-tagged items with module generation
+> pending; `POST /generate-plan` owns module ensure/regenerate, assignment, and
+> deterministic plan assembly from REQUIREMENT, ACCEPTANCE, and
+> NON_FUNCTIONAL evidence.
+
 Fix grounding decay on long specs by replacing raw `spec_text` / flat chunks
 with a two-stage pipeline: ingestion tags every bullet/sentence with a *role*
 and a *module* at upload time; generation filters down to only what the prompt
