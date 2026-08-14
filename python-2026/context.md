@@ -1,6 +1,6 @@
 # context.md — python-2026 : état du projet
 
-> Mis à jour le 2026-08-04.
+> Mis à jour le 2026-08-12.
 
 ---
 
@@ -8,9 +8,9 @@
 
 **python-2026** est un backend **FastAPI** (Python) qui sert de microservice d'IA et d'automatisations NLP/Selenium pour l'API principale **`backend-2026`** (Express.js / Node.js). Il expose une API REST pour :
 
-1. **Ingestion & Itemisation structurée (Phases 1-4c)** : Chunking récursif sensible aux titres `.docx`, extraction atomique d'items (puces / phrases), classification déterministe en cascade des rôles (`tag_role`), génération de cartes modules spec-local (`generate_module_list`, `tag_module`), et persistance résiliente inter-services vers Node/MongoDB (`store_client.py`).
+1. **Ingestion & Itemisation structurée (Phases 1-4c)** : Chunking récursif sensible aux titres `.docx`, extraction atomique d'items (puces / phrases), classification déterministe en cascade des rôles (`tag_role`) et persistance avec `module_status=pending`. L'upload n'appelle ni OpenRouter ni le modèle d'embedding.
 2. **File de revue humaine (Phase 5a)** : Exposition d'endpoints `/review-queue/{spec_hash}` permettant d'inspecter et de valider manuellement les items non classés (`UNTAGGED` -> `role_method="human"`).
-3. **Génération déterministe de Test Plans (Phase 5b)** : Assemblage direct et instantané de plans de test (TP-N) à partir des modules générés et items d'exigences stockés (zéro appel LLM pour la génération de plans).
+3. **Génération de Test Plans (Phase 5b)** : `POST /generate-plan` assure une version courante des cartes modules (un appel LLM sur cache miss/régénération), tague les items, persiste les affectations puis assemble les plans de façon déterministe.
 4. **Génération ciblé de Test Cases par module (Phase 6)** : Conditionnement du prompt LLM avec filtrage contextuel strict des items par rôle autorisés (`TASK_MANIFEST`) et par module (`get_filtered_items_for_task`).
 5. **Décisions AI step-by-step** pour l'automatisation UI (Selenium + DOM fallback).
 6. **Exécution et annulation** des tests Selenium et requêtes en cours.
@@ -53,6 +53,7 @@ python-2026/
 │   │   ├── role_heading_prior.py   # Détection par mots-clés sur le titre parent direct (Phase 3/7)
 │   │   ├── tagger.py              # Classifier de rôles tag_role() (regex -> heading -> UNTAGGED, sans fallback embedding)
 │   │   ├── module_generation.py   # Extraits de preuve & appel LLM pour générer les cartes modules spec-local
+│   │   ├── module_orchestration.py # Ensure/regenerate, version, tagging, couverture et commit atomique
 │   │   ├── module_tagger.py       # Alignement et tagging des items sur les modules générés (tag_module)
 │   │   ├── module_gold.py         # Registre Gold pour l'alignement de Hungarian (SonicWave)
 │   │   ├── module_validation.py   # Comparaison legacy vs généré & scoring Hungarian
@@ -99,11 +100,11 @@ python-2026/
 |---------|-------|-------------|
 | `GET` | `/` | Health check + liste des endpoints |
 | `GET` | `/health` | Status + modèle + mock_mode |
-| `POST` | `/upload-spec` | Upload `.docx` → extrait `spec_text`, exécute `ingest_spec()` et persiste dans MongoDB via `store_client.py` (retourne `spec_hash`, `item_count`) |
+| `POST` | `/upload-spec` | Upload `.docx` → extrait, itemise et tague les rôles, puis persiste avec les modules en attente (aucun appel LLM/embedding) |
 | `GET` | `/debug/items/{spec_hash}` | Inspecte le store d'items (count + sample structuré) pour un hash donné |
 | `GET` | `/review-queue/{spec_hash}` | Liste les items `UNTAGGED` en attente de revue humaine (Phase 5a) |
 | `POST` | `/review-queue/{spec_hash}/{item_id}` | Valide le rôle d'un item par un humain (`role_method="human"`, `reviewed=True`) |
-| `POST` | `/generate-plan` | Assemblage déterministe instantané des Test Plans (TP-1..TP-N) à partir des modules et items (Phase 5b) |
+| `POST` | `/generate-plan` | Assure/génère les modules, tague et persiste les affectations, puis assemble les Test Plans déterministes (TP-1..TP-N) |
 | `POST` | `/generate-test-cases` | Génère les Test Cases d'un plan conditionné par le module et le filtrage `TASK_MANIFEST` (Phase 6) |
 | `POST` | `/ai/decide` | Décision AI pour une step UI (step + DOM → actions) |
 | `POST` | `/ai/detect-failure` | Analyse d'échec de test Selenium |
@@ -134,8 +135,9 @@ python-2026/
 - Tout item non classé conserve `role="UNTAGGED"` et entre dans la file de revue humaine (Phase 5a).
 
 ### 4. Génération & Classification des Modules par Spec (`services/ingestion/module_*`) — Phase 4
-- **Extraction générative des modules (`module_generation.py`)** : sélection d'items de preuve de haute confiance (`CONTEXT`, `FEATURE`, `REQUIREMENT`, `NON_FUNCTIONAL` avec `role_method != 'none'`) transmis à OpenRouter pour générer 1 à 12 cartes modules spec-local `{name, description}`.
-- **Tagging des items par module (`module_tagger.py`)** : comparaison par cosine similarity vectorielle (`sentence-transformers`) entre le texte de chaque item et les descriptions générées.
+- **Propriété de `/generate-plan` (`module_orchestration.py`)** : génération/reuse versionnée avec lease, empreinte des preuves, couverture et persistance des champs modules uniquement.
+- **Extraction générative des modules (`module_generation.py`)** : sélection d'items de preuve de haute confiance (`CONTEXT`, `FEATURE`, `REQUIREMENT`, `ACCEPTANCE`, `NON_FUNCTIONAL` avec `role_method != 'none'`) transmis à OpenRouter pour générer 1 à 12 cartes modules spec-local `{id, name, description, kind}`.
+- **Tagging des items par module (`module_tagger.py`)** : comparaison vectorielle enrichie par titres et sources citées; les rôles `GLOSSARY`, `OUT_OF_SCOPE` et `UNTAGGED` sont explicitement exclus.
 - **Validation Gold & Hungarian Alignment (`module_validation.py`, `module_gold.py`)** : évaluation automatisée contre le jeu de référence SonicWave (score > 0.60).
 
 ### 5. Identité, Manifeste et propagation `spec_hash` (`services/ingestion/manifest.py`) — Phase 4b
@@ -151,11 +153,12 @@ python-2026/
 - La résolution humaine passe `role_method="human"`, `reviewed=True` et génère un `requirement_id` si le rôle choisi est `REQUIREMENT`.
 
 ### 8. Génération déterministe des Test Plans (`services/plan_service.py`) — Phase 5b
-- **Zero-LLM Test Plan Generation** : `/generate-plan` assemble directement les objets `TP-N` par module non-vide à partir des cartes modules et exigences stockées.
-- Exécution instantanée, sans dépendance LLM externe lors de la génération des plans.
+- **Assemblage déterministe après module ensure** : une fois le snapshot module prêt, les objets `TP-N` sont assemblés sans second appel LLM.
+- Un module est éligible avec au moins une preuve `REQUIREMENT`, `ACCEPTANCE` ou `NON_FUNCTIONAL`; les NFR transverses produisent un plan qualité.
+- Le mode `ensure` réutilise le snapshot courant; le mode `regenerate` produit une nouvelle version.
 
 ### 9. Scope et filtrage contextuel des Test Cases (`services/case_service.py`) — Phase 6
-- **Filtrage par module & rôle** : conditionnement des prompts de cas de test avec uniquement les items pertinents du module du plan (`plan_module`) respectant le `TASK_MANIFEST`.
+- **Filtrage par module & rôle** : conditionnement des prompts avec les items `FEATURE`, `REQUIREMENT`, `ACCEPTANCE` et `NON_FUNCTIONAL`, de préférence liés par `plan_module_id` stable.
 - Propagation continue du `pending_review_count` vers l'utilisateur.
 
 ---
@@ -197,15 +200,14 @@ python-2026/
                               │                                     ├─► chunker (HeadingTree)
                               │                                     ├─► expand_section_to_items()
                               │                                     ├─► tag_role() (Cascade déterministe)
-                              │                                     ├─► generate_module_list() + tag_module()
-                              │                                     └─► store_client.py ──► PUT /api/internal/spec-ingestions (MongoDB)
+                              │                                     └─► store_client.py ──► PUT items + module_status=pending
                               │
                               ├─ GET /review-queue/{hash} ────► store_client.py ──► GET /api/internal/spec-ingestions/:hash/review-queue
                               ├─ POST /review-queue/... ──────► store_client.py ──► PATCH /api/internal/.../items/:id/review
                               │
                               ├─ POST /generate-plan ─────────► plan_service.generate_test_plans()
-                              │                                     ├─► store_client.py (GET items & modules)
-                              │                                     └─► build_test_plans_deterministic() (Zero LLM call)
+                              │                                     ├─► ensure_modules_for_plan() (generate/reuse + tag + commit)
+                              │                                     └─► build_test_plans_deterministic() (REQUIREMENT/ACCEPTANCE/NFR)
                               │
                               ├─ POST /generate-test-cases ───► case_service.generate_test_cases()
                               │                                     ├─► get_filtered_items_for_task(spec_hash, task, module)

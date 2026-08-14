@@ -1,87 +1,85 @@
 # python-2026
 
-Service FastAPI pour:
-- upload de spec (`.docx`)
-- generation de test plans
-- generation de test cases
-- interpretation de test cases en modele d'execution standardise
-- chat avec Ollama
+Service FastAPI pour :
 
-## Demarrage rapide
+- l'upload et l'itemisation de spécifications `.docx` ;
+- le tagging déterministe des rôles ;
+- la génération et l'affectation des modules pendant `/generate-plan` ;
+- l'assemblage déterministe des plans de test ;
+- la génération de cas de test via OpenRouter ;
+- les décisions et automatisations Selenium.
 
-1. Creer et activer un environnement virtuel.
-2. Installer les dependances:
-```bash
-pip install -r requirements.txt
+## Démarrage rapide
+
+1. Créer et activer un environnement virtuel.
+2. Installer les dépendances :
+
+```powershell
+python -m pip install -r requirements.txt
 ```
-3. Copier `.env.example` vers `.env` puis ajuster les valeurs.
-4. Lancer l'API:
-```bash
-uvicorn main:app --reload --host 127.0.0.1 --port 8000
+
+3. Copier `.env.example` vers `.env` et remplacer les secrets.
+4. Démarrer `backend-2026` avant FastAPI, car Node/MongoDB possède le store
+   durable des ingestions et modules.
+5. Lancer FastAPI :
+
+```powershell
+python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ## Endpoints principaux
 
-- `GET /` health check
-- `POST /chat`
+- `GET /health`
 - `POST /upload-spec`
 - `POST /generate-plan`
 - `POST /generate-test-cases`
-- `POST /translate-test-case`
+- `GET/POST /review-queue/...`
+- `POST /ai/decide`
+- `POST /cancel-generation`
 
-## Timeouts Ollama
+`POST /upload-spec` n'appelle ni OpenRouter ni le modèle d'embedding. Il
+persiste les items et rôles avec `module_status=pending`.
 
-Variables disponibles dans `.env`:
-- `OLLAMA_TIMEOUT`: timeout global (defaut 300s)
-- `OLLAMA_CHAT_TIMEOUT`: timeout pour `/chat` (fallback: `OLLAMA_TIMEOUT`)
-- `OLLAMA_TEST_PLANS_TIMEOUT`: timeout pour `/generate-plan` (fallback: `OLLAMA_TIMEOUT`)
-- `OLLAMA_TEST_CASES_TIMEOUT`: timeout pour `/generate-test-cases` (fallback: `OLLAMA_TIMEOUT`)
-- `OLLAMA_TEST_TRANSLATOR_TIMEOUT`: timeout pour `/translate-test-case` (fallback: `OLLAMA_TIMEOUT`)
-- `MODEL_NAME`: alias optionnel pour `OLLAMA_MODEL`
-- `OLLAMA_HTTP_TIMEOUT`: timeout pour l'appel HTTP Ã  Ollama (defaut 20s)
-- `OLLAMA_NUM_PREDICT`: limite de tokens de sortie (optionnel, speed-up)
-- `OLLAMA_TEMPERATURE`: tempÃ©rature (defaut 0.2)
+`POST /generate-plan` accepte `module_mode=ensure|regenerate`. Il génère ou
+réutilise les modules, affecte les items, persiste une version puis assemble
+les plans depuis les preuves `REQUIREMENT`, `ACCEPTANCE` et `NON_FUNCTIONAL`.
 
-Exemple:
+## Configuration OpenRouter et modules
+
+Variables principales de `.env` :
+
+- `OPENROUTER_API_KEY` : clé requise lorsque `USE_MOCK=false` ;
+- `OPENROUTER_MODEL` : modèle utilisé ;
+- `OPENROUTER_TIMEOUT` : timeout global en secondes ;
+- `OPENROUTER_CHAT_TIMEOUT` : timeout de `/chat` ;
+- `OPENROUTER_TEST_PLANS_TIMEOUT` : génération des modules pendant `/generate-plan` ;
+- `OPENROUTER_TEST_CASES_TIMEOUT` : génération des cas ;
+- `OPENROUTER_TEST_TRANSLATOR_TIMEOUT` : traduction ;
+- `OPENROUTER_MAX_TOKENS` et `OPENROUTER_TEMPERATURE` : paramètres de génération ;
+- `BACKEND_API_BASE_URL` : URL du backend Node ;
+- `INTERNAL_API_TOKEN` : secret partagé identique à celui de `backend-2026` ;
+- `HF_HOME` : cache durable du modèle sentence-transformers ;
+- `HF_TOKEN` : optionnel, recommandé pour éviter les limites anonymes Hugging Face.
+
+Exemple minimal :
+
 ```env
-OLLAMA_TIMEOUT=300
-OLLAMA_CHAT_TIMEOUT=300
-OLLAMA_TEST_PLANS_TIMEOUT=300
-OLLAMA_TEST_CASES_TIMEOUT=420
-OLLAMA_TEST_TRANSLATOR_TIMEOUT=180
+OPENROUTER_API_KEY=replace-me
+OPENROUTER_MODEL=google/gemini-2.5-flash
+OPENROUTER_TIMEOUT=120
+OPENROUTER_TEST_PLANS_TIMEOUT=120
+OPENROUTER_TEST_CASES_TIMEOUT=300
+BACKEND_API_BASE_URL=http://127.0.0.1:3000
+INTERNAL_API_TOKEN=replace-with-the-same-token-as-backend-2026
+HF_HOME=.cache/huggingface
 ```
 
-## Checklist priorisee
+Le modèle `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` est
+chargé lors de la première génération de plan. En production, précharger son
+cache afin d'éviter un téléchargement Hugging Face pendant une requête.
 
-### Quick wins (1h)
+## Vérification
 
-- Ajouter ce README (setup + run + endpoints + timeouts). Done.
-- Fixer les timeouts via `.env` pour eviter les 504 sur specs longues. Done.
-- Ajouter une commande de lancement standard (Makefile ou script shell/powershell).
-- Restreindre `CORS` en production (ne pas laisser `*`).
-- Ajouter un fichier `tests/smoke_test.py` avec `fastapi.testclient` sur `GET /`.
-
-### Court terme (1 jour)
-
-- Ajouter `pyproject.toml` avec outils qualite:
-  - `ruff`
-  - `black`
-  - `mypy` (optionnel au debut)
-  - `pytest`
-- Geler les versions de dependances (ou lockfile).
-- Ajouter tests API minimaux:
-  - health check
-  - validation upload `.docx`
-  - generation mock (`USE_MOCK=true`)
-- Centraliser les logs (niveau, message, context request).
-- Ajouter CI (GitHub Actions):
-  - installation
-  - lint
-  - tests
-
-### Moyen terme (1 semaine)
-
-- Dockeriser le service (`Dockerfile` + `.dockerignore`).
-- Ajouter environnements dev/prod explicites.
-- Ajouter monitoring basique (latence endpoints, erreurs 5xx, timeouts).
-- Ajouter politique retry/backoff sur appels externes si necessaire.
+```powershell
+python -m pytest tests -q -p no:cacheprovider
+```

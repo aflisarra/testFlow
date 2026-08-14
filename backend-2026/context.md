@@ -143,8 +143,8 @@ Tous les chemins ci-dessous sont relatifs au serveur (préfixe `/api` sauf indic
 | `TestPlan` | Collection normalisée liée à une suite. ID métier (`TP-*`), objectif, périmètre, priorité et exigences. Index unique `(testSuiteId, id)`. |
 | `TestCase` | Lié à une suite et un plan. ID métier (`TC-*`), étapes, `stepDetails`, données de test, priorité/sévérité/type et auteur. Index unique `(testSuiteId, planId, id)`. |
 | `TestExecution` | Identifiant d'exécution, statuts, logs, captures, résultats par étape, navigateur et durée. |
-| `SpecIngestion` | Stockage persistant de l'ingestion (`specHash`, `status`, `itemCount`, `modules`). Index unique `{ specHash: 1 }`. (Phase 4c) |
-| `SpecIngestionItem` | Items atomiques extraits et taggués (`specHash`, `itemId`, `headingPath`, `text`, `role`, `roleMethod`, `module`, `reviewed`, `reviewedBy`, `requirementId`). Index unique `{ specHash: 1, itemId: 1 }`. (Phase 4c) |
+| `SpecIngestion` | Stockage persistant de l'ingestion et du cycle modules (`moduleStatus`, version, algorithme, empreinte, lease, couverture et cartes modules). Index unique `{ specHash: 1 }`. |
+| `SpecIngestionItem` | Items atomiques avec rôle/revue et affectations modules séparées (`moduleIds`, `primaryModuleId`, méthode, score, marge, disposition). Index unique `{ specHash: 1, itemId: 1 }`. |
 | `MagicToken` | Jeton/OTP de reset, à usage unique, avec TTL MongoDB. |
 
 Les métadonnées QA sont normalisées dans `utils/test-artifact-fields.js` : priorités `low|medium|high|critical`, sévérités `trivial|minor|major|critical|blocker` et types de cas (functional, regression, e2e, api, ui, etc.).
@@ -154,8 +154,8 @@ Les métadonnées QA sont normalisées dans `utils/test-artifact-fields.js` : pr
 ## Flux métier principaux
 
 ### 1. Ingestion résiliente & Revue humaine (Phase 4c / 5a)
-1. `python-2026` reçoit une spécification `.docx`, effectue l'itemisation, le taggajedes rôles et l'extraction des modules.
-2. `python-2026` appelle `PUT /api/internal/spec-ingestions/:specHash` pour sauvegarder l'état de l'ingestion (`SpecIngestion`) et la liste complète des items (`SpecIngestionItem`).
+1. `python-2026` reçoit une spécification `.docx`, effectue l'itemisation et le tagging déterministe des rôles, puis persiste les modules avec l'état `pending`.
+2. Lors de `POST /generate-plan`, FastAPI claim une génération module, génère ou réutilise les cartes, puis commit uniquement les cartes et champs d'affectation modules via l'API interne.
 3. Lorsque l'utilisateur consulte ou résout la file d'attente d'items `UNTAGGED`, `python-2026` délègue les requêtes à `GET /api/internal/spec-ingestions/:specHash/review-queue` et `PATCH /api/internal/spec-ingestions/:specHash/items/:itemId/review`.
 4. La résolution met à jour de façon atomique `roleMethod: "human"`, `reviewed: true`, attribue le `requirementId` si nécessaire, et garantit la survie des données après redémarrage des services.
 
