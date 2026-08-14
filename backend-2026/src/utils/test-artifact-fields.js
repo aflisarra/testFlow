@@ -202,6 +202,29 @@ function normalizeRequirements(value) {
   return normalized
 }
 
+function normalizeEvidence(value) {
+  const list = Array.isArray(value) ? value : value ? [value] : []
+  const seen = new Set()
+  const normalized = []
+  for (const item of list) {
+    if (!item || typeof item !== 'object') continue
+    const evidence = {
+      itemId: normalizeString(item.item_id ?? item.itemId),
+      externalId: normalizeString(item.external_id ?? item.externalId),
+      role: normalizeString(item.role).toUpperCase(),
+      title: normalizeString(item.title),
+      description: normalizeString(item.description ?? item.text),
+      source: normalizeString(item.source),
+    }
+    if (!evidence.itemId || !evidence.role || !evidence.description) continue
+    const key = `${evidence.itemId}|${evidence.role}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    normalized.push(evidence)
+  }
+  return normalized
+}
+
 function normalizeTestData(value) {
   if (value === undefined || value === null || value === '') return null
   
@@ -296,6 +319,7 @@ module.exports = {
   normalizeString,
   normalizeStringList,
   normalizeRequirements,
+  normalizeEvidence,
   normalizeTestData,
   normalizeAutomationTestData,
   hasOwn,

@@ -9,9 +9,14 @@ test('SpecIngestion stores bounded module-card fields', () => {
     specHash: 'a'.repeat(64),
     status: 'ready',
     itemCount: 1,
-    modules: [{ name: 'Playback', description: 'Listening behavior', source_item_ids: ['ITEM-00001'] }],
+    moduleStatus: 'ready',
+    moduleVersion: 1,
+    moduleAlgorithmVersion: 'module-v2',
+    modules: [{ id: 'MOD-001', name: 'Playback', description: 'Listening behavior', kind: 'functional', source_item_ids: ['ITEM-00001'] }],
   })
   assert.equal(ingestion.validateSync(), undefined)
+  assert.equal(ingestion.moduleStatus, 'ready')
+  assert.equal(ingestion.modules[0].id, 'MOD-001')
 
   const tooManyModules = new SpecIngestion({
     specHash: 'b'.repeat(64),
@@ -25,14 +30,26 @@ test('SpecIngestionItem accepts human review metadata and rejects unknown roles'
     specHash: 'a'.repeat(64), itemId: 'ITEM-00001', sourceChunkId: 'CHUNK-001',
     text: 'The player must work offline.', role: 'REQUIREMENT', roleMethod: 'human',
     reviewed: true, reviewedBy: 'alice', reviewState: 'resolved', requirementId: 'REQ-00001',
+    module: 'Playback', moduleIds: ['MOD-001'], primaryModuleId: 'MOD-001',
+    moduleMethod: 'hybrid', moduleScore: 0.82, moduleMargin: 0.21,
+    moduleDisposition: 'assigned', moduleAlgorithmVersion: 'module-v2',
   })
   assert.equal(valid.validateSync(), undefined)
+  assert.deepEqual(valid.moduleIds, ['MOD-001'])
 
   const invalid = new SpecIngestionItem({
     specHash: 'a'.repeat(64), itemId: 'ITEM-00002', sourceChunkId: 'CHUNK-001',
     text: 'Invalid role.', role: 'GUESS', roleMethod: 'none',
   })
   assert.ok(invalid.validateSync()?.errors.role)
+})
+
+test('SpecIngestion defaults a new snapshot to pending module generation', () => {
+  const ingestion = new SpecIngestion({ specHash: 'c'.repeat(64), status: 'ready', itemCount: 2 })
+
+  assert.equal(ingestion.validateSync(), undefined)
+  assert.equal(ingestion.moduleStatus, 'pending')
+  assert.equal(ingestion.moduleVersion, 0)
 })
 
 test('SpecIngestionItem retains dismissed-review audit metadata', () => {

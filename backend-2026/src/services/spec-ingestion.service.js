@@ -1,6 +1,14 @@
+const crypto = require('crypto')
 const SpecIngestion = require('../models/spec-ingestion.model')
 const SpecIngestionItem = require('../models/spec-ingestion-item.model')
-const { ROLE_LABELS, ROLE_METHODS } = require('../models/spec-ingestion-item.model')
+const {
+  ROLE_LABELS,
+  ROLE_METHODS,
+  MODULE_METHODS,
+  MODULE_DISPOSITIONS,
+} = require('../models/spec-ingestion-item.model')
+
+const MODULE_LEASE_TTL_MS = 10 * 60 * 1000
 
 function inputError(message, statusCode = 422) {
   const error = new Error(message)
@@ -44,7 +52,15 @@ function asItem(specHash, raw) {
     roleMethod: String(raw?.role_method ?? raw?.roleMethod ?? 'none').trim(),
     roleScore: numberOr(raw?.role_score ?? raw?.roleScore),
     module: String(raw?.module || 'UNTAGGED').trim() || 'UNTAGGED',
-    moduleScore: numberOr(raw?.module_score ?? raw?.moduleScore, 0),
+    moduleIds: Array.isArray(raw?.module_ids ?? raw?.moduleIds)
+      ? (raw.module_ids ?? raw.moduleIds).map(String).filter(Boolean)
+      : [],
+    primaryModuleId: raw?.primary_module_id ?? raw?.primaryModuleId ?? null,
+    moduleMethod: String(raw?.module_method ?? raw?.moduleMethod ?? 'none').trim(),
+    moduleScore: numberOr(raw?.module_score ?? raw?.moduleScore),
+    moduleMargin: numberOr(raw?.module_margin ?? raw?.moduleMargin),
+    moduleDisposition: String(raw?.module_disposition ?? raw?.moduleDisposition ?? 'unassigned').trim(),
+    moduleAlgorithmVersion: raw?.module_algorithm_version ?? raw?.moduleAlgorithmVersion ?? null,
     reviewed,
     reviewedBy: raw?.reviewed_by ?? raw?.reviewedBy ?? null,
     reviewState,
@@ -57,12 +73,15 @@ function asItem(specHash, raw) {
   }
 }
 
-function asModule(raw, itemIds) {
+function asModule(raw, itemIds, index = 0) {
   const source = raw?.source_item_ids ?? raw?.sourceItemIds
   const source_item_ids = Array.isArray(source) ? source.map(String).filter((id) => itemIds.has(id)) : []
   const name = text(raw?.name, 'module name')
   if (!source_item_ids.length) throw inputError(`Module ${name} has no valid source item IDs`)
-  return { name, description: text(raw?.description, 'module description'), source_item_ids }
+  const id = String(raw?.id || raw?.module_id || `MOD-${String(index + 1).padStart(3, '0')}`).trim()
+  const kind = String(raw?.kind || 'functional').trim().toLowerCase()
+  if (!['functional', 'quality'].includes(kind)) throw inputError(`Module ${name} has an invalid kind`)
+  return { id, name, description: text(raw?.description, 'module description'), kind, source_item_ids }
 }
 
 function serialize(item) {
@@ -75,7 +94,13 @@ function serialize(item) {
     role_method: item.roleMethod,
     role_score: item.roleScore,
     module: item.module,
+    module_ids: item.moduleIds || [],
+    primary_module_id: item.primaryModuleId,
+    module_method: item.moduleMethod,
     module_score: item.moduleScore,
+    module_margin: item.moduleMargin,
+    module_disposition: item.moduleDisposition,
+    module_algorithm_version: item.moduleAlgorithmVersion,
     reviewed: item.reviewed,
     reviewed_by: item.reviewedBy,
     review_state: item.reviewState,
@@ -109,7 +134,7 @@ async function replaceSnapshot(rawSpecHash, rawItems, rawModules) {
   if (itemIds.size !== items.length) throw inputError('item IDs must be unique within a spec')
   if (items.some((item) => !ROLE_LABELS.includes(item.role))) throw inputError('Invalid item role')
   if (items.some((item) => !ROLE_METHODS.includes(item.roleMethod))) throw inputError('Invalid item role method')
-  const modules = rawModules.map((module) => asModule(module, itemIds))
+  const modules = rawModules.map((module, index) => asModule(module, itemIds, index))
 
   await SpecIngestion.findOneAndUpdate(
     { specHash: hash },
@@ -152,7 +177,17 @@ async function replaceSnapshot(rawSpecHash, rawItems, rawModules) {
       })), { ordered: true })
     }
     await SpecIngestionItem.deleteMany(itemIds.size ? { specHash: hash, itemId: { $nin: [...itemIds] } } : { specHash: hash })
-    await SpecIngestion.updateOne({ specHash: hash }, { $set: { status: 'ready', itemCount: items.length, modules } }, { runValidators: true })
+    await SpecIngestion.updateOne(
+      { specHash: hash },
+      { $set: {
+        status: 'ready',
+        itemCount: items.length,
+        modules,
+        moduleStatus: modules.length ? 'ready' : 'pending',
+        moduleGenerationError: null,
+      } },
+      { runValidators: true }
+    )
   } catch (error) {
     await SpecIngestion.updateOne({ specHash: hash }, { $set: { status: 'failed' } })
     throw error
@@ -167,7 +202,210 @@ async function getSnapshot(specHash) {
   const ingestion = await readyIngestion(specHash)
   if (!ingestion) return null
   const items = await SpecIngestionItem.find({ specHash: ingestion.specHash }).sort({ itemId: 1 }).lean()
-  return { items: items.map(serialize), modules: ingestion.modules || [] }
+  return {
+    items: items.map(serialize),
+    modules: ingestion.modules || [],
+    module_status: ingestion.moduleStatus || ((ingestion.modules || []).length ? 'ready' : 'pending'),
+    module_version: Number(ingestion.moduleVersion || 0),
+    module_algorithm_version: ingestion.moduleAlgorithmVersion || null,
+    module_evidence_fingerprint: ingestion.moduleEvidenceFingerprint || null,
+    module_coverage: ingestion.moduleCoverageSummary || {},
+  }
+}
+
+async function claimModuleGeneration(rawSpecHash, options = {}) {
+  const hash = specHash(rawSpecHash)
+  const fingerprint = text(options.fingerprint, 'module evidence fingerprint')
+  const algorithmVersion = text(options.algorithmVersion, 'module algorithm version')
+  const force = Boolean(options.force)
+  const existing = await readyIngestion(hash)
+  if (!existing) return null
+
+  const reusable = !force
+    && ['ready', 'needs_review'].includes(String(existing.moduleStatus || ''))
+    && Array.isArray(existing.modules)
+    && existing.modules.length > 0
+    && existing.moduleEvidenceFingerprint === fingerprint
+    && existing.moduleAlgorithmVersion === algorithmVersion
+
+  if (reusable) {
+    return {
+      claimed: false,
+      reused: true,
+      in_progress: false,
+      module_status: existing.moduleStatus,
+      module_version: Number(existing.moduleVersion || 0),
+      modules: existing.modules,
+      module_coverage: existing.moduleCoverageSummary || {},
+    }
+  }
+
+  const lease = crypto.randomUUID()
+  const staleBefore = new Date(Date.now() - MODULE_LEASE_TTL_MS)
+  const claimed = await SpecIngestion.findOneAndUpdate(
+    {
+      specHash: hash,
+      status: 'ready',
+      $or: [
+        { moduleStatus: { $ne: 'generating' } },
+        { moduleGenerationStartedAt: { $lt: staleBefore } },
+        { moduleGenerationStartedAt: null },
+      ],
+    },
+    { $set: {
+      moduleStatus: 'generating',
+      moduleGenerationLease: lease,
+      moduleGenerationStartedAt: new Date(),
+      moduleGenerationCompletedAt: null,
+      moduleGenerationError: null,
+    } },
+    { new: true, runValidators: true }
+  ).lean()
+
+  if (!claimed) {
+    return {
+      claimed: false,
+      reused: false,
+      in_progress: true,
+      module_status: 'generating',
+      module_version: Number(existing.moduleVersion || 0),
+    }
+  }
+
+  return {
+    claimed: true,
+    reused: false,
+    in_progress: false,
+    lease,
+    module_status: 'generating',
+    module_version: Number(claimed.moduleVersion || 0),
+    previous_modules: existing.modules || [],
+  }
+}
+
+function assignmentUpdate(raw, moduleNamesById, algorithmVersion) {
+  const itemId = text(raw?.item_id ?? raw?.itemId, 'item id')
+  const moduleIds = Array.isArray(raw?.module_ids ?? raw?.moduleIds)
+    ? (raw.module_ids ?? raw.moduleIds).map(String).filter((id) => moduleNamesById.has(id))
+    : []
+  const primaryModuleId = String(raw?.primary_module_id ?? raw?.primaryModuleId ?? '').trim() || null
+  const safePrimaryId = primaryModuleId && moduleNamesById.has(primaryModuleId) ? primaryModuleId : null
+  const moduleMethod = String(raw?.module_method ?? raw?.moduleMethod ?? 'none').trim()
+  const moduleDisposition = String(raw?.module_disposition ?? raw?.moduleDisposition ?? 'unassigned').trim()
+  if (!MODULE_METHODS.includes(moduleMethod)) throw inputError(`Invalid module method for ${itemId}`)
+  if (!MODULE_DISPOSITIONS.includes(moduleDisposition)) throw inputError(`Invalid module disposition for ${itemId}`)
+  if (moduleDisposition === 'assigned' && (!safePrimaryId || moduleIds.length !== 1)) {
+    throw inputError(`Assigned item ${itemId} must have exactly one primary module`)
+  }
+  if (moduleDisposition === 'cross_cutting' && moduleIds.length < 2) {
+    throw inputError(`Cross-cutting item ${itemId} must reference at least two modules`)
+  }
+  return {
+    itemId,
+    fields: {
+      moduleIds,
+      primaryModuleId: safePrimaryId,
+      module: safePrimaryId ? moduleNamesById.get(safePrimaryId) : 'UNTAGGED',
+      moduleMethod,
+      moduleScore: numberOr(raw?.module_score ?? raw?.moduleScore),
+      moduleMargin: numberOr(raw?.module_margin ?? raw?.moduleMargin),
+      moduleDisposition,
+      moduleAlgorithmVersion: algorithmVersion,
+    },
+  }
+}
+
+async function commitModuleGeneration(rawSpecHash, lease, payload = {}) {
+  const hash = specHash(rawSpecHash)
+  const token = text(lease, 'module generation lease')
+  const algorithmVersion = text(payload.algorithm_version ?? payload.algorithmVersion, 'module algorithm version')
+  const fingerprint = text(payload.fingerprint, 'module evidence fingerprint')
+  const rawModules = payload.modules
+  const rawAssignments = payload.assignments
+  if (!Array.isArray(rawModules) || !Array.isArray(rawAssignments)) {
+    throw inputError('modules and assignments must be arrays')
+  }
+  if (rawModules.length > 12) throw inputError('At most 12 modules are allowed')
+
+  const ingestion = await SpecIngestion.findOne({
+    specHash: hash,
+    status: 'ready',
+    moduleStatus: 'generating',
+    moduleGenerationLease: token,
+  }).lean()
+  if (!ingestion) throw inputError('Module generation lease is stale or invalid', 409)
+
+  const storedItems = await SpecIngestionItem.find({ specHash: hash }).select('itemId').lean()
+  const itemIds = new Set(storedItems.map((item) => item.itemId))
+  const modules = rawModules.map((module, index) => asModule(module, itemIds, index))
+  if (!modules.length) throw inputError('At least one valid module is required')
+  const moduleNamesById = new Map(modules.map((module) => [module.id, module.name]))
+  if (moduleNamesById.size !== modules.length) throw inputError('Module IDs must be unique')
+  const assignments = rawAssignments.map((assignment) => assignmentUpdate(assignment, moduleNamesById, algorithmVersion))
+  if (new Set(assignments.map((assignment) => assignment.itemId)).size !== assignments.length) {
+    throw inputError('Module assignment item IDs must be unique')
+  }
+  if (assignments.some((assignment) => !itemIds.has(assignment.itemId))) {
+    throw inputError('Module assignment references an unknown item')
+  }
+  if (assignments.length !== itemIds.size) {
+    throw inputError('Module commit must include an assignment disposition for every item')
+  }
+
+  if (assignments.length) {
+    await SpecIngestionItem.bulkWrite(assignments.map((assignment) => ({
+      updateOne: {
+        filter: { specHash: hash, itemId: assignment.itemId },
+        update: { $set: assignment.fields },
+      },
+    })), { ordered: true })
+  }
+
+  const coverage = payload.coverage && typeof payload.coverage === 'object' ? payload.coverage : {}
+  const requestedStatus = String(payload.module_status ?? payload.moduleStatus ?? 'ready').trim()
+  const moduleStatus = requestedStatus === 'needs_review' ? 'needs_review' : 'ready'
+  const completed = await SpecIngestion.findOneAndUpdate(
+    { specHash: hash, moduleStatus: 'generating', moduleGenerationLease: token },
+    {
+      $set: {
+        modules,
+        moduleStatus,
+        moduleAlgorithmVersion: algorithmVersion,
+        moduleEvidenceFingerprint: fingerprint,
+        moduleCoverageSummary: coverage,
+        moduleGenerationCompletedAt: new Date(),
+        moduleGenerationError: null,
+        moduleGenerationLease: null,
+      },
+      $inc: { moduleVersion: 1 },
+    },
+    { new: true, runValidators: true }
+  ).lean()
+  if (!completed) throw inputError('Module generation lease expired before commit', 409)
+
+  return {
+    modules: completed.modules || [],
+    module_status: completed.moduleStatus,
+    module_version: Number(completed.moduleVersion || 0),
+    module_coverage: completed.moduleCoverageSummary || {},
+  }
+}
+
+async function failModuleGeneration(rawSpecHash, lease, errorMessage = '') {
+  const hash = specHash(rawSpecHash)
+  const token = text(lease, 'module generation lease')
+  const message = String(errorMessage || 'Module generation failed').trim().slice(0, 1000)
+  const result = await SpecIngestion.findOneAndUpdate(
+    { specHash: hash, moduleStatus: 'generating', moduleGenerationLease: token },
+    { $set: {
+      moduleStatus: 'failed',
+      moduleGenerationError: message,
+      moduleGenerationCompletedAt: new Date(),
+      moduleGenerationLease: null,
+    } },
+    { new: true, runValidators: true }
+  ).lean()
+  return result ? { module_status: result.moduleStatus } : null
 }
 
 async function getPendingReview(specHash) {
@@ -206,6 +444,12 @@ async function resolveReview(specHash, itemId, role, reviewer = null) {
     } },
     { new: true, runValidators: true }
   ).lean()
+  if (item && ['CONTEXT', 'FEATURE', 'REQUIREMENT', 'ACCEPTANCE', 'NON_FUNCTIONAL'].includes(resolvedRole)) {
+    await SpecIngestion.updateOne(
+      { specHash: ingestion.specHash, moduleStatus: { $in: ['ready', 'needs_review', 'failed'] } },
+      { $set: { moduleStatus: 'stale' } }
+    )
+  }
   return item ? serialize(item) : null
 }
 
@@ -234,4 +478,7 @@ module.exports = {
   resolveReview,
   dismissReview,
   pendingReviewFilter,
+  claimModuleGeneration,
+  commitModuleGeneration,
+  failModuleGeneration,
 }

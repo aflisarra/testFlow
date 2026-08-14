@@ -3,6 +3,7 @@ const {
   PRIORITY_VALUES,
   castPriority,
   normalizeRequirements,
+  normalizeEvidence,
 } = require('../utils/test-artifact-fields')
 
 const requirementSchema = new mongoose.Schema(
@@ -12,6 +13,18 @@ const requirementSchema = new mongoose.Schema(
     description: { type: String, default: '', trim: true },
     source: { type: String, default: '', trim: true },
     priority: { type: String, default: '', trim: true },
+  },
+  { _id: false }
+)
+
+const evidenceSchema = new mongoose.Schema(
+  {
+    itemId: { type: String, required: true, trim: true },
+    externalId: { type: String, default: '', trim: true },
+    role: { type: String, required: true, trim: true },
+    title: { type: String, default: '', trim: true },
+    description: { type: String, required: true, trim: true },
+    source: { type: String, default: '', trim: true },
   },
   { _id: false }
 )
@@ -30,6 +43,9 @@ const testPlanSchema = new mongoose.Schema(
     objective: { type: String, default: '', trim: true },
     scope: { type: String, default: '', trim: true },
     module: { type: String, default: null, trim: true },
+    moduleId: { type: String, default: null, trim: true },
+    planKind: { type: String, enum: ['functional', 'quality'], default: 'functional' },
+    coverageStatus: { type: String, enum: ['ready', 'needs_review'], default: 'ready' },
     priority: {
       type: String,
       enum: PRIORITY_VALUES,
@@ -54,6 +70,7 @@ const testPlanSchema = new mongoose.Schema(
         message: 'Each requirement must include at least an id, title, or description',
       },
     },
+    evidence: { type: [evidenceSchema], default: [], set: normalizeEvidence },
 
     
   },

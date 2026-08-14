@@ -19,6 +19,7 @@ const { getJwtSecret } = require('../utils/jwt-secrets')
 const {
   hasOwn,
   normalizeRequirements,
+  normalizeEvidence,
   normalizeAutomationTestData,
   normalizeString,
   normalizeStringList,
@@ -90,10 +91,14 @@ function normalizeUniqueTestPlans(rawPlans) {
         title: String(p?.title || `Test Plan ${idx + 1}`).trim(),
         description: String(p?.description || '').trim(),
         module: normalizeString(p?.module) || null,
+        moduleId: normalizeString(p?.module_id ?? p?.moduleId) || null,
+        planKind: normalizeString(p?.plan_kind ?? p?.planKind) || 'functional',
+        coverageStatus: normalizeString(p?.coverage_status ?? p?.coverageStatus) || 'ready',
         objective: normalizeString(p?.objective),
         scope: normalizeString(p?.scope),
         priority: validatePriority(p?.priority),
         requirements: normalizeRequirements(p?.requirements),
+        evidence: normalizeEvidence(p?.evidence),
       }
     })
     .slice(0, 20)
@@ -259,8 +264,12 @@ async function dualWriteTestPlans({ testSuiteId, testPlans }) {
               objective: normalizeString(p?.objective),
               scope: normalizeString(p?.scope),
               module: normalizeString(p?.module) || null,
+              moduleId: normalizeString(p?.moduleId) || null,
+              planKind: normalizeString(p?.planKind) || 'functional',
+              coverageStatus: normalizeString(p?.coverageStatus) || 'ready',
               priority: validatePriority(p?.priority),
               requirements: normalizeRequirements(p?.requirements),
+              evidence: normalizeEvidence(p?.evidence),
             },
           },
           upsert: true,
@@ -285,11 +294,15 @@ async function dualWriteTestCases({ testSuiteId, planKey, planTitle, planData, t
       title: String(planTitle || stablePlanId).trim(),
       description: normalizeString(planData?.description),
       module: normalizeString(planData?.module) || null,
+      moduleId: normalizeString(planData?.moduleId) || null,
+      planKind: normalizeString(planData?.planKind) || 'functional',
+      coverageStatus: normalizeString(planData?.coverageStatus) || 'ready',
       // ✅ métadonnées préservées
       objective: normalizeString(planData?.objective),
       scope: normalizeString(planData?.scope),
       priority: validatePriority(planData?.priority),
       requirements: normalizeRequirements(planData?.requirements || []),
+      evidence: normalizeEvidence(planData?.evidence || []),
     })
   }
 
@@ -802,8 +815,12 @@ async function generatePlan({ req, body, file }) {
           objective: plan.objective || '',
           scope: plan.scope || '',
           module: plan.module || null,
+          moduleId: plan.moduleId || null,
+          planKind: plan.planKind || 'functional',
+          coverageStatus: plan.coverageStatus || 'ready',
           priority: plan.priority || 'medium',
           requirements: plan.requirements || [],
+          evidence: plan.evidence || [],
         })),
         reused: true,
       }
@@ -827,6 +844,7 @@ async function generatePlan({ req, body, file }) {
     form.append('applicationUrl', urlCible)
     form.append('test_suite_id', testSuiteId)
     form.append('generation_scope', 'plans')
+    form.append('module_mode', regenerate ? 'regenerate' : 'ensure')
     if (generationRequestId) form.append('generation_request_id', generationRequestId)
     fastApiResponse = await axios.post(
       `${baseUrl}/generate-plan`,
@@ -839,6 +857,9 @@ async function generatePlan({ req, body, file }) {
       throw httpError(504, 'FastAPI request timed out while generating plans.')
     }
     if (status === 409) {
+      if (error?.response?.data?.code === 'MODULE_GENERATION_IN_PROGRESS') {
+        throw httpError(409, 'Module generation is already in progress. Retry shortly.', 'MODULE_GENERATION_IN_PROGRESS')
+      }
       if (suite) {
         await TestSuite.findByIdAndUpdate(testSuiteId, {
           testStatus: previousTestStatus || 'Draft',
@@ -897,6 +918,13 @@ async function generatePlan({ req, body, file }) {
     testPlans: normalizedPlansList,
     projectId: String(suite.projectId || projectId || ''),
     pendingReviewCount: Number(fastApiResponse?.data?.pending_review_count || 0),
+    modules: Array.isArray(fastApiResponse?.data?.modules) ? fastApiResponse.data.modules : [],
+    moduleStatus: String(fastApiResponse?.data?.module_status || 'pending'),
+    moduleVersion: Number(fastApiResponse?.data?.module_version || 0),
+    moduleCoverage: fastApiResponse?.data?.module_coverage || {},
+    skippedModules: Array.isArray(fastApiResponse?.data?.skipped_modules)
+      ? fastApiResponse.data.skipped_modules
+      : [],
     reused: false,
   }
 }
@@ -967,6 +995,7 @@ async function generateTestCases({ req, body }) {
         plan_title: planTitle || planId,
         plan_description: planDescription || '',
         plan_module: existingPlan?.module || null,
+        plan_module_id: existingPlan?.moduleId || null,
         spec_hash: suite.specHash,
         spec_text: truncateSpecText(specTextToSend, 800),
         style_config: String(suite.styleConfig || ''),

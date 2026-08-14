@@ -2,12 +2,31 @@ const assert = require('node:assert/strict')
 const test = require('node:test')
 
 const {
+  normalizeEvidence,
   normalizeRequirements,
   normalizeStringList,
   validatePriority,
   validateSeverity,
   validateTestCaseType,
 } = require('../src/utils/test-artifact-fields')
+
+test('normalizes typed plan evidence from FastAPI snake_case fields', () => {
+  assert.deepEqual(normalizeEvidence([{
+    item_id: 'ITEM-00042',
+    external_id: 'AC-00042',
+    role: 'acceptance',
+    title: 'Checkout',
+    description: 'Then a receipt is displayed.',
+    source: 'CHUNK-009',
+  }]), [{
+    itemId: 'ITEM-00042',
+    externalId: 'AC-00042',
+    role: 'ACCEPTANCE',
+    title: 'Checkout',
+    description: 'Then a receipt is displayed.',
+    source: 'CHUNK-009',
+  }])
+})
 
 test('normalizes enum-like QA metadata', () => {
   assert.equal(validatePriority('High'), 'high')

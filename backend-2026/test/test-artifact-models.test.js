@@ -13,6 +13,9 @@ test('TestPlan stores professional metadata with normalized values', async () =>
     id: 'TP-1',
     title: 'Authentication',
     module: 'Identity',
+    moduleId: 'MOD-001',
+    planKind: 'functional',
+    coverageStatus: 'ready',
     objective: 'Verify login flows',
     scope: 'Login, logout, and sessions',
     priority: 'High',
@@ -25,12 +28,18 @@ test('TestPlan stores professional metadata with normalized values', async () =>
         priority: 'High',
       },
     ],
+    evidence: [{
+      itemId: 'ITEM-00001', externalId: 'AC-00001', role: 'ACCEPTANCE',
+      title: 'Login', description: 'Then the dashboard is displayed.', source: 'CHUNK-001',
+    }],
   })
 
   await plan.validate()
 
   assert.equal(plan.priority, 'high')
   assert.equal(plan.module, 'Identity')
+  assert.equal(plan.moduleId, 'MOD-001')
+  assert.equal(plan.evidence[0].role, 'ACCEPTANCE')
   assert.equal(plan.requirements[0].id, 'REQ-1')
   assert.equal(plan.requirements[0].description, 'Users can sign in')
 })
@@ -42,10 +51,18 @@ test('TestSuite separates suite-scoped ingestion from its raw-byte source hash',
   assert.equal(TestSuite.schema.path('ingestionScope').instance, 'String')
 
   const [plan] = normalizeUniqueTestPlans([
-    { id: 'TP-1', title: 'Authentication', module: 'Identity' },
+    {
+      id: 'TP-1', title: 'Authentication', module: 'Identity', module_id: 'MOD-001',
+      evidence: [{
+        item_id: 'ITEM-00001', external_id: 'NFR-00001', role: 'NON_FUNCTIONAL',
+        description: 'Login completes within two seconds.',
+      }],
+    },
   ])
 
   assert.equal(plan.module, 'Identity')
+  assert.equal(plan.moduleId, 'MOD-001')
+  assert.equal(plan.evidence[0].externalId, 'NFR-00001')
 })
 
 test('TestPlan rejects invalid priority values', async () => {
