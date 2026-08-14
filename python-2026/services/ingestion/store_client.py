@@ -50,7 +50,13 @@ def _serialize_item(item: Item) -> dict[str, Any]:
         "role_method": item.role_method,
         "role_score": item.role_score,
         "module": item.module,
+        "module_ids": item.module_ids,
+        "primary_module_id": item.primary_module_id,
+        "module_method": item.module_method,
         "module_score": item.module_score,
+        "module_margin": item.module_margin,
+        "module_disposition": item.module_disposition,
+        "module_algorithm_version": item.module_algorithm_version,
         "reviewed": item.reviewed,
         "reviewed_by": item.reviewed_by,
         "suggested_role": item.suggested_role,
@@ -66,13 +72,19 @@ def _deserialize_item(data: dict[str, Any]) -> Item:
         text=str(data["text"]),
         role=str(data.get("role") or "UNTAGGED"),
         module=str(data.get("module") or "UNTAGGED"),
+        module_ids=[str(value) for value in data.get("module_ids") or []],
+        primary_module_id=data.get("primary_module_id"),
+        module_method=str(data.get("module_method") or "none"),  # type: ignore[arg-type]
+        module_margin=(float(data["module_margin"]) if data.get("module_margin") is not None else None),
+        module_disposition=str(data.get("module_disposition") or "unassigned"),  # type: ignore[arg-type]
+        module_algorithm_version=data.get("module_algorithm_version"),
         role_score=data.get("role_score"),
         role_method=str(data.get("role_method") or "none"),  # type: ignore[arg-type]
         reviewed=bool(data.get("reviewed")),
         reviewed_by=data.get("reviewed_by"),
         suggested_role=data.get("suggested_role"),
         requirement_id=data.get("requirement_id"),
-        module_score=float(data.get("module_score") or 0.0),
+        module_score=(float(data["module_score"]) if data.get("module_score") is not None else None),
     )
 
 
@@ -99,6 +111,11 @@ def _get_snapshot(spec_hash: str) -> dict[str, Any] | None:
     return payload
 
 
+def get_ingestion_snapshot(spec_hash: str) -> dict[str, Any] | None:
+    """Return the complete durable ingestion snapshot, including module state."""
+    return _get_snapshot(spec_hash)
+
+
 def get_items(spec_hash: str) -> list[Item]:
     items, _ = get_items_with_status(spec_hash)
     return items
@@ -123,6 +140,87 @@ def get_module_list(spec_hash: str) -> list[dict[str, Any]]:
     if not isinstance(modules, list):
         raise IngestionStoreError("Node ingestion snapshot has invalid modules")
     return [dict(module) for module in modules if isinstance(module, dict)]
+
+
+def claim_module_generation(
+    spec_hash: str,
+    *,
+    fingerprint: str,
+    algorithm_version: str,
+    force: bool = False,
+) -> dict[str, Any]:
+    response = _request(
+        "POST",
+        f"/{quote(spec_hash, safe='')}/module-generation/claim",
+        json={
+            "fingerprint": fingerprint,
+            "algorithm_version": algorithm_version,
+            "force": force,
+        },
+    )
+    if response.status_code == 404:
+        raise ValueError(f"No stored ingestion found for spec {spec_hash!r}")
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise IngestionStoreError("Node module claim returned invalid JSON") from exc
+    if not isinstance(payload, dict):
+        raise IngestionStoreError("Node module claim returned an invalid payload")
+    return payload
+
+
+def commit_module_generation(
+    spec_hash: str,
+    lease: str,
+    *,
+    modules: list[dict[str, Any]],
+    items: list[Item],
+    fingerprint: str,
+    algorithm_version: str,
+    coverage: dict[str, Any],
+    module_status: str,
+) -> dict[str, Any]:
+    assignments = [
+        {
+            "item_id": item.id,
+            "module_ids": item.module_ids,
+            "primary_module_id": item.primary_module_id,
+            "module_method": item.module_method,
+            "module_score": item.module_score,
+            "module_margin": item.module_margin,
+            "module_disposition": item.module_disposition,
+        }
+        for item in items
+    ]
+    response = _request(
+        "PUT",
+        f"/{quote(spec_hash, safe='')}/module-generation/{quote(lease, safe='')}",
+        json={
+            "modules": modules,
+            "assignments": assignments,
+            "fingerprint": fingerprint,
+            "algorithm_version": algorithm_version,
+            "coverage": coverage,
+            "module_status": module_status,
+        },
+    )
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise IngestionStoreError("Node module commit returned invalid JSON") from exc
+    if not isinstance(payload, dict):
+        raise IngestionStoreError("Node module commit returned an invalid payload")
+    return payload
+
+
+def fail_module_generation(spec_hash: str, lease: str, error: str) -> None:
+    response = _request(
+        "POST",
+        f"/{quote(spec_hash, safe='')}/module-generation/{quote(lease, safe='')}/fail",
+        json={"error": str(error)[:1000]},
+    )
+    if response.status_code == 404:
+        return
 
 
 def get_pending_review(spec_hash: str) -> list[Item]:

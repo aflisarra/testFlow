@@ -50,13 +50,6 @@ class AiService:
                   inference_ms=t_inference_ms,
                   reply_chars=len(reply))
 
-        with open("openrouter_response.txt", "w", encoding="utf-8") as f:
-            f.write(reply)
-
-        print("\n===== OPENROUTER RESPONSE =====")
-        print(reply[:3000])
-        print("===== END =====\n")
-
         # ── STAGE 2: JSON parse ────────────────────────────────────────────
         t_parse_start = time.monotonic()
         try:
@@ -89,13 +82,6 @@ class AiService:
             log_event(logger, "⏱ STAGE repair_inference",
                       repair_ms=t_repair_ms,
                       repair_chars=len(repaired_reply))
-
-            with open("openrouter_repaired_response.txt", "w", encoding="utf-8") as f:
-                f.write(repaired_reply)
-
-            print("\n===== REPAIRED RESPONSE =====")
-            print(repaired_reply[:3000])
-            print("===== END REPAIRED =====\n")
 
             t_reparse_start = time.monotonic()
             data = safe_json_loads(repaired_reply)

@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 import subprocess
 import time
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse
@@ -23,6 +23,10 @@ from schemas.test_plan_schema import GeneratePlanRequest, GeneratePlanResponse
 from services.cancellation_service import is_cancelled
 from services.ingestion.ingest import ingest_spec
 from services.ingestion.items import get_items
+from services.ingestion.module_orchestration import (
+    ModuleGenerationCancelled,
+    ModuleGenerationInProgress,
+)
 from services.ingestion.store_client import IngestionStoreError
 from services.plan_service import generate_test_plans
 from services.spec_service import chunk_docx_bytes, extract_spec_text_from_docx_bytes
@@ -71,6 +75,7 @@ async def upload_spec(
             "item_count": item_count,   # observability only
             "spec_hash": spec_hash,
             "source_spec_hash": source_spec_hash,
+            "module_status": "pending",
         }
     except IngestionStoreError as exc:
         return JSONResponse(status_code=503, content={"error": str(exc)})
@@ -91,6 +96,7 @@ async def generate_plan(
     generation_request_id: Optional[str] = Form(None),
     generation_scope: Optional[str] = Form("plans"),
     spec_hash: Optional[str] = Form(None),
+    module_mode: Literal["ensure", "regenerate"] = Form("ensure"),
 
     spec_text: Optional[str] = Form(None),
 ):
@@ -155,10 +161,19 @@ async def generate_plan(
         t_ai_start = time.monotonic()
         if not spec_hash_final:
             return JSONResponse(status_code=400, content={"error": "spec_hash or file is required"})
-        plans, pending_review_count = generate_test_plans(spec_hash=spec_hash_final)
+        result = generate_test_plans(
+            spec_hash=spec_hash_final,
+            module_mode=module_mode,
+            cancellation_check=lambda: is_cancelled(
+                test_suite_id=test_suite_id,
+                plan_id="",
+                scope=generation_scope,
+                request_id=generation_request_id,
+            ),
+        )
         t_ai_ms = int((time.monotonic() - t_ai_start) * 1000)
         t_total_ms = int((time.monotonic() - t_start) * 1000)
-        print(f"⏱ [generate-plan] ai_ms={t_ai_ms}  total_ms={t_total_ms}  plans={len(plans)}")
+        print(f"⏱ [generate-plan] ai_ms={t_ai_ms}  total_ms={t_total_ms}  plans={len(result.plans)}")
 
         # ✅ ANNULATION APRES AI
         if is_cancelled(
@@ -172,9 +187,28 @@ async def generate_plan(
                 content={"error": "Generation cancelled after processing"}
             )
 
-        return {"test_plans": plans, "pending_review_count": pending_review_count}
+        return {
+            "test_plans": result.plans,
+            "pending_review_count": result.pending_review_count,
+            "modules": result.modules,
+            "module_status": result.module_status,
+            "module_version": result.module_version,
+            "module_coverage": result.module_coverage,
+            "skipped_modules": result.skipped_modules,
+        }
 
+    except ModuleGenerationInProgress as exc:
+        return JSONResponse(
+            status_code=409,
+            content={"error": str(exc), "code": "MODULE_GENERATION_IN_PROGRESS"},
+        )
+    except ModuleGenerationCancelled as exc:
+        return JSONResponse(status_code=409, content={"error": str(exc)})
     except IngestionStoreError as exc:
+        return JSONResponse(status_code=503, content={"error": str(exc)})
+    except ValueError as exc:
+        return JSONResponse(status_code=422, content={"error": str(exc)})
+    except RuntimeError as exc:
         return JSONResponse(status_code=503, content={"error": str(exc)})
     except Exception as exc:
         import traceback

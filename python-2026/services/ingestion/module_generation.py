@@ -8,12 +8,12 @@ from typing import Any, Callable
 
 from core.config import get_settings
 from services.ingestion.items import Item
-from services.ingestion.items import store_ingestion
 from services.ai_service import get_ai_service
-from services.ingestion.module_tagger import tag_module
 
 
-MODULE_EVIDENCE_ROLES = frozenset({"CONTEXT", "FEATURE", "REQUIREMENT", "NON_FUNCTIONAL"})
+MODULE_EVIDENCE_ROLES = frozenset(
+    {"CONTEXT", "FEATURE", "REQUIREMENT", "ACCEPTANCE", "NON_FUNCTIONAL"}
+)
 TRUSTED_METHODS_FOR_EVIDENCE = frozenset({"regex", "heading", "human"})
 MAX_EVIDENCE_ITEMS = 80
 MAX_EVIDENCE_CHARS = 16_000
@@ -87,7 +87,15 @@ def _normalise_module_cards(payload: Any, allowed_ids: set[str]) -> list[dict[st
         if not name or not description or not source_ids or key in seen:
             continue
         seen.add(key)
-        cards.append({"name": name, "description": description, "source_item_ids": source_ids})
+        cards.append(
+            {
+                "id": f"MOD-{len(cards) + 1:03d}",
+                "name": name,
+                "description": description,
+                "kind": "functional",
+                "source_item_ids": source_ids,
+            }
+        )
     if not cards:
         raise ValueError("Module generation returned no valid evidence-backed module cards")
     return cards
@@ -102,27 +110,11 @@ def generate_module_list(
     if not module_evidence_items:
         return []
     caller = generate_json or get_ai_service().generate_json
-    payload = caller(prompt=_module_prompt(module_evidence_items), timeout=get_settings().openrouter_timeout)
+    payload = caller(
+        prompt=_module_prompt(module_evidence_items),
+        timeout=get_settings().openrouter_test_plans_timeout,
+    )
     return _normalise_module_cards(payload, {item.id for item in module_evidence_items})
-
-
-def get_module_list(spec_hash: str) -> list[dict[str, Any]]:
-    from services.ingestion.store_client import get_module_list as _get_module_list
-    return _get_module_list(spec_hash)
-
-
-def get_or_generate_module_list(spec_hash: str, items: list[Item]) -> list[dict[str, Any]]:
-    """Return cached module cards, generating and persisting them only on a miss."""
-    modules = get_module_list(spec_hash)
-    if modules:
-        return modules
-    evidence = select_module_evidence(items)
-    if not evidence:
-        return []
-    modules = generate_module_list(evidence)
-    tag_module(items, modules)
-    store_ingestion(spec_hash, items, modules)
-    return modules
 
 
 def flag_tiny_modules(modules: list[dict[str, Any]], items: list[Item], min_items: int = 2) -> list[str]:

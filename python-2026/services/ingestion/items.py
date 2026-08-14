@@ -54,13 +54,19 @@ class Item:
     text: str
     role: str = "UNTAGGED"      # one of ROLE_LABELS or "UNTAGGED"
     module: str = "UNTAGGED"    # e.g. "Authentication"
+    module_ids: list[str] = field(default_factory=list)
+    primary_module_id: str | None = None
+    module_method: Literal["source", "heading", "hybrid", "human", "none"] = "none"
+    module_margin: float | None = None
+    module_disposition: Literal["assigned", "unassigned", "cross_cutting", "excluded"] = "unassigned"
+    module_algorithm_version: str | None = None
     role_score: float | None = None  # keeping this but it's not used at this time
     role_method: Literal["regex", "heading", "human", "none"] = "none"
     reviewed: bool = False
     reviewed_by: str | None = None
     suggested_role: str | None = None
     requirement_id: str | None = None
-    module_score: float = 0.0
+    module_score: float | None = None
 
 
 # ---------------------------------------------------------------------------
