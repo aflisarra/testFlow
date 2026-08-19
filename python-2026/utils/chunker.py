@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -24,6 +25,58 @@ _DOCX_HEADING_RE = re.compile(r"^Heading\s+([1-6])$", re.IGNORECASE)
 
 # French locale heading style names: "Titre 1" … "Titre 6"
 _DOCX_TITRE_RE = re.compile(r"^Titre\s+([1-6])$", re.IGNORECASE)
+
+# Conservative exact labels for plain-text or unstyled-DOCX fallbacks.  These
+# are intentionally section names, not loose keywords, so a normal sentence
+# containing (for example) "requirements" does not become a heading.
+_KNOWN_FALLBACK_HEADINGS = frozenset({
+    "acceptance criteria",
+    "actors",
+    "acteurs",
+    "business rules",
+    "capabilities",
+    "cas d utilisation",
+    "constraints",
+    "contraintes",
+    "context",
+    "contexte",
+    "criteres d acceptation",
+    "definitions",
+    "exigences",
+    "exigences fonctionnelles",
+    "exigences non fonctionnelles",
+    "exclusions",
+    "features",
+    "fonctionnalites",
+    "functional requirements",
+    "glossaire",
+    "glossary",
+    "hors perimetre",
+    "limitations",
+    "non functional requirements",
+    "objectifs",
+    "objectives",
+    "out of scope",
+    "overview",
+    "performance",
+    "perimetre",
+    "purpose",
+    "quality attributes",
+    "regles metier",
+    "requirements",
+    "roles and responsibilities",
+    "roles et responsabilites",
+    "scope",
+    "security",
+    "securite",
+    "stakeholders",
+    "system requirements",
+    "test scenarios",
+    "utilisateurs",
+    "use cases",
+    "user requirements",
+    "vue d ensemble",
+})
 
 
 # ---------------------------------------------------------------------------
@@ -97,7 +150,9 @@ def _heading_level_of(paragraph: Any) -> int | None:
 
     Returns None for any paragraph that is not a structural heading.
     """
-    style_name = str(getattr(getattr(paragraph, "style", None), "name", "") or "")
+    style_name = str(
+        getattr(getattr(paragraph, "style", None), "name", "") or ""
+    ).strip()
 
     m = _DOCX_HEADING_RE.match(style_name)
     if m:
@@ -314,6 +369,15 @@ def _fallback_heading(line: str) -> tuple[int, str] | None:
         if "**" not in title and ": " not in title:
             return numbered.group(1).count(".") + 1, stripped.strip(":").strip()
 
+    normalized_label = "".join(
+        char
+        for char in unicodedata.normalize("NFKD", stripped.casefold())
+        if not unicodedata.combining(char)
+    )
+    normalized_label = re.sub(r"[^a-z0-9]+", " ", normalized_label).strip()
+    if normalized_label in _KNOWN_FALLBACK_HEADINGS:
+        return 1, stripped.strip(":").strip()
+
     # A short label such as ``Requirement:`` is a useful fallback heading.
     # A full sentence ending in a colon usually introduces a list and must
     # remain body content.
@@ -421,8 +485,9 @@ def chunk_spec_recursive(doc_or_text: Any, max_chunk_chars: int = 2200) -> list[
     heading path.  Paragraphs between a parent heading and its first child heading
     are attributed to the *parent* via ``HeadingNode.own_paragraphs``.
 
-    Plain text (string input) or documents with fewer than two structural
-    headings fall back to the regex-based ``split_by_headings()`` path.
+    Plain text (string input) or documents without structural headings fall
+    back to the regex-based ``split_by_headings()`` path. A single native Word
+    heading is still trustworthy structure and must keep its heading path.
     """
     if isinstance(doc_or_text, str):
         return [
@@ -444,7 +509,7 @@ def chunk_spec_recursive(doc_or_text: Any, max_chunk_chars: int = 2200) -> list[
 
     # Use locale-aware count for the fallback threshold
     heading_count = _count_headings(paragraphs)
-    if heading_count < 2:
+    if heading_count == 0:
         return chunk_spec_recursive(
             "\n\n".join(
                 str(getattr(p, "text", "")).strip()

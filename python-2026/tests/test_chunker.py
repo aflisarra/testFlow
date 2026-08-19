@@ -77,6 +77,31 @@ def test_recursive_docx_chunking_falls_back_when_heading_styles_are_absent() -> 
     assert chunks[0].heading_path == ["Requirement"]
 
 
+def test_single_native_heading_keeps_its_heading_path() -> None:
+    document = _doc([
+        _para("Acceptance Criteria", "Heading 1"),
+        _para("A valid payment displays a confirmation message.", "Normal"),
+    ])
+
+    chunks = chunk_spec_recursive(document)
+
+    assert len(chunks) == 1
+    assert chunks[0].title == "Acceptance Criteria"
+    assert chunks[0].heading_path == ["Acceptance Criteria"]
+
+
+def test_known_unstyled_srs_section_is_captured_as_a_heading() -> None:
+    document = _doc([
+        _para("Non-functional requirements", "Normal"),
+        _para("Availability is measured monthly.", "Normal"),
+    ])
+
+    chunks = chunk_spec_recursive(document)
+
+    assert len(chunks) == 1
+    assert chunks[0].heading_path == ["Non-functional requirements"]
+
+
 def test_unstyled_docx_markdown_headings_preserve_hierarchy() -> None:
     document = _doc([
         _para("# Product Specification", "Normal"),
