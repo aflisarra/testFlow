@@ -8,7 +8,6 @@ from typing import Any
 
 from services.ingestion.items import Item
 
-
 EMBEDDING_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
 # Thresholds remain disabled until calibrated fixtures are available. The
 # tagger nevertheless records scores/margins and no longer classifies roles

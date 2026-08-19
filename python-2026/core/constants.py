@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Final
 
-
 PRIORITIES: Final[tuple[str, ...]] = ("Critical", "High", "Medium", "Low")
 SEVERITIES: Final[tuple[str, ...]] = ("Blocker", "Critical", "Major", "Minor", "Trivial")
 TEST_CASE_TYPES: Final[tuple[str, ...]] = (

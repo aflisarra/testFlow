@@ -10,15 +10,15 @@ from collections import Counter
 from typing import Any
 
 from services.ingestion.items import (
-    Item,
     ROLE_LABELS,
+    Item,
     compute_spec_hash,
     expand_section_to_items,
     get_items,
     store_ingestion,
 )
-from services.ingestion.tagger import tag_role
 from services.ingestion.review_queue import enqueue_for_review
+from services.ingestion.tagger import tag_role
 from utils.chunker import SpecChunk, chunk_spec_recursive
 from utils.logger import get_logger, log_event
 

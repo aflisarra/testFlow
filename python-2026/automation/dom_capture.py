@@ -21,8 +21,8 @@ resolves at execution time. No changes were needed here for that feature
 from __future__ import annotations
 
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 # NOTE: the tags captured here must stay in sync with the ones used in
 # resolve_indexed_selector() below (same document order => same indices

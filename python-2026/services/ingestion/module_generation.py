@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from core.config import get_settings
-from services.ingestion.items import Item
 from services.ai_service import get_ai_service
-
+from services.ingestion.items import Item
 
 MODULE_EVIDENCE_ROLES = frozenset(
     {"CONTEXT", "FEATURE", "REQUIREMENT", "ACCEPTANCE", "NON_FUNCTIONAL"}

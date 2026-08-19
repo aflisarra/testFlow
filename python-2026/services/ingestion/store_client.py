@@ -6,7 +6,6 @@ from typing import Any
 from urllib.parse import quote
 
 import requests
-
 from core.config import get_settings
 from services.ingestion.items import Item
 

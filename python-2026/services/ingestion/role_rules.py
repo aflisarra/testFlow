@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import re
 
-
 ROLE_REGEX_RULES: list[tuple[str, re.Pattern[str]]] = [
     # Scenario and BDD syntax are structurally acceptance material.
     (

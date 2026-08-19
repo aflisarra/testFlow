@@ -7,14 +7,9 @@ XML outline-level fallback path.
 
 from types import SimpleNamespace
 
-import pytest
-
 from utils.chunker import (
-    SpecChunk,
-    build_heading_tree,
     chunk_spec_recursive,
 )
-
 
 # ---------------------------------------------------------------------------
 # Test helpers

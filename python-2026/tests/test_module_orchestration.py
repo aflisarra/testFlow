@@ -1,7 +1,7 @@
 """Module generation ownership, persistence, and reuse tests."""
 
-from services.ingestion.items import Item
 from services.ingestion import module_orchestration as orchestration
+from services.ingestion.items import Item
 
 
 def _requirement() -> Item:

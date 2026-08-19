@@ -3,7 +3,6 @@
 from io import BytesIO
 
 from docx import Document
-
 from services.ingestion.items import expand_section_to_items
 from services.ingestion.tagger import tag_role
 from utils.chunker import chunk_spec_recursive

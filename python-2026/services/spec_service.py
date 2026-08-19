@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List
 
-from utils.chunker import SpecChunk, chunk_spec_recursive, detect_modules_from_chunks, normalize_spec_text
+from utils.chunker import (
+    SpecChunk,
+    chunk_spec_recursive,
+    detect_modules_from_chunks,
+    normalize_spec_text,
+)
 from utils.docx_reader import extract_doc_from_bytes, extract_text_from_docx
+
 from services.ingestion.items import Item, get_items_with_status
 from services.ingestion.manifest import filter_items
-
 
 SRS_PLAN_SECTIONS = {"project description", "objectives", "features"}
 SRS_CASE_SECTIONS = {
@@ -23,16 +27,16 @@ def extract_spec_text_from_docx_bytes(file_bytes: bytes) -> str:
     return extract_text_from_docx(file_bytes)
 
 
-def chunk_docx_bytes(file_bytes: bytes) -> List[SpecChunk]:
+def chunk_docx_bytes(file_bytes: bytes) -> list[SpecChunk]:
     """Return DOCX chunks with native Heading 1..6 ancestry when available."""
     return chunk_spec_recursive(extract_doc_from_bytes(file_bytes))
 
 
-def chunk_spec(spec_text: str) -> List[SpecChunk]:
+def chunk_spec(spec_text: str) -> list[SpecChunk]:
     return chunk_spec_recursive(spec_text)
 
 
-def detect_modules(spec_text: str) -> List[str]:
+def detect_modules(spec_text: str) -> list[str]:
     chunks = chunk_spec(spec_text)
     return detect_modules_from_chunks(chunks)
 
@@ -47,14 +51,14 @@ def _section_key(title: str) -> str:
 
 
 def filter_srs_sections(
-    chunks: List[SpecChunk], allowed_sections: set[str] | None = None
-) -> List[SpecChunk]:
+    chunks: list[SpecChunk], allowed_sections: set[str] | None = None
+) -> list[SpecChunk]:
     if not allowed_sections:
         return chunks
     return [chunk for chunk in chunks if _section_key(str(chunk.get("title") or "")) in allowed_sections]
 
 
-def get_srs_sections(spec_text: str, allowed_sections: set[str] | None = None) -> List[SpecChunk]:
+def get_srs_sections(spec_text: str, allowed_sections: set[str] | None = None) -> list[SpecChunk]:
     return filter_srs_sections(chunk_spec(spec_text), allowed_sections)
 
 
@@ -86,7 +90,7 @@ def get_filtered_items_for_task(
     return filtered, pending_review_count, True
 
 
-def extract_requirements(spec_text: str) -> List[Dict[str, str]]:
+def extract_requirements(spec_text: str) -> list[dict[str, str]]:
     """
     Extract requirements as small, atomic statements while preserving semantic context.
 
@@ -106,7 +110,7 @@ def extract_requirements(spec_text: str) -> List[Dict[str, str]]:
 
     lines = [ln.strip() for ln in normalized.split("\n") if ln.strip()]
 
-    reqs: List[str] = []
+    reqs: list[str] = []
 
     modal_re = re.compile(r"\b(must|required|shall|should|may|can)\b", re.IGNORECASE)
 
@@ -150,14 +154,14 @@ def extract_requirements(spec_text: str) -> List[Dict[str, str]]:
 
     # de-duplicate while preserving order
     seen: set[str] = set()
-    uniq: List[str] = []
+    uniq: list[str] = []
     for r in reqs:
         key = re.sub(r"\s+", " ", r).strip().lower()
         if key and key not in seen:
             seen.add(key)
             uniq.append(r.strip())
 
-    out: List[Dict[str, str]] = []
+    out: list[dict[str, str]] = []
     for i, text in enumerate(uniq, start=1):
         cleaned_text = re.sub(r"<\/?w:[^>]+>", " ", text, flags=re.IGNORECASE)
         cleaned_text = re.sub(r"<\/?[^>]+>", " ", cleaned_text)

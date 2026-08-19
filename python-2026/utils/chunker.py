@@ -3,8 +3,9 @@ from __future__ import annotations
 import logging
 import re
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Iterable, List, Dict, Optional
+from typing import Any
 
 from utils.docx_reader import iter_document_paragraphs
 
@@ -77,7 +78,7 @@ class HeadingNode:
     level: int                          # 1 = top-level, 0 = synthetic root
     heading_path: list[str]             # ancestor texts root→self (root excluded)
     own_paragraphs: list[ParagraphRef]
-    children: list["HeadingNode"]
+    children: list[HeadingNode]
     node_id: str
 
 
@@ -85,7 +86,7 @@ class HeadingNode:
 # Heading-level detection (English + French + XML outline fallback)
 # ---------------------------------------------------------------------------
 
-def _heading_level_of(paragraph: Any) -> Optional[int]:
+def _heading_level_of(paragraph: Any) -> int | None:
     """Return the heading level (1–6) of *paragraph*, or None if it is body text.
 
     Checks, in order:
@@ -322,7 +323,7 @@ def _fallback_heading(line: str) -> tuple[int, str] | None:
     return None
 
 
-def split_by_headings(text: str, max_chunk_chars: int = 2200) -> List[Dict[str, Any]]:
+def split_by_headings(text: str, max_chunk_chars: int = 2200) -> list[dict[str, Any]]:
     """
     Split spec text into semantically meaningful chunks:
     - Detect headings
@@ -332,11 +333,11 @@ def split_by_headings(text: str, max_chunk_chars: int = 2200) -> List[Dict[str, 
     normalized = normalize_spec_text(text)
     lines = [ln.rstrip() for ln in normalized.split("\n")]
 
-    chunks: List[Dict[str, Any]] = []
+    chunks: list[dict[str, Any]] = []
     current_title = "General"
     current_heading_path: list[str] = []
     heading_stack: list[tuple[int, str]] = []
-    current_lines: List[str] = []
+    current_lines: list[str] = []
 
     def flush() -> None:
         nonlocal current_lines

@@ -1,7 +1,9 @@
 import json
 import re
+
 import requests
 from utils.json_cleaner import safe_json_loads
+
 
 def extract_json(text):
 

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Literal
+from typing import Any, Literal
+
+from utils.logger import get_logger, log_event
 
 from services.ingestion.items import Item, get_items
 from services.ingestion.module_orchestration import (
@@ -11,8 +14,6 @@ from services.ingestion.module_orchestration import (
     ModuleGenerationResult,
     ensure_modules_for_plan,
 )
-from utils.logger import get_logger, log_event
-
 
 logger = get_logger("services.plan_service")
 

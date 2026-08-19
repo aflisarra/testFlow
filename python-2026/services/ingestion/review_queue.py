@@ -24,7 +24,9 @@ def enqueue_for_review(spec_hash: str, items: list[Item]) -> int:
 
 def get_pending_review(spec_hash: str) -> list[Item]:
     """Return unresolved review items for one uploaded specification."""
-    from services.ingestion.store_client import get_pending_review as _get_pending_review
+    from services.ingestion.store_client import (
+        get_pending_review as _get_pending_review,
+    )
     return _get_pending_review(spec_hash)
 
 

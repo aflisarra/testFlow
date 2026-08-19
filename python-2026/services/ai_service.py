@@ -1,14 +1,12 @@
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from core.config import get_settings
-import time
-
-from utils.logger import get_logger, log_event, log_error
-from utils.openrouter import run_openrouter
 from utils.json_cleaner import safe_json_loads
-
+from utils.logger import get_logger, log_error, log_event
+from utils.openrouter import run_openrouter
 
 logger = get_logger("services.ai_service")
 

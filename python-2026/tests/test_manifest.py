@@ -1,8 +1,7 @@
 """Task-manifest contract tests (Phase 4-b)."""
 
-from services.ingestion.manifest import TASK_MANIFEST
 from services.ingestion.items import Item
-from services.ingestion.manifest import filter_items
+from services.ingestion.manifest import TASK_MANIFEST, filter_items
 from services.plan_service import requirements_from_items
 
 

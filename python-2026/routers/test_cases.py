@@ -9,23 +9,20 @@ from __future__ import annotations
 
 import subprocess
 import time
-from typing import Optional
-
-from fastapi import APIRouter
-from fastapi.responses import JSONResponse
 
 from core.config import get_settings
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 from schemas.test_case_schema import GenerateTestCasesRequest, TestCasesResponse
 from services.cancellation_service import is_cancelled
 from services.case_service import generate_test_cases
-from utils.logger import get_logger, log_error
-
+from utils.logger import get_logger
 
 router = APIRouter()
 logger = get_logger("routers.test_cases")
 
 
-def _error_payload(message: str, detail: Optional[str] = None) -> dict:
+def _error_payload(message: str, detail: str | None = None) -> dict:
     settings = get_settings()
     if detail and settings.debug_errors:
         return {"error": message, "detail": detail}

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import io
 import re
 import unicodedata
-from typing import Any, Iterable
-
+from collections.abc import Iterable
+from dataclasses import dataclass, field
+from typing import Any
 
 _HEADING_STYLE_RE = re.compile(r"^(?:Heading|Titre)\s+([1-6])$", re.IGNORECASE)
 
@@ -74,7 +74,7 @@ def extract_doc_from_bytes(file_bytes: bytes):
     except ImportError:
         raise RuntimeError("python-docx not installed. Run: pip install python-docx")
     except Exception as e:
-        raise RuntimeError(f"Cannot read .docx file: {str(e)}")
+        raise RuntimeError(f"Cannot read .docx file: {e!s}")
 
 
 def _clean_cell_text(text: str) -> str:
@@ -301,4 +301,4 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
     except ImportError:
         raise RuntimeError("python-docx not installed. Run: pip install python-docx")
     except Exception as e:
-        raise RuntimeError(f"Cannot read .docx file: {str(e)}")
+        raise RuntimeError(f"Cannot read .docx file: {e!s}")

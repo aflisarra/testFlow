@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Optional
-
+from typing import Any
 
 _FENCE_RE = re.compile(r"```(?:json|JSON)?\s*|\s*```", re.MULTILINE)
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
@@ -17,9 +16,9 @@ def strip_markdown_fences(text: str) -> str:
     return _FENCE_RE.sub("", (text or "").strip()).strip()
 
 
-def _extract_first_balanced(text: str, open_ch: str, close_ch: str) -> Optional[str]:
+def _extract_first_balanced(text: str, open_ch: str, close_ch: str) -> str | None:
     depth = 0
-    start: Optional[int] = None
+    start: int | None = None
     for i, ch in enumerate(text):
         if ch == open_ch:
             if depth == 0:
@@ -33,7 +32,7 @@ def _extract_first_balanced(text: str, open_ch: str, close_ch: str) -> Optional[
     return None
 
 
-def extract_first_json(text: str) -> Optional[str]:
+def extract_first_json(text: str) -> str | None:
     """
     Extract the first JSON array or object from noisy LLM output.
     """

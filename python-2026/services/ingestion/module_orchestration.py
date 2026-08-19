@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
-from collections import Counter
-from dataclasses import dataclass
 import hashlib
 import json
 import re
-from typing import Any, Callable, Literal
+from collections import Counter
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any, Literal
 
 from services.ingestion.items import Item
-from services.ingestion.module_generation import generate_module_list, select_module_evidence
+from services.ingestion.module_generation import (
+    generate_module_list,
+    select_module_evidence,
+)
 from services.ingestion.module_tagger import MODULE_ASSIGNMENT_ROLES, tag_module
 from services.ingestion.store_client import (
     claim_module_generation,
@@ -18,7 +22,6 @@ from services.ingestion.store_client import (
     fail_module_generation,
 )
 from utils.logger import get_logger, log_event
-
 
 logger = get_logger(__name__)
 

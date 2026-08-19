@@ -11,15 +11,13 @@ This module intentionally contains no business logic.
 from __future__ import annotations
 
 import hashlib
-import subprocess
 import time
-from typing import Literal, Optional
-
-from fastapi import APIRouter, File, Form, UploadFile
-from fastapi.responses import JSONResponse
+from typing import Literal
 
 from core.config import get_settings
-from schemas.test_plan_schema import GeneratePlanRequest, GeneratePlanResponse
+from fastapi import APIRouter, File, Form, UploadFile
+from fastapi.responses import JSONResponse
+from schemas.test_plan_schema import GeneratePlanResponse
 from services.cancellation_service import is_cancelled
 from services.ingestion.ingest import ingest_spec
 from services.ingestion.items import get_items
@@ -32,11 +30,10 @@ from services.plan_service import generate_test_plans
 from services.spec_service import chunk_docx_bytes, extract_spec_text_from_docx_bytes
 from utils.docx_reader import extract_doc_from_bytes
 
-
 router = APIRouter()
 
 
-def _error_payload(message: str, detail: Optional[str] = None) -> dict:
+def _error_payload(message: str, detail: str | None = None) -> dict:
     settings = get_settings()
     if detail and settings.debug_errors:
         return {"error": message, "detail": detail}
@@ -82,23 +79,23 @@ async def upload_spec(
     except RuntimeError as exc:
         return JSONResponse(status_code=500, content={"error": str(exc)})
     except Exception as exc:
-        return JSONResponse(status_code=500, content={"error": f"Upload failed: {str(exc)}"})
+        return JSONResponse(status_code=500, content={"error": f"Upload failed: {exc!s}"})
 
 
 @router.post("/generate-plan", response_model=GeneratePlanResponse)
 async def generate_plan(
     file: UploadFile = File(None),
-    styleConfig: Optional[str] = Form(None),
-    applicationUrl: Optional[str] = Form(None),
+    styleConfig: str | None = Form(None),
+    applicationUrl: str | None = Form(None),
 
     # ✅ IMPORTANT POUR ANNULATION
-    test_suite_id: Optional[str] = Form(None),
-    generation_request_id: Optional[str] = Form(None),
-    generation_scope: Optional[str] = Form("plans"),
-    spec_hash: Optional[str] = Form(None),
+    test_suite_id: str | None = Form(None),
+    generation_request_id: str | None = Form(None),
+    generation_scope: str | None = Form("plans"),
+    spec_hash: str | None = Form(None),
     module_mode: Literal["ensure", "regenerate"] = Form("ensure"),
 
-    spec_text: Optional[str] = Form(None),
+    spec_text: str | None = Form(None),
 ):
     try:
         t_start = time.monotonic()

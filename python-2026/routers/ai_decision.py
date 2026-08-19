@@ -1,13 +1,13 @@
+import json
 import logging
+import re
 import time
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 
+from fastapi import APIRouter, HTTPException
 from prompts.ai_decision_prompt import build_ai_decision_prompt
+from pydantic import BaseModel
 from services.ai_service import get_ai_service
 from utils.selenium_generator import generate_selenium_code
-import json
-import re
 
 router = APIRouter()
 logger = logging.getLogger("routers.ai_decision")
@@ -1420,7 +1420,7 @@ def decide(payload: AIDecisionPayload):
 
     # ── DOM stats ─────────────────────────────────────────────────────────
     dom_len = len(dom) if isinstance(dom, list) else 0
-    print(f"\n⏱ [ai/decide] step={repr(step[:60])}  dom_elements={dom_len}")
+    print(f"\n⏱ [ai/decide] step={step[:60]!r}  dom_elements={dom_len}")
 
     resolved_test_case = test_case if isinstance(test_case, dict) else {}
     execution_memory = _extract_execution_memory(resolved_test_case)
@@ -1548,7 +1548,7 @@ def decide(payload: AIDecisionPayload):
         # Kept this so you can diagnose large AI latency delays when exceptions occur.
         t_total_ms = int((time.monotonic() - t_request_start) * 1000)
         print(f"⏱ [ai/decide] EXCEPTION  total_ms={t_total_ms}")
-        logger.exception(f"🔥 AI ERROR: {str(e)}")
+        logger.exception(f"🔥 AI ERROR: {e!s}")
 
         # 🔄 TEAMMATE'S FALLBACK
         # Instead of returning a hard error immediately, try to heuristically infer 

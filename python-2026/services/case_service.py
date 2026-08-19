@@ -1,16 +1,27 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List
+from typing import Any
 
 from core.config import get_settings
-from core.constants import DEFAULT_TEST_CASES_MIN, DEFAULT_TEST_CASES_MAX, PRIORITIES, SEVERITIES, TEST_CASE_TYPES
+from core.constants import (
+    DEFAULT_TEST_CASES_MAX,
+    DEFAULT_TEST_CASES_MIN,
+    PRIORITIES,
+    SEVERITIES,
+    TEST_CASE_TYPES,
+)
 from prompts.test_case_prompt import build_test_case_prompt
-from services.ai_service import get_ai_service
-from services.spec_service import SRS_CASE_SECTIONS, extract_requirements, get_filtered_items_for_task, get_srs_sections
-from services.ingestion.items import Item
-from utils.logger import get_logger, log_event, log_error
+from utils.logger import get_logger, log_error, log_event
 
+from services.ai_service import get_ai_service
+from services.ingestion.items import Item
+from services.spec_service import (
+    SRS_CASE_SECTIONS,
+    extract_requirements,
+    get_filtered_items_for_task,
+    get_srs_sections,
+)
 
 logger = get_logger("services.case_service")
 
@@ -74,12 +85,12 @@ def _normalize_type(value: str | None) -> str:
     return normalized if normalized in TEST_CASE_TYPES else "Validation"
 
 
-def _string_list(value: Any) -> List[str]:
+def _string_list(value: Any) -> list[str]:
     values = value if isinstance(value, list) else ([value] if value else [])
     return [str(item).strip() for item in values if str(item).strip()]
 
 
-def _format_requirement(req: Dict[str, Any]) -> Dict[str, str]:
+def _format_requirement(req: dict[str, Any]) -> dict[str, str]:
     return {
         "id": str(req.get("id") or req.get("requirementId") or req.get("reqId") or "").strip(),
         "title": str(req.get("title") or req.get("module") or "").strip(),
@@ -89,13 +100,13 @@ def _format_requirement(req: Dict[str, Any]) -> Dict[str, str]:
     }
 
 
-def _validated_requirements(raw: Any, requirements: List[Dict[str, str]]) -> List[Dict[str, str]]:
+def _validated_requirements(raw: Any, requirements: list[dict[str, str]]) -> list[dict[str, str]]:
     valid_requirement_ids = {
         str(req.get("id")).strip().lower(): _format_requirement(req)
         for req in requirements if req.get("id")
     }
     values = raw if isinstance(raw, list) else ([raw] if raw else [])
-    linked: List[Dict[str, str]] = []
+    linked: list[dict[str, str]] = []
     seen: set[str] = set()
     for item in values:
         candidate = item.get("id") if isinstance(item, dict) else item
@@ -106,8 +117,8 @@ def _validated_requirements(raw: Any, requirements: List[Dict[str, str]]) -> Lis
     return linked
 
 
-def _normalize_step_details(steps: List[str], step_details: Any, fallback_expected: str = "") -> List[Dict[str, Any]]:
-    normalized: List[Dict[str, Any]] = []
+def _normalize_step_details(steps: list[str], step_details: Any, fallback_expected: str = "") -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
     raw_details = step_details if isinstance(step_details, list) else []
 
     if raw_details:
@@ -137,7 +148,7 @@ def _normalize_step_details(steps: List[str], step_details: Any, fallback_expect
     return normalized
 
 
-def _ensure_step_details_expected(step_details: List[Dict[str, Any]]) -> None:
+def _ensure_step_details_expected(step_details: list[dict[str, Any]]) -> None:
     missing = [
         idx + 1
         for idx, detail in enumerate(step_details)
@@ -150,7 +161,7 @@ def _ensure_step_details_expected(step_details: List[Dict[str, Any]]) -> None:
         )
 
 
-def _extract_cases_payload(data: Any) -> List[Dict[str, Any]] | None:
+def _extract_cases_payload(data: Any) -> list[dict[str, Any]] | None:
     """
     Accept common JSON shapes produced by LLMs and remain backward compatible.
     """
@@ -179,7 +190,7 @@ def generate_test_cases(
     plan_module: str | None = None,
     plan_module_id: str | None = None,
     spec_hash: str = "",
-) -> tuple[List[Dict[str, Any]], int]:
+) -> tuple[list[dict[str, Any]], int]:
     settings = get_settings()
     log_event(logger, "generate_cases_request_received", plan_id=plan_id, mock=settings.use_mock)
 
@@ -195,7 +206,7 @@ def generate_test_cases(
         reqs = _requirements_from_items(filtered_items)
         if not reqs:
             raise ValueError("No retained testable evidence is linked to this plan module")
-        chunks: List[Dict[str, str]] = []
+        chunks: list[dict[str, str]] = []
     else:
         reqs = extract_requirements(spec_text)
         chunks = get_srs_sections(spec_text, SRS_CASE_SECTIONS)
@@ -238,7 +249,7 @@ def generate_test_cases(
         )
 
     prefix = _tc_prefix(plan_id)
-    normalized: List[Dict[str, Any]] = []
+    normalized: list[dict[str, Any]] = []
     for i, item in enumerate(cases_raw, start=1):
         if not isinstance(item, dict):
             continue

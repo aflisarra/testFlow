@@ -5,12 +5,10 @@ from __future__ import annotations
 import secrets
 from dataclasses import asdict
 
+from core.config import get_settings
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
-
-from core.config import get_settings
 from services.ingestion.review_queue import get_pending_review, resolve_review
-
 
 router = APIRouter()
 

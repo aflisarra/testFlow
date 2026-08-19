@@ -1,9 +1,8 @@
 """Offline Phase 4 tests; no OpenRouter call or embedding download."""
 
 import numpy as np
-
-from services.ingestion.items import Item
 from services.ingestion import module_tagger
+from services.ingestion.items import Item
 from services.ingestion.module_generation import (
     flag_tiny_modules,
     generate_module_list,

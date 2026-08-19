@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import List, Dict, Sequence
+from collections.abc import Sequence
 
 
 def build_test_case_prompt(
@@ -11,8 +11,8 @@ def build_test_case_prompt(
     plan_description: str,
     project_title: str,
     style_config: str,
-    linked_requirements: List[Dict[str, str]],
-    spec_chunks: List[Dict[str, str]] | None = None,
+    linked_requirements: list[dict[str, str]],
+    spec_chunks: list[dict[str, str]] | None = None,
     filtered_items: Sequence[object] | None = None,
 ) -> str:
 

@@ -14,26 +14,27 @@
 #   POST /generate-test-cases   → Génère les Test Cases  (TC-1.1, TC-1.2 ...)
 # ============================================================
 
+import os
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from routers import test_plans, test_cases
-from routers.review import router as review_router
-import subprocess
-import os
-from dotenv import load_dotenv
+from routers import test_cases, test_plans
 from routers.ai_decision import router as ai_router
 from routers.ai_fix import router as ai_fix_router
+from routers.review import router as review_router
 from routers.test_runner import router as runner_router
+
 load_dotenv()  # Must run before importing modules that read env vars.
 
-from core.config import get_settings  # noqa: E402
-#from routers import test_plans, test_cases, test_case_translator  # noqa: E402
-from routers.cancellation import router as cancellation_router  # noqa: E402
-from routers.health import router as health_router  # noqa: E402
-from utils.openrouter import run_openrouter  # noqa: E402
-from utils.logger import get_logger, log_event  # noqa: E402
+from core.config import get_settings
 
+#from routers import test_plans, test_cases, test_case_translator
+from routers.cancellation import router as cancellation_router
+from routers.health import router as health_router
+from utils.logger import get_logger, log_event
+from utils.openrouter import run_openrouter
 
 settings = get_settings()
 logger = get_logger("main")
@@ -121,7 +122,7 @@ def chat(data: dict):
     except FileNotFoundError as e:
         return JSONResponse(status_code=500, content={"reply": str(e)})
     except Exception as e:
-        return JSONResponse(status_code=504, content={"reply": f"xAI error: {str(e)}."})
+        return JSONResponse(status_code=504, content={"reply": f"xAI error: {e!s}."})
     except RuntimeError as e:
         return JSONResponse(status_code=500, content={"reply": str(e)})
     except Exception as e:

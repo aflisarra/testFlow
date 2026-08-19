@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
-
 from core.config import get_settings
-
+from fastapi import APIRouter
 
 router = APIRouter()
 

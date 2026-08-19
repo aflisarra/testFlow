@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, List, Sequence
+from collections.abc import Sequence
 
 
 def build_test_plan_prompt(
     *,
     project_title: str,
     style_config: str,
-    modules: List[str],
-    requirements: List[Dict[str, str]],
-    spec_chunks: List[Dict[str, str]] | None = None,
+    modules: list[str],
+    requirements: list[dict[str, str]],
+    spec_chunks: list[dict[str, str]] | None = None,
     filtered_items: Sequence[object] | None = None,
 ) -> str:
 

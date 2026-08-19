@@ -87,7 +87,9 @@ def get_items(hash_: str) -> list[Item]:
 
 def get_items_with_status(hash_: str) -> tuple[list[Item], bool]:
     """Return persisted items plus whether the specification hash exists."""
-    from services.ingestion.store_client import get_items_with_status as _get_items_with_status
+    from services.ingestion.store_client import (
+        get_items_with_status as _get_items_with_status,
+    )
     return _get_items_with_status(hash_)
 
 
@@ -107,7 +109,7 @@ def requirement_id_from_item_id(item_id: str) -> str:
 # ---------------------------------------------------------------------------
 
 def expand_section_to_items(
-    chunk: "SpecChunk",
+    chunk: SpecChunk,
     *,
     start_index: int = 0,
 ) -> list[Item]:

@@ -7,17 +7,16 @@ Endpoints:
 - POST /ai/detect-failure  → Analyze a failed test and provide insights
 """
 
-import logging
 import json
+import logging
 import re
-from typing import Any, Optional
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-
 from prompts.ai_detector_fix_prompt import build_ai_detector_fix_prompt
+from pydantic import BaseModel
 from services.ai_service import get_ai_service
-from utils.logger import log_event, log_error
-
+from utils.logger import log_error, log_event
 
 router = APIRouter()
 logger = logging.getLogger("routers.ai_fix")
@@ -256,25 +255,25 @@ def _fallback_analysis(payload: dict[str, Any], reason: str = "") -> dict[str, A
 
 class FailureDetectionPayload(BaseModel):
     """Payload for failure detection request"""
-    failed_step: Optional[dict[str, Any]] = None
-    failedStep: Optional[dict[str, Any]] = None
-    logs: Optional[list[Any]] = None
-    ai_actions: Optional[list[Any]] = None
-    aiActions: Optional[list[Any]] = None
-    test_case: Optional[dict[str, Any]] = None
-    testCase: Optional[dict[str, Any]] = None
-    error_message: Optional[str] = None
-    errorMessage: Optional[str] = None
-    error_type: Optional[str] = None
-    errorType: Optional[str] = None
-    step_index: Optional[int] = None
-    stepIndex: Optional[int] = None
-    dom_state: Optional[dict[str, Any]] = None
-    domState: Optional[dict[str, Any]] = None
-    screenshot_url: Optional[str] = None
-    screenshotUrl: Optional[str] = None
-    execution_id: Optional[str] = None
-    executionId: Optional[str] = None
+    failed_step: dict[str, Any] | None = None
+    failedStep: dict[str, Any] | None = None
+    logs: list[Any] | None = None
+    ai_actions: list[Any] | None = None
+    aiActions: list[Any] | None = None
+    test_case: dict[str, Any] | None = None
+    testCase: dict[str, Any] | None = None
+    error_message: str | None = None
+    errorMessage: str | None = None
+    error_type: str | None = None
+    errorType: str | None = None
+    step_index: int | None = None
+    stepIndex: int | None = None
+    dom_state: dict[str, Any] | None = None
+    domState: dict[str, Any] | None = None
+    screenshot_url: str | None = None
+    screenshotUrl: str | None = None
+    execution_id: str | None = None
+    executionId: str | None = None
 
 
 @router.post("/ai/detect-failure")
@@ -552,5 +551,5 @@ async def get_fix_suggestion(payload: FailureDetectionPayload) -> dict[str, Any]
         log_error(logger, "fix_suggestion_error", error=str(exc))
         raise HTTPException(
             status_code=500,
-            detail=f"Could not generate fix suggestion: {str(exc)}"
+            detail=f"Could not generate fix suggestion: {exc!s}"
         )

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import unicodedata
 
-
 # 2026-08-07 — Phase 7 tuning: expanded from 3 roles to 8.  Each list
 # covers common section-title variants found in real SRS/SDD documents
 # (English + French).  New entries are promoted from human-resolved items

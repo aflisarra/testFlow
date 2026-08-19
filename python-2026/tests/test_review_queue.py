@@ -1,9 +1,12 @@
 """Phase 5a review-queue behavior tests."""
 
 import pytest
-
 from services.ingestion.items import Item
-from services.ingestion.review_queue import enqueue_for_review, get_pending_review, resolve_review
+from services.ingestion.review_queue import (
+    enqueue_for_review,
+    get_pending_review,
+    resolve_review,
+)
 
 
 def test_pending_items_are_exposed_without_a_suggestion(monkeypatch: pytest.MonkeyPatch) -> None:

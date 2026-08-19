@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Dict
-
 
 _LOCK = threading.Lock()
-_CANCELLED_UNTIL: Dict[str, float] = {}
+_CANCELLED_UNTIL: dict[str, float] = {}
 _DEFAULT_TTL_SECONDS = 15 * 60
 
 

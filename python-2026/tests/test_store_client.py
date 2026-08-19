@@ -4,7 +4,6 @@ from typing import Any
 
 import pytest
 import requests
-
 from services.ingestion.items import Item
 from services.ingestion.store_client import (
     IngestionStoreError,
