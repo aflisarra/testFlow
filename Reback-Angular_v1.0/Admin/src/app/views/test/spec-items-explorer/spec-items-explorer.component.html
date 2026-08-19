@@ -48,7 +48,7 @@
   </div>
 
   <div class="items-body">
-    <aside class="chunk-sidebar" aria-label="Source chunks">
+    <aside class="chunk-sidebar" aria-label="Source chunks" tabindex="0">
       <span class="sidebar-label">Source chunks</span>
       <button
         type="button"
@@ -73,7 +73,7 @@
       }
     </aside>
 
-    <div class="items-list-panel">
+    <div class="items-list-panel" aria-label="Specification items" tabindex="0">
       @if (selectedChunkSummary; as chunk) {
       <div class="selected-chunk-context">
         <span class="selected-chunk-label">Heading path for {{ chunk.id }}</span>

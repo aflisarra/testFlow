@@ -1,9 +1,16 @@
 :host {
   display: block;
+  min-width: 0;
+  min-height: 0;
   margin-top: 16px;
 }
 
 .items-explorer {
+  display: flex;
+  flex-direction: column;
+  height: clamp(420px, 70vh, 720px);
+  max-height: calc(100dvh - 32px);
+  min-height: 0;
   overflow: hidden;
   border: 1px solid #dce3ee;
   border-radius: 18px;
@@ -23,6 +30,7 @@
 }
 
 .items-header {
+  flex: 0 0 auto;
   justify-content: space-between;
   gap: 24px;
   padding: 20px 24px 17px;
@@ -87,6 +95,7 @@
 }
 
 .items-toolbar {
+  flex: 0 0 auto;
   flex-wrap: wrap;
   gap: 10px;
   padding: 13px 18px;
@@ -149,12 +158,16 @@
 .items-body {
   display: grid;
   grid-template-columns: 190px minmax(0, 1fr);
-  min-height: 380px;
-  max-height: 620px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .chunk-sidebar {
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   padding: 16px 12px;
   border-right: 1px solid #e8edf4;
   background: #fbfcfe;
@@ -216,8 +229,18 @@
 }
 
 .items-list-panel {
+  min-width: 0;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   padding: 17px 20px;
+}
+
+.chunk-sidebar:focus-visible,
+.items-list-panel:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: -2px;
 }
 
 .selected-chunk-context {
@@ -408,19 +431,19 @@
   color: #cbd5e1;
 }
 
-@media (max-width: 760px) {
+@media (width <= 760px) {
   .items-header {
     align-items: flex-start;
   }
 
   .items-body {
     grid-template-columns: 1fr;
-    max-height: none;
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .chunk-sidebar {
     display: flex;
-    overflow-x: auto;
+    overflow: auto hidden;
     gap: 5px;
     border-right: 0;
     border-bottom: 1px solid #e8edf4;
