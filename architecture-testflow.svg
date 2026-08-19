@@ -50,20 +50,17 @@
   <rect x="42" y="145" width="1088" height="680" rx="2" fill="#f4f7f7"/>
   <text x="72" y="177" class="section">EXPÉRIENCE &amp; ORCHESTRATION PRODUIT</text>
   <line x1="72" y1="340" x2="1100" y2="340" stroke="#778588" stroke-width="2.5" stroke-dasharray="10 10"/>
-  <text x="72" y="369" class="section">CONTRAT INTER-SERVICES</text>
+  <text x="72" y="360" class="section">CONTRAT INTER-SERVICES</text>
   <line x1="72" y1="658" x2="1100" y2="658" stroke="#778588" stroke-width="2.5" stroke-dasharray="10 10"/>
   <text x="72" y="687" class="section">DONNÉES &amp; DÉPENDANCES D’EXÉCUTION</text>
 
   <!-- Connectors first: top tier -->
   <path d="M278 256 H352" class="lineBi"/>
-  <path d="M824 256 H900" class="line"/>
   <text x="294" y="244" class="small">JWT / REST</text>
-  <text x="844" y="244" class="small">artefacts</text>
 
   <!-- Connectors first: service contract -->
-  <path d="M588 321 V386" class="lineBi"/>
-  <path d="M588 427 V455" class="lineBi"/>
-  <text x="608" y="353" class="small">appels HTTP, timeout &amp; annulation</text>
+  <path d="M588 321 V367" class="lineBi"/>
+  <path d="M588 409 V455" class="lineBi"/>
 
   <!-- Connectors first: FastAPI pipeline -->
   <path d="M375 549 H404" class="thinArrow"/>
@@ -71,11 +68,11 @@
   <path d="M761 549 H790" class="thinArrow"/>
 
   <!-- Connectors first: dependencies -->
-  <path d="M505 321 V633 H194 V708" class="line"/>
+  <path d="M505 321 V330 H74 Q56 330 56 348 V678 Q56 696 74 696 H176 Q194 696 194 708"
+        class="line" style="stroke:#0b6970;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;marker-end:url(#arrowTeal)"/>
   <path d="M480 627 V683 H470 V708" class="line"/>
   <path d="M660 627 V683 H738 V708" class="line"/>
   <path d="M850 627 V683 H1005 V708" class="line"/>
-  <text x="213" y="646" class="small">snapshots • plans • cas • exécutions</text>
   <text x="887" y="646" class="small">décisions UI</text>
 
   <!-- Top nodes -->
@@ -104,14 +101,15 @@
   </g>
   <circle cx="930" cy="229" r="21" fill="#d5eef0"/>
   <text x="930" y="236" text-anchor="middle" font-family="Segoe UI, Arial" font-size="15" font-weight="700" fill="#0b6970">QA</text>
-  <text x="958" y="224" class="nodeTitle" font-size="20">Livrables</text>
+  <text x="958" y="218" class="nodeTitle" font-size="20">Livrables</text>
+  <text x="958" y="239" class="tiny">du système complet</text>
   <text x="922" y="265" class="nodeText">TP-* / TC-*</text>
   <text x="922" y="287" class="nodeText">rapports &amp; captures</text>
 
   <!-- Service contract banner -->
-  <rect x="244" y="386" width="688" height="41" rx="4" fill="#0b6970"/>
-  <text x="588" y="412" text-anchor="middle" class="nodeTitleWhite" font-size="19">API REST inter-services · X-Internal-Token</text>
-  <text x="949" y="411" class="small">claim → lease → commit</text>
+  <rect x="244" y="367" width="688" height="42" rx="4" fill="#0b6970"/>
+  <text x="588" y="394" text-anchor="middle" class="nodeTitleWhite" font-size="19">API REST inter-services · X-Internal-Token</text>
+  <text x="949" y="393" class="small">claim → lease → commit</text>
 
   <!-- FastAPI node and internal pipeline -->
   <g filter="url(#shadow)">

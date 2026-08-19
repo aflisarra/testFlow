@@ -48,7 +48,7 @@ les plans depuis les preuves `REQUIREMENT`, `ACCEPTANCE` et `NON_FUNCTIONAL`.
 
 Variables principales de `.env` :
 
-- `OPENROUTER_API_KEY` : clé requise lorsque `USE_MOCK=false` ;
+- `OPENROUTER_API_KEY` : clé requise lorsque `USE_MOCK=false` ;Requit sur le site web officiel OpenRouter
 - `OPENROUTER_MODEL` : modèle utilisé ;
 - `OPENROUTER_TIMEOUT` : timeout global en secondes ;
 - `OPENROUTER_CHAT_TIMEOUT` : timeout de `/chat` ;

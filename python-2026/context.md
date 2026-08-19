@@ -50,7 +50,7 @@ python-2026/
 │   │   ├── __init__.py
 │   │   ├── items.py               # Modèle Item, expand_section_to_items(), derive requirement_id
 │   │   ├── role_rules.py          # Règles lexicales / regex déterministes par rôle (Phase 3/7)
-│   │   ├── role_heading_prior.py   # Détection par mots-clés sur le titre parent direct (Phase 3/7)
+│   │   ├── role_heading_prior.py   # Détection bilingue par phrases sur les titres ancêtres, du plus proche au plus général (Phase 3/7)
 │   │   ├── tagger.py              # Classifier de rôles tag_role() (regex -> heading -> UNTAGGED, sans fallback embedding)
 │   │   ├── module_generation.py   # Extraits de preuve & appel LLM pour générer les cartes modules spec-local
 │   │   ├── module_orchestration.py # Ensure/regenerate, version, tagging, couverture et commit atomique
@@ -120,6 +120,7 @@ python-2026/
 ### 1. Chunking récursif sensible aux titres (`utils/chunker.py`) — Phase 1
 - **Arbre de titres (`HeadingNode`)** : parcours unique de l'arbre documentaire. Les paragraphes d'introduction situés entre un titre parent et son premier sous-titre sont attribués au parent via `own_paragraphs`.
 - **Support bilingue & outline XML** : détection des styles `Heading 1..6` (Anglais), `Titre 1..6` (Français) et fallback sur l'attribut XML `<w:outlineLvl>`.
+- **Titres uniques et titres non stylés** : un seul titre Word natif conserve désormais son `heading_path`; le fallback texte reconnaît aussi une liste prudente de libellés SRS autonomes (`Acceptance Criteria`, `Exigences non fonctionnelles`, etc.).
 - **Propagation d'ancêtres (`heading_path`)** : chaque chunk conserve le chemin complet des titres ancêtres (ex: `["2. Fonctionnalités", "2.1 Authentification"]`).
 
 ### 2. Ingestion & Itemisation atomique (`services/ingestion/items.py`) — Phase 2
@@ -129,8 +130,8 @@ python-2026/
 
 ### 3. Classifier de Rôles en cascade déterministe (`services/ingestion/tagger.py`, `role_rules.py`) — Phases 3 & 7
 - **Cascade à 2 niveaux (sans fallback embedding / LLM)** :
-  1. **Regex déterministe (`role_rules.py`)** : détection des exigences modales (`shall`, `must`, `devra`), critères UC/BDD (`given`, `when`, `then`), contraintes NFR, acteurs et termes de glossaire.
-  2. **Prior du titre parent (`role_heading_prior.py`)** : détection par mots-clés sur le titre parent immédiat (`utilisateur`, `glossaire`, `contexte`).
+  1. **Regex déterministe (`role_rules.py`)** : détection des exigences modales (`shall`, `must`, `doivent`, `is required to`), critères UC/BDD et libellés structurés (`Acceptance criteria:`, `Feature:`, `NFR-*`), contraintes NFR, acteurs et termes de glossaire.
+  2. **Prior des titres (`role_heading_prior.py`)** : recherche du titre le plus proche vers ses ancêtres avec un vocabulaire SRS bilingue élargi pour les 8 rôles. Les accents, apostrophes, tirets, ponctuations et numéros de section sont normalisés; les correspondances portent sur des mots complets et la phrase la plus spécifique gagne (`Non-functional requirements` reste `NON_FUNCTIONAL`, pas `REQUIREMENT`).
   3. **Défaut** : `UNTAGGED` (`method="none"`).
 - Tout item non classé conserve `role="UNTAGGED"` et entre dans la file de revue humaine (Phase 5a).
 
