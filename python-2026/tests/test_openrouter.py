@@ -8,13 +8,11 @@ def _fake_client(captured: dict):
     def create(**kwargs):
         captured.update(kwargs)
         return SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content='{}'))],
+            choices=[SimpleNamespace(message=SimpleNamespace(content="{}"))],
             usage=None,
         )
 
-    return SimpleNamespace(
-        chat=SimpleNamespace(completions=SimpleNamespace(create=create))
-    )
+    return SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
 
 
 def test_run_openrouter_uses_environment_default_when_max_tokens_is_omitted(

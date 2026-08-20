@@ -27,13 +27,15 @@ def test_first_ensure_generates_tags_and_commits_once(monkeypatch) -> None:
 
     def generate(evidence):
         calls["generate"] += 1
-        return [{
-            "id": "MOD-001",
-            "name": "Search",
-            "description": "Search workflows.",
-            "kind": "functional",
-            "source_item_ids": ["ITEM-00001"],
-        }]
+        return [
+            {
+                "id": "MOD-001",
+                "name": "Search",
+                "description": "Search workflows.",
+                "kind": "functional",
+                "source_item_ids": ["ITEM-00001"],
+            }
+        ]
 
     def tag(items, modules):
         items[0].module = "Search"
@@ -72,13 +74,15 @@ def test_matching_ready_snapshot_is_reused_without_generation(monkeypatch) -> No
     item.module_ids = ["MOD-001"]
     item.primary_module_id = "MOD-001"
     item.module_disposition = "assigned"
-    modules = [{
-        "id": "MOD-001",
-        "name": "Search",
-        "description": "Search workflows.",
-        "kind": "functional",
-        "source_item_ids": ["ITEM-00001"],
-    }]
+    modules = [
+        {
+            "id": "MOD-001",
+            "name": "Search",
+            "description": "Search workflows.",
+            "kind": "functional",
+            "source_item_ids": ["ITEM-00001"],
+        }
+    ]
     monkeypatch.setattr(
         orchestration,
         "claim_module_generation",
@@ -106,12 +110,32 @@ def test_matching_ready_snapshot_is_reused_without_generation(monkeypatch) -> No
 
 def test_regeneration_preserves_unambiguous_module_ids_and_allocates_new_ids() -> None:
     previous = [
-        {"id": "MOD-002", "name": "Search", "description": "Old search.", "source_item_ids": ["ITEM-00001"]},
-        {"id": "MOD-005", "name": "Payment", "description": "Old payment.", "source_item_ids": ["ITEM-00002"]},
+        {
+            "id": "MOD-002",
+            "name": "Search",
+            "description": "Old search.",
+            "source_item_ids": ["ITEM-00001"],
+        },
+        {
+            "id": "MOD-005",
+            "name": "Payment",
+            "description": "Old payment.",
+            "source_item_ids": ["ITEM-00002"],
+        },
     ]
     generated = [
-        {"id": "MOD-001", "name": "Search", "description": "New search.", "source_item_ids": ["ITEM-00001"]},
-        {"id": "MOD-002", "name": "Recommendations", "description": "New recommendations.", "source_item_ids": ["ITEM-00003"]},
+        {
+            "id": "MOD-001",
+            "name": "Search",
+            "description": "New search.",
+            "source_item_ids": ["ITEM-00001"],
+        },
+        {
+            "id": "MOD-002",
+            "name": "Recommendations",
+            "description": "New recommendations.",
+            "source_item_ids": ["ITEM-00003"],
+        },
     ]
 
     aligned = orchestration.preserve_module_ids(generated, previous)

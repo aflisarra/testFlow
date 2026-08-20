@@ -47,11 +47,7 @@ def get_settings() -> Settings:
         or "google/gemini-2.5-flash"
     ).strip() or "google/gemini-2.5-flash"
 
-    api_key = (
-        os.getenv("OPENROUTER_API_KEY")
-        or os.getenv("XAI_API_KEY")
-        or ""
-    ).strip()
+    api_key = (os.getenv("OPENROUTER_API_KEY") or os.getenv("XAI_API_KEY") or "").strip()
 
     return Settings(
         model_name=model_name,
@@ -60,21 +56,22 @@ def get_settings() -> Settings:
         openrouter_api_key=api_key,
         openrouter_timeout=openrouter_timeout,
         openrouter_chat_timeout=_get_int(
-            "OPENROUTER_CHAT_TIMEOUT",
-            _get_int("XAI_CHAT_TIMEOUT", openrouter_timeout)
+            "OPENROUTER_CHAT_TIMEOUT", _get_int("XAI_CHAT_TIMEOUT", openrouter_timeout)
         ),
         openrouter_test_plans_timeout=_get_int(
-            "OPENROUTER_TEST_PLANS_TIMEOUT",
-            _get_int("XAI_TEST_PLANS_TIMEOUT", openrouter_timeout)
+            "OPENROUTER_TEST_PLANS_TIMEOUT", _get_int("XAI_TEST_PLANS_TIMEOUT", openrouter_timeout)
         ),
         openrouter_test_cases_timeout=_get_int(
-            "OPENROUTER_TEST_CASES_TIMEOUT",
-            _get_int("XAI_TEST_CASES_TIMEOUT", openrouter_timeout)
+            "OPENROUTER_TEST_CASES_TIMEOUT", _get_int("XAI_TEST_CASES_TIMEOUT", openrouter_timeout)
         ),
         openrouter_test_translator_timeout=_get_int(
             "OPENROUTER_TEST_TRANSLATOR_TIMEOUT",
-            _get_int("XAI_TEST_TRANSLATOR_TIMEOUT", openrouter_timeout)
+            _get_int("XAI_TEST_TRANSLATOR_TIMEOUT", openrouter_timeout),
         ),
-        backend_api_base_url=(os.getenv("BACKEND_API_BASE_URL") or "http://localhost:3000").rstrip("/"),
-        internal_api_token=(os.getenv("INTERNAL_API_TOKEN") or os.getenv("FASTAPI_SECRET") or "").strip(),
+        backend_api_base_url=(os.getenv("BACKEND_API_BASE_URL") or "http://localhost:3000").rstrip(
+            "/"
+        ),
+        internal_api_token=(
+            os.getenv("INTERNAL_API_TOKEN") or os.getenv("FASTAPI_SECRET") or ""
+        ).strip(),
     )

@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 import requests
+
 from services.ingestion.items import Item
 from services.ingestion.store_client import (
     IngestionStoreError,
@@ -42,8 +43,15 @@ def test_store_serializes_every_item_field(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.setattr(requests, "request", request)
     item = Item(
-        "ITEM-00042", "CHUNK-007", ["Requirements"], "The player must work offline.",
-        role="REQUIREMENT", role_method="human", reviewed=True, reviewed_by="alice", requirement_id="REQ-00042",
+        "ITEM-00042",
+        "CHUNK-007",
+        ["Requirements"],
+        "The player must work offline.",
+        role="REQUIREMENT",
+        role_method="human",
+        reviewed=True,
+        reviewed_by="alice",
+        requirement_id="REQ-00042",
     )
 
     store_ingestion("a" * 64, [item], [])
@@ -54,7 +62,9 @@ def test_store_serializes_every_item_field(monkeypatch: pytest.MonkeyPatch) -> N
     assert captured["json"]["items"][0]["reviewed_by"] == "alice"
 
 
-def test_connection_failure_is_not_treated_as_an_unknown_hash(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_connection_failure_is_not_treated_as_an_unknown_hash(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("INTERNAL_API_TOKEN", "test-token")
 
     def request(*args: Any, **kwargs: Any) -> _Response:
@@ -65,7 +75,9 @@ def test_connection_failure_is_not_treated_as_an_unknown_hash(monkeypatch: pytes
         get_items("a" * 64)
 
 
-def test_claim_module_generation_serializes_version_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_claim_module_generation_serializes_version_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("INTERNAL_API_TOKEN", "test-token")
     captured: dict[str, Any] = {}
 
@@ -91,7 +103,9 @@ def test_claim_module_generation_serializes_version_contract(monkeypatch: pytest
     }
 
 
-def test_commit_module_generation_sends_module_only_assignments(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_commit_module_generation_sends_module_only_assignments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("INTERNAL_API_TOKEN", "test-token")
     captured: dict[str, Any] = {}
 
@@ -101,16 +115,32 @@ def test_commit_module_generation_sends_module_only_assignments(monkeypatch: pyt
 
     monkeypatch.setattr(requests, "request", request)
     item = Item(
-        "ITEM-00042", "CHUNK-007", ["Search"], "The system must search tracks.",
-        role="REQUIREMENT", role_method="human", reviewed=True, reviewed_by="alice",
-        requirement_id="REQ-00042", module="Search", module_ids=["MOD-001"],
-        primary_module_id="MOD-001", module_method="source", module_score=1.0,
-        module_margin=1.0, module_disposition="assigned",
+        "ITEM-00042",
+        "CHUNK-007",
+        ["Search"],
+        "The system must search tracks.",
+        role="REQUIREMENT",
+        role_method="human",
+        reviewed=True,
+        reviewed_by="alice",
+        requirement_id="REQ-00042",
+        module="Search",
+        module_ids=["MOD-001"],
+        primary_module_id="MOD-001",
+        module_method="source",
+        module_score=1.0,
+        module_margin=1.0,
+        module_disposition="assigned",
     )
-    modules = [{
-        "id": "MOD-001", "name": "Search", "description": "Search workflows.",
-        "kind": "functional", "source_item_ids": ["ITEM-00042"],
-    }]
+    modules = [
+        {
+            "id": "MOD-001",
+            "name": "Search",
+            "description": "Search workflows.",
+            "kind": "functional",
+            "source_item_ids": ["ITEM-00042"],
+        }
+    ]
 
     commit_module_generation(
         "a" * 64,

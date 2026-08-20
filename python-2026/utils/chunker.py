@@ -29,59 +29,62 @@ _DOCX_TITRE_RE = re.compile(r"^Titre\s+([1-6])$", re.IGNORECASE)
 # Conservative exact labels for plain-text or unstyled-DOCX fallbacks.  These
 # are intentionally section names, not loose keywords, so a normal sentence
 # containing (for example) "requirements" does not become a heading.
-_KNOWN_FALLBACK_HEADINGS = frozenset({
-    "acceptance criteria",
-    "actors",
-    "acteurs",
-    "business rules",
-    "capabilities",
-    "cas d utilisation",
-    "constraints",
-    "contraintes",
-    "context",
-    "contexte",
-    "criteres d acceptation",
-    "definitions",
-    "exigences",
-    "exigences fonctionnelles",
-    "exigences non fonctionnelles",
-    "exclusions",
-    "features",
-    "fonctionnalites",
-    "functional requirements",
-    "glossaire",
-    "glossary",
-    "hors perimetre",
-    "limitations",
-    "non functional requirements",
-    "objectifs",
-    "objectives",
-    "out of scope",
-    "overview",
-    "performance",
-    "perimetre",
-    "purpose",
-    "quality attributes",
-    "regles metier",
-    "requirements",
-    "roles and responsibilities",
-    "roles et responsabilites",
-    "scope",
-    "security",
-    "securite",
-    "stakeholders",
-    "system requirements",
-    "test scenarios",
-    "utilisateurs",
-    "use cases",
-    "user requirements",
-    "vue d ensemble",
-})
+_KNOWN_FALLBACK_HEADINGS = frozenset(
+    {
+        "acceptance criteria",
+        "actors",
+        "acteurs",
+        "business rules",
+        "capabilities",
+        "cas d utilisation",
+        "constraints",
+        "contraintes",
+        "context",
+        "contexte",
+        "criteres d acceptation",
+        "definitions",
+        "exigences",
+        "exigences fonctionnelles",
+        "exigences non fonctionnelles",
+        "exclusions",
+        "features",
+        "fonctionnalites",
+        "functional requirements",
+        "glossaire",
+        "glossary",
+        "hors perimetre",
+        "limitations",
+        "non functional requirements",
+        "objectifs",
+        "objectives",
+        "out of scope",
+        "overview",
+        "performance",
+        "perimetre",
+        "purpose",
+        "quality attributes",
+        "regles metier",
+        "requirements",
+        "roles and responsibilities",
+        "roles et responsabilites",
+        "scope",
+        "security",
+        "securite",
+        "stakeholders",
+        "system requirements",
+        "test scenarios",
+        "utilisateurs",
+        "use cases",
+        "user requirements",
+        "vue d ensemble",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
 # Public data structures (SpecChunk wire shape — unchanged)
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class SpecChunk:
@@ -111,12 +114,14 @@ class SpecChunk:
 # Internal tree dataclasses — NOT part of the public / wire interface
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ParagraphRef:
     """Lightweight wrapper preserving a paragraph's original position."""
+
     text: str
-    doc_index: int      # position in original document, for stable ordering
-    style_name: str     # raw paragraph style, kept for debugging
+    doc_index: int  # position in original document, for stable ordering
+    style_name: str  # raw paragraph style, kept for debugging
 
 
 @dataclass
@@ -127,9 +132,10 @@ class HeadingNode:
     its first child heading — i.e. the "intro text between a title and its
     subtitle" that was previously lost or misattributed.
     """
+
     heading_text: str
-    level: int                          # 1 = top-level, 0 = synthetic root
-    heading_path: list[str]             # ancestor texts root→self (root excluded)
+    level: int  # 1 = top-level, 0 = synthetic root
+    heading_path: list[str]  # ancestor texts root→self (root excluded)
     own_paragraphs: list[ParagraphRef]
     children: list[HeadingNode]
     node_id: str
@@ -138,6 +144,7 @@ class HeadingNode:
 # ---------------------------------------------------------------------------
 # Heading-level detection (English + French + XML outline fallback)
 # ---------------------------------------------------------------------------
+
 
 def _heading_level_of(paragraph: Any) -> int | None:
     """Return the heading level (1–6) of *paragraph*, or None if it is body text.
@@ -150,9 +157,7 @@ def _heading_level_of(paragraph: Any) -> int | None:
 
     Returns None for any paragraph that is not a structural heading.
     """
-    style_name = str(
-        getattr(getattr(paragraph, "style", None), "name", "") or ""
-    ).strip()
+    style_name = str(getattr(getattr(paragraph, "style", None), "name", "") or "").strip()
 
     m = _DOCX_HEADING_RE.match(style_name)
     if m:
@@ -171,7 +176,7 @@ def _heading_level_of(paragraph: Any) -> int | None:
                 outline = pPr.outlineLvl
                 if outline is not None:
                     val = int(outline.val)
-                    if 0 <= val <= 5:           # OOXML levels 0–5 → headings 1–6
+                    if 0 <= val <= 5:  # OOXML levels 0–5 → headings 1–6
                         return val + 1
     except Exception:
         pass  # XML inspection is best-effort; fall through to None
@@ -184,14 +189,14 @@ def _count_headings(paragraphs: Any) -> int:
     return sum(
         1
         for p in paragraphs
-        if _heading_level_of(p) is not None
-        and str(getattr(p, "text", "")).strip()
+        if _heading_level_of(p) is not None and str(getattr(p, "text", "")).strip()
     )
 
 
 # ---------------------------------------------------------------------------
 # Tree builder — single pass, O(n) in paragraph count
 # ---------------------------------------------------------------------------
+
 
 def _new_node_id() -> str:
     return str(uuid.uuid4())
@@ -260,9 +265,7 @@ def build_heading_tree(doc_paragraphs: Any) -> HeadingNode:
         else:
             # Body paragraph — attach to the nearest enclosing heading.
             if text:
-                style_name = str(
-                    getattr(getattr(para, "style", None), "name", "") or ""
-                )
+                style_name = str(getattr(getattr(para, "style", None), "name", "") or "")
                 stack[-1].own_paragraphs.append(
                     ParagraphRef(text=text, doc_index=idx, style_name=style_name)
                 )
@@ -281,6 +284,7 @@ def build_heading_tree(doc_paragraphs: Any) -> HeadingNode:
 # ---------------------------------------------------------------------------
 # Tree → SpecChunk emitter (pre-order DFS)
 # ---------------------------------------------------------------------------
+
 
 def _walk_tree(
     node: HeadingNode,
@@ -328,6 +332,7 @@ def _walk_tree(
 # ---------------------------------------------------------------------------
 # Plain-text helpers (semantic fallback path — unchanged)
 # ---------------------------------------------------------------------------
+
 
 def normalize_spec_text(text: str) -> str:
     s = (text or "").replace("\r\n", "\n").replace("\r", "\n")
@@ -405,13 +410,15 @@ def split_by_headings(text: str, max_chunk_chars: int = 2200) -> list[dict[str, 
 
     def flush() -> None:
         nonlocal current_lines
-        body = "\n".join([l for l in current_lines if l.strip()]).strip()
+        body = "\n".join([line for line in current_lines if line.strip()]).strip()
         if body:
-            chunks.append({
-                "title": current_title.strip() or "General",
-                "heading_path": list(current_heading_path),
-                "text": body,
-            })
+            chunks.append(
+                {
+                    "title": current_title.strip() or "General",
+                    "heading_path": list(current_heading_path),
+                    "text": body,
+                }
+            )
         current_lines = []
 
     for line in lines:
@@ -427,7 +434,7 @@ def split_by_headings(text: str, max_chunk_chars: int = 2200) -> list[dict[str, 
             continue
         current_lines.append(line)
 
-        if sum(len(l) + 1 for l in current_lines) >= max_chunk_chars:
+        if sum(len(line) + 1 for line in current_lines) >= max_chunk_chars:
             flush()
             current_title = current_title  # keep heading context
 
@@ -479,6 +486,7 @@ def _chunks_from_paragraphs(
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
+
 
 def chunk_spec_recursive(doc_or_text: Any, max_chunk_chars: int = 2200) -> list[SpecChunk]:
     """Chunk a DOCX by native heading styles (English and French), preserving each

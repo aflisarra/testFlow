@@ -6,14 +6,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from utils.logger import get_logger, log_event
-
 from services.ingestion.items import Item, get_items
 from services.ingestion.module_orchestration import (
     PLAN_EVIDENCE_ROLES,
     ModuleGenerationResult,
     ensure_modules_for_plan,
 )
+from utils.logger import get_logger, log_event
 
 logger = get_logger("services.plan_service")
 
@@ -45,7 +44,9 @@ def _evidence_record(item: Item) -> dict[str, str]:
         "item_id": item.id,
         "external_id": _external_evidence_id(item),
         "role": item.role,
-        "title": item.heading_path[-1] if item.heading_path else item.role.replace("_", " ").title(),
+        "title": item.heading_path[-1]
+        if item.heading_path
+        else item.role.replace("_", " ").title(),
         "description": item.text,
         "source": item.source_chunk_id,
     }
@@ -149,13 +150,15 @@ def _skipped_modules(modules: list[dict[str, Any]], items: list[Item]) -> list[d
         module_id = str(module.get("id") or f"MOD-{index + 1:03d}")
         name = str(module.get("name") or "").strip()
         testable = [
-            item for item in items
+            item
+            for item in items
             if item.role in PLAN_EVIDENCE_ROLES and _belongs_to_module(item, module_id, name)
         ]
         if testable:
             continue
         supporting = [
-            item for item in items
+            item
+            for item in items
             if item.role == "FEATURE" and _belongs_to_module(item, module_id, name)
         ]
         skipped.append(

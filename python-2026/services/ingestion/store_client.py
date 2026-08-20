@@ -6,6 +6,7 @@ from typing import Any
 from urllib.parse import quote
 
 import requests
+
 from core.config import get_settings
 from services.ingestion.items import Item
 
@@ -27,7 +28,9 @@ def _headers() -> dict[str, str]:
 
 def _request(method: str, path: str, **kwargs: Any) -> requests.Response:
     try:
-        response = requests.request(method, f"{_base_url()}{path}", headers=_headers(), timeout=20, **kwargs)
+        response = requests.request(
+            method, f"{_base_url()}{path}", headers=_headers(), timeout=20, **kwargs
+        )
     except requests.RequestException as exc:
         raise IngestionStoreError(f"Node ingestion store request failed: {exc}") from exc
     if response.status_code >= 400 and response.status_code != 404:
@@ -74,7 +77,9 @@ def _deserialize_item(data: dict[str, Any]) -> Item:
         module_ids=[str(value) for value in data.get("module_ids") or []],
         primary_module_id=data.get("primary_module_id"),
         module_method=str(data.get("module_method") or "none"),  # type: ignore[arg-type]
-        module_margin=(float(data["module_margin"]) if data.get("module_margin") is not None else None),
+        module_margin=(
+            float(data["module_margin"]) if data.get("module_margin") is not None else None
+        ),
         module_disposition=str(data.get("module_disposition") or "unassigned"),  # type: ignore[arg-type]
         module_algorithm_version=data.get("module_algorithm_version"),
         role_score=data.get("role_score"),
@@ -83,7 +88,9 @@ def _deserialize_item(data: dict[str, Any]) -> Item:
         reviewed_by=data.get("reviewed_by"),
         suggested_role=data.get("suggested_role"),
         requirement_id=data.get("requirement_id"),
-        module_score=(float(data["module_score"]) if data.get("module_score") is not None else None),
+        module_score=(
+            float(data["module_score"]) if data.get("module_score") is not None else None
+        ),
     )
 
 

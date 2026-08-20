@@ -52,36 +52,46 @@ def generate_selenium_code(actions: list[Any]) -> str:
         lines.append(f"# {name}")
 
         if action_type == "type":
-            lines.extend([
-                f"element = wait.until(EC.visibility_of_element_located(({by}, {_quote(locator)})))",
-                "element.clear()",
-                f"element.send_keys({_quote(value)})",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"element = wait.until(EC.visibility_of_element_located(({by}, {_quote(locator)})))",
+                    "element.clear()",
+                    f"element.send_keys({_quote(value)})",
+                    "",
+                ]
+            )
         elif action_type == "click":
-            lines.extend([
-                f"element = wait.until(EC.element_to_be_clickable(({by}, {_quote(locator)})))",
-                "element.click()",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"element = wait.until(EC.element_to_be_clickable(({by}, {_quote(locator)})))",
+                    "element.click()",
+                    "",
+                ]
+            )
         elif action_type in {"checkbox", "radio"}:
-            lines.extend([
-                f"element = wait.until(EC.element_to_be_clickable(({by}, {_quote(locator)})))",
-                "if not element.is_selected():",
-                "    element.click()",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"element = wait.until(EC.element_to_be_clickable(({by}, {_quote(locator)})))",
+                    "if not element.is_selected():",
+                    "    element.click()",
+                    "",
+                ]
+            )
         elif action_type == "select":
-            lines.extend([
-                f"element = wait.until(EC.presence_of_element_located(({by}, {_quote(locator)})))",
-                f"Select(element).select_by_visible_text({_quote(value)})",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"element = wait.until(EC.presence_of_element_located(({by}, {_quote(locator)})))",
+                    f"Select(element).select_by_visible_text({_quote(value)})",
+                    "",
+                ]
+            )
         else:
-            lines.extend([
-                f"element = wait.until(EC.element_to_be_clickable(({by}, {_quote(locator)})))",
-                "element.click()",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"element = wait.until(EC.element_to_be_clickable(({by}, {_quote(locator)})))",
+                    "element.click()",
+                    "",
+                ]
+            )
 
     return "\n".join(lines).rstrip() + "\n"

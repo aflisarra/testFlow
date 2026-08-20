@@ -1,6 +1,7 @@
 """Offline Phase 4 tests; no OpenRouter call or embedding download."""
 
 import numpy as np
+
 from services.ingestion import module_tagger
 from services.ingestion.items import Item
 from services.ingestion.module_generation import (
@@ -90,11 +91,13 @@ def test_module_generation_uses_plan_timeout(monkeypatch) -> None:
     def fake_generate_json(*, prompt: str, timeout: int):
         captured.update({"prompt": prompt, "timeout": timeout})
         return {
-            "modules": [{
-                "name": "Search",
-                "description": "Search workflows.",
-                "source_item_ids": ["ITEM-00002"],
-            }]
+            "modules": [
+                {
+                    "name": "Search",
+                    "description": "Search workflows.",
+                    "source_item_ids": ["ITEM-00002"],
+                }
+            ]
         }
 
     monkeypatch.setattr("services.ingestion.module_generation.get_settings", lambda: _Settings())
@@ -127,13 +130,15 @@ class _FakeEmbeddingModel:
 def test_module_tagger_excludes_non_product_roles_and_uses_cited_source(monkeypatch) -> None:
     requirement = _item("ITEM-00001", "REQUIREMENT", "Search tracks.", ["Search"])
     glossary = _item("ITEM-00002", "GLOSSARY", "Track: a musical work.", ["Glossary"])
-    modules = [{
-        "id": "MOD-001",
-        "name": "Search",
-        "description": "Search workflows.",
-        "kind": "functional",
-        "source_item_ids": ["ITEM-00001"],
-    }]
+    modules = [
+        {
+            "id": "MOD-001",
+            "name": "Search",
+            "description": "Search workflows.",
+            "kind": "functional",
+            "source_item_ids": ["ITEM-00001"],
+        }
+    ]
     monkeypatch.setattr(module_tagger, "get_embedding_model", lambda: _FakeEmbeddingModel())
 
     module_tagger.tag_module([requirement, glossary], modules)
@@ -148,8 +153,18 @@ def test_module_tagger_excludes_non_product_roles_and_uses_cited_source(monkeypa
 def test_ambiguous_cited_requirement_remains_unassigned(monkeypatch) -> None:
     requirement = _item("ITEM-00001", "REQUIREMENT", "Shared workflow.", ["Shared"])
     modules = [
-        {"id": "MOD-001", "name": "Search", "description": "Search.", "source_item_ids": ["ITEM-00001"]},
-        {"id": "MOD-002", "name": "Payment", "description": "Payment.", "source_item_ids": ["ITEM-00001"]},
+        {
+            "id": "MOD-001",
+            "name": "Search",
+            "description": "Search.",
+            "source_item_ids": ["ITEM-00001"],
+        },
+        {
+            "id": "MOD-002",
+            "name": "Payment",
+            "description": "Payment.",
+            "source_item_ids": ["ITEM-00001"],
+        },
     ]
     monkeypatch.setattr(module_tagger, "get_embedding_model", lambda: _FakeEmbeddingModel())
 

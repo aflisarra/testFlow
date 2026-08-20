@@ -64,7 +64,9 @@ def module_evidence_fingerprint(items: list[Item]) -> str:
             for item in evidence
         ],
     }
-    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+    encoded = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -118,7 +120,9 @@ def preserve_module_ids(
     previous = [dict(module) for module in previous_modules if isinstance(module, dict)]
     previous_ids = {str(module.get("id") or "") for module in previous if module.get("id")}
     used_ids: set[str] = set()
-    next_number = max((_numeric_module_id(str(module.get("id") or "")) for module in previous), default=0) + 1
+    next_number = (
+        max((_numeric_module_id(str(module.get("id") or "")) for module in previous), default=0) + 1
+    )
     result: list[dict[str, Any]] = []
     for module in modules:
         card = dict(module)
@@ -185,7 +189,9 @@ def ensure_modules_for_plan(
             reused=True,
         )
     if claim.get("in_progress") or not claim.get("claimed"):
-        raise ModuleGenerationInProgress("Module generation is already in progress for this specification")
+        raise ModuleGenerationInProgress(
+            "Module generation is already in progress for this specification"
+        )
 
     lease = str(claim.get("lease") or "")
     if not lease:

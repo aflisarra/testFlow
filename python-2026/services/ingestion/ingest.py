@@ -26,7 +26,7 @@ logger = get_logger(__name__)
 
 
 def ingest_spec(
-    doc_or_text: Any,        # python-docx Document or plain str
+    doc_or_text: Any,  # python-docx Document or plain str
     file_bytes: bytes,
     *,
     storage_hash: str | None = None,
@@ -99,7 +99,9 @@ def ingest_spec(
         item_count=len(all_items),
         chunk_count=len(chunks),
         role_dist={role: role_counts.get(role, 0) for role in [*ROLE_LABELS, "UNTAGGED"]},
-        method_dist={method: method_counts.get(method, 0) for method in ("regex", "heading", "human", "none")},
+        method_dist={
+            method: method_counts.get(method, 0) for method in ("regex", "heading", "human", "none")
+        },
         pending_review_count=pending_review_count,
         module_status="pending",
     )

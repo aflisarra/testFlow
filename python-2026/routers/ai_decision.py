@@ -4,8 +4,9 @@ import re
 import time
 
 from fastapi import APIRouter, HTTPException
-from prompts.ai_decision_prompt import build_ai_decision_prompt
 from pydantic import BaseModel
+
+from prompts.ai_decision_prompt import build_ai_decision_prompt
 from services.ai_service import get_ai_service
 from utils.selenium_generator import generate_selenium_code
 
@@ -134,10 +135,18 @@ def _extract_test_data_source(test_case):
         test_case.get("test_data"),
         test_case.get("testData"),
         test_case.get("data"),
-        test_case.get("test_case", {}).get("test_data") if isinstance(test_case.get("test_case"), dict) else None,
-        test_case.get("test_case", {}).get("testData") if isinstance(test_case.get("test_case"), dict) else None,
-        test_case.get("testCase", {}).get("test_data") if isinstance(test_case.get("testCase"), dict) else None,
-        test_case.get("testCase", {}).get("testData") if isinstance(test_case.get("testCase"), dict) else None,
+        test_case.get("test_case", {}).get("test_data")
+        if isinstance(test_case.get("test_case"), dict)
+        else None,
+        test_case.get("test_case", {}).get("testData")
+        if isinstance(test_case.get("test_case"), dict)
+        else None,
+        test_case.get("testCase", {}).get("test_data")
+        if isinstance(test_case.get("testCase"), dict)
+        else None,
+        test_case.get("testCase", {}).get("testData")
+        if isinstance(test_case.get("testCase"), dict)
+        else None,
         test_case.get("credentials"),
     ]
 
@@ -371,9 +380,7 @@ def _classify_test_data(raw_values):
 def _get_field_type(el):
 
     # ✅ priorité absolue au businessRole enrichi côté DOM
-    business_role = str(
-        el.get("businessRole") or ""
-    ).strip().lower()
+    business_role = str(el.get("businessRole") or "").strip().lower()
 
     if business_role:
         return business_role
@@ -388,20 +395,20 @@ def _get_field_type(el):
     title = _normalize_text(el.get("title"))
     text = _normalize_text(el.get("text"))
     role = _normalize_text(el.get("role"))
-    classes = _normalize_text(
-        el.get("class") or el.get("classes")
-    )
+    classes = _normalize_text(el.get("class") or el.get("classes"))
 
-    haystack = " ".join([
-        field_id,
-        name,
-        placeholder,
-        aria,
-        title,
-        text,
-        role,
-        classes,
-    ])
+    haystack = " ".join(
+        [
+            field_id,
+            name,
+            placeholder,
+            aria,
+            title,
+            text,
+            role,
+            classes,
+        ]
+    )
 
     # ✅ dropdowns
     if tag == "select":
@@ -416,11 +423,7 @@ def _get_field_type(el):
         return "email"
 
     # ✅ phone
-    if (
-        input_type in {"tel", "phone"}
-        or "phone" in haystack
-        or "mobile" in haystack
-    ):
+    if input_type in {"tel", "phone"} or "phone" in haystack or "mobile" in haystack:
         return "phone"
 
     # ✅ first name
@@ -500,7 +503,7 @@ def _field_selector_priority(el):
         return f'[placeholder="{placeholder}"]'
     text = str(el.get("text") or "").strip()
     if text:
-        return f'text={text}'
+        return f"text={text}"
     return ""
 
 
@@ -520,7 +523,18 @@ def _get_label_text(dom, target):
             continue
         if text_lower in {"skip to content", "sign in →"}:
             continue
-        if any(keyword in text_lower for keyword in ("email", "password", "username", "phone", "country", "first name", "last name")):
+        if any(
+            keyword in text_lower
+            for keyword in (
+                "email",
+                "password",
+                "username",
+                "phone",
+                "country",
+                "first name",
+                "last name",
+            )
+        ):
             return text
     return ""
 
@@ -549,8 +563,24 @@ FIELD_SYNONYMS = {
     "username": ("username", "user name", "login", "user"),
     "phone": ("phone", "mobile", "telephone", "tel"),
     "country": ("country", "region", "nationality"),
-    "firstname": ("firstname", "first_name", "first name", "given_name", "given name", "prenom", "prénom"),
-    "lastname": ("lastname", "last_name", "last name", "surname", "family_name", "family name", "nom"),
+    "firstname": (
+        "firstname",
+        "first_name",
+        "first name",
+        "given_name",
+        "given name",
+        "prenom",
+        "prénom",
+    ),
+    "lastname": (
+        "lastname",
+        "last_name",
+        "last name",
+        "surname",
+        "family_name",
+        "family name",
+        "nom",
+    ),
     "address": ("address", "street", "adresse"),
     "city": ("city", "town", "ville"),
     "postal_code": ("postalcode", "postal_code", "postal code", "zip", "zipcode", "zip code"),
@@ -658,7 +688,10 @@ def _score_dom_element_for_field(el, field):
     if input_type == "hidden":
         return 0
 
-    is_fillable = tag in {"input", "textarea", "select"} or str(el.get("role") or "").lower() in {"combobox", "listbox"}
+    is_fillable = tag in {"input", "textarea", "select"} or str(el.get("role") or "").lower() in {
+        "combobox",
+        "listbox",
+    }
     if not is_fillable:
         return 0
 
@@ -692,7 +725,9 @@ def _score_dom_element_for_field(el, field):
         score += 90
     if field == "phone" and input_type in {"tel", "phone"}:
         score += 70
-    if field == "country" and (tag == "select" or str(el.get("role") or "").lower() in {"combobox", "listbox"}):
+    if field == "country" and (
+        tag == "select" or str(el.get("role") or "").lower() in {"combobox", "listbox"}
+    ):
         score += 55
 
     return score
@@ -738,7 +773,11 @@ def _deterministic_actions_for_step(step, dom, test_case):
 
         tag = str(el.get("tag") or "").lower().strip()
         role = str(el.get("role") or "").lower().strip()
-        action_type = "click" if field == "country" and tag != "select" and role in {"combobox", "listbox", "button"} else "type"
+        action_type = (
+            "click"
+            if field == "country" and tag != "select" and role in {"combobox", "listbox", "button"}
+            else "type"
+        )
 
         action = {
             "type": action_type,
@@ -802,7 +841,9 @@ def _infer_actions_when_empty(step, dom, test_case):
         # step can still run instead of being permanently blocked.
         return _dom_to_fill_actions(dom, test_case, step=step)
     if _is_dropdown_step(step):
-        value = _extract_next_unused_test_data_value(test_case, _extract_execution_memory(test_case))
+        value = _extract_next_unused_test_data_value(
+            test_case, _extract_execution_memory(test_case)
+        )
         if not value:
             # No test_data left for this dropdown: pick a plausible option
             # straight from the DOM so the step still executes.
@@ -839,14 +880,21 @@ def _dom_click_action_for_step(step, dom):
     best_element = None
     best_score = 0
     for element in dom:
-        if not isinstance(element, dict) or element.get("disabled") or element.get("visible") is False:
+        if (
+            not isinstance(element, dict)
+            or element.get("disabled")
+            or element.get("visible") is False
+        ):
             continue
         tag = str(element.get("tag") or "").lower()
         role = str(element.get("role") or "").lower()
         if tag not in {"button", "a", "input"} and role not in {"button", "link"}:
             continue
         label = _normalize_text(
-            element.get("text") or element.get("ariaLabel") or element.get("title") or element.get("value")
+            element.get("text")
+            or element.get("ariaLabel")
+            or element.get("title")
+            or element.get("value")
         )
         if not label:
             continue
@@ -854,14 +902,16 @@ def _dom_click_action_for_step(step, dom):
         if score > best_score:
             best_element, best_score = element, score
         logger.info(
-    "BEST_ELEMENT=%s BEST_SCORE=%s",
-    best_element,
-    best_score,
-)
+            "BEST_ELEMENT=%s BEST_SCORE=%s",
+            best_element,
+            best_score,
+        )
     if not best_element:
         return None
     selector = _selector_for_dom_element(best_element)
-    return {"type": "click", "selector": selector, "value": "", "label": target} if selector else None
+    return (
+        {"type": "click", "selector": selector, "value": "", "label": target} if selector else None
+    )
 
 
 def _infer_test_data_from_dom(dom, step=""):
@@ -891,7 +941,12 @@ def _infer_test_data_from_dom(dom, step=""):
         text = str(el.get("text") or "").lower()
         haystack = " ".join([field_id, name, placeholder, aria, title, text, step_lower])
 
-        if input_type == "hidden" or field_id in {"_token", "csrf", "csrf_token", "authenticity_token"}:
+        if input_type == "hidden" or field_id in {
+            "_token",
+            "csrf",
+            "csrf_token",
+            "authenticity_token",
+        }:
             continue
         if tag not in {"input", "textarea", "select"}:
             continue
@@ -945,7 +1000,9 @@ def _infer_test_data_from_dom(dom, step=""):
             if isinstance(el, dict)
         ]
 
-        has_password = any(tag == "input" and input_type == "password" for tag, input_type, _ in field_types)
+        has_password = any(
+            tag == "input" and input_type == "password" for tag, input_type, _ in field_types
+        )
         has_username = any(
             tag == "input"
             and (
@@ -1063,7 +1120,12 @@ def _dom_to_fill_actions(dom, test_case, step=""):
         aria = str(el.get("ariaLabel") or "").strip().lower()
         title = str(el.get("title") or "").strip().lower()
 
-        if input_type == "hidden" or field_id in {"_token", "csrf", "csrf_token", "authenticity_token"}:
+        if input_type == "hidden" or field_id in {
+            "_token",
+            "csrf",
+            "csrf_token",
+            "authenticity_token",
+        }:
             continue
         if any(token in name for token in ("_token", "csrf", "authenticity_token")):
             continue
@@ -1088,19 +1150,21 @@ def _dom_to_fill_actions(dom, test_case, step=""):
         if tag == "input" and input_type in {"checkbox", "radio"}:
             if choice_selected:
                 continue
-            actions.append({
-                "type": "click",
-                "selector": selector,
-                "label": (
-                    el.get("businessRole")
-                    or el.get("placeholder")
-                    or el.get("ariaLabel")
-                    or el.get("name")
-                    or el.get("id")
-                    or "Field"
-                ),
-                "value": "",
-            })
+            actions.append(
+                {
+                    "type": "click",
+                    "selector": selector,
+                    "label": (
+                        el.get("businessRole")
+                        or el.get("placeholder")
+                        or el.get("ariaLabel")
+                        or el.get("name")
+                        or el.get("id")
+                        or "Field"
+                    ),
+                    "value": "",
+                }
+            )
             used_selectors.add(selector)
             used_buckets.add(bucket)
             choice_selected = True
@@ -1142,19 +1206,21 @@ def _dom_to_fill_actions(dom, test_case, step=""):
             used_values.add(value)  # ✅ mark this value as consumed
 
         logger.info("Mapped field: %s -> %s", selector, value)
-        actions.append({
-    "type": "type",
-    "selector": selector,
-    "label": (
-        el.get("businessRole")
-        or el.get("placeholder")
-        or el.get("ariaLabel")
-        or el.get("name")
-        or el.get("id")
-        or "Field"
-    ),
-    "value": value
-})
+        actions.append(
+            {
+                "type": "type",
+                "selector": selector,
+                "label": (
+                    el.get("businessRole")
+                    or el.get("placeholder")
+                    or el.get("ariaLabel")
+                    or el.get("name")
+                    or el.get("id")
+                    or "Field"
+                ),
+                "value": value,
+            }
+        )
         used_selectors.add(selector)
         used_buckets.add(bucket)
 
@@ -1168,7 +1234,16 @@ def _dom_submit_action(dom):
 
     # Include login-style buttons so auth flows still click the final submit
     # action after filling credentials.
-    submit_keywords = ("submit", "save", "register", "continue", "next", "login", "sign in", "sign-in")
+    submit_keywords = (
+        "submit",
+        "save",
+        "register",
+        "continue",
+        "next",
+        "login",
+        "sign in",
+        "sign-in",
+    )
 
     for el in dom:
         if not isinstance(el, dict) or el.get("disabled"):
@@ -1188,7 +1263,9 @@ def _dom_submit_action(dom):
         ).lower()
 
         if tag == "input" and input_type == "submit":
-            selector = f"#{str(el.get('id') or '').strip()}" if str(el.get("id") or "").strip() else ""
+            selector = (
+                f"#{str(el.get('id') or '').strip()}" if str(el.get("id") or "").strip() else ""
+            )
             if selector:
                 return {"type": "click", "selector": selector, "value": ""}
 
@@ -1269,11 +1346,13 @@ def _merge_dropdown_actions(actions):
     if not value_action or not trigger_action:
         return actions
 
-    return [{
-        "type": "click",
-        "selector": trigger_action.get("selector", ""),
-        "value": value_action.get("value", ""),
-    }]
+    return [
+        {
+            "type": "click",
+            "selector": trigger_action.get("selector", ""),
+            "value": value_action.get("value", ""),
+        }
+    ]
 
 
 def _selector_for_dom_element(el):
@@ -1312,13 +1391,21 @@ def _dom_dropdown_action(dom, target_value):
         ).lower()
 
         score = 0
-        if tag in ("button", "select") or role in ("combobox", "listbox", "button") or el.get("ariaHaspopup"):
+        if (
+            tag in ("button", "select")
+            or role in ("combobox", "listbox", "button")
+            or el.get("ariaHaspopup")
+        ):
             score += 3
         if "country" in text_blob or "region" in text_blob:
             score += 8
         if target_value and str(target_value).lower() in text_blob:
             score += 5
-        if "copilot" in text_blob or "create account" in text_blob or el_type in ("checkbox", "radio", "submit"):
+        if (
+            "copilot" in text_blob
+            or "create account" in text_blob
+            or el_type in ("checkbox", "radio", "submit")
+        ):
             score -= 20
 
         if score > best_score:
@@ -1465,10 +1552,7 @@ def decide(payload: AIDecisionPayload):
         client = get_ai_service()
 
         t_ai_start = time.monotonic()
-        result = client.generate_json(
-            prompt=prompt,
-            timeout=90
-        )
+        result = client.generate_json(prompt=prompt, timeout=90)
         t_ai_ms = int((time.monotonic() - t_ai_start) * 1000)
         t_total_ms = int((time.monotonic() - t_request_start) * 1000)
         print(f"⏱ [ai/decide] ai_call_ms={t_ai_ms}  total_so_far_ms={t_total_ms}")
@@ -1478,7 +1562,6 @@ def decide(payload: AIDecisionPayload):
         logger.info("=============================================")
 
         # ── post-processing ───────────────────────────────────────────────
-        t_post_start = time.monotonic()
         extracted = _extract_actions(result)
         ai_actions = extracted.get("data", []) if isinstance(extracted, dict) else []
         logger.info("AI actions=%s", ai_actions)
@@ -1489,12 +1572,14 @@ def decide(payload: AIDecisionPayload):
             or "create account" in step.lower()
         ):
             return _decision_response(
-                [{
-                    "type": "click",
-                    "selector": "text=Create account",
-                    "label": "Create account",
-                    "value": "",
-                }],
+                [
+                    {
+                        "type": "click",
+                        "selector": "text=Create account",
+                        "label": "Create account",
+                        "value": "",
+                    }
+                ],
                 dom,
             )
 
@@ -1503,7 +1588,9 @@ def decide(payload: AIDecisionPayload):
             dropdown_actions = _apply_target_dropdown_value(
                 dropdown_actions, resolved_test_case, execution_memory
             )
-            target_value = _extract_next_unused_test_data_value(resolved_test_case, execution_memory)
+            target_value = _extract_next_unused_test_data_value(
+                resolved_test_case, execution_memory
+            )
             if not _dropdown_actions_are_specific(dropdown_actions):
                 fallback_action = _dom_dropdown_action(dom, target_value)
                 if fallback_action:
@@ -1551,8 +1638,8 @@ def decide(payload: AIDecisionPayload):
         logger.exception(f"🔥 AI ERROR: {e!s}")
 
         # 🔄 TEAMMATE'S FALLBACK
-        # Instead of returning a hard error immediately, try to heuristically infer 
-        # an action based on the DOM. This stops the test runner from crashing completely 
+        # Instead of returning a hard error immediately, try to heuristically infer
+        # an action based on the DOM. This stops the test runner from crashing completely
         # if the LLM times out or rate limits.
         fallback_actions = _infer_actions_when_empty(step, dom, resolved_test_case)
         if fallback_actions:

@@ -19,7 +19,11 @@ def _item(id_: str, module: str, role: str = "REQUIREMENT") -> Item:
 
 def test_builds_one_medium_priority_plan_per_requirement_backed_module() -> None:
     modules = [
-        {"name": "Search", "description": "Search and filtering.", "source_item_ids": ["ITEM-00001"]},
+        {
+            "name": "Search",
+            "description": "Search and filtering.",
+            "source_item_ids": ["ITEM-00001"],
+        },
         {"name": "Playback", "description": "Audio playback.", "source_item_ids": ["ITEM-00003"]},
     ]
     items = [
@@ -55,7 +59,12 @@ def test_keeps_single_testable_item_and_skips_unlinked_modules() -> None:
 
 def test_acceptance_only_module_creates_a_plan() -> None:
     modules = [
-        {"id": "MOD-001", "name": "Checkout", "description": "Checkout flow.", "source_item_ids": ["ITEM-00001"]},
+        {
+            "id": "MOD-001",
+            "name": "Checkout",
+            "description": "Checkout flow.",
+            "source_item_ids": ["ITEM-00001"],
+        },
     ]
     acceptance = _item("ITEM-00001", "Checkout", role="ACCEPTANCE")
     acceptance.module_ids = ["MOD-001"]
@@ -72,7 +81,12 @@ def test_acceptance_only_module_creates_a_plan() -> None:
 
 def test_module_specific_nfr_only_module_creates_a_plan() -> None:
     modules = [
-        {"id": "MOD-001", "name": "Search", "description": "Search flow.", "source_item_ids": ["ITEM-00001"]},
+        {
+            "id": "MOD-001",
+            "name": "Search",
+            "description": "Search flow.",
+            "source_item_ids": ["ITEM-00001"],
+        },
     ]
     nfr = _item("ITEM-00001", "Search", role="NON_FUNCTIONAL")
     nfr.module_ids = ["MOD-001"]
@@ -88,8 +102,18 @@ def test_module_specific_nfr_only_module_creates_a_plan() -> None:
 
 def test_cross_cutting_nfr_creates_a_quality_plan() -> None:
     modules = [
-        {"id": "MOD-001", "name": "Search", "description": "Search.", "source_item_ids": ["ITEM-00002"]},
-        {"id": "MOD-002", "name": "Payment", "description": "Payment.", "source_item_ids": ["ITEM-00003"]},
+        {
+            "id": "MOD-001",
+            "name": "Search",
+            "description": "Search.",
+            "source_item_ids": ["ITEM-00002"],
+        },
+        {
+            "id": "MOD-002",
+            "name": "Payment",
+            "description": "Payment.",
+            "source_item_ids": ["ITEM-00003"],
+        },
     ]
     nfr = _item("ITEM-00001", "CROSS_CUTTING", role="NON_FUNCTIONAL")
     nfr.module_ids = ["MOD-001", "MOD-002"]

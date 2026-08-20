@@ -38,7 +38,9 @@ def test_closest_matching_heading_wins_over_a_matching_parent() -> None:
 
 
 def test_parent_heading_is_used_when_closest_heading_has_no_role_signal() -> None:
-    item = _item("Plateforme musicale disponible sur mobile et web.", ["Contexte", "Vue d'ensemble"])
+    item = _item(
+        "Plateforme musicale disponible sur mobile et web.", ["Contexte", "Vue d'ensemble"]
+    )
 
     tag_role([item])
 

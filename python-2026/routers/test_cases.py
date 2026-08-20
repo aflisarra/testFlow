@@ -10,9 +10,10 @@ from __future__ import annotations
 import subprocess
 import time
 
-from core.config import get_settings
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
+
+from core.config import get_settings
 from schemas.test_case_schema import GenerateTestCasesRequest, TestCasesResponse
 from services.cancellation_service import is_cancelled
 from services.case_service import generate_test_cases
@@ -98,7 +99,9 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
     except FileNotFoundError:
         t_total_ms = int((time.monotonic() - t_start) * 1000)
         print(f"⏱ [generate-test-cases] FAILED FileNotFoundError  total_ms={t_total_ms}")
-        return JSONResponse(status_code=500, content=_error_payload("xAI client error. Check XAI_API_KEY."))
+        return JSONResponse(
+            status_code=500, content=_error_payload("xAI client error. Check XAI_API_KEY.")
+        )
     except subprocess.TimeoutExpired:
         t_total_ms = int((time.monotonic() - t_start) * 1000)
         print(f"⏱ [generate-test-cases] TIMEOUT  total_ms={t_total_ms}")
@@ -106,7 +109,9 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
     except ValueError as exc:
         t_total_ms = int((time.monotonic() - t_start) * 1000)
         print(f"⏱ [generate-test-cases] INVALID JSON  total_ms={t_total_ms}")
-        return JSONResponse(status_code=502, content=_error_payload("AI returned invalid JSON.", str(exc)))
+        return JSONResponse(
+            status_code=502, content=_error_payload("AI returned invalid JSON.", str(exc))
+        )
     except RuntimeError as exc:
         t_total_ms = int((time.monotonic() - t_start) * 1000)
         print(f"⏱ [generate-test-cases] RUNTIME ERROR  total_ms={t_total_ms}")

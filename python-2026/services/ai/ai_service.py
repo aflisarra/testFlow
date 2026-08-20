@@ -1,7 +1,9 @@
 import json
+import os
 import re
 
 import requests
+
 from utils.json_cleaner import safe_json_loads
 
 
@@ -18,7 +20,7 @@ def extract_json(text):
 
     # ✅ remove JS expressions (very important)
     text = re.sub(r"\+.*?\)", "", text)  # remove "+ Math.random()..."
-    
+
     # ✅ fix trailing commas
     text = re.sub(r",\s*}", "}", text)
     text = re.sub(r",\s*]", "]", text)
@@ -26,7 +28,7 @@ def extract_json(text):
     # ✅ try full parse
     try:
         return json.loads(text)
-    except:
+    except json.JSONDecodeError:
         pass
 
     # ✅ extract JSON array
@@ -34,7 +36,7 @@ def extract_json(text):
     if array_match:
         try:
             return json.loads(array_match.group())
-        except:
+        except json.JSONDecodeError:
             pass
 
     # ✅ extract objects individually
@@ -44,7 +46,7 @@ def extract_json(text):
     for m in matches:
         try:
             results.append(json.loads(m))
-        except:
+        except json.JSONDecodeError:
             continue
 
     if results:
@@ -54,17 +56,16 @@ def extract_json(text):
 
 
 class AIService:
- 
     def generate_json(self, prompt: str, timeout: int):
- 
+
         resp = requests.post(
             "http://localhost:11434/api/generate",
             json={
                 "model": "qwen2.5:3b-instruct",
                 "prompt": prompt,
                 "stream": False,
-                "format": "json",              # force Ollama to output valid JSON
-                 "options": {
+                "format": "json",  # force Ollama to output valid JSON
+                "options": {
                     "temperature": 0,
                     "num_predict": int(os.getenv("OLLAMA_NUM_PREDICT", "800")),
                     "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "2048")),
@@ -73,10 +74,10 @@ class AIService:
             timeout=timeout,
         )
         resp.raise_for_status()
- 
+
         raw = resp.json().get("response", "").strip()
         print("🧠 RAW:", raw)
- 
+
         try:
             result = safe_json_loads(raw)
         except Exception as e:

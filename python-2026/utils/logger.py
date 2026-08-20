@@ -52,4 +52,3 @@ def log_event(logger: logging.Logger, event: str, **fields: Any) -> None:
 def log_error(logger: logging.Logger, event: str, **fields: Any) -> None:
     payload = {"event": event, **fields}
     logger.error(json.dumps(payload, ensure_ascii=False, default=_json_default))
-
