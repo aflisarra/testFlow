@@ -97,7 +97,6 @@ async function updateSpecificationContent(testSuiteId, htmlContent) {
     throw httpError(404, 'Specification document file is missing on server')
   }
 
-  const ext = path.extname(String(suite.specFileName || absolutePath)).toLowerCase()
   const newFileName = String(suite.specFileName || path.basename(absolutePath)).trim() || 'spec.docx'
 
   suite.specHtml = content

@@ -70,11 +70,10 @@ const testCaseSchema = new mongoose.Schema(
       default: [],
       set: normalizeStringList,
     },
-    
-test_data: {
-  type: [String],
-  default: [],
-},
+    test_data: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
 
     priority: {
       type: String,

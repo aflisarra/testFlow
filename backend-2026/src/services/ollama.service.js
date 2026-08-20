@@ -712,7 +712,6 @@ async function generatePlan({ req, body, file }) {
   let specText = ''
 
   let suite = null
-  let projectTitle = ''
   let previousTestStatus = 'Draft'
   let newSuitePayload = null
   let uploadedSpec = null
@@ -754,13 +753,9 @@ async function generatePlan({ req, body, file }) {
     if (testName) updates.nametest = testName
 
     if (projectId) {
-      const project = await Project.findById(projectId).select('_id title').lean()
+      const project = await Project.findById(projectId).select('_id').lean()
       if (!project) throw httpError(404, 'Project not found')
       updates.projectId = projectId
-      projectTitle = String(project?.title || '')
-    } else if (suite?.projectId) {
-      const project = await Project.findById(suite.projectId).select('_id title').lean()
-      projectTitle = String(project?.title || '')
     }
 
     suite = await TestSuite.findByIdAndUpdate(providedTestSuiteId, updates, { new: true })
@@ -778,9 +773,8 @@ async function generatePlan({ req, body, file }) {
       .trim()
       .slice(0, 20_000)
 
-    const project = await Project.findById(projectId).select('_id title ownerId').lean()
+    const project = await Project.findById(projectId).select('_id').lean()
     if (!project) throw httpError(404, 'Project not found')
-    projectTitle = String(project?.title || '')
 
     const now = new Date()
     const defaultName = `Test Suite - ${now.toISOString().slice(0, 19).replace('T', ' ')}`

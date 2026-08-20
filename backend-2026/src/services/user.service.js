@@ -1,6 +1,5 @@
 const User = require('../models/user.model');
 const Role = require('../models/role.model');
-const Project = require('../models/project.model');
 const MESSAGES = require('../constants/messages.js'); // Assure-toi que le chemin est correct
 // ✅ Create a new user
 // Input:

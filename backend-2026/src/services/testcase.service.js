@@ -328,51 +328,6 @@ async function deleteTestCase(testCaseId) {
 /**
  * Convert natural language step → Selenium action
  */
-function mapStepToSelenium(stepText) {
-  const step = String(stepText || '').toLowerCase()
-
-  if (step.includes('enter') || step.includes('type') || step.includes('fill')) {
-    return {
-      action: 'type',
-      target: extractSelector(stepText),
-      value: extractValue(stepText),
-    }
-  }
-
-  if (step.includes('click') || step.includes('press')) {
-    return {
-      action: 'click',
-      target: extractSelector(stepText),
-    }
-  }
-
-  if (step.includes('see') || step.includes('visible') || step.includes('displayed')) {
-    return {
-      action: 'assertVisible',
-      target: extractSelector(stepText),
-    }
-  }
-
-  return {
-    action: 'unknown',
-    raw: stepText,
-  }
-}
-
-function extractSelector(text) {
-  const t = String(text || '').toLowerCase()
-  if (t.includes('email')) return '#email'
-  if (t.includes('password')) return '#password'
-  if (t.includes('login')) return '#login'
-  if (t.includes('button')) return 'button'
-  return 'body'
-}
-
-function extractValue(text) {
-  const match = String(text).match(/"([^"]+)"|'([^']+)'/)
-  return match ? (match[1] || match[2]) : 'test-data'
-}
-
 /**
  * Selenium-ready format
  */
