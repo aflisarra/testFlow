@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing'
+import { appTestProviders } from '@/testing/app-test-providers'
 
 import { VerticalComponent } from './vertical.component'
 
@@ -9,6 +10,7 @@ describe('VerticalComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [VerticalComponent],
+      providers: appTestProviders(),
     }).compileComponents()
 
     fixture = TestBed.createComponent(VerticalComponent)

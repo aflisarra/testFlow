@@ -1,10 +1,12 @@
 import { TestBed } from '@angular/core/testing'
-import { it } from 'node:test'
+import { appTestProviders } from '@/testing/app-test-providers'
 import { AppComponent } from './app.component'
+
 describe('AppComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [AppComponent],
+      providers: appTestProviders(),
     }).compileComponents()
   })
 
@@ -14,16 +16,10 @@ describe('AppComponent', () => {
     expect(app).toBeTruthy()
   })
 
-  it(`should have the 'Reback' title`, () => {
-    const fixture = TestBed.createComponent(AppComponent)
-    // expect(app.title).toEqual('Reback')
-    void fixture
-  })
-
-  it('should render title', () => {
+  it('should render the application router outlet', () => {
     const fixture = TestBed.createComponent(AppComponent)
     fixture.detectChanges()
     const compiled = fixture.nativeElement as HTMLElement
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, Reback')
+    expect(compiled.querySelector('router-outlet')).not.toBeNull()
   })
 })

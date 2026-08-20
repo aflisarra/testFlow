@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing'
+import { appTestProviders } from '@/testing/app-test-providers'
 
 import { AuthLayoutComponent } from './auth-layout.component'
 
@@ -9,6 +10,7 @@ describe('AuthLayoutComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [AuthLayoutComponent],
+      providers: appTestProviders(),
     }).compileComponents()
 
     fixture = TestBed.createComponent(AuthLayoutComponent)
