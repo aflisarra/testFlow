@@ -119,6 +119,13 @@ def extract_requirements(spec_text: str) -> list[dict[str, str]]:
 
     # Bullets / numbered items.
     bullet_re = re.compile(r"^(\-|\*|•|\d+[\.\)])\s+(.*)$")
+    # Normalize list markers before sentence-based modal extraction so a
+    # bullet such as "- The system shall ..." is not retained a second time
+    # with its marker still attached.
+    content_for_sentences = "\n".join(
+        match.group(2) if (match := bullet_re.match(line)) else line
+        for line in content_for_sentences.splitlines()
+    )
     for ln in lines:
         m = bullet_re.match(ln)
         if m:
