@@ -126,9 +126,7 @@ def test_extract_requirements_supports_bullets_plain_text_modals_and_user_storie
 
     requirements = spec_service.extract_requirements("spec")
 
-    assert [value["id"] for value in requirements] == [
-        f"REQ-{index:03d}" for index in range(1, 5)
-    ]
+    assert [value["id"] for value in requirements] == [f"REQ-{index:03d}" for index in range(1, 5)]
     descriptions = [value["text"] for value in requirements]
     assert "The system shall export audit records." in descriptions
     assert "Checkout confirmation displays the final transaction summary." in descriptions

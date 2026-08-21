@@ -252,7 +252,9 @@ def test_claimed_generation_without_trusted_evidence_records_failure(
     with pytest.raises(ValueError, match="No trusted items"):
         orchestration.ensure_modules_for_plan("a" * 64, [item])
 
-    assert failures == [("a" * 64, "lease-1", "No trusted items are available for module generation")]
+    assert failures == [
+        ("a" * 64, "lease-1", "No trusted items are available for module generation")
+    ]
 
 
 def test_empty_generation_result_records_failure(monkeypatch: pytest.MonkeyPatch) -> None:

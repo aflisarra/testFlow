@@ -204,7 +204,9 @@ def test_plan_generation_reports_pending_and_skipped_module_diagnostics(
         )
 
     monkeypatch.setattr(plan_service, "ensure_modules_for_plan", ensure)
-    cancellation_check = lambda: False
+
+    def cancellation_check() -> bool:
+        return False
 
     result = plan_service.generate_test_plans(
         spec_hash="a" * 64,
