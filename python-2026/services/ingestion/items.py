@@ -142,23 +142,25 @@ def expand_section_to_items(
 
     candidates: list[str] = []
 
-    # ── Pass 1: extract bullet lines ────────────────────────────────────────
-    bullet_texts: set[int] = set()  # character offsets already consumed
-    for m in _BULLET_RE.finditer(raw_text):
-        item_text = m.group(1).strip()
+    # ── Pass 1: extract prose and bullets in source order ───────────────────
+    def append_prose(segment: str) -> None:
+        for sentence in _SENTENCE_END_RE.split(segment.strip()):
+            text = sentence.strip()
+            if len(text) >= 20:
+                candidates.append(text)
+
+    # Process prose and bullet matches together to retain source order.
+    cursor = 0
+    for match in _BULLET_RE.finditer(raw_text):
+        append_prose(raw_text[cursor : match.start()])
+        item_text = match.group(1).strip()
         if item_text:
             candidates.append(item_text)
-            # Mark the span so we can subtract it in pass 2
-            bullet_texts.add(m.start())
+        cursor = match.end()
 
-    # ── Pass 2: sentence-split the non-bullet remainder ─────────────────────
-    # Remove bullet lines from raw_text to get the prose remainder
-    prose = _BULLET_RE.sub("", raw_text).strip()
-    if prose:
-        for sentence in _SENTENCE_END_RE.split(prose):
-            s = sentence.strip()
-            if len(s) >= 20:
-                candidates.append(s)
+    # ── Pass 2: append the final prose remainder ─────────────────────────────
+    # Append any prose after the final bullet.
+    append_prose(raw_text[cursor:])
 
     # ── Pass 3: filter short items and build Item objects ───────────────────
     items: list[Item] = []
