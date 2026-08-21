@@ -10,9 +10,6 @@ requests>=2.31,<3
 selenium>=4.20,<5
 sentence-transformers>=2.7,<3
 
-# Optional module-alignment validation helper
-scipy>=1.11,<2
-
 # Tests and maintenance scripts
 numpy>=1.26,<3
 pymongo>=4.6,<5

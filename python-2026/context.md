@@ -16,7 +16,7 @@
 6. **Exécution et annulation** des tests Selenium et requêtes en cours.
 
 Le LLM principal utilisé est **OpenRouter** (ex. `google/gemini-2.5-flash`), appelé via HTTP.
-Pour l'embedding et l'alignement sémantique des modules, le système s'appuie sur `sentence-transformers` (`paraphrase-multilingual-MiniLM-L12-v2`) et `scipy` pour l'alignement de Hungarian contre le registre Gold.
+Pour le tagging sémantique des items sur les modules, le système s'appuie sur `sentence-transformers` (`paraphrase-multilingual-MiniLM-L12-v2`).
 
 ---
 
@@ -25,9 +25,9 @@ Pour l'embedding et l'alignement sémantique des modules, le système s'appuie s
 ```
 python-2026/
 ├── main.py                        # Point d'entrée FastAPI (v2.0.0, inclut le routeur review)
-├── requirements.txt               # Dépendances (fastapi, uvicorn, python-dotenv, python-docx, python-multipart, scipy, sentence-transformers, openai)
+├── requirements.txt               # Dépendances (fastapi, uvicorn, python-dotenv, python-docx, python-multipart, sentence-transformers, openai)
 ├── .env.example                   # Variables d'environnement documentées
-├── probe_classifier.ipynb         # Notebook d'expérimentation (Ground Truth, Role/Module classifier, Module Generation, Hungarian alignment)
+├── probe_classifier.ipynb         # Notebook historique d'expérimentation, non utilisé au runtime
 ├── core/
 │   ├── config.py                  # Settings dataclass (frozen), chargée depuis env
 │   └── constants.py               # PRIORITIES, SEVERITIES, TEST_CASE_TYPES, limites min/max
@@ -55,8 +55,7 @@ python-2026/
 │   │   ├── module_generation.py   # Extraits de preuve & appel LLM pour générer les cartes modules spec-local
 │   │   ├── module_orchestration.py # Ensure/regenerate, version, tagging, couverture et commit atomique
 │   │   ├── module_tagger.py       # Alignement et tagging des items sur les modules générés (tag_module)
-│   │   ├── module_gold.py         # Registre Gold pour l'alignement de Hungarian (SonicWave)
-│   │   ├── module_validation.py   # Comparaison legacy vs généré & scoring Hungarian
+│   │   ├── module_validation.py   # Comparaison diagnostique legacy vs généré
 │   │   ├── manifest.py            # TASK_MANIFEST contract & get_filtered_items_for_task (Phase 4b/6)
 │   │   ├── store_client.py        # Client HTTP d'ingestion inter-services vers Node/MongoDB (Phase 4c)
 │   │   ├── review_queue.py        # Logique de gestion et résolution de la file d'attente de revue (Phase 5a)
@@ -139,7 +138,7 @@ python-2026/
 - **Propriété de `/generate-plan` (`module_orchestration.py`)** : génération/reuse versionnée avec lease, empreinte des preuves, couverture et persistance des champs modules uniquement.
 - **Extraction générative des modules (`module_generation.py`)** : sélection d'items de preuve de haute confiance (`CONTEXT`, `FEATURE`, `REQUIREMENT`, `ACCEPTANCE`, `NON_FUNCTIONAL` avec `role_method != 'none'`) transmis à OpenRouter pour générer 1 à 12 cartes modules spec-local `{id, name, description, kind}`.
 - **Tagging des items par module (`module_tagger.py`)** : comparaison vectorielle enrichie par titres et sources citées; les rôles `GLOSSARY`, `OUT_OF_SCOPE` et `UNTAGGED` sont explicitement exclus.
-- **Validation Gold & Hungarian Alignment (`module_validation.py`, `module_gold.py`)** : évaluation automatisée contre le jeu de référence SonicWave (score > 0.60).
+- **Diagnostic legacy (`module_validation.py`)** : comparaison de noms à des fins d'observabilité uniquement, sans score qualité.
 
 ### 5. Identité, Manifeste et propagation `spec_hash` (`services/ingestion/manifest.py`) — Phase 4b
 - **`TASK_MANIFEST`** : contrat strict définissant les rôles autorisés par tâche (ex. `generate-test-cases` accepte `FEATURE`, `REQUIREMENT`, `ACCEPTANCE`).
@@ -228,7 +227,6 @@ uvicorn[standard]
 python-dotenv
 python-docx
 python-multipart
-scipy
 sentence-transformers
 openai
 selenium
