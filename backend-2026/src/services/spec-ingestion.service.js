@@ -394,7 +394,7 @@ async function commitModuleGeneration(rawSpecHash, lease, payload = {}) {
 async function failModuleGeneration(rawSpecHash, lease, errorMessage = '') {
   const hash = specHash(rawSpecHash)
   const token = text(lease, 'module generation lease')
-  const message = String(errorMessage || 'Module generation failed').trim().slice(0, 1000)
+  const message = (String(errorMessage || '').trim() || 'Module generation failed').slice(0, 1000)
   const result = await SpecIngestion.findOneAndUpdate(
     { specHash: hash, moduleStatus: 'generating', moduleGenerationLease: token },
     { $set: {

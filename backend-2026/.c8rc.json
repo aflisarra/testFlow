@@ -1,0 +1,34 @@
+{
+  "all": true,
+  "include": [
+    "src/controllers/ollama.controller.js",
+    "src/controllers/role-review.controller.js",
+    "src/controllers/spec-ingestion-internal.controller.js",
+    "src/middleware/requireInternalToken.js",
+    "src/models/spec-ingestion-item.model.js",
+    "src/models/spec-ingestion.model.js",
+    "src/models/testplan.model.js",
+    "src/models/testsuite.js",
+    "src/routes/spec-ingestion-internal.routes.js",
+    "src/routes/testsuite.routes.js",
+    "src/services/ollama.service.js",
+    "src/services/spec-ingestion.service.js",
+    "src/utils/test-artifact-fields.js"
+  ],
+  "exclude": [
+    "test/**",
+    "src/migrations/**"
+  ],
+  "reporter": [
+    "text",
+    "lcov"
+  ],
+  "report-dir": "coverage",
+  "temp-directory": ".c8_output",
+  "clean": true,
+  "check-coverage": true,
+  "lines": 80,
+  "branches": 80,
+  "functions": 80,
+  "statements": 80
+}

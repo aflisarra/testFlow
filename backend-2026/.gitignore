@@ -4,6 +4,8 @@
 
 # deps / caches
 node_modules/
+.c8_output/
+coverage/
 .npm-cache/
 npm-debug.log*
 yarn-debug.log*
