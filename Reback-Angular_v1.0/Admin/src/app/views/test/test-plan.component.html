@@ -232,7 +232,12 @@
                 @if (roleReviewLoading) {
                 <p class="text-muted mb-0">Loading roles…</p>
                 } @else if (roleReviewLegacySuite) {
-                <div class="alert alert-info mb-0">Re-upload the original specification to enable role review.</div>
+                <div class="alert alert-info mb-0 role-review-legacy-banner">
+                  <strong>This test suite was generated before role tagging was introduced.</strong>
+                  Re-upload the original specification to enable review.
+                  <button type="button" class="btn btn-sm btn-outline-primary ms-2"
+                    (click)="focusSpecificationUpload()">Go to specification upload</button>
+                </div>
                 } @else if (roleReviewError) {
                 <div class="alert alert-danger mb-0">{{ roleReviewError }}</div>
                 } @else if (!roleReviewItems.length) {
@@ -244,6 +249,12 @@
                   <article class="role-review-item">
                     <div class="role-review-item-text">{{ item.text }}</div>
                     <div class="role-review-breadcrumbs">{{ item.headingPath.join(' › ') }}</div>
+                    @if (item.nearestHeading) {
+                    <div class="role-review-nearest">Nearest heading: {{ item.nearestHeading }}</div>
+                    }
+                    @if (item.suggestedRole) {
+                    <div class="role-review-suggestion">Suggested role: {{ item.suggestedRole }}</div>
+                    }
                     <div class="role-review-actions">
                       <select class="form-select form-select-sm" [value]="roleReviewSelections[item.itemId]"
                         [disabled]="roleReviewBusyItemId === item.itemId"
