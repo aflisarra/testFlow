@@ -1271,24 +1271,27 @@ if (info.isSubmit) {
         wanted
       )
 
-    if (!option)
+    if (!option) {
       option =
         await findOptionByText(
           wanted
         )
+    }
 
-    if (!option)
+    if (!option) {
       option =
         await findGenericDropdownOptionByText(
           wanted
         )
+    }
 
-    if (!option)
+    if (!option) {
       option =
         await waitForOptionText(
           wanted,
           5000
         )
+    }
 
     if (!option) {
       throw new Error(

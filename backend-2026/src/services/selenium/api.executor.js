@@ -249,11 +249,13 @@ async function runApiStep(step, ctxOrBaseUrl) {
   if (t.includes('status code is')) {
     if (!lastResponse) throw new Error('No API response found')
 
-    if (t.includes('201') && lastResponse.status !== 201)
+    if (t.includes('201') && lastResponse.status !== 201) {
       throw new Error(`Expected 201 but got ${lastResponse.status}`)
+    }
 
-    if (t.includes('200') && lastResponse.status !== 200)
+    if (t.includes('200') && lastResponse.status !== 200) {
       throw new Error(`Expected 200 but got ${lastResponse.status}`)
+    }
   }
 }
 

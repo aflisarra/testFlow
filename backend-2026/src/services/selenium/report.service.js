@@ -30,7 +30,7 @@ function safeArray(value) {
 }
 
 function text(value, fallback = '-') {
-  const normalized = String(value == null ? '' : value).trim()
+  const normalized = String(value === null || value === undefined ? '' : value).trim()
   return normalized || fallback
 }
 

@@ -45,8 +45,9 @@ function normalizeCompletionStatus(value) {
 function normalizePlanStatusValue(value, fallback = 'incomplete') {
   const raw = String(value || '').toLowerCase().trim()
 
-  if (PLAN_STATUS_VALUES.has(raw))
+  if (PLAN_STATUS_VALUES.has(raw)) {
     return raw
+  }
 
   return fallback
 }
@@ -299,7 +300,7 @@ async function getSuitePlansAndCases(testSuiteId) {
         ...testCase,
         test_data: Array.isArray(testCase.test_data)
           ? testCase.test_data
-          : testCase.test_data != null
+          : testCase.test_data !== null && testCase.test_data !== undefined
             ? [testCase.test_data]
             : [],
         stepDetails: Array.isArray(testCase.stepDetails) ? testCase.stepDetails : [],
@@ -314,7 +315,7 @@ const testCasesByPlan = plans.map((plan) => ({
     ...testCase,
     test_data: Array.isArray(testCase.test_data)
       ? testCase.test_data
-      : testCase.test_data != null
+      : testCase.test_data !== null && testCase.test_data !== undefined
         ? [testCase.test_data]
         : [],
     stepDetails: Array.isArray(testCase.stepDetails) ? testCase.stepDetails : [],
@@ -671,8 +672,9 @@ async function updateTestSuiteStatus(testSuiteId, nextStatus) {
   if (nextTestStatus === 'Ready') update.savedAt = now
   if (nextTestStatus === 'Incomplete') update.savedAt = null
   if (nextTestStatus === 'Passed' || nextTestStatus === 'Failed') update.executedAt = now
-  if (nextTestStatus === 'Generating')
-  update.lastGeneratedAt = now
+  if (nextTestStatus === 'Generating') {
+    update.lastGeneratedAt = now
+  }
 
   const suite = await TestSuite.findByIdAndUpdate(testSuiteId, update, { new: true, runValidators: true }).lean()
   if (!suite) throw makeError('TestSuite not found', 404)
