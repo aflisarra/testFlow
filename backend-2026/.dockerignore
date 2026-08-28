@@ -1,0 +1,9 @@
+node_modules
+npm-debug.log*
+.env
+.c8_output
+coverage
+uploads
+test
+.git
+*.md

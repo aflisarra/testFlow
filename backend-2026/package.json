@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon --legacy-watch --watch src --ext js,json --ignore uploads/** --exec node src/index.js",
+    "dev": "nodemon --legacy-watch --watch src --ext js,json --ignore \"uploads/**\" --exec node src/index.js",
     "start:dev": "node src/index.js",
     "build": "echo \"No build step for JavaScript backend\"",
     "start": "node src/index.js",
