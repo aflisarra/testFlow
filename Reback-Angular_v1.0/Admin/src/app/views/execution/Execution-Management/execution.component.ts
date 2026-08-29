@@ -85,6 +85,10 @@ export class ExecutionComponent implements OnInit, OnDestroy {
   domElements: DOMElement[] = [];
   domSourceUrl = '';
   selectedDomElement: DOMElement | null = null;
+  /** Tous les snapshots DOM capturés pendant le test, indexés par stepIndex */
+  domSnapshots: { stepIndex: number; stepLabel: string; elements: DOMElement[]; sourceUrl: string }[] = [];
+  /** Index du snapshot actuellement affiché dans la modal */
+  selectedDomSnapshotIndex = 0;
   streamIndex = 0;
   private currentExecutionId: string | null = null;
 
@@ -150,27 +154,36 @@ export class ExecutionComponent implements OnInit, OnDestroy {
 
       this.route.paramMap.subscribe((pp) => {
         const testCaseId = String(pp.get('id') || '').trim();
-        this.suiteId = suiteId;
-        this.planId = planId;
-        this.testCaseId = testCaseId;
 
-        if (projectName || suiteName || planName || testCaseName) {
-          this.scenario = {
-            ...this.scenario,
-            projectName: projectName || this.scenario.projectName,
-            suiteName: suiteName || this.scenario.suiteName,
-            planName: planName || this.scenario.planName,
-            caseName: testCaseName || this.scenario.caseName,
-          };
-        }
+        if (suiteId || planId || testCaseId) {
+          this.suiteId = suiteId;
+          this.planId = planId;
+          this.testCaseId = testCaseId;
 
-        this.cdr.markForCheck();
+          if (projectName || suiteName || planName || testCaseName) {
+            this.scenario = {
+              ...this.scenario,
+              projectName: projectName || this.scenario.projectName,
+              suiteName: suiteName || this.scenario.suiteName,
+              planName: planName || this.scenario.planName,
+              caseName: testCaseName || this.scenario.caseName,
+            };
+          }
 
-        // ─── MODE PLAN : suiteId + planId, pas de testCaseId ───
-        if (suiteId && planId && !testCaseId) {
-          void this.loadAndRunPlan();
+          this.cdr.markForCheck();
+
+          // ─── MODE PLAN : suiteId + planId, pas de testCaseId ───
+          if (suiteId && planId && !testCaseId) {
+            void this.loadAndRunPlan();
+          } else {
+            void this.loadAndRun();
+          }
         } else {
-          void this.loadAndRun();
+          // Restore last execution state if returning to execution page within same login session
+          const restored = this.restoreExecutionState();
+          if (!restored) {
+            void this.loadAndRun();
+          }
         }
 
         void this.loadRecentRuns();
@@ -1300,21 +1313,62 @@ export class ExecutionComponent implements OnInit, OnDestroy {
   }
 
   private refreshDomFromExecutionLogs(): void {
-    const domLog = [...this.rawExecutionLogs].reverse().find((log) => {
+    // Collecter TOUS les logs qui contiennent un snapshot DOM (un par step)
+    const domLogs = this.rawExecutionLogs.filter((log) => {
       const data = log?.data || {};
       return Array.isArray(data['dom']) || Array.isArray(data['sample']);
     });
-    const data = domLog?.data || {};
-    const dom = Array.isArray(data['dom'])
-      ? data['dom']
-      : Array.isArray(data['sample'])
-        ? data['sample']
-        : [];
 
-    this.domElements = dom
-      .filter((element): element is DOMElement => Boolean(element && typeof element === 'object' && 'tag' in element))
-      .map((element) => element as DOMElement);
-    this.domSourceUrl = String(data['sourceUrl'] || '');
+    if (!domLogs.length) {
+      this.domSnapshots = [];
+      this.domElements = [];
+      this.domSourceUrl = '';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    // Grouper par stepIndex (on garde le dernier snapshot de chaque step)
+    const byStep = new Map<number, typeof domLogs[0]>();
+    for (const log of domLogs) {
+      const step = Number(log?.stepIndex ?? -1);
+      byStep.set(step, log); // dernier log du step gagne
+    }
+
+    this.domSnapshots = Array.from(byStep.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([stepIndex, log]) => {
+        const data = log?.data || {};
+        const rawDom = Array.isArray(data['dom'])
+          ? data['dom']
+          : Array.isArray(data['sample'])
+            ? data['sample']
+            : [];
+        const elements = rawDom
+          .filter((el): el is DOMElement => Boolean(el && typeof el === 'object' && 'tag' in el))
+          .map((el) => el as DOMElement);
+        const stepLabel = stepIndex >= 0
+          ? (this.scenario?.steps?.[stepIndex]?.name || `Step ${stepIndex + 1}`)
+          : 'Step ?';
+        return { stepIndex, stepLabel, elements, sourceUrl: String(data['sourceUrl'] || '') };
+      });
+
+    // Maintenir la sélection sur le dernier snapshot si c'était déjà le dernier
+    if (this.selectedDomSnapshotIndex >= this.domSnapshots.length) {
+      this.selectedDomSnapshotIndex = this.domSnapshots.length - 1;
+    }
+
+    // domElements pointe vers le snapshot sélectionné (compatibilité avec l'existant)
+    const selected = this.domSnapshots[this.selectedDomSnapshotIndex];
+    this.domElements = selected?.elements ?? [];
+    this.domSourceUrl = selected?.sourceUrl ?? '';
+    this.cdr.markForCheck();
+  }
+
+  selectDomSnapshot(index: number): void {
+    this.selectedDomSnapshotIndex = index;
+    const selected = this.domSnapshots[index];
+    this.domElements = selected?.elements ?? [];
+    this.domSourceUrl = selected?.sourceUrl ?? '';
     this.cdr.markForCheck();
   }
 
@@ -1551,6 +1605,7 @@ export class ExecutionComponent implements OnInit, OnDestroy {
           void this.loadRecentRuns();
           this.stopLiveRunTimer();
           this.cdr.markForCheck();
+          this.saveExecutionState();
         },
         error: (err: unknown) => {
           if (this.isAborted) {
@@ -1573,6 +1628,7 @@ export class ExecutionComponent implements OnInit, OnDestroy {
           this.stopLiveRunTimer();
           void this.loadRecentRuns();
           this.cdr.markForCheck();
+          this.saveExecutionState();
         },
       });
   }
@@ -1689,7 +1745,12 @@ showDomModal = false;
   openDomModal(): void {
     this.domModalTab = 'dom';
     this.aiActions = this.buildEditableActions();
-    
+    // Par défaut, afficher le dernier snapshot capturé
+    this.selectedDomSnapshotIndex = Math.max(0, this.domSnapshots.length - 1);
+    const selected = this.domSnapshots[this.selectedDomSnapshotIndex];
+    this.domElements = selected?.elements ?? [];
+    this.domSourceUrl = selected?.sourceUrl ?? '';
+
     this.showDomModal = true;
     this.cdr.markForCheck();
 
@@ -1716,6 +1777,31 @@ showDomModal = false;
     if (tab === 'actions' && !this.aiActions.length) {
       this.aiActions = this.buildEditableActions();
     }
+    this.cdr.markForCheck();
+  }
+
+  deleteAction(action: EditableAiAction): void {
+    const idx = this.aiActions.indexOf(action);
+    if (idx !== -1) {
+      this.aiActions.splice(idx, 1);
+      this.cdr.markForCheck();
+    }
+  }
+
+  addNewAction(): void {
+    const maxStep = this.aiActions.reduce((m, a) => Math.max(m, a.stepIndex), 0);
+    const newAction: EditableAiAction = {
+      uid: `manual-${Date.now()}`,
+      stepIndex: maxStep + 1,
+      type: 'click',
+      selector: '',
+      value: '',
+      originalType: 'click',
+      originalSelector: '',
+      originalValue: '',
+      isEdited: true,
+    };
+    this.aiActions.push(newAction);
     this.cdr.markForCheck();
   }
 
@@ -1937,6 +2023,7 @@ applyEditedActions(): void {
     }
 
     this.cdr.markForCheck();
+    this.saveExecutionState();
   }
 
   onTestCaseChange(event: Event): void {
@@ -1952,6 +2039,7 @@ applyEditedActions(): void {
     };
 
     this.cdr.markForCheck();
+    this.saveExecutionState();
   }
 
   loadProjects(): void {
@@ -2059,5 +2147,125 @@ applyEditedActions(): void {
     this.testCaseId = this.filters.testCase;
 
     await this.loadAndRun();
+    this.saveExecutionState();
+  }
+
+  draggedActionIndex: number | null = null;
+
+  onActionDragStart(event: DragEvent, index: number): void {
+    this.draggedActionIndex = index;
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(index));
+    }
+  }
+
+  onActionDragOver(event: DragEvent, index: number): void {
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+  }
+
+  onActionDrop(event: DragEvent, targetIndex: number): void {
+    event.preventDefault();
+    if (this.draggedActionIndex !== null && this.draggedActionIndex !== targetIndex) {
+      this.moveAction(this.draggedActionIndex, targetIndex);
+    }
+    this.draggedActionIndex = null;
+  }
+
+  moveActionUp(index: number): void {
+    if (index > 0) {
+      this.moveAction(index, index - 1);
+    }
+  }
+
+  moveActionDown(index: number): void {
+    if (index < this.pendingActionOverrides.length - 1) {
+      this.moveAction(index, index + 1);
+    }
+  }
+
+  moveAction(fromIndex: number, toIndex: number): void {
+    if (fromIndex < 0 || fromIndex >= this.aiActions.length) return;
+    if (toIndex < 0 || toIndex >= this.aiActions.length) return;
+
+    const item = this.aiActions.splice(fromIndex, 1)[0];
+    this.aiActions.splice(toIndex, 0, item);
+
+    this.aiActions.forEach((act, idx) => {
+      act.stepIndex = idx + 1;
+      act.isEdited = true;
+    });
+
+    this.cdr.markForCheck();
+    this.saveExecutionState();
+  }
+
+  private saveExecutionState(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const state = {
+        filters: { ...this.filters },
+        projects: this.projects,
+        suites: this.suites,
+        plans: this.plans,
+        testCases: this.testCases,
+        suiteId: this.suiteId,
+        planId: this.planId,
+        testCaseId: this.testCaseId,
+        scenario: this.scenario,
+        streamedLogs: this.streamedLogs,
+        rawExecutionLogs: this.rawExecutionLogs,
+        screenshotUrl: this.screenshotUrl,
+        loadedTestCase: this.loadedTestCase,
+        executionModelSummary: this.executionModelSummary,
+        detectorInsight: this.detectorInsight,
+        domElements: this.domElements,
+        domSourceUrl: this.domSourceUrl,
+        domSnapshots: this.domSnapshots,
+        aiActions: this.aiActions,
+      };
+      sessionStorage.setItem('LAST_EXECUTION_STATE', JSON.stringify(state));
+    } catch (e) {
+      console.warn('Failed to save execution state', e);
+    }
+  }
+
+  private restoreExecutionState(): boolean {
+    if (typeof window === 'undefined') return false;
+    try {
+      const raw = sessionStorage.getItem('LAST_EXECUTION_STATE');
+      if (!raw) return false;
+      const state = JSON.parse(raw);
+      if (!state || (!state.suiteId && !state.filters?.project && !state.scenario?.projectName)) return false;
+
+      if (state.filters) this.filters = { ...state.filters };
+      if (Array.isArray(state.projects) && state.projects.length) this.projects = state.projects;
+      if (Array.isArray(state.suites) && state.suites.length) this.suites = state.suites;
+      if (Array.isArray(state.plans) && state.plans.length) this.plans = state.plans;
+      if (Array.isArray(state.testCases) && state.testCases.length) this.testCases = state.testCases;
+      if (state.suiteId) this.suiteId = state.suiteId;
+      if (state.planId) this.planId = state.planId;
+      if (state.testCaseId) this.testCaseId = state.testCaseId;
+      if (state.scenario) this.scenario = state.scenario;
+      if (Array.isArray(state.streamedLogs)) this.streamedLogs = state.streamedLogs;
+      if (Array.isArray(state.rawExecutionLogs)) this.rawExecutionLogs = state.rawExecutionLogs;
+      if (state.screenshotUrl !== undefined) this.screenshotUrl = state.screenshotUrl;
+      if (state.loadedTestCase) this.loadedTestCase = state.loadedTestCase;
+      if (state.executionModelSummary) this.executionModelSummary = state.executionModelSummary;
+      if (state.detectorInsight !== undefined) this.detectorInsight = state.detectorInsight;
+      if (Array.isArray(state.domElements)) this.domElements = state.domElements;
+      if (state.domSourceUrl) this.domSourceUrl = state.domSourceUrl;
+      if (Array.isArray(state.domSnapshots)) this.domSnapshots = state.domSnapshots;
+      if (Array.isArray(state.aiActions) && state.aiActions.length) this.aiActions = state.aiActions;
+
+      this.cdr.markForCheck();
+      return true;
+    } catch (e) {
+      console.warn('Failed to restore execution state', e);
+      return false;
+    }
   }
 }

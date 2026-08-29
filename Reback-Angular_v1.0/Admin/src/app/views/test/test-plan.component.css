@@ -972,6 +972,22 @@
     font-weight: 400;
 }
 
+.testlab-card:has(> .test-plan-toast-host) {
+    position: relative;
+}
+
+.test-plan-toast-host {
+    position: absolute !important;
+    inset-block-start: 1rem !important;
+    inset-inline: 1rem !important;
+    inline-size: auto !important;
+    z-index: 1080;
+}
+
+.test-plan-toast-host.toast-bottom-center {
+    inset-block-end: auto !important;
+}
+
 @keyframes testlab-skeleton-shimmer {
     0% {
         background-position: 100% 0;

@@ -1,21 +1,21 @@
-import { CommonModule } from '@angular/common'
-import { CUSTOM_ELEMENTS_SCHEMA, Component, HostListener, OnInit, inject } from '@angular/core'
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms'
 import { AdminManagementService } from '@/app/core/services/admin-management.service'
-import type { AppRole, AppUser } from '@/app/interfaces/admin-management.interface'
-import { NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap'
-import { ConfirmModalComponent } from '../shared/confirm-modal.component'
-import { UserUpsertModalComponent } from './user-upsert-modal.component'
-import { Store } from '@ngrx/store'
-import { getUser } from '@/app/store/authentication/authentication.selector'
-import { firstValueFrom } from 'rxjs'
-import { take } from 'rxjs/operators'
-import { Router } from '@angular/router'
-import { User } from '@store/authentication/auth.model'
 import { ApiService } from '@/app/core/services/api.service'
 import { UINotificationService } from '@/app/core/services/ui-notification.service'
+import type { AppRole, AppUser } from '@/app/interfaces/admin-management.interface'
 import { HasPermissionDirective } from '@/app/shared/directives/has-permission.directive'
+import { getUser } from '@/app/store/authentication/authentication.selector'
+import { CommonModule } from '@angular/common'
 import type { HttpErrorResponse } from '@angular/common/http'
+import { CUSTOM_ELEMENTS_SCHEMA, Component, HostListener, OnInit, inject } from '@angular/core'
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms'
+import { Router } from '@angular/router'
+import { NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap'
+import { Store } from '@ngrx/store'
+import { User } from '@store/authentication/auth.model'
+import { firstValueFrom } from 'rxjs'
+import { take } from 'rxjs/operators'
+import { ConfirmModalComponent } from '../shared/confirm-modal.component'
+import { UserUpsertModalComponent } from './user-upsert-modal.component'
 @Component({
   selector: 'app-all-users',
   standalone: true,
@@ -327,7 +327,7 @@ private handleCreateUserError(err: HttpErrorResponse): void {
     //ref.componentInstance.details = 'This action cannot be undone.'
     ref.componentInstance.confirmText = 'Delete'
     ref.componentInstance.cancelText = 'Cancel'
-    ref.componentInstance.confirmButtonClass = 'btn-brand'
+    ref.componentInstance.confirmButtonClass = 'btn-delete-confirm'
 
     ref.closed.subscribe(() => {
       this.adminService.deleteUser(user._id).subscribe({

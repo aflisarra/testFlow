@@ -55,7 +55,7 @@ export const localStorageSyncReducer: MetaReducer = <State, A extends Action = A
   reducer: ActionReducer<State, A>
 ): ActionReducer<State, A> => {
   return localStorageSync({
-    keys: ['layout', 'authentication'],
+    keys: ['layout'],
     rehydrate: true,
   })(reducer) as ActionReducer<State, A>
 }

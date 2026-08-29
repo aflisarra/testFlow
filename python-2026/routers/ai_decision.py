@@ -729,7 +729,15 @@ def _deterministic_actions_for_step(step, dom, test_case):
     for field in requested_fields:
         value = test_data.get(field)
         if not value:
-            continue
+            import re
+            syns = FIELD_SYNONYMS.get(field, (field,))
+            for syn in syns:
+                m = re.search(r'(?i)' + re.escape(syn) + r'\s*[:=]\s*([^\s]+)', step)
+                if m:
+                    value = m.group(1)
+                    break
+            if not value:
+                continue
 
         el = _best_dom_element_for_field(dom, field)
         if not el:
@@ -795,6 +803,10 @@ def _first_dom_option_value(dom):
 def _infer_actions_when_empty(step, dom, test_case):
     actions = _deterministic_actions_for_step(step, dom, test_case)
     if actions:
+        if _is_click_step(step):
+            click_action = _dom_click_action_for_step(step, dom)
+            if click_action:
+                actions.append(click_action)
         return actions
     if _is_click_step(step):
         action = _dom_click_action_for_step(step, dom)
@@ -1157,6 +1169,18 @@ def _dom_to_fill_actions(dom, test_case, step=""):
     return actions
 
 
+def _targeted_dom_fill_actions(step, dom, test_case):
+    """Keep fallback typing limited to the field named by the current step."""
+    requested_fields = set(_step_requested_fields(step))
+    if not requested_fields:
+        return []
+
+    return [
+        action for action in _dom_to_fill_actions(dom, test_case, step=step)
+        if _canonical_key(action.get("label")) in requested_fields
+    ]
+
+
 def _dom_submit_action(dom):
     if not isinstance(dom, list):
         return None
@@ -1441,7 +1465,7 @@ def decide(payload: AIDecisionPayload):
         logger.debug("PROMPT: %s", prompt[:1500])
 
         client = get_ai_service()
-        result = client.generate_json(prompt=prompt, timeout=90)
+        result = client.generate_json(prompt=prompt, timeout=120)
         logger.info("RAW AI RESPONSE=%s", result)
         logger.info("================ AI RESULT ================")
         logger.info(json.dumps(result, indent=2, ensure_ascii=False))
@@ -1481,10 +1505,15 @@ def decide(payload: AIDecisionPayload):
                 return _decision_response(actions, dom)
 
         if _is_fill_step(step):
-            fill_actions = _infer_actions_when_empty(step, dom, resolved_test_case)
+            # A fill step is scoped to its named field. Never let the LLM or
+            # the broad DOM fallback replay unrelated fields from the form.
+            fill_actions = _deterministic_actions_for_step(step, dom, resolved_test_case)
+            if not fill_actions:
+                fill_actions = _targeted_dom_fill_actions(step, dom, resolved_test_case)
             if fill_actions:
                 actions = _dedupe_actions(fill_actions, execution_memory)
                 return _decision_response(actions, dom)
+            return _decision_response([], dom)
 
         if ai_actions:
             only_clicks = all(isinstance(a, dict) and a.get("type") == "click" for a in ai_actions)

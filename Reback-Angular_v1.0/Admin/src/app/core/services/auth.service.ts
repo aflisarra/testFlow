@@ -44,7 +44,8 @@ export class AuthenticationService {
             role: response.user.role,
             actions: response.user.actions || [],
           };
-          this.saveSession(token); // stocke le token dans le localStorage
+          this.saveSession(token); // stocke le token dans le sessionStorage
+          if (typeof window !== 'undefined') sessionStorage.removeItem('LAST_EXECUTION_STATE');
           if (typeof refreshToken === 'string' && refreshToken.trim()) {
             this.saveRefreshToken(refreshToken.trim())
           }
@@ -101,6 +102,7 @@ export class AuthenticationService {
             actions: response.user.actions || [],
           };
           this.saveSession(token);
+          if (typeof window !== 'undefined') sessionStorage.removeItem('LAST_EXECUTION_STATE');
           if (typeof refreshToken === 'string' && refreshToken.trim()) {
             this.saveRefreshToken(refreshToken.trim())
           }
@@ -117,48 +119,53 @@ export class AuthenticationService {
 
   logout(): void {
     this.removeSession();
-    this.removeRefreshToken()
+    this.removeRefreshToken();
+    if (typeof window !== 'undefined') sessionStorage.removeItem('LAST_EXECUTION_STATE');
     this.user = null;
   }
 
-  // ✅ Récupérer le token depuis le localStorage
+  // ✅ Récupérer le token depuis le sessionStorage
   get session(): string {
     if (typeof window === 'undefined') return '';
-    return localStorage.getItem(this.authSessionKey) || '';
+    return sessionStorage.getItem(this.authSessionKey) || '';
   }
 
   /**
    * Input: access token string.
    * Output: void.
-   * Purpose: persist the access token for authenticated API requests.
+   * Purpose: persist the access token for authenticated API requests during session.
    */
   saveSession(token: string): void {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(this.authSessionKey, token);
+    sessionStorage.setItem(this.authSessionKey, token);
+    localStorage.removeItem(this.authSessionKey);
   }
 
   removeSession(): void {
     if (typeof window === 'undefined') return;
+    sessionStorage.removeItem(this.authSessionKey);
     localStorage.removeItem(this.authSessionKey);
   }
 
   get refreshToken(): string {
     if (typeof window === 'undefined') return ''
-    return localStorage.getItem(this.refreshSessionKey) || ''
+    return sessionStorage.getItem(this.refreshSessionKey) || ''
   }
 
   /**
    * Input: refresh token string.
    * Output: void.
-   * Purpose: persist the refresh token used to renew the access token silently.
+   * Purpose: persist the refresh token used to renew the access token silently during session.
    */
   saveRefreshToken(token: string): void {
     if (typeof window === 'undefined') return
-    localStorage.setItem(this.refreshSessionKey, token)
+    sessionStorage.setItem(this.refreshSessionKey, token)
+    localStorage.removeItem(this.refreshSessionKey)
   }
 
   removeRefreshToken(): void {
     if (typeof window === 'undefined') return
+    sessionStorage.removeItem(this.refreshSessionKey)
     localStorage.removeItem(this.refreshSessionKey)
   }
 

@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon --legacy-watch --watch src --ext js,json --ignore uploads/** --exec node src/index.js",
+    "dev": "nodemon --legacy-watch --watch src --ext js,json --ignore 'uploads/**' --exec node src/index.js",
     "start:dev": "node src/index.js",
     "build": "echo \"No build step for JavaScript backend\"",
     "start": "node src/index.js",
@@ -31,6 +31,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "adm-zip": "^0.6.0",
     "axios": "^1.13.6",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",

@@ -617,7 +617,7 @@
                   LIVE
                 </span>
               } @else {
-                <span class="live-badge live-badge--static">{{ domElements.length }} captured</span>
+                <span class="live-badge live-badge--static">{{ domSnapshots.length }} step(s) · {{ domElements.length }} éléments</span>
               }
             } @else {
               AI Actions
@@ -653,8 +653,12 @@
 
         <div class="dom-modal__body">
 
-          <!-- Onglet DOM (contenu existant, inchangé) -->
+          <!-- Onglet DOM -->
           @if (domModalTab === 'dom') {
+
+            @if (domSnapshots.length === 0 && domElements.length === 0) {
+              <div class="dom-modal__empty">Aucun snapshot DOM capturé pour cette exécution.</div>
+            } @else {
             <div class="dom-elements-list">
               @for (element of domElements; track element.id || element.tag + element.index; let idx = $index) {
                 <div class="dom-element-item" [class.dom-element-item--disabled]="!element.visible">
@@ -713,6 +717,7 @@
                 </div>
               }
             </div>
+            } <!-- end @else -->
           }
 
           <!-- Onglet AI Actions -->
@@ -722,13 +727,28 @@
 
         @if (aiActions.length) {
 
-          @for (action of aiActions; track action.uid) {
+          @for (action of aiActions; track action.uid; let actionIdx = $index) {
 
             <div
               class="ai-action-item"
-              [class.ai-action-item--edited]="action.isEdited">
+              [class.ai-action-item--edited]="action.isEdited"
+              draggable="true"
+              (dragstart)="onActionDragStart($event, actionIdx)"
+              (dragover)="onActionDragOver($event, actionIdx)"
+              (drop)="onActionDrop($event, actionIdx)">
 
-              <div class="ai-action-item__head">
+              <div class="ai-action-item__head" style="display: flex; align-items: center; gap: 8px;">
+                <span class="ai-action-drag-handle" style="cursor: move; display: inline-flex; align-items: center; padding: 4px; color: #64748b;" title="Déplacer l'étape avec le curseur du PC">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="5 9 2 12 5 15"></polyline>
+                    <polyline points="9 5 12 2 15 5"></polyline>
+                    <polyline points="15 19 12 22 9 19"></polyline>
+                    <polyline points="19 9 22 12 19 15"></polyline>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <line x1="12" y1="2" x2="12" y2="22"></line>
+                  </svg>
+                </span>
+
                 <span class="ai-action-item__step">
                   Step {{ action.stepIndex }}
                 </span>
@@ -741,13 +761,15 @@
                   <span class="ai-action-item__edited-badge">
                     Modifié
                   </span>
+
+                  <button class="ai-action-item__btn" type="button" style="margin-left: auto; padding: 2px 8px; font-size: 11px;" (click)="resetAction(action)">Reset</button>
                 }
               </div>
 
-              <div class="ai-action-item__fields">
+              <div class="ai-action-item__fields" style="display: flex; align-items: flex-end; gap: 10px;">
 
-                <label class="ai-action-field">
-                  <span class="ai-action-field__label">Type</span>
+                <label class="ai-action-field" style="flex: 1; min-width: 100px; margin-bottom: 0;">
+                  <span class="ai-action-field__label">TYPE</span>
 
                   <select
                     class="ai-action-field__input"
@@ -763,9 +785,9 @@
                   </select>
                 </label>
 
-                <label class="ai-action-field">
+                <label class="ai-action-field" style="flex: 2; min-width: 160px; margin-bottom: 0;">
                   <span class="ai-action-field__label">
-                    Selector
+                    SELECTOR
                   </span>
 
                   <input
@@ -775,9 +797,9 @@
                     (ngModelChange)="updateAction(action, 'selector', $event)" />
                 </label>
 
-                <label class="ai-action-field">
+                <label class="ai-action-field" style="flex: 2; min-width: 160px; margin-bottom: 0;">
                   <span class="ai-action-field__label">
-                    Value
+                    VALUE
                   </span>
 
                   <input
@@ -787,28 +809,18 @@
                     (ngModelChange)="updateAction(action, 'value', $event)" />
                 </label>
 
-              </div>
-
-              <div class="ai-action-item__actions">
-
-                @if (action.isEdited) {
-                  <button
-                    class="ai-action-item__btn"
-                    type="button"
-                    (click)="resetAction(action)">
-
-                    Reset
-
-                  </button>
-                }
-
                 <button
-                  class="ai-action-item__btn ai-action-item__btn--primary"
+                  class="btn btn-sm btn-action btn-action-delete btn-unified btn-icon-unified"
                   type="button"
-                  (click)="copyActionJson(action)">
-
-                  Copy JSON
-
+                  style="height: 42px; width: 42px; min-width: 42px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; background: rgba(249, 115, 22, 0.18); border: 2px solid rgba(249, 115, 22, 0.5); color: #f97316; border-radius: 8px; cursor: pointer;"
+                  title="Supprimer cette action"
+                  (click)="deleteAction(action)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                  </svg>
                 </button>
 
               </div>
@@ -827,7 +839,15 @@
 
       </div>
 
-    <div class="ai-actions-footer">
+    <div class="ai-actions-footer" style="display: flex; justify-content: space-between; align-items: center;">
+      <button
+        class="ai-action-item__btn"
+        type="button"
+        style="display: flex; align-items: center; gap: 6px;"
+        (click)="addNewAction()">
+        <i class="bx bx-plus"></i> Add Action
+      </button>
+
       <button
         class="btn btn--rerun"
         type="button"

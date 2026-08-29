@@ -1537,6 +1537,61 @@ onEditSingleStep(caseId: string, index: number, value: string): void {
     return this.syncStepDetailsWithSteps(tc, steps)
   })
 }
+
+draggedStepIndex: number | null = null;
+draggedStepCaseId: string | null = null;
+
+onStepDragStart(event: DragEvent, caseId: string, index: number): void {
+  this.draggedStepCaseId = caseId;
+  this.draggedStepIndex = index;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(index));
+  }
+}
+
+onStepDragOver(event: DragEvent): void {
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+}
+
+onStepDrop(event: DragEvent, caseId: string, targetIndex: number): void {
+  event.preventDefault();
+  if (
+    this.draggedStepCaseId === caseId &&
+    this.draggedStepIndex !== null &&
+    this.draggedStepIndex !== targetIndex
+  ) {
+    this.onReorderStep(caseId, this.draggedStepIndex, targetIndex);
+  }
+  this.draggedStepIndex = null;
+  this.draggedStepCaseId = null;
+}
+
+onReorderStep(caseId: string, fromIndex: number, toIndex: number): void {
+  this.updateModalCase(caseId, (tc) => {
+    const steps = [...(tc.steps || [])]
+    const details = [...(tc.stepDetails || [])]
+    if (fromIndex < 0 || fromIndex >= steps.length) return tc
+    if (toIndex < 0 || toIndex >= steps.length) return tc
+
+    const [movedStep] = steps.splice(fromIndex, 1)
+    steps.splice(toIndex, 0, movedStep)
+
+    if (details.length) {
+      const [movedDetail] = details.splice(fromIndex, 1)
+      if (movedDetail) details.splice(toIndex, 0, movedDetail)
+    }
+
+    return {
+      ...tc,
+      steps,
+      stepDetails: details,
+    }
+  })
+}
 openAbandonModal(): void {
 this.selectedAbandonPlanId = ''
 this.selectedAbandonCaseId = ''

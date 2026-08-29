@@ -124,9 +124,17 @@ def _normalize_raw_plans(
     return normalized
 
 
-def generate_test_plans(*, spec_text: str, style_config: str, project_title: str) -> List[Dict[str, Any]]:
+def generate_test_plans(
+    *,
+    spec_text: str,
+    style_config: str,
+    project_title: str,
+    target_count: int = DEFAULT_TEST_PLANS_MIN,
+) -> List[Dict[str, Any]]:
     settings = get_settings()
     log_event(logger, "generate_plans_request_received", mock=settings.use_mock)
+
+    requested_count = max(1, min(int(target_count), DEFAULT_TEST_PLANS_MAX))
 
     requirements = extract_requirements(spec_text)
     chunks = get_srs_sections(spec_text, SRS_PLAN_SECTIONS)
@@ -139,7 +147,7 @@ def generate_test_plans(*, spec_text: str, style_config: str, project_title: str
     existing_titles: set[str] = set()
 
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
-        remaining_needed = DEFAULT_TEST_PLANS_MIN - len(normalized)
+        remaining_needed = requested_count - len(normalized)
         if remaining_needed <= 0:
             break
 
@@ -149,6 +157,10 @@ def generate_test_plans(*, spec_text: str, style_config: str, project_title: str
             modules=[],
             requirements=requirements,
             spec_chunks=chunks,
+        )
+        prompt = prompt.replace(
+            "Generate between 10 and 10 test plans maximum.",
+            f"Generate between {remaining_needed} and {remaining_needed} test plan(s) maximum.",
         )
 
         if attempt > 1:
@@ -196,14 +208,14 @@ def generate_test_plans(*, spec_text: str, style_config: str, project_title: str
             # The model isn't producing anything new; stop retrying early.
             break
 
-    if len(normalized) < DEFAULT_TEST_PLANS_MIN:
+    if len(normalized) < requested_count:
         raise ValueError(
             f"AI generated only {len(normalized)} plan(s) after {MAX_GENERATION_ATTEMPTS} attempt(s), "
-            f"minimum required is {DEFAULT_TEST_PLANS_MIN}"
+            f"minimum required is {requested_count}"
         )
 
     # Re-number sequentially to avoid gaps after dedupe
-    for i, p in enumerate(normalized[:DEFAULT_TEST_PLANS_MAX], start=1):
+    for i, p in enumerate(normalized[:requested_count], start=1):
         p["id"] = f"TP-{i}"
 
-    return normalized[:DEFAULT_TEST_PLANS_MAX]
+    return normalized[:requested_count]

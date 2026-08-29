@@ -1,23 +1,23 @@
+import {
+    AdminManagementService,
+} from '@/app/core/services/admin-management.service'
+import { UINotificationService } from '@/app/core/services/ui-notification.service'
+import type { AppAction, AppRole } from '@/app/interfaces/admin-management.interface'
+import { HasPermissionDirective } from '@/app/shared/directives/has-permission.directive'
+import type { User } from '@/app/store/authentication/auth.model'
+import { loginSuccess } from '@/app/store/authentication/authentication.actions'
+import { getUser } from '@/app/store/authentication/authentication.selector'
 import { CommonModule } from '@angular/common'
 import { CUSTOM_ELEMENTS_SCHEMA, Component, OnInit, inject } from '@angular/core'
 import { ReactiveFormsModule } from '@angular/forms'
-import {
-  AdminManagementService,
-} from '@/app/core/services/admin-management.service'
-import type { AppAction, AppRole } from '@/app/interfaces/admin-management.interface'
+import { Router } from '@angular/router'
 import { NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap'
-import { ConfirmModalComponent } from '../shared/confirm-modal.component'
-import { RoleUpsertModalComponent } from './role-upsert-modal.component'
 import { Store } from '@ngrx/store'
-import { getUser } from '@/app/store/authentication/authentication.selector'
+import { ToastrService } from 'ngx-toastr'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
-import { ToastrService } from 'ngx-toastr'
-import { loginSuccess } from '@/app/store/authentication/authentication.actions'
-import { Router } from '@angular/router'
-import type { User } from '@/app/store/authentication/auth.model'
-import { UINotificationService } from '@/app/core/services/ui-notification.service'
-import { HasPermissionDirective } from '@/app/shared/directives/has-permission.directive'
+import { ConfirmModalComponent } from '../shared/confirm-modal.component'
+import { RoleUpsertModalComponent } from './role-upsert-modal.component'
 
 @Component({
   selector: 'app-roles-management',
@@ -205,7 +205,7 @@ onDeleteRole(role: AppRole) {
   ref.componentInstance.entityName = role.name
   ref.componentInstance.confirmText = 'Delete'
   ref.componentInstance.cancelText = 'Cancel'
-  ref.componentInstance.confirmButtonClass = 'btn-brand'
+  ref.componentInstance.confirmButtonClass = 'btn-delete-confirm'
 
   ref.closed.subscribe(() => {
     this.adminService.deleteRole(roleId).subscribe({

@@ -2,12 +2,12 @@ import { ApiService } from '@/app/core/services/api.service'
 import { AuthenticationService } from '@/app/core/services/auth.service'
 import { ProjectsStateService } from '@/app/core/services/projects-state.service'
 import {
-  TestLabService,
-  type TestCaseDto,
-  type TestLabProjectDto,
-  type TestLabProjectUserDto,
-  type TestPlanDto,
-  type TestSuiteDto,
+    TestLabService,
+    type TestCaseDto,
+    type TestLabProjectDto,
+    type TestLabProjectUserDto,
+    type TestPlanDto,
+    type TestSuiteDto,
 } from '@/app/core/services/testlab.service'
 import { UINotificationService } from '@/app/core/services/ui-notification.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
@@ -899,23 +899,36 @@ async onRunPlanFromModal(plan: TestPlanDto): Promise<void> {
     const file = input?.files?.[0]
     if (!file) return
 
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('testSuiteId', suiteId)
-    formData.append('regenerate', 'false')
-
     try {
+      const user = await firstValueFrom(
+        this.store.select(getUser).pipe(take(1))
+      )
+      const userId = String(user?.id ?? user?._id ?? '').trim()
+      
+      if (!userId) {
+        this.errorMessage = 'Session expired. Please reconnect.'
+        this.uiNotification.error('Session expired. Please reconnect.')
+        return
+      }
+
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('testSuiteId', suiteId)
+      formData.append('userId', userId)
+      formData.append('regenerate', 'false')
+
       await firstValueFrom(this.testLabService.generatePlanFromDocx(formData))
       await this.loadSuites()
+      this.uiNotification.success('Test plan generated successfully')
     } catch (err: unknown) {
-
-    if (err instanceof Error) {
-      this.errorMessage = err.message
-    } else {
-      this.errorMessage = 'Upload failed'
+      if (err instanceof Error) {
+        this.errorMessage = err.message
+        this.uiNotification.error(err.message)
+      } else {
+        this.errorMessage = 'Upload failed'
+        this.uiNotification.error('Upload failed')
+      }
     }
-
-  } 
   }
 
   onSearchQueryChange(): void {

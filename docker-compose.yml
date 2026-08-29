@@ -7,6 +7,9 @@ services:
     container_name: pfe-frontend
     ports:
       - "4200:4200"
+    volumes:
+      - ./Reback-Angular_v1.0/Admin:/app
+      - /app/node_modules
     depends_on:
       - backend
     restart: unless-stopped
@@ -20,9 +23,13 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: development
+      FASTAPI_BASE_URL: http://python-service:8000
       PYTHON_SERVICE_URL: http://python-service:8000
       OLLAMA_HOST: http://ollama:11434
       MONGODB_URI: mongodb://mongodb:27017/pfe1-2026
+    volumes:
+      - ./backend-2026:/app
+      - /app/node_modules
     depends_on:
       - python-service
       - ollama
@@ -42,6 +49,8 @@ services:
       OLLAMA_TIMEOUT: 420
       OLLAMA_TEST_PLANS_TIMEOUT: 420
       OLLAMA_TEST_CASES_TIMEOUT: 420
+    volumes:
+      - ./python-2026:/app
     depends_on:
       - ollama
     restart: unless-stopped
@@ -53,6 +62,13 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     restart: unless-stopped
 
   mongodb:

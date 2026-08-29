@@ -594,7 +594,7 @@
 .card__head-title {
   font-family: var(--font-display);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 800;
   color: var(--ink);
   letter-spacing: -0.005em;
 }
@@ -748,7 +748,27 @@
 .timeline__status--fail { background: var(--signal-red-soft); color: var(--signal-red); }
 .timeline__status--running { background: var(--signal-blue-soft); color: var(--signal-blue-ink); }
 
-.timeline__status--waiting,
+.timeline__status--waiting {
+  background: rgba(245, 158, 11, 0.14);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  animation: buzzer-glow 1.8s ease-in-out infinite;
+}
+
+.timeline__status--waiting::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 4px #f59e0b;
+  animation: buzzer-ping 1.3s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
 .timeline__status--skipped { background: var(--signal-slate-soft); color: var(--signal-slate); }
 
 .timeline__empty {
@@ -771,6 +791,11 @@
   background: var(--canvas-1);
 }
 
+.step-icon--waiting {
+  background: rgba(245, 158, 11, 0.1);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.25);
+}
+
 .dot {
   inline-size: 10px;
   block-size: 10px;
@@ -782,11 +807,41 @@
 .dot--pass    { background: var(--signal-green); box-shadow: 0 0 0 4px rgb(15 138 88 / 14%); }
 .dot--fail    { background: var(--signal-red); box-shadow: 0 0 0 4px rgb(214 58 58 / 14%); }
 .dot--running { background: var(--signal-blue); box-shadow: 0 0 0 4px rgb(29 95 214 / 16%); animation: pulse 1.2s ease-in-out infinite; }
-.dot--waiting { background: #ced2db; }
+.dot--waiting {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3);
+  animation: buzzer-ping 1.3s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
 
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50%       { opacity: 0.5; transform: scale(0.85); }
+}
+
+@keyframes buzzer-ping {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+    transform: scale(0.92);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0.25);
+    transform: scale(1.1);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(245, 158, 11, 0);
+    transform: scale(0.92);
+  }
+}
+
+@keyframes buzzer-glow {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(245, 158, 11, 0.2);
+    border-color: rgba(245, 158, 11, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+    border-color: rgba(245, 158, 11, 0.7);
+  }
 }
 
 /* ─── Screenshot trigger ──────────────────────────────────────────────────────── */

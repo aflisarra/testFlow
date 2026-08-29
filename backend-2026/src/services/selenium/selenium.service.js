@@ -196,7 +196,7 @@ function compareExpectedResult(actual, expected, stepResults = []) {
 // Après : détecte l'intention sémantique de l'expected (erreur vs succès vs URL)
 //         et vérifie le bon signal dans actualResult
 // ─────────────────────────────────────────────────────────────────────────────
-function compareStepExpectedResult(actual, expected) {
+function compareStepExpectedResult(actual, expected, stepText = '') {
 
   
 const inputStepPatterns =
@@ -209,6 +209,17 @@ if (inputStepPatterns.test(expected || '')) {
     reason: 'Input action executed successfully'
   }
 }
+
+  const navigateStepPatterns = /navigate|go to|open|visit/i
+  if (navigateStepPatterns.test(stepText || '') || navigateStepPatterns.test(expected || '')) {
+    if (!actual?.errorMessage) {
+      return {
+        status: 'passed',
+        matched: true,
+        reason: 'Navigation executed successfully'
+      }
+    }
+  }
 
 
   if (!expected || normalizeText(expected) === '') {
@@ -678,7 +689,8 @@ if (isInputStep) {
 } else {
   comparison = compareStepExpectedResult(
     actualResultObject || {},
-    stepExpectedResult
+    stepExpectedResult,
+    stepText
   )
 }
        

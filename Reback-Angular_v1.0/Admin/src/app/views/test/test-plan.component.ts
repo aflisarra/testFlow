@@ -3,10 +3,10 @@ import { AuthenticationService } from '@/app/core/services/auth.service'
 import { ProjectsRefreshService } from '@/app/core/services/projects-refresh.service'
 import { ProjectsStateService } from '@/app/core/services/projects-state.service'
 import {
-  TestLabService,
-  type TestCaseDto,
-  type TestPlanDto,
-  type TestSuiteDto,
+    TestLabService,
+    type TestCaseDto,
+    type TestPlanDto,
+    type TestSuiteDto,
 } from '@/app/core/services/testlab.service'
 import { jwt_decode } from '@/app/core/utils/jwt-decode'
 import type { AppProject } from '@/app/interfaces/admin-management.interface'
@@ -22,7 +22,7 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { ActivatedRoute, Router } from '@angular/router'
 import { NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap'
 import { Store } from '@ngrx/store'
-import { ToastrService } from 'ngx-toastr'
+import { ToastContainerDirective, ToastrService } from 'ngx-toastr'
 import { firstValueFrom } from 'rxjs'
 import { take } from 'rxjs/operators'
 import { PlanEditModalComponent } from './plan-edit-modal.component'
@@ -35,7 +35,7 @@ interface CreateSuiteResponse {
 @Component({
   selector: 'app-test-suite-configuration',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, NgbModalModule ,PlanEditModalComponent],
+  imports: [CommonModule, ReactiveFormsModule, NgbModalModule, ToastContainerDirective, PlanEditModalComponent],
   templateUrl: './test-plan.component.html',
   styleUrl: './test-plan.component.css',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
@@ -58,6 +58,10 @@ export class TestSuiteConfigurationComponent implements CanDeactivateComponent {
   private document = inject(DOCUMENT)
 
   @ViewChild('plansResult') private plansResultRef?: ElementRef<HTMLElement>
+  @ViewChild(ToastContainerDirective)
+  set testPlanToastContainer(container: ToastContainerDirective | undefined) {
+    if (container) this.toastr.overlayContainer = container
+  }
 
   projects: AppProject[] = []
   loadingProjects = false
@@ -1063,7 +1067,18 @@ get canGenerateTestPlan(): boolean {
     const formData = new FormData()
     const requestId = this.newGenerationRequestId('plans')
     this.activePlanGenerationRequestId = requestId
-    if (this.selectedFile) formData.append('file', this.selectedFile)
+    
+    // ✅ For regeneration: file is optional if suite has specText
+    // But warn user if no file provided
+    if (this.selectedFile) {
+      formData.append('file', this.selectedFile)
+    } else if (!this.currentTestSuiteId) {
+      this.toastr.warning(
+        'No file selected. Ensure specification is already stored.',
+        'Note'
+      )
+    }
+    
     formData.append('styleConfig', this.styleConfig.trim())
     const applicationUrl = String(this.testPlanForm.getRawValue().applicationUrl || '').trim()
     formData.append('applicationUrl', applicationUrl)
@@ -1077,14 +1092,16 @@ get canGenerateTestPlan(): boolean {
     )
     if (this.nameTest.trim()) formData.append('nametest', this.nameTest.trim())
     formData.append('planId', plan.id)
+    formData.append('planTitle', plan.title || '')
+    formData.append('planDescription', plan.description || '')
     formData.append('regenerate', 'true')
     formData.append('generationRequestId', requestId)
 
     const result = await firstValueFrom(
-      this.testLabService.generatePlanPreview(formData)
+      this.testLabService.generatePlanFromDocx(formData)
     )
 
-    // ✅ On ne réassigne PAS this.testPlans entièrement
+    // ✅ Le backend retourne les plans régénérés — on cherche le plan par ID ou par index
     const nextPlans = Array.isArray(result?.testPlans) ? result.testPlans : []
 
     if (!nextPlans.length) {
@@ -1092,8 +1109,9 @@ get canGenerateTestPlan(): boolean {
       return
     }
 
+    // Cherche d'abord par même ID, sinon prend le premier retourné
     const bySameId    = nextPlans.find((p) => p.id === plan.id)
-    const bySameIndex = nextPlans[index] || null
+    const bySameIndex = nextPlans[index] ?? nextPlans[0] ?? null
     const updated     = bySameId || bySameIndex
 
     if (!updated) {
@@ -1101,7 +1119,7 @@ get canGenerateTestPlan(): boolean {
       return
     }
 
-    // ✅ Remplace uniquement le plan à cet index → aucun doublon possible
+    // ✅ Remplace uniquement ce plan → aucun doublon
     this.testPlans = this.testPlans.map((p, i) => (i === index ? updated : p))
 
     this.planStatuses[updated.id] = 'pending'

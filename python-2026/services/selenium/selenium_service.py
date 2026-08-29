@@ -65,7 +65,11 @@ def smart_find(driver, selector):
 
 def run_test(test_case: dict):
 
-    driver = webdriver.Chrome()
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    driver = webdriver.Chrome(options=options)
 
     try:
         url = test_case.get("url") or "https://demoqa.com/automation-practice-form"

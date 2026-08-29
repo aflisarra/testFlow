@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 from routers.ai_decision import router as ai_router
 from routers.ai_fix import router as ai_fix_router
 from routers.test_runner import router as runner_router
-load_dotenv()  # Must run before importing modules that read env vars.
+load_dotenv(override=True)  # Must run before importing modules that read env vars.
 
 from core.config import get_settings  # noqa: E402
 #from routers import test_plans, test_cases, test_case_translator  # noqa: E402

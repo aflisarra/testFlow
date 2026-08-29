@@ -16,8 +16,8 @@ const usersData = [
     description: 'Compte administrateur principal',
   },
   {
-    name: 'Admin 2',
-    email: 'admin2@example.com',
+    name: 'Admin 3',
+    email: 'admin3@example.com',
     password: '123456',
     roleName: 'admin',
     description: 'Deuxième compte administrateur',

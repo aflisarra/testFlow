@@ -172,7 +172,8 @@ def run_ollama(prompt: str, timeout: int | None = None, *, json_mode: bool = Fal
         http_timeout = http_timeout_default
     http_timeout = max(1, min(effective_timeout, http_timeout))
 
-    url = "http://127.0.0.1:11434/api/generate"
+    ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
+    url = f"{ollama_host}/api/generate"
     options: dict[str, object] = {
         "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "4096")),
     "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.7")),
@@ -218,25 +219,10 @@ def run_ollama(prompt: str, timeout: int | None = None, *, json_mode: bool = Fal
     if remaining <= 0:
         raise subprocess.TimeoutExpired(cmd="ollama_cli", timeout=effective_timeout)
 
-    log_event(logger, "ollama_cli_start", timeout=remaining)
-    result = subprocess.run(
-        [get_ollama_path(), "run", get_ollama_model()],
-        input=prompt,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        timeout=remaining,
-        env={**os.environ, "TERM": "dumb"},
+    # CLI fallback is not supported in Docker/Linux environments.
+    # The HTTP API above is the only supported method.
+    log_error(logger, "ollama_http_failed", error="HTTP API failed and CLI fallback is disabled in Docker")
+    raise RuntimeError(
+        "Ollama HTTP API is unreachable. "
+        f"Make sure the Ollama container is running and OLLAMA_HOST is set correctly (current: {ollama_host})."
     )
-
-    stdout = (result.stdout or "").strip()
-    if stdout:
-        log_event(logger, "ollama_cli_success", elapsed_ms=int((time.monotonic() - start) * 1000))
-        return _strip_ansi(stdout)
-
-    stderr = (result.stderr or "").strip()
-    if result.returncode and stderr:
-        log_error(logger, "ollama_cli_error", stderr=stderr, code=result.returncode)
-        raise RuntimeError(stderr)
-
-    raise RuntimeError(stderr or "Ollama returned an empty response.")

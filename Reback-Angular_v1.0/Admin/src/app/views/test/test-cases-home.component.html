@@ -219,7 +219,7 @@
         width="15"
         height="15"
       ></iconify-icon>
-      <span>{{ (testCasesByPlan[livePlanId] || []).length ? 'View' : 'Generate' }}</span>
+      <span>{{ (testCasesByPlan[livePlanId] || []).length ? 'Edit' : 'Generate' }}</span>
       @if ((testCasesByPlan[livePlanId] || []).length) {
         <span class="tc-btn-count">({{ (testCasesByPlan[livePlanId] || []).length }})</span>
       }
@@ -442,8 +442,24 @@
   @if (tc.steps.length) {
   <div class="tc-edit-step-list">
     @for (step of tc.steps; track $index) {
-    <div class="tc-edit-step-card">
+    <div
+      class="tc-edit-step-card"
+      draggable="true"
+      (dragstart)="onStepDragStart($event, tc.id, $index)"
+      (dragover)="onStepDragOver($event)"
+      (drop)="onStepDrop($event, tc.id, $index)"
+      style="cursor: move;">
       <div class="tc-edit-step-row">
+        <span style="cursor: move; display: inline-flex; align-items: center; margin-right: 6px; color: #64748b;" title="Déplacer l'étape avec le curseur du PC">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="5 9 2 12 5 15"></polyline>
+            <polyline points="9 5 12 2 15 5"></polyline>
+            <polyline points="15 19 12 22 9 19"></polyline>
+            <polyline points="19 9 22 12 19 15"></polyline>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <line x1="12" y1="2" x2="12" y2="22"></line>
+          </svg>
+        </span>
         <span class="tc-edit-step-num">{{ $index + 1 }}</span>
         <input
           type="text"
@@ -452,8 +468,8 @@
           (input)="onEditSingleStep(tc.id, $index, ($any($event.target).value || ''))"
           placeholder="Describe this step"
         />
-        <button type="button" class="tc-edit-step-remove" (click)="onRemoveStep(tc.id, $index)" aria-label="Remove step">
-          <iconify-icon icon="mdi:trash-can-outline" width="14" height="14"></iconify-icon>
+        <button type="button" class="tc-edit-step-remove" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;" (click)="onRemoveStep(tc.id, $index)" aria-label="Remove step">
+          <iconify-icon icon="mdi:trash-can-outline" width="20" height="20"></iconify-icon>
         </button>
       </div>
       <div class="tc-edit-step-expected">

@@ -1,76 +1,13 @@
 {
-  "title": "",
-  "description": "",
-  "summary": "",
-  "whatHappened": "",
-  "simpleExplanation": "",
-  "example": "",
-  "expectedBehavior": "",
-  "actualBehavior": "",
-  "whyItFailed": "",
-  "rootCause": "",
-  "severity": "Medium",
-  "confidence": 0.8,
-
-  "failedStepIndex": 2,
-  "failedStepName": "Enter password 'admin1234' in the password field",
-
-  "aiActionSummary": "The AI attempted to type 'Admin' into the username input and typed 'admin1234' into the password input. It then clicked on a button with text 'Login'. The expected behavior was for the user to be redirected to the dashboard, but instead, they were taken to the login page of the application.",
-  
-  "timeline": [
+  "test_plans": [
     {
-      "step": 0,
-      "action": "Enter email 'user@test.com' in the email field",
-      "result": "Success"
-    },
-    {
-      "step": 1,
-      "action": "Enter password 'Password123' in the password field",
-      "result": "Success"
-    },
-    {
-      "step": 2,
-      "action": "Click on the login button",
-      "result": "Unexpected Action"
+      "id": "TP-001",
+      "title": "User Authentication",
+      "description": "Verification of the login feature",
+      "objective": "Ensure users can access the application securely",
+      "scope": "Login feature behavior and expected business outcome",
+      "priority": "High",
+      "requirements": ["REQ-002", "REQ-005", "REQ-010"]
     }
-  ],
-
-  "evidence": [
-    "Expected URL: /dashboard/index",
-    "Actual URL: https://opensource-demo.orangehrmlive.com/web/index.php/auth/login",
-    "AI Action: type 'Admin' into [name='username']",
-    "AI Action: type 'admin1234' into [name='password']",
-    "AI Action: click on text=Login"
-  ],
-
-  "developerFix": [
-    ""
-  ],
-
-  "testerFix": [
-    {
-      "error": "Test Data Error",
-      "rootCause": "The test data provided ('Admin', 'admin1234') is incorrect for the login credentials of the application.",
-      "whatHappened": "The AI attempted to use these invalid credentials, resulting in a redirect to the login page instead of the dashboard. The user should provide correct credentials as per the expected behavior.",
-      "example": "Expected URL: /dashboard/index",
-      "fix": "Replace 'Admin' and 'admin1234' with valid credentials that would lead to the dashboard."
-    }
-  ],
-
-  "recommendations": [
-    {
-      "error": "Test Data Error",
-      "rootCause": "The test data provided ('Admin', 'admin1234') is incorrect for the login credentials of the application.",
-      "whatHappened": "The AI attempted to use these invalid credentials, resulting in a redirect to the login page instead of the dashboard. The user should provide correct credentials as per the expected behavior.",
-      "example": "Expected URL: /dashboard/index",
-      "fix": "Replace 'Admin' and 'admin1234' with valid credentials that would lead to the dashboard."
-    }
-  ],
-
-  "diagnosticTips": [
-    "Verify that the provided test data matches the actual login credentials of the application.",
-    "Check if there are any known issues or changes in the application's login process that might affect the expected behavior."
-  ],
-
-  "suggestedSelectors": []
+  ]
 }

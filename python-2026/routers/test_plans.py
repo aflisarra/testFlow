@@ -11,7 +11,7 @@ from __future__ import annotations
 import subprocess
 from typing import Optional
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, UploadFile, Request
 from fastapi.responses import JSONResponse
 
 from core.config import get_settings
@@ -51,51 +51,76 @@ async def upload_spec(file: UploadFile = File(...)):
         return JSONResponse(status_code=500, content={"error": f"Upload failed: {str(exc)}"})
 
 
-from fastapi import Form, UploadFile, File
+from fastapi import Form, UploadFile, File, Request
 from typing import Optional
-
-from fastapi import Form, UploadFile, File
-from typing import Optional
+import json as json_module
 
 @router.post("/generate-plan", response_model=GeneratePlanResponse)
-async def generate_plan(
-    file: UploadFile = File(None),
-    styleConfig: Optional[str] = Form(None),
-    applicationUrl: Optional[str] = Form(None),
-
-    # ✅ IMPORTANT POUR ANNULATION
-    test_suite_id: Optional[str] = Form(None),
-    generation_request_id: Optional[str] = Form(None),
-    generation_scope: Optional[str] = Form("plans"),
-
-    spec_text: Optional[str] = Form(None),
-):
+async def generate_plan(request: Request):
+    """
+    Accept generate-plan request in TWO formats:
+    1. multipart/form-data with optional file upload (from Angular/Web)
+    2. application/json body (from Node.js backend)
+    """
+    
+    content_type = request.headers.get("content-type", "").lower()
+    spec_text_final = None
+    style_config = None
+    url_cible = None
+    test_suite_id = None
+    generation_request_id = None
+    generation_scope = "plans"
+    project_title = None
+    plan_id = ""
+    regenerate = False
+    
     try:
-        # ✅ récupération texte
-        if file:
-            file_bytes = await file.read()
-
-            if not file_bytes:
-                return JSONResponse(
-                    status_code=400,
-                    content={"error": "Empty file"}
-                )
-
-            spec_text_final = extract_spec_text_from_docx_bytes(file_bytes)
-
-        elif spec_text:
-            spec_text_final = spec_text.strip()
-
+        if "multipart/form-data" in content_type:
+            # ✅ MULTIPART FORM DATA (file upload)
+            form_data = await request.form()
+            
+            file = form_data.get("file")
+            if file and isinstance(file, UploadFile):
+                file_bytes = await file.read()
+                if file_bytes:
+                    spec_text_final = extract_spec_text_from_docx_bytes(file_bytes)
+            
+            # Get form fields
+            spec_text_final = spec_text_final or (form_data.get("spec_text") or "").strip()
+            style_config = (form_data.get("styleConfig") or form_data.get("style_config") or "").strip()
+            url_cible = (form_data.get("applicationUrl") or form_data.get("url_cible") or "").strip()
+            test_suite_id = (form_data.get("test_suite_id") or "").strip()
+            generation_request_id = (form_data.get("generation_request_id") or "").strip()
+            generation_scope = (form_data.get("generation_scope") or "plans").strip()
+            project_title = (form_data.get("project_title") or "").strip()
+            plan_id = (form_data.get("plan_id") or form_data.get("planId") or "").strip()
+            regenerate = str(form_data.get("regenerate") or "").lower() == "true"
+            
+        elif "application/json" in content_type:
+            # ✅ JSON BODY (from Node.js axios.post)
+            body = await request.json()
+            
+            spec_text_final = (body.get("spec_text") or "").strip()
+            style_config = (body.get("style_config") or body.get("styleConfig") or "").strip()
+            url_cible = (body.get("url_cible") or body.get("applicationUrl") or "").strip()
+            test_suite_id = (body.get("test_suite_id") or "").strip()
+            generation_request_id = (body.get("generation_request_id") or "").strip()
+            generation_scope = (body.get("generation_scope") or "plans").strip()
+            project_title = (body.get("project_title") or "").strip()
+            plan_id = (body.get("plan_id") or body.get("planId") or "").strip()
+            regenerate = bool(body.get("regenerate"))
+            
         else:
+            return JSONResponse(
+                status_code=415,
+                content={"error": f"Unsupported content-type: {content_type}. Use multipart/form-data or application/json"}
+            )
+        
+        # ✅ Validate spec_text is not empty
+        if not spec_text_final or not spec_text_final.strip():
             return JSONResponse(
                 status_code=400,
                 content={"error": "spec_text or file is required"}
-            )
-
-        if not spec_text_final.strip():
-            return JSONResponse(
-                status_code=422,
-                content={"error": "Document empty"}
             )
 
         # ✅ ANNULATION AVANT AI
@@ -110,12 +135,15 @@ async def generate_plan(
                 content={"error": "Generation cancelled by user"}
             )
 
-        # ✅ appel AI
+        # ✅ Call AI service to generate plans
         plans = generate_test_plans(
             spec_text=spec_text_final,
-            style_config=(styleConfig or "").strip(),
-            project_title=(applicationUrl or "").strip()
+            style_config=style_config,
+            project_title=project_title or url_cible,
+            target_count=1 if plan_id and regenerate else 10,
         )
+        if plan_id and regenerate and plans:
+            plans[0]["id"] = plan_id
 
         # ✅ ANNULATION APRES AI
         if is_cancelled(

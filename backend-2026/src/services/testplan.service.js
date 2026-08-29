@@ -9,6 +9,20 @@ const {
   validatePriority,
 } = require('../utils/test-artifact-fields')
 
+function getFastApiBaseUrl() {
+  const raw = String(process.env.FASTAPI_BASE_URL || process.env.PYTHON_API_URL || '').trim()
+  if (!raw) throw new Error('FASTAPI_BASE_URL is not set')
+  return raw.replace(/\/+$/, '')
+}
+
+function getFastApiTimeoutMs(fallbackMs = 185_000) {
+  const raw = String(process.env.FASTAPI_TIMEOUT_MS || process.env.FASTAPI_GENERATION_TIMEOUT_MS || '').trim()
+  if (!raw) return fallbackMs
+
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallbackMs
+}
+
 function normalizeTestPlanMetadata(data = {}, { includeDefaults = false } = {}) {
   const payload = {}
 
@@ -185,12 +199,13 @@ async function generateTestPlansPreview({ file, styleConfig, applicationUrl }) {
     formData.append('url_cible', applicationUrl || '')
 
     const response = await axios.post(
-      'http://localhost:8000/generate-plan',
+      `${getFastApiBaseUrl()}/generate-plan`,
       formData,
       {
         headers: {
           ...formData.getHeaders(), // ✅ IMPORTANT
         },
+        timeout: getFastApiTimeoutMs(),
       }
     )
 

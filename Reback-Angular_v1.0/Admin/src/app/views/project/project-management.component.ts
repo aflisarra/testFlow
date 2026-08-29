@@ -516,6 +516,7 @@ applyEliteTeamSelection(modal: NgbModalRef): void {
     ref.componentInstance.entityName = project.title
     ref.componentInstance.confirmText = 'Delete'
     ref.componentInstance.cancelText = 'Cancel'
+    ref.componentInstance.confirmButtonClass = 'btn-delete-confirm'
 
     ref.closed.subscribe(() => {
       this.adminService.deleteProject(project._id).subscribe({

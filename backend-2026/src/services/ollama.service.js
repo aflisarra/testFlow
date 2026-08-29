@@ -1,8 +1,9 @@
 const path = require('path')
 const fs = require('fs/promises')
 const fsSync = require('fs')
-const os = require('os')
-const { spawn } = require('child_process')
+
+const AdmZip = require('adm-zip')
+
 const axios = require('axios')
 const jwt = require('jsonwebtoken')
 
@@ -349,7 +350,7 @@ async function dualWriteTestCases({ testSuiteId, planKey, planTitle, planData, t
   return result
 }
 
-function runPowerShell(command) {
+/*function runPowerShell(command) {
   return new Promise((resolve, reject) => {
     const child = spawn(
       'powershell',
@@ -369,7 +370,7 @@ function runPowerShell(command) {
       reject(error)
     })
   })
-}
+}*/
 
 function decodeXmlEntities(value) {
   return String(value || '')
@@ -401,35 +402,64 @@ function extractTextFromDocumentXml(xml) {
     .trim()
 }
 
-async function extractDocxText(buffer) {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'docx-'))
-  // Expand-Archive refuses unknown extensions like .docx even if it's a ZIP internally,
-  // so we write the buffer as .zip for PowerShell.
-  const zipPath = path.join(tempRoot, 'spec.zip')
-  const unzipDir = path.join(tempRoot, 'unzipped')
+function isValidDocxFile(buffer) {
+  // DOCX files start with PK (50 4B in hex) - ZIP file signature
+  if (buffer.length < 4) return false
+  const signature = buffer.slice(0, 4).toString('hex')
+  return signature === '504b0304' || signature === '504b0304'
+}
 
+function extractDocxText(buffer) {
   try {
-    await fs.writeFile(zipPath, buffer)
-
-    if (process.platform !== 'win32') {
-      throw httpError(
-        400,
-        'DOCX extraction requires Windows PowerShell Expand-Archive (current platform not supported).'
-      )
+    // ✅ Step 1: Validate file is a valid ZIP/DOCX
+    if (!isValidDocxFile(buffer)) {
+      throw new Error('File is not a valid DOCX (invalid ZIP signature). File may be corrupted or incorrectly formatted.')
     }
 
-    await fs.mkdir(unzipDir, { recursive: true })
-    const cmd = `Expand-Archive -Path '${zipPath.replaceAll("'", "''")}' -DestinationPath '${unzipDir.replaceAll(
-      "'",
-      "''"
-    )}' -Force`
-    await runPowerShell(cmd)
+    // ✅ Step 2: Try to open as ZIP
+    let zip
+    try {
+      zip = new AdmZip(buffer)
+    } catch (zipErr) {
+      // Corrupted ZIP structure
+      const err = new Error(`Corrupted DOCX file structure: ${zipErr?.message || 'Invalid ZIP format'}`)
+      err.cause = zipErr
+      throw err
+    }
 
-    const documentXmlPath = path.join(unzipDir, 'word', 'document.xml')
-    const xml = await fs.readFile(documentXmlPath, 'utf8')
-    return extractTextFromDocumentXml(xml)
-  } finally {
-    await fs.rm(tempRoot, { recursive: true, force: true }).catch(() => {})
+    // ✅ Step 3: Get document.xml
+    const documentEntry = zip.getEntry('word/document.xml')
+    if (!documentEntry) {
+      throw new Error('Invalid DOCX structure: word/document.xml not found. File may be a different Office format.')
+    }
+
+    // ✅ Step 4: Extract and parse XML
+    let xml
+    try {
+      xml = documentEntry.getData().toString('utf8')
+    } catch (xmlErr) {
+      const err = new Error(`Failed to read document.xml: ${xmlErr?.message || 'Unknown error'}`)
+      err.cause = xmlErr
+      throw err
+    }
+
+    // ✅ Step 5: Extract text from XML
+    const extractedText = extractTextFromDocumentXml(xml)
+    
+    // ✅ Step 6: Validate extracted text is not empty
+    if (!extractedText || extractedText.trim().length === 0) {
+      throw new Error('DOCX file appears to be empty - no readable text found')
+    }
+    
+    return extractedText
+  } catch (error) {
+    // ❌ If it's already an httpError, re-throw it
+    if (error?.statusCode) throw error
+    
+    // ❌ Convert to proper error
+    const errorMsg = error?.message || String(error) || 'Unknown error'
+    console.error('❌ DOCX extraction error:', errorMsg)
+    throw httpError(400, `Unable to extract text from .docx: ${errorMsg}`)
   }
 }
 
@@ -440,36 +470,51 @@ async function readSpecTextFromUpload(file) {
   if (!fileBuffer) throw httpError(400, 'file (.docx/.md/.txt) is required')
 
   const ext = path.extname(String(file?.originalname || '')).toLowerCase()
+  const fileName = String(file?.originalname || 'unknown')
+  
+  console.log(`📋 Processing file: ${fileName} (${fileBuffer.length} bytes, ext: ${ext})`)
+
   if (ext === '.docx') {
+    console.log('🔍 Attempting to extract DOCX content...')
     const specText = await extractDocxText(fileBuffer)
-    if (!specText) throw httpError(400, 'Unable to extract text from .docx')
+    
+    if (!specText) throw httpError(400, 'DOCX extraction succeeded but produced no content')
+    
     // Persist a copy for debugging and log a preview
     try {
       await fs.mkdir(path.join(process.cwd(), 'uploads', 'spec_texts'), { recursive: true })
-      const safeName = (file.originalname || 'upload').replace(/[^a-zA-Z0-9.-]/g, '_')
+      const safeName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_')
       const outPath = path.join(process.cwd(), 'uploads', 'spec_texts', `${Date.now()}_${safeName}.txt`)
       await fs.writeFile(outPath, specText, 'utf8')
-      console.log('Spec extracted and saved to:', outPath)
-      console.log('Spec preview:', String(specText).slice(0, 800).replace(/\n/g, ' '))
+      console.log(`✅ Spec extracted and saved to: uploads/spec_texts/${path.basename(outPath)}`)
+      console.log(`📄 Spec preview: ${String(specText).slice(0, 300).replace(/\n/g, ' ')}...`)
     } catch (e) {
-      console.warn('Failed to persist spec text for debugging:', e?.message || e)
+      console.warn('⚠️ Failed to persist spec text for debugging:', e?.message || e)
     }
+    
     return specText
   }
 
+  // Handle .txt, .md, and other text formats
+  console.log('📖 Processing as text file...')
   const specText = String(Buffer.from(fileBuffer).toString('utf8') || '').trim()
-  if (!specText) throw httpError(400, 'Unable to read text from file')
+  
+  if (!specText) {
+    throw httpError(400, `File appears to be empty or not a valid text file. Supported formats: .docx, .txt, .md`)
+  }
+  
   // Persist and log for non-docx text files
   try {
     await fs.mkdir(path.join(process.cwd(), 'uploads', 'spec_texts'), { recursive: true })
-    const safeName = (file.originalname || 'upload').replace(/[^a-zA-Z0-9.-]/g, '_')
+    const safeName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_')
     const outPath = path.join(process.cwd(), 'uploads', 'spec_texts', `${Date.now()}_${safeName}.txt`)
     await fs.writeFile(outPath, specText, 'utf8')
-    console.log('Spec extracted and saved to:', outPath)
-    console.log('Spec preview:', String(specText).slice(0, 800).replace(/\n/g, ' '))
+    console.log(`✅ Spec extracted and saved to: uploads/spec_texts/${path.basename(outPath)}`)
+    console.log(`📄 Spec preview: ${String(specText).slice(0, 300).replace(/\n/g, ' ')}...`)
   } catch (e) {
-    console.warn('Failed to persist spec text for debugging:', e?.message || e)
+    console.warn('⚠️ Failed to persist spec text for debugging:', e?.message || e)
   }
+  
   return specText
 }
 
@@ -600,10 +645,40 @@ async function generatePlan({ req, body, file }) {
     previousTestStatus = String(suite.testStatus || 'Draft')
 
     if (file) {
-      specText = await readSpecTextFromUpload(file)
+      try {
+        specText = await readSpecTextFromUpload(file)
+      } catch (err) {
+        // ✅ FallBACK: If file extraction fails, try to use stored specText
+        const fallbackSpecText = String(suite.specText || '').trim()
+        if (fallbackSpecText) {
+          console.warn('File extraction failed, using stored specText:', err?.message || err)
+          specText = fallbackSpecText
+        } else {
+          // No fallback available, re-throw error
+          throw err
+        }
+      }
     } else {
       specText = String(suite.specText || '').trim()
-      if (!specText) throw httpError(400, 'file (.docx/.md/.txt) is required')
+      if (!specText) {
+        // ✅ Pour la régénération d'un seul plan : construire un contexte depuis le plan existant
+        const planIdForFallback = String(body?.planId || body?.plan_id || '').trim()
+        const fallbackPlan = planIdForFallback
+          ? await TestPlan.findOne({ testSuiteId: String(suite._id), id: planIdForFallback }).lean()
+          : null
+
+        if (regenerate && fallbackPlan) {
+          specText = [
+            `Plan Title: ${fallbackPlan.title || ''}`,
+            `Description: ${fallbackPlan.description || ''}`,
+            `Objective: ${fallbackPlan.objective || ''}`,
+            `Scope: ${fallbackPlan.scope || ''}`,
+            `Application URL: ${String(suite.urlCible || urlCible || '')}`,
+          ].filter(Boolean).join('\n')
+        } else {
+          throw httpError(400, 'file (.docx/.md/.txt) is required')
+        }
+      }
     }
     const specTextStored = specText.slice(0, 50_000)
     const combinedDescription = [styleConfig, '', '---- SPEC EXTRACT ----', specText]
@@ -692,6 +767,7 @@ async function generatePlan({ req, body, file }) {
   }
 
   const baseUrl = getFastApiBaseUrl()
+  const planId = String(body?.planId || body?.plan_id || '').trim()
   let fastApiResponse
   try {
     fastApiResponse = await axios.post(
@@ -706,6 +782,9 @@ async function generatePlan({ req, body, file }) {
         test_suite_id: testSuiteId,
         generation_scope: 'plans',
         generation_request_id: generationRequestId || undefined,
+        // ✅ Pour la régénération d'un seul plan
+        plan_id: planId || undefined,
+        regenerate: regenerate || undefined,
       },
       { timeout: getFastApiTimeoutMs(420_000), headers: getFastApiHeaders() }
     )

@@ -41,8 +41,9 @@ def build_test_case_prompt(
       },
       "steps": [
         "Navigate to the SRS-described workflow entry point",
-        "Complete all SRS-required UI components with valid data",
-        "Submit using the SRS-described action"
+        "Enter a valid username in the username field",
+        "Enter a valid password in the password field",
+        "Click the Login button"
       ],
       "stepDetails": [
         {
@@ -50,12 +51,16 @@ def build_test_case_prompt(
           "expected_result": "The workflow entry point is available"
         },
         {
-          "step": "Complete all SRS-required UI components with valid data",
-          "expected_result": "The provided data satisfies the SRS validation rules"
+          "step": "Enter a valid username in the username field",
+          "expected_result": "The username is entered"
         },
         {
-          "step": "Submit using the SRS-described action",
-          "expected_result": "The SRS pass criteria are met"
+          "step": "Enter a valid password in the password field",
+          "expected_result": "The password is entered"
+        },
+        {
+          "step": "Click the Login button",
+          "expected_result": "The login request is submitted"
         }
       ],
       "expected_result": "The selected test plan behavior satisfies the SRS pass criteria",
@@ -126,6 +131,14 @@ def build_test_case_prompt(
         "- expected_result\n\n"
         "Neither value may be empty.\n\n"
 
+        "### ATOMIC STEP RULE\n"
+        "Each step MUST describe exactly one user action on one UI target.\n"
+        "Use one separate step for navigation, each field entry, each dropdown selection, each checkbox, and each button click.\n"
+        "Never combine multiple fields or actions in one step.\n"
+        "A step must identify the target field, control, or button by visible label, role, name, or business purpose when known.\n"
+        "For a form flow, prefer this order: navigate, enter each required field separately, select controls, then submit.\n"
+        "The number and order of stepDetails items MUST match steps exactly.\n\n"
+
         "### TEST DATA RULE\n"
         "test_data MUST always be a JSON object.\n"
         "If no test data exists, return {}.\n\n"
@@ -178,6 +191,8 @@ def build_test_case_prompt(
 "steps:\n"
 "- maximum 12 words per step\n"
 "- use action verbs\n\n"
+"- exactly one UI action per step\n"
+"- name the target field, control, or button\n\n"
 
 "expected_result:\n"
 "- maximum 15 words\n"
