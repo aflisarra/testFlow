@@ -76,14 +76,18 @@ def tag_module(items: list[Item], module_list: list[dict[str, Any]]) -> list[Ite
         source_ids = [str(value) for value in module.get("source_item_ids") or []]
         for source_id in source_ids:
             cited_by.setdefault(source_id, []).append(module_index)
-        source_text = " ".join(items_by_id[source_id].text for source_id in source_ids if source_id in items_by_id)
+        source_text = " ".join(
+            items_by_id[source_id].text for source_id in source_ids if source_id in items_by_id
+        )
         descriptions.append(
             " ".join(
-                value for value in (
+                value
+                for value in (
                     str(module.get("name") or ""),
                     str(module.get("description") or ""),
                     source_text,
-                ) if value
+                )
+                if value
             )
         )
     model = get_embedding_model()
@@ -110,7 +114,10 @@ def tag_module(items: list[Item], module_list: list[dict[str, Any]]) -> list[Ite
             continue
         if len(cited_indices) > 1 and item.role == "NON_FUNCTIONAL":
             item.module = "CROSS_CUTTING"
-            item.module_ids = [_module_id(module_list[module_index], module_index) for module_index in cited_indices]
+            item.module_ids = [
+                _module_id(module_list[module_index], module_index)
+                for module_index in cited_indices
+            ]
             item.primary_module_id = None
             item.module_method = "source"
             item.module_score = 1.0
@@ -133,9 +140,8 @@ def tag_module(items: list[Item], module_list: list[dict[str, Any]]) -> list[Ite
         score = float(scores[best_index])
         ordered_scores = sorted((float(value) for value in scores), reverse=True)
         margin = score - ordered_scores[1] if len(ordered_scores) > 1 else score
-        if (
-            (MODULE_THRESHOLD is not None and score < MODULE_THRESHOLD)
-            or (MODULE_MARGIN_THRESHOLD is not None and margin < MODULE_MARGIN_THRESHOLD)
+        if (MODULE_THRESHOLD is not None and score < MODULE_THRESHOLD) or (
+            MODULE_MARGIN_THRESHOLD is not None and margin < MODULE_MARGIN_THRESHOLD
         ):
             _unassign_item(item)
             item.module_score = round(score, 4)

@@ -175,6 +175,4 @@ def resolve_indexed_selector(driver, selector: str, wait_seconds: int = 5):
         f"//*[@role='button'] | //*[@role='link'] | //*[@role='option'] | //*[@role='combobox'])[{idx + 1}]"
     )
 
-    return WebDriverWait(driver, wait_seconds).until(
-        EC.element_to_be_clickable((By.XPATH, xpath))
-    )
+    return WebDriverWait(driver, wait_seconds).until(EC.element_to_be_clickable((By.XPATH, xpath)))

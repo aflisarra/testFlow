@@ -4,7 +4,9 @@ const dns = require('dns');
 dns.setServers(['8.8.8.8', '1.1.1.1']);
 require('dotenv').config({
   path: path.join(__dirname, '..', '.env'),
-  override: true,
+  // Keep environment variables supplied by Docker/CI; use .env only as a
+  // local fallback when a variable has not already been provided.
+  override: false,
 })
 const express = require('express');
 const mongoose = require('mongoose');
@@ -77,6 +79,12 @@ app.use((req, res, next) => {
 app.use(cors(corsOptions));
 app.use('/api/internal', express.json({ limit: '20mb' }), specIngestionInternalRoutes);
 app.use(express.json()); ///parser les données au format JSON
+
+// Lightweight liveness endpoint used by Docker and local orchestration.
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 // Configuration CORS dynamique avec gestion des credentials
 /*app.use(cors({
   origin: function(origin, callback) {

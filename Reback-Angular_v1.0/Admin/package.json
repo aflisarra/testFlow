@@ -7,6 +7,8 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "test:owned": "ng test --watch=false --karma-config=karma.conf.js --browsers=ChromeHeadlessCI --include=src/app/core/services/testlab.service.spec.ts --include=src/app/views/test/test-plan.component.spec.ts --include=src/app/views/test/spec-items-explorer/spec-items-explorer.component.spec.ts",
+    "test:coverage:owned": "npm run test:owned -- --code-coverage && node tools/check-owned-coverage.mjs",
     "format": "prettier --write src/**/*.{ts,html}",
     "lint": "ng lint",
     "stylelint": "stylelint --config stylelint.config.js \"src/**/*.{css,scss}\"",

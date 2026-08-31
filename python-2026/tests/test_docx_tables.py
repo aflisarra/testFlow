@@ -3,6 +3,7 @@
 from io import BytesIO
 
 from docx import Document
+
 from services.ingestion.items import expand_section_to_items
 from services.ingestion.tagger import tag_role
 from utils.chunker import chunk_spec_recursive
@@ -32,9 +33,7 @@ def test_horizontal_table_rows_become_atomic_heading_aware_items() -> None:
 
     chunks = chunk_spec_recursive(document)
     actor_chunk = next(
-        chunk
-        for chunk in chunks
-        if chunk.heading_path == ["Product specification", "Actors"]
+        chunk for chunk in chunks if chunk.heading_path == ["Product specification", "Actors"]
     )
 
     assert actor_chunk.text.splitlines() == [

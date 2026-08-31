@@ -74,47 +74,45 @@ def build_ai_decision_prompt(step: str, dom, test_case) -> str:
         # Keep the model input tight: only the whitelisted fields survive,
         # and empty values are removed after the projection.
         allowed_keys = {
-
-    "index",
-    "tag",
-    "role",
-    "type",
-    "id",
-    "name",
-    "placeholder",
-    "ariaLabel",
-    "ariaExpanded",
-    "ariaHaspopup",
-    "title",
-    "testId",
-    "text",
-    "value",
-    "classes",
-    "checked",
-    "disabled",
-    "visible",
-    "rect",
-    "options",
-    "businessRole",
-    
-  # NEW
-    "ariaInvalid",
-    "required",
-    "validity",
-
-
-}
+            "index",
+            "tag",
+            "role",
+            "type",
+            "id",
+            "name",
+            "placeholder",
+            "ariaLabel",
+            "ariaExpanded",
+            "ariaHaspopup",
+            "title",
+            "testId",
+            "text",
+            "value",
+            "classes",
+            "checked",
+            "disabled",
+            "visible",
+            "rect",
+            "options",
+            "businessRole",
+            # NEW
+            "ariaInvalid",
+            "required",
+            "validity",
+        }
         compacted = []
         for el in value:
             if not isinstance(el, dict):
                 continue
-            projected = {k: v for k, v in el.items() if k in allowed_keys and v not in (None, "", [])}
+            projected = {
+                k: v for k, v in el.items() if k in allowed_keys and v not in (None, "", [])
+            }
             if (
                 projected.get("role") == "option"
                 and projected.get("visible") is True
                 and projected.get("text")
             ):
-                projected["selector"] = f'text={str(projected["text"]).strip()}'
+                projected["selector"] = f"text={str(projected['text']).strip()}"
             if "options" in projected and isinstance(projected["options"], list):
                 projected["options"] = [
                     {k: v for k, v in opt.items() if v not in (None, "", [])}
@@ -136,23 +134,17 @@ def build_ai_decision_prompt(step: str, dom, test_case) -> str:
     test_data = []
     if isinstance(test_case, dict):
         test_data = (
-            test_case.get("test_data")
-            or test_case.get("testData")
-            or test_case.get("data")
-            or []
+            test_case.get("test_data") or test_case.get("testData") or test_case.get("data") or []
         )
 
     execution_memory = {}
     if isinstance(test_case, dict):
         execution_memory = (
-            test_case.get("execution_memory")
-            or test_case.get("executionMemory")
-            or {}
+            test_case.get("execution_memory") or test_case.get("executionMemory") or {}
         )
 
     test_data_text = safe(test_data)
-    
-        
+
     memory_text = safe(execution_memory) if execution_memory else "{}"
 
     return f"""

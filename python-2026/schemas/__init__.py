@@ -1,2 +1,1 @@
 """Pydantic request/response models."""
-

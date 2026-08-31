@@ -28,13 +28,13 @@ def _get_client() -> OpenAI:
             "OPENROUTER_API_KEY is not set. "
             "Add it to your .env file: OPENROUTER_API_KEY=your_key_here"
         )
-    
+
     # Custom headers are recommended by OpenRouter
     default_headers = {
         "HTTP-Referer": "https://github.com/aflisarra/testFlow",
         "X-Title": "TestFlow Automation",
     }
-    
+
     return OpenAI(
         api_key=api_key,
         base_url=_OPENROUTER_BASE_URL,

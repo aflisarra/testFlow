@@ -1,6 +1,5 @@
 const TestPlan = require('../models/testplan.model')
 const TestCase = require('../models/testcase.model')
-const fs = require('fs')
 const FormData = require('form-data')
 const {
   hasOwn,

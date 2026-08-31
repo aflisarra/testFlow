@@ -40,11 +40,22 @@ def test_requirement_prompt_records_keep_item_traceability() -> None:
 
 
 def test_case_filter_excludes_untagged_and_reports_it_for_review() -> None:
-    feature = Item("ITEM-00001", "CHUNK-001", [], "Search tracks.", role="FEATURE", role_method="heading")
+    feature = Item(
+        "ITEM-00001", "CHUNK-001", [], "Search tracks.", role="FEATURE", role_method="heading"
+    )
     pending = Item("ITEM-00002", "CHUNK-001", [], "Ambiguous text.")
-    requirement = Item("ITEM-00003", "CHUNK-001", [], "Must retain history.", role="REQUIREMENT", role_method="regex")
+    requirement = Item(
+        "ITEM-00003",
+        "CHUNK-001",
+        [],
+        "Must retain history.",
+        role="REQUIREMENT",
+        role_method="regex",
+    )
 
-    selected, pending_count = filter_items([feature, pending, requirement], "generate-test-cases", budget_chars=100)
+    selected, pending_count = filter_items(
+        [feature, pending, requirement], "generate-test-cases", budget_chars=100
+    )
 
     assert selected == [feature, requirement]
     assert pending_count == 1
@@ -76,14 +87,28 @@ def test_case_filter_retains_non_functional_evidence() -> None:
 
 def test_case_filter_uses_stable_module_id_when_available() -> None:
     search = Item(
-        "ITEM-00005", "CHUNK-002", ["Search"], "Search must respond quickly.",
-        role="NON_FUNCTIONAL", role_method="regex", module="Renamed Search",
-        module_ids=["MOD-001"], primary_module_id="MOD-001", module_disposition="assigned",
+        "ITEM-00005",
+        "CHUNK-002",
+        ["Search"],
+        "Search must respond quickly.",
+        role="NON_FUNCTIONAL",
+        role_method="regex",
+        module="Renamed Search",
+        module_ids=["MOD-001"],
+        primary_module_id="MOD-001",
+        module_disposition="assigned",
     )
     payment = Item(
-        "ITEM-00006", "CHUNK-003", ["Payment"], "Payment must respond quickly.",
-        role="NON_FUNCTIONAL", role_method="regex", module="Payment",
-        module_ids=["MOD-002"], primary_module_id="MOD-002", module_disposition="assigned",
+        "ITEM-00006",
+        "CHUNK-003",
+        ["Payment"],
+        "Payment must respond quickly.",
+        role="NON_FUNCTIONAL",
+        role_method="regex",
+        module="Payment",
+        module_ids=["MOD-002"],
+        primary_module_id="MOD-002",
+        module_disposition="assigned",
     )
 
     selected, _ = filter_items(
@@ -97,9 +122,15 @@ def test_case_filter_uses_stable_module_id_when_available() -> None:
 
 def test_case_filter_retains_cross_cutting_nfr_for_quality_plan() -> None:
     item = Item(
-        "ITEM-00007", "CHUNK-004", ["Availability"], "The service must remain available.",
-        role="NON_FUNCTIONAL", role_method="regex", module="CROSS_CUTTING",
-        module_ids=["MOD-001", "MOD-002"], module_disposition="cross_cutting",
+        "ITEM-00007",
+        "CHUNK-004",
+        ["Availability"],
+        "The service must remain available.",
+        role="NON_FUNCTIONAL",
+        role_method="regex",
+        module="CROSS_CUTTING",
+        module_ids=["MOD-001", "MOD-002"],
+        module_disposition="cross_cutting",
     )
 
     selected, _ = filter_items(

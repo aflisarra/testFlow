@@ -13,8 +13,9 @@ import re
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from prompts.ai_detector_fix_prompt import build_ai_detector_fix_prompt
 from pydantic import BaseModel
+
+from prompts.ai_detector_fix_prompt import build_ai_detector_fix_prompt
 from services.ai_service import get_ai_service
 from utils.logger import log_error, log_event
 
@@ -42,24 +43,30 @@ def _normalize_recommendations(analysis: dict[str, Any]) -> list[dict[str, str]]
     for item in recommendations:
         if not isinstance(item, dict):
             continue
-        normalized.append({
-            "error": str(item.get("error") or item.get("title") or "Failure detected"),
-            "rootCause": str(item.get("rootCause") or analysis.get("rootCause") or "unknown"),
-            "whatHappened": str(item.get("whatHappened") or ""),
-            "example": str(item.get("example") or ""),
-            "fix": str(item.get("fix") or item.get("actionText") or item.get("recommendation") or ""),
-        })
+        normalized.append(
+            {
+                "error": str(item.get("error") or item.get("title") or "Failure detected"),
+                "rootCause": str(item.get("rootCause") or analysis.get("rootCause") or "unknown"),
+                "whatHappened": str(item.get("whatHappened") or ""),
+                "example": str(item.get("example") or ""),
+                "fix": str(
+                    item.get("fix") or item.get("actionText") or item.get("recommendation") or ""
+                ),
+            }
+        )
 
     if normalized:
         return normalized
 
-    return [{
-        "error": str(analysis.get("description") or "Failure detected"),
-        "rootCause": str(analysis.get("rootCause") or "unknown"),
-        "whatHappened": "",
-        "example": "",
-        "fix": str(analysis.get("actionText") or "Review logs and adjust selectors or timing"),
-    }]
+    return [
+        {
+            "error": str(analysis.get("description") or "Failure detected"),
+            "rootCause": str(analysis.get("rootCause") or "unknown"),
+            "whatHappened": "",
+            "example": "",
+            "fix": str(analysis.get("actionText") or "Review logs and adjust selectors or timing"),
+        }
+    ]
 
 
 def _combined_text(payload: dict[str, Any]) -> str:
@@ -98,12 +105,16 @@ _RULES: list[tuple[re.Pattern, str, str]] = [
         "Click the Country/Region dropdown trigger, type the target value in the filter if one appears, then click the exact visible option before submitting.",
     ),
     (
-        re.compile(r"not interactable|click intercepted|element.*blocked|element.*covered", re.IGNORECASE),
+        re.compile(
+            r"not interactable|click intercepted|element.*blocked|element.*covered", re.IGNORECASE
+        ),
         "element_not_interactable",
         "Add an explicit wait until the element is visible and clickable, scroll it into view, then retry the click.",
     ),
     (
-        re.compile(r"no such element|unable to locate|selector.*not found|not found", re.IGNORECASE),
+        re.compile(
+            r"no such element|unable to locate|selector.*not found|not found", re.IGNORECASE
+        ),
         "selector_not_found",
         "The selector used by the AI action is likely stale. Refresh the DOM capture just before the action and prefer data-testid/aria-label selectors.",
     ),
@@ -187,74 +198,34 @@ def _fallback_analysis(payload: dict[str, Any], reason: str = "") -> dict[str, A
         tips.append(f"AI fallback reason: {reason}")
 
     return {
-    "title": "AI analysis unavailable — rule-based diagnosis used",
-
-    "description": top["error"],
-
-    "summary": top["error"],
-
-    "whatHappened":
-        f"The test failed during step {step_index}.",
-
-    "expectedBehavior":
-        "The step should have completed successfully.",
-
-    "actualBehavior":
-        top["error"],
-
-    "whyItFailed":
-        top["fix"],
-
-    "example":
-        failure_lines[0] if failure_lines else "",
-
-    "severity":
-        "Medium",
-
-    "rootCause":
-        top["rootCause"],
-
-    "confidence":
-        0.6,
-
-    "failedStepIndex":
-        step_index,
-
-    "failedStepName":
-        failed_step_name,
-
-    "aiActionSummary":
-        "Fallback analysis generated from logs because the model did not answer in time.",
-
-    "developerFix": [
-        top["fix"]
-    ],
-
-    "testerFix": [
-        "Review the test step and assertion."
-    ],
-
-    "timeline": [],
-
-    "actionLabel":
-        "Recommended Fix",
-
-    "actionText":
-        top["fix"],
-
-    "recommendations":
-        recommendations,
-
-    "diagnosticTips":
-        tips[:3],
-
-    "suggestedSelectors":
-        []
+        "title": "AI analysis unavailable — rule-based diagnosis used",
+        "description": top["error"],
+        "summary": top["error"],
+        "whatHappened": f"The test failed during step {step_index}.",
+        "expectedBehavior": "The step should have completed successfully.",
+        "actualBehavior": top["error"],
+        "whyItFailed": top["fix"],
+        "example": failure_lines[0] if failure_lines else "",
+        "severity": "Medium",
+        "rootCause": top["rootCause"],
+        "confidence": 0.6,
+        "failedStepIndex": step_index,
+        "failedStepName": failed_step_name,
+        "aiActionSummary": "Fallback analysis generated from logs because the model did not answer in time.",
+        "developerFix": [top["fix"]],
+        "testerFix": ["Review the test step and assertion."],
+        "timeline": [],
+        "actionLabel": "Recommended Fix",
+        "actionText": top["fix"],
+        "recommendations": recommendations,
+        "diagnosticTips": tips[:3],
+        "suggestedSelectors": [],
     }
 
 
 class FailureDetectionPayload(BaseModel):
     """Payload for failure detection request"""
+
     failed_step: dict[str, Any] | None = None
     failedStep: dict[str, Any] | None = None
     logs: list[Any] | None = None
@@ -293,7 +264,7 @@ async def detect_failure(payload: FailureDetectionPayload) -> dict[str, Any]:
             - dom_state: DOM state at time of failure
             - screenshot_url: URL to screenshot of failure
             - execution_id: ID of the execution (for tracking)
-    
+
     Returns:
         dict with AI analysis:
             - title: Brief summary of failure
@@ -303,7 +274,7 @@ async def detect_failure(payload: FailureDetectionPayload) -> dict[str, Any]:
             - actionText: Recommended fix
             - diagnosticTips: Debugging tips
             - suggestedSelectors: Alternative selectors to try
-    
+
     Raises:
         HTTPException: If analysis fails or required fields missing
     """
@@ -326,8 +297,7 @@ async def detect_failure(payload: FailureDetectionPayload) -> dict[str, Any]:
         # Validate minimum required context
         if not normalized_payload["failed_step"] and not normalized_payload["logs"]:
             raise HTTPException(
-                status_code=400,
-                detail="Either failed_step or logs must be provided"
+                status_code=400, detail="Either failed_step or logs must be provided"
             )
 
         log_event(
@@ -359,7 +329,9 @@ async def detect_failure(payload: FailureDetectionPayload) -> dict[str, Any]:
             if isinstance(analysis, list):
                 analysis = next((item for item in analysis if isinstance(item, dict)), None)
                 if analysis is None:
-                    analysis = _fallback_analysis(normalized_payload, "AI returned a list with no dict elements")
+                    analysis = _fallback_analysis(
+                        normalized_payload, "AI returned a list with no dict elements"
+                    )
         except Exception as exc:
             error_msg = str(exc)
             log_error(
@@ -387,119 +359,38 @@ async def detect_failure(payload: FailureDetectionPayload) -> dict[str, Any]:
             failed_step_index = int(normalized_payload["step_index"] or 0)
 
         result = {
-    # Main analysis
-    "title": analysis.get(
-        "title",
-        "Test Failure Detected"
-    ),
-
-    "description": analysis.get(
-        "description",
-        "Unable to determine failure cause"
-    ),
-
-    "summary": analysis.get(
-        "summary",
-        ""
-    ),
-
-    "whatHappened": analysis.get(
-        "whatHappened",
-        ""
-    ),
-
-    "example": analysis.get(
-        "example",
-        ""
-    ),
-
-    "expectedBehavior": analysis.get(
-        "expectedBehavior",
-        ""
-    ),
-
-    "actualBehavior": analysis.get(
-        "actualBehavior",
-        ""
-    ),
-
-    "whyItFailed": analysis.get(
-        "whyItFailed",
-        ""
-    ),
-
-    "severity": analysis.get(
-        "severity",
-        "Medium"
-    ),
-
-    # Root cause
-    "rootCause": analysis.get(
-        "rootCause",
-        "unknown"
-    ),
-
-    "confidence": float(
-        analysis.get("confidence", 0.0)
-    ),
-
-    # Step information
-    "failedStepIndex": failed_step_index,
-
-    "failedStepName": analysis.get(
-        "failedStepName",
-        ""
-    ),
-
-    # AI actions
-    "aiActionSummary": analysis.get(
-        "aiActionSummary",
-        ""
-    ),
-
-    # Timeline
-    "timeline": _as_list(
-        analysis.get("timeline")
-    ),
-
-    "evidence": _as_list(
-    analysis.get("evidence")
-    ),
-
-    # Fixes
-    "developerFix": _as_list(
-        analysis.get("developerFix")
-    ),
-
-    "testerFix": _as_list(
-        analysis.get("testerFix")
-    ),
-
-    "actionLabel": analysis.get(
-        "actionLabel",
-        "Recommended Fix"
-    ),
-
-    "actionText": analysis.get(
-        "actionText",
-        "Review logs and adjust selectors or timing"
-    ),
-
-    # Recommendations
-    "recommendations": _normalize_recommendations(
-        analysis
-    ),
-
-    # Debugging help
-    "diagnosticTips": _as_list(
-        analysis.get("diagnosticTips")
-    ),
-
-
-    "suggestedSelectors": _as_list(
-        analysis.get("suggestedSelectors")
-    ),
-            }
+            # Main analysis
+            "title": analysis.get("title", "Test Failure Detected"),
+            "description": analysis.get("description", "Unable to determine failure cause"),
+            "summary": analysis.get("summary", ""),
+            "whatHappened": analysis.get("whatHappened", ""),
+            "example": analysis.get("example", ""),
+            "expectedBehavior": analysis.get("expectedBehavior", ""),
+            "actualBehavior": analysis.get("actualBehavior", ""),
+            "whyItFailed": analysis.get("whyItFailed", ""),
+            "severity": analysis.get("severity", "Medium"),
+            # Root cause
+            "rootCause": analysis.get("rootCause", "unknown"),
+            "confidence": float(analysis.get("confidence", 0.0)),
+            # Step information
+            "failedStepIndex": failed_step_index,
+            "failedStepName": analysis.get("failedStepName", ""),
+            # AI actions
+            "aiActionSummary": analysis.get("aiActionSummary", ""),
+            # Timeline
+            "timeline": _as_list(analysis.get("timeline")),
+            "evidence": _as_list(analysis.get("evidence")),
+            # Fixes
+            "developerFix": _as_list(analysis.get("developerFix")),
+            "testerFix": _as_list(analysis.get("testerFix")),
+            "actionLabel": analysis.get("actionLabel", "Recommended Fix"),
+            "actionText": analysis.get("actionText", "Review logs and adjust selectors or timing"),
+            # Recommendations
+            "recommendations": _normalize_recommendations(analysis),
+            # Debugging help
+            "diagnosticTips": _as_list(analysis.get("diagnosticTips")),
+            "suggestedSelectors": _as_list(analysis.get("suggestedSelectors")),
+        }
 
         logger.info(f"✅ Analysis complete for execution {execution_id}")
 
@@ -510,17 +401,16 @@ async def detect_failure(payload: FailureDetectionPayload) -> dict[str, Any]:
     except Exception as exc:
         error_msg = str(exc)
         execution_id = payload.execution_id or payload.executionId or "unknown"
-        
+
         log_error(
             logger,
             "failure_detection_error",
             error=error_msg,
             execution_id=execution_id,
         )
-        
+
         raise HTTPException(
-            status_code=500,
-            detail=f"Failure detection analysis failed: {error_msg}"
+            status_code=500, detail=f"Failure detection analysis failed: {error_msg}"
         )
 
 
@@ -528,13 +418,13 @@ async def detect_failure(payload: FailureDetectionPayload) -> dict[str, Any]:
 async def get_fix_suggestion(payload: FailureDetectionPayload) -> dict[str, Any]:
     """
     Simplified endpoint to get just the fix suggestion for a failure.
-    
+
     Returns a simplified response focused on actionable fixes.
     """
     try:
         # Call the main detection endpoint
         full_analysis = await detect_failure(payload)
-        
+
         # Return simplified response
         return {
             "actionText": full_analysis.get("actionText", ""),
@@ -549,7 +439,4 @@ async def get_fix_suggestion(payload: FailureDetectionPayload) -> dict[str, Any]
         raise
     except Exception as exc:
         log_error(logger, "fix_suggestion_error", error=str(exc))
-        raise HTTPException(
-            status_code=500,
-            detail=f"Could not generate fix suggestion: {exc!s}"
-        )
+        raise HTTPException(status_code=500, detail=f"Could not generate fix suggestion: {exc!s}")

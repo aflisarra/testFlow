@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing'
+import { appTestProviders } from '@/testing/app-test-providers'
 
 import { PrivateLayoutComponent } from './private-layout.component'
 
@@ -9,6 +10,7 @@ describe('PrivateLayoutComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [PrivateLayoutComponent],
+      providers: appTestProviders(),
     }).compileComponents()
 
     fixture = TestBed.createComponent(PrivateLayoutComponent)

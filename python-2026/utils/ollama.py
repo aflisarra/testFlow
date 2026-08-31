@@ -125,7 +125,9 @@ def parse_json_from_ollama(text: str):
         for key in ("test_cases", "testCases", "cases", "results", "items"):
             if isinstance(obj.get(key), list):
                 return obj[key]
-        if isinstance(obj, dict) and all(k in obj for k in ("id", "title", "steps", "expected_result")):
+        if isinstance(obj, dict) and all(
+            k in obj for k in ("id", "title", "steps", "expected_result")
+        ):
             return [obj]
         return obj
 
@@ -140,8 +142,7 @@ def parse_json_from_ollama(text: str):
         return arr2
 
     raise ValueError(
-        "Cannot parse JSON from Ollama response.\n"
-        f"Raw output (first 500 chars):\n{raw[:500]}"
+        f"Cannot parse JSON from Ollama response.\nRaw output (first 500 chars):\n{raw[:500]}"
     )
 
 
@@ -174,8 +175,8 @@ def run_ollama(prompt: str, timeout: int | None = None, *, json_mode: bool = Fal
     url = "http://127.0.0.1:11434/api/generate"
     options: dict[str, object] = {
         "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "4096")),
-    "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.7")),
-    "num_predict": int(os.getenv("OLLAMA_NUM_PREDICT", "800")),
+        "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.7")),
+        "num_predict": int(os.getenv("OLLAMA_NUM_PREDICT", "800")),
     }
     num_predict = os.getenv("OLLAMA_NUM_PREDICT", "").strip()
     if num_predict:
@@ -198,13 +199,16 @@ def run_ollama(prompt: str, timeout: int | None = None, *, json_mode: bool = Fal
     req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
 
     # ── log prompt dimensions before sending ─────────────────────────────
-    log_event(logger, "ollama_prompt_size",
-              model=get_ollama_model(),
-              prompt_chars=len(prompt),
-              prompt_tokens_est=len(prompt) // 4,
-              payload_bytes=len(data),
-              num_ctx=options["num_ctx"],
-              num_predict=options["num_predict"])
+    log_event(
+        logger,
+        "ollama_prompt_size",
+        model=get_ollama_model(),
+        prompt_chars=len(prompt),
+        prompt_tokens_est=len(prompt) // 4,
+        payload_bytes=len(data),
+        num_ctx=options["num_ctx"],
+        num_predict=options["num_predict"],
+    )
 
     try:
         log_event(logger, "ollama_http_start", timeout=http_timeout)
@@ -217,15 +221,18 @@ def run_ollama(prompt: str, timeout: int | None = None, *, json_mode: bool = Fal
             js = json.loads(resp_body)
 
             # timing breakdown: wait-for-first-byte vs read body
-            log_event(logger, "ollama_http_success",
-                      elapsed_ms=int((time.monotonic() - start) * 1000),
-                      ttfb_ms=int((t_http_response - t_http_send) * 1000),
-                      read_ms=int((t_http_read - t_http_response) * 1000),
-                      reply_chars=len(js.get("response", "")),
-                      eval_count=js.get("eval_count"),
-                      eval_duration_ms=round(js.get("eval_duration", 0) / 1e6),
-                      prompt_eval_count=js.get("prompt_eval_count"),
-                      prompt_eval_duration_ms=round(js.get("prompt_eval_duration", 0) / 1e6))
+            log_event(
+                logger,
+                "ollama_http_success",
+                elapsed_ms=int((time.monotonic() - start) * 1000),
+                ttfb_ms=int((t_http_response - t_http_send) * 1000),
+                read_ms=int((t_http_read - t_http_response) * 1000),
+                reply_chars=len(js.get("response", "")),
+                eval_count=js.get("eval_count"),
+                eval_duration_ms=round(js.get("eval_duration", 0) / 1e6),
+                prompt_eval_count=js.get("prompt_eval_count"),
+                prompt_eval_duration_ms=round(js.get("prompt_eval_duration", 0) / 1e6),
+            )
             return js.get("response", "")
     except Exception as exc:
         msg = str(exc).lower()

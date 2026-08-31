@@ -28,7 +28,8 @@ def filter_items(
         candidates = [item for item in candidates if module_id in item.module_ids]
     elif module:
         candidates = [
-            item for item in candidates
+            item
+            for item in candidates
             if item.module == module
             or (module == "Cross-cutting quality" and item.module_disposition == "cross_cutting")
             or item.role in {"CONTEXT", "ACTOR"}

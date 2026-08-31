@@ -1,0 +1,52 @@
+# =============================================================
+# docker-compose.override.yml — Dev overrides
+# =============================================================
+#
+# This file is automatically merged on top of docker-compose.yml
+# when you run `docker compose up` locally. It adds:
+#
+#   - Bind-mounts so code changes are reflected without rebuilding
+#   - uvicorn --reload for python-2026
+#   - nodemon (npm run dev) for backend-2026
+#   - Angular ng serve with poll (needed on Windows/WSL2 bind-mounts)
+#
+# To use the BASE config only (no overrides, e.g. CI):
+#   docker compose -f docker-compose.yml up --build
+# =============================================================
+
+services:
+
+  backend:
+    command: ["npm", "run", "dev"]
+    volumes:
+      - ./backend-2026:/app
+      - /app/node_modules  # prevent host node_modules from shadowing container's
+
+  python:
+    command:
+      - uvicorn
+      - main:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --reload
+    volumes:
+      - ./python-2026:/app
+      - hf-cache:/cache/huggingface  # keep model cache even in dev
+
+  reback-front:
+    command:
+      - npx
+      - ng
+      - serve
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "4200"
+      - --poll
+      - "1000"          # file-poll needed for Windows/WSL2 bind-mounts
+      - --disable-host-check
+    volumes:
+      - ./Reback-Angular_v1.0/Admin:/app
+      - /app/node_modules  # prevent host node_modules from shadowing container's

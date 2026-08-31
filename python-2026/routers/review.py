@@ -5,9 +5,10 @@ from __future__ import annotations
 import secrets
 from dataclasses import asdict
 
-from core.config import get_settings
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
+
+from core.config import get_settings
 from services.ingestion.review_queue import get_pending_review, resolve_review
 
 router = APIRouter()
@@ -16,7 +17,11 @@ router = APIRouter()
 def _require_internal_token(x_internal_token: str | None = Header(default=None)) -> None:
     """Keep the former FastAPI review facade worker-only after Node R2."""
     expected = get_settings().internal_api_token
-    if not expected or not x_internal_token or not secrets.compare_digest(x_internal_token, expected):
+    if (
+        not expected
+        or not x_internal_token
+        or not secrets.compare_digest(x_internal_token, expected)
+    ):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
@@ -37,7 +42,9 @@ def _review_item(item: object) -> dict:
 
 
 @router.get("/review-queue/{spec_hash}")
-def review_queue(spec_hash: str, _: str | None = Header(default=None, alias="X-Internal-Token")) -> list[dict]:
+def review_queue(
+    spec_hash: str, _: str | None = Header(default=None, alias="X-Internal-Token")
+) -> list[dict]:
     _require_internal_token(_)
     return [_review_item(item) for item in get_pending_review(spec_hash)]
 

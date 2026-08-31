@@ -6,17 +6,16 @@ FastAPI routes for:
 This module intentionally contains no business logic.
 """
 
-
-
 from __future__ import annotations
 
 import hashlib
 import time
 from typing import Literal
 
-from core.config import get_settings
 from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse
+
+from core.config import get_settings
 from schemas.test_plan_schema import GeneratePlanResponse
 from services.cancellation_service import is_cancelled
 from services.ingestion.ingest import ingest_spec
@@ -27,7 +26,7 @@ from services.ingestion.module_orchestration import (
 )
 from services.ingestion.store_client import IngestionStoreError
 from services.plan_service import generate_test_plans
-from services.spec_service import chunk_docx_bytes, extract_spec_text_from_docx_bytes
+from services.spec_service import extract_spec_text_from_docx_bytes
 from utils.docx_reader import extract_doc_from_bytes
 
 router = APIRouter()
@@ -54,13 +53,19 @@ async def upload_spec(
         spec_text = extract_spec_text_from_docx_bytes(file_bytes)
 
         if not spec_text.strip():
-            return JSONResponse(status_code=422, content={"error": "Document is empty or has no readable text."})
+            return JSONResponse(
+                status_code=422, content={"error": "Document is empty or has no readable text."}
+            )
 
         # Phase 2: itemise the spec (idempotent — safe to call on every upload)
         doc = extract_doc_from_bytes(file_bytes)
         source_spec_hash = hashlib.sha256(file_bytes).hexdigest()
         scope = (ingestion_scope or "").strip()
-        storage_hash = hashlib.sha256(f"{source_spec_hash}:{scope}".encode()).hexdigest() if scope else source_spec_hash
+        storage_hash = (
+            hashlib.sha256(f"{source_spec_hash}:{scope}".encode()).hexdigest()
+            if scope
+            else source_spec_hash
+        )
         spec_hash, items = ingest_spec(doc, file_bytes, storage_hash=storage_hash)
         item_count = len(items)
         print(f"[upload-spec] ingested hash={spec_hash[:8]}  items={item_count}")
@@ -69,7 +74,7 @@ async def upload_spec(
             "filename": file.filename,
             "spec_text": spec_text,
             "char_count": len(spec_text),
-            "item_count": item_count,   # observability only
+            "item_count": item_count,  # observability only
             "spec_hash": spec_hash,
             "source_spec_hash": source_spec_hash,
             "module_status": "pending",
@@ -87,14 +92,12 @@ async def generate_plan(
     file: UploadFile = File(None),
     styleConfig: str | None = Form(None),
     applicationUrl: str | None = Form(None),
-
     # ✅ IMPORTANT POUR ANNULATION
     test_suite_id: str | None = Form(None),
     generation_request_id: str | None = Form(None),
     generation_scope: str | None = Form("plans"),
     spec_hash: str | None = Form(None),
     module_mode: Literal["ensure", "regenerate"] = Form("ensure"),
-
     spec_text: str | None = Form(None),
 ):
     try:
@@ -107,40 +110,32 @@ async def generate_plan(
             file_bytes = await file.read()
 
             if not file_bytes:
-                return JSONResponse(
-                    status_code=400,
-                    content={"error": "Empty file"}
-                )
+                return JSONResponse(status_code=400, content={"error": "Empty file"})
 
             spec_text_final = extract_spec_text_from_docx_bytes(file_bytes)
-            spec_chunks_final = chunk_docx_bytes(file_bytes)
             spec_hash_final, _ = ingest_spec(extract_doc_from_bytes(file_bytes), file_bytes)
 
         elif spec_text:
             spec_text_final = spec_text.strip()
-            spec_chunks_final = None
 
         elif spec_hash_final:
             # Node has already sent the exact uploaded bytes to /upload-spec.
             # Deterministic plan assembly needs the durable snapshot, not a
             # second local extraction of its text.
             spec_text_final = ""
-            spec_chunks_final = None
 
         else:
             return JSONResponse(
-                status_code=400,
-                content={"error": "spec_hash, spec_text, or file is required"}
+                status_code=400, content={"error": "spec_hash, spec_text, or file is required"}
             )
 
         if file or spec_text:
             if not spec_text_final.strip():
-                return JSONResponse(
-                    status_code=422,
-                    content={"error": "Document empty"}
-                )
+                return JSONResponse(status_code=422, content={"error": "Document empty"})
         t_spec_ms = int((time.monotonic() - t_spec_start) * 1000)
-        print(f"\n⏱ [generate-plan] spec_extraction_ms={t_spec_ms}  spec_chars={len(spec_text_final)}")
+        print(
+            f"\n⏱ [generate-plan] spec_extraction_ms={t_spec_ms}  spec_chars={len(spec_text_final)}"
+        )
 
         # ✅ ANNULATION AVANT AI
         if is_cancelled(
@@ -149,10 +144,7 @@ async def generate_plan(
             scope=generation_scope,
             request_id=generation_request_id,
         ):
-            return JSONResponse(
-                status_code=409,
-                content={"error": "Generation cancelled by user"}
-            )
+            return JSONResponse(status_code=409, content={"error": "Generation cancelled by user"})
 
         # ── AI generation ───────────────────────────────────────────────────
         t_ai_start = time.monotonic()
@@ -170,7 +162,9 @@ async def generate_plan(
         )
         t_ai_ms = int((time.monotonic() - t_ai_start) * 1000)
         t_total_ms = int((time.monotonic() - t_start) * 1000)
-        print(f"⏱ [generate-plan] ai_ms={t_ai_ms}  total_ms={t_total_ms}  plans={len(result.plans)}")
+        print(
+            f"⏱ [generate-plan] ai_ms={t_ai_ms}  total_ms={t_total_ms}  plans={len(result.plans)}"
+        )
 
         # ✅ ANNULATION APRES AI
         if is_cancelled(
@@ -180,8 +174,7 @@ async def generate_plan(
             request_id=generation_request_id,
         ):
             return JSONResponse(
-                status_code=409,
-                content={"error": "Generation cancelled after processing"}
+                status_code=409, content={"error": "Generation cancelled after processing"}
             )
 
         return {
@@ -209,12 +202,10 @@ async def generate_plan(
         return JSONResponse(status_code=503, content={"error": str(exc)})
     except Exception as exc:
         import traceback
+
         traceback.print_exc()
 
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(exc)}
-        )
+        return JSONResponse(status_code=500, content={"error": str(exc)})
 
 
 @router.get("/debug/items/{spec_hash}")

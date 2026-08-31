@@ -22,7 +22,9 @@ def build_test_plan_prompt(
         for item in filtered_items:
             heading_path = getattr(item, "heading_path", [])
             heading = " > ".join(heading_path) if heading_path else "(no heading)"
-            chunk_lines.append(f"## [{getattr(item, 'role', 'UNKNOWN')}] {heading}\n{getattr(item, 'text', '')}")
+            chunk_lines.append(
+                f"## [{getattr(item, 'role', 'UNKNOWN')}] {heading}\n{getattr(item, 'text', '')}"
+            )
     else:
         for ch in (spec_chunks or [])[:5]:
             heading_path = ch.get("heading_path") or []
@@ -58,18 +60,14 @@ def build_test_plan_prompt(
 
     return (
         "<s>[INST]\n"
-
         "You are a Senior QA Engineer specialized in test analysis.\n"
         "Apply ISTQB principles.\n\n"
-
         "### PIPELINE\n"
         "SRS -> Text Extraction -> Chunking -> Test Plan Generation -> Test Case Generation.\n"
         "Use the SRS structure. Do not use keyword heuristics.\n\n"
-
         "### TASK\n"
         "Generate test plans from the SRS sections: Features, Project Description, and Objectives.\n"
         "Do NOT generate test plans from UI Components, Business Rules, Validation Rules, Pass Criteria, or Fail Criteria.\n\n"
-
         "### REQUIREMENTS RULE\n"
         "The provided REQUIREMENTS are durable traceability records from the uploaded specification.\n"
         "Generate test plans ONLY from functionality represented in those REQUIREMENTS.\n"
@@ -79,93 +77,74 @@ def build_test_plan_prompt(
         "Never invent requirement IDs.\n"
         "If no valid requirement supports a test plan, do not generate it.\n"
         "Do not independently discover features from UI components or validation details.\n\n"
-
         "### COVERAGE RULE\n"
         "Cover the different Features, Project Description goals, and Objectives represented by the REQUIREMENTS.\n"
         "Do not stop after covering only the first requirements.\n"
         "Group closely related requirements only when the resulting plan still clearly covers them.\n\n"
-
         "### REALISTIC FLOW RULE\n"
         "A test plan may focus on one requirement, but its description, objective, and scope must remain executable in the real workflow.\n"
         "If the feature depends on fields, prerequisites, account state, verification state, or navigation context described in the SRS, include those dependencies in the plan scope.\n"
         "Do not describe isolated field testing that leaves the rest of a required form or workflow empty.\n\n"
-
         "### TRACEABILITY RULE\n"
         "Every generated test plan must be traceable to at least one provided requirement ID.\n"
         "If a plan cannot be linked to a valid requirement ID, do not generate it.\n\n"
-
         "### REDUNDANCY RULE\n"
         "Do not generate duplicate plans.\n"
         "Merge related functionality into a single business-oriented plan.\n\n"
-        
         "### PRIORITY RULE\n"
         "Priority values:\n"
         "- Critical\n"
         "- High\n"
         "- Medium\n"
         "- Low\n\n"
-
         "### OUTPUT FORMAT\n"
         "Return ONLY valid JSON.\n"
         "No markdown.\n"
         "No explanations.\n\n"
-
         "Root object MUST be:\n"
-        "{ \"test_plans\": [] }\n\n"
-
+        '{ "test_plans": [] }\n\n'
         "Each plan MUST contain:\n"
-"- id\n"
-"- title\n"
-"- description\n"
-"- objective\n"
-"- scope\n"
-"- priority\n"
-"- module (one exact SPEC-LOCAL MODULES value or null)\n"
-"- requirements\n\n"
-
-"### WRITING STYLE RULE\n"
-"Keep all generated text concise.\n"
-"\n"
-"title:\n"
-"- maximum 5 words\n"
-"\n"
-"description:\n"
-"- maximum 15 words\n"
-"- one short sentence\n"
-"\n"
-"objective:\n"
-"- maximum 15 words\n"
-"- one short sentence\n"
-"\n"
-"scope:\n"
-"- maximum 20 words\n"
-"- list only the key functionality covered\n"
-"\n"
-"Do not write long explanations.\n"
-"Do not write paragraphs.\n"
-"Use short business-oriented wording.\n\n"
-
-"Generate between 3 and 5 test plans maximum.\n\n"
-
+        "- id\n"
+        "- title\n"
+        "- description\n"
+        "- objective\n"
+        "- scope\n"
+        "- priority\n"
+        "- module (one exact SPEC-LOCAL MODULES value or null)\n"
+        "- requirements\n\n"
+        "### WRITING STYLE RULE\n"
+        "Keep all generated text concise.\n"
+        "\n"
+        "title:\n"
+        "- maximum 5 words\n"
+        "\n"
+        "description:\n"
+        "- maximum 15 words\n"
+        "- one short sentence\n"
+        "\n"
+        "objective:\n"
+        "- maximum 15 words\n"
+        "- one short sentence\n"
+        "\n"
+        "scope:\n"
+        "- maximum 20 words\n"
+        "- list only the key functionality covered\n"
+        "\n"
+        "Do not write long explanations.\n"
+        "Do not write paragraphs.\n"
+        "Use short business-oriented wording.\n\n"
+        "Generate between 3 and 5 test plans maximum.\n\n"
         "### EXAMPLE\n"
         f"{example}\n\n"
-
         "### PROJECT\n"
         f"{project_block}\n\n"
-
         "### UI STYLE\n"
         f"{style_block}\n\n"
-
         "### REQUIREMENTS\n"
         f"{json.dumps(requirements, indent=2, ensure_ascii=False)}\n\n"
-
         "### SPEC-LOCAL MODULES\n"
         f"{json.dumps(modules, ensure_ascii=False)}\n"
         "Set module to one of these exact names when applicable; otherwise null.\n\n"
-
-        "### SPECIFICATION\n"
-        + "\n\n".join(chunk_lines)
-        + "\n\n"
-
+        "### SPECIFICATION\n" + "\n\n".join(chunk_lines) + "\n\n"
         "[/INST]"
     )

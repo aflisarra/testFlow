@@ -20,22 +20,25 @@ def _compact_logs(logs: Any, limit: int = 4500) -> str:
     for item in logs:
         text = _compact(item, 900)
         lowered = text.lower()
-        if any(token in lowered for token in (
-            "fail",
-            "error",
-            "warn",
-            "assert",
-            "expected",
-            "actual",
-            "not available",
-            "not found",
-            "dropdown",
-            "country",
-            "region",
-            "timeout",
-            "exception",
-            "ai actions",
-        )):
+        if any(
+            token in lowered
+            for token in (
+                "fail",
+                "error",
+                "warn",
+                "assert",
+                "expected",
+                "actual",
+                "not available",
+                "not found",
+                "dropdown",
+                "country",
+                "region",
+                "timeout",
+                "exception",
+                "ai actions",
+            )
+        ):
             important.append(text)
 
     return "\n".join(important[-12:])[:limit]
@@ -74,8 +77,8 @@ Scope boundary:
   change.
 
 Context Information:
-- Error Type: {error_type or 'Not specified'}
-- Error Message: {error_message or 'Not available'}
+- Error Type: {error_type or "Not specified"}
+- Error Message: {error_message or "Not available"}
 - Failed Step Index: {step_index}
 
 Return ONLY valid JSON with this exact shape:

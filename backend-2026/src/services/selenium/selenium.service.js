@@ -757,66 +757,7 @@ if (isInputStep) {
   }
 }
 // Renvoie, pour chaque jour des N derniers jours, le nombre de passed/failed
-async function getExecutionTrend(filters = {}, days = 7) {
-  const since = new Date()
-  since.setDate(since.getDate() - (days - 1))
-  since.setHours(0, 0, 0, 0)
-
-  const match = { startedAt: { $gte: since } }
-  if (filters.project)     match.project = filters.project
-  if (filters.testSuiteId) match.testSuiteId = filters.testSuiteId
-  if (filters.planId)      match.planId = filters.planId
-
-  const raw = await TestExecution.aggregate([
-    { $match: match },
-    {
-      $group: {
-        _id: {
-          day: { $dateToString: { format: '%Y-%m-%d', date: '$startedAt' } },
-          status: '$status',
-        },
-        count: { $sum: 1 },
-      },
-    },
-  ])
-
-  const days_ = []
-  for (let i = 0; i < days; i++) {
-    const d = new Date(since)
-    d.setDate(d.getDate() + i)
-    days_.push(d.toISOString().slice(0, 10))
-  }
-
-  const result = days_.map((day) => {
-    const passed = raw.find((r) => r._id.day === day && r._id.status === 'passed')?.count || 0
-    const failed = raw
-      .filter((r) => r._id.day === day && String(r._id.status || '').includes('fail'))
-      .reduce((sum, r) => sum + r.count, 0)
-    return { day, passed, failed }
-  })
-
-  return result
-}
-
 // Répartition des test cases exécutés par type (functional / integration / ...)
-async function getTypeBreakdown(filters = {}) {
-  const match = {}
-  if (filters.testSuiteId) match.testSuiteId = filters.testSuiteId
-  if (filters.planId)      match.planId = filters.planId
-
-  const raw = await TestCase.aggregate([
-    { $match: match },
-    { $group: { _id: '$type', count: { $sum: 1 } } },
-  ])
-
-  const total = raw.reduce((sum, r) => sum + r.count, 0) || 1
-  return raw.map((r) => ({
-    type: r._id || 'functional',
-    count: r.count,
-    percent: Math.round((r.count / total) * 100),
-  }))
-}
-
 module.exports = { runTestCase,
   
  }

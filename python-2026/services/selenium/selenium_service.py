@@ -79,7 +79,6 @@ def run_test(test_case: dict):
         current_dom = None
 
         for step_index, step in enumerate(steps):
-
             print(f"\n➡️ STEP {step_index + 1}: {step}")
 
             # FIX critical bug #2: structured DOM (list[dict]) instead of
@@ -118,7 +117,6 @@ def run_test(test_case: dict):
                 actions = []
 
             for i, act in enumerate(actions):
-
                 # FIX critical bug #1: the real keys are "type" and
                 # "selector" (flat), not "action" and "target.selector".
                 action = act.get("type")
@@ -153,7 +151,11 @@ def run_test(test_case: dict):
                     if action == "type":
                         logger.info(
                             "action_execution step_index=%s action_index=%s action=%s selector=%s url=%s",
-                            step_index, i, action, selector, before_url,
+                            step_index,
+                            i,
+                            action,
+                            selector,
+                            before_url,
                         )
                         action_executed = True
                         driver.execute_script("arguments[0].scrollIntoView();", el)
@@ -164,7 +166,11 @@ def run_test(test_case: dict):
                     elif action == "click":
                         logger.info(
                             "action_execution step_index=%s action_index=%s action=%s selector=%s url=%s",
-                            step_index, i, action, selector, before_url,
+                            step_index,
+                            i,
+                            action,
+                            selector,
+                            before_url,
                         )
                         action_executed = True
                         try:
@@ -181,16 +187,17 @@ def run_test(test_case: dict):
                     filename = f"step_{step_index}_{i}.png"
                     driver.save_screenshot(filename)
 
-                    logs.append({
-                        "step": step,
-                        "action": action,
-                        "selector": selector,
-                        "status": "passed",
-                        "screenshot": filename,
-                    })
+                    logs.append(
+                        {
+                            "step": step,
+                            "action": action,
+                            "selector": selector,
+                            "status": "passed",
+                            "screenshot": filename,
+                        }
+                    )
 
                 except Exception as e:
-
                     # An interaction can have taken effect before Selenium
                     # reports an error.  If it was started, do not carry its
                     # old DOM into the next AI decision.
@@ -202,19 +209,21 @@ def run_test(test_case: dict):
                     filename = f"error_{step_index}_{i}.png"
                     driver.save_screenshot(filename)
 
-                    logs.append({
-                        "step": step,
-                        "selector": selector,
-                        "status": "failed",
-                        "error": str(e),
-                        "screenshot": filename,
-                    })
+                    logs.append(
+                        {
+                            "step": step,
+                            "selector": selector,
+                            "status": "failed",
+                            "error": str(e),
+                            "screenshot": filename,
+                        }
+                    )
 
                     continue
 
         print("\n📊 FINAL LOGS:")
-        for l in logs:
-            print(l)
+        for log_entry in logs:
+            print(log_entry)
 
         return {
             "status": "done",

@@ -174,7 +174,7 @@ export class TopbarComponent implements OnInit {
   // Change Theme
   changeTheme() {
     const color = document.documentElement.getAttribute('data-bs-theme')
-    if (color == 'light') {
+    if (color === 'light') {
       this.store.dispatch(changetheme({ color: 'dark' }))
     } else {
       this.store.dispatch(changetheme({ color: 'light' }))

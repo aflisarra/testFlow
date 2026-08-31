@@ -22,9 +22,9 @@ MAX_EVIDENCE_CHARS = 16_000
 def select_module_evidence(items: list[Item]) -> list[Item]:
     """Select bounded, heading-diverse evidence without using full spec text."""
     eligible = [
-        item for item in items
-        if item.role in MODULE_EVIDENCE_ROLES
-        and item.role_method in TRUSTED_METHODS_FOR_EVIDENCE
+        item
+        for item in items
+        if item.role in MODULE_EVIDENCE_ROLES and item.role_method in TRUSTED_METHODS_FOR_EVIDENCE
     ]
     selected: list[Item] = []
     chars = 0
@@ -61,8 +61,8 @@ def _module_prompt(items: list[Item]) -> str:
     ]
     return (
         "You identify the functional modules of a software specification.\n"
-        "Return only JSON in the shape {\"modules\":[{\"name\":str,\"description\":str,"
-        "\"source_item_ids\":[str]}]}.\n"
+        'Return only JSON in the shape {"modules":[{"name":str,"description":str,'
+        '"source_item_ids":[str]}]}.\n'
         "Use only the supplied evidence. Produce 1 to 12 distinct modules; produce fewer "
         "when the evidence supports fewer. Do not invent generic modules. Each module must "
         "cite one or more source item IDs. Merge overlapping areas rather than splitting them.\n"
@@ -117,7 +117,9 @@ def generate_module_list(
     return _normalise_module_cards(payload, {item.id for item in module_evidence_items})
 
 
-def flag_tiny_modules(modules: list[dict[str, Any]], items: list[Item], min_items: int = 2) -> list[str]:
+def flag_tiny_modules(
+    modules: list[dict[str, Any]], items: list[Item], min_items: int = 2
+) -> list[str]:
     """Return module names with fewer than ``min_items`` assigned items."""
     counts = Counter(item.module for item in items if item.module != "UNTAGGED")
     return [module["name"] for module in modules if counts.get(module["name"], 0) < min_items]

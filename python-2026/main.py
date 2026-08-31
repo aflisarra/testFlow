@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
 from routers import test_cases, test_plans
 from routers.ai_decision import router as ai_router
 from routers.ai_fix import router as ai_fix_router
@@ -30,7 +31,7 @@ load_dotenv()  # Must run before importing modules that read env vars.
 
 from core.config import get_settings
 
-#from routers import test_plans, test_cases, test_case_translator
+# from routers import test_plans, test_cases, test_case_translator
 from routers.cancellation import router as cancellation_router
 from routers.health import router as health_router
 from utils.logger import get_logger, log_event
@@ -59,7 +60,7 @@ def _chat_timeout() -> int:
 app = FastAPI(
     title="xAI (Grok) API",
     description="Test Plan & Test Cases generation with xAI Grok",
-    version="2.0.0"
+    version="2.0.0",
 )
 
 # ── CORS ───────────────────────────────────────────────────
@@ -74,8 +75,8 @@ app.add_middleware(
 app.include_router(test_plans.router)
 app.include_router(test_cases.router)
 app.include_router(review_router)
-#app.include_router(test_case_translator.router)
-app.include_router(ai_router)        
+# app.include_router(test_case_translator.router)
+app.include_router(ai_router)
 app.include_router(ai_fix_router)
 app.include_router(runner_router)
 app.include_router(cancellation_router)
@@ -88,19 +89,19 @@ def root():
     log_event(logger, "health_root_called")
 
     return {
-        "status":    "running",
-        "version":   "2.0.0",
-        "model":     settings.model_name,
+        "status": "running",
+        "version": "2.0.0",
+        "model": settings.model_name,
         "mock_mode": settings.use_mock,
         "endpoints": {
-            "upload_spec":         "POST /upload-spec",
+            "upload_spec": "POST /upload-spec",
             "generate_test_plans": "POST /generate-plan",
             "generate_test_cases": "POST /generate-test-cases",
             "translate_test_case": "POST /translate-test-case",
             "cancel_generation": "POST /cancel-generation",
-            "chat":                "POST /chat",
-            "health":              "GET /health",
-        }
+            "chat": "POST /chat",
+            "health": "GET /health",
+        },
     }
 
 

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 
+from services.ingestion.items import Item, get_items_with_status
+from services.ingestion.manifest import filter_items
 from utils.chunker import (
     SpecChunk,
     chunk_spec_recursive,
@@ -9,9 +11,6 @@ from utils.chunker import (
     normalize_spec_text,
 )
 from utils.docx_reader import extract_doc_from_bytes, extract_text_from_docx
-
-from services.ingestion.items import Item, get_items_with_status
-from services.ingestion.manifest import filter_items
 
 SRS_PLAN_SECTIONS = {"project description", "objectives", "features"}
 SRS_CASE_SECTIONS = {
@@ -55,7 +54,9 @@ def filter_srs_sections(
 ) -> list[SpecChunk]:
     if not allowed_sections:
         return chunks
-    return [chunk for chunk in chunks if _section_key(str(chunk.get("title") or "")) in allowed_sections]
+    return [
+        chunk for chunk in chunks if _section_key(str(chunk.get("title") or "")) in allowed_sections
+    ]
 
 
 def get_srs_sections(spec_text: str, allowed_sections: set[str] | None = None) -> list[SpecChunk]:
@@ -102,7 +103,9 @@ def extract_requirements(spec_text: str) -> list[dict[str, str]]:
     source_chunks = get_srs_sections(spec_text, SRS_PLAN_SECTIONS)
     if not source_chunks:
         source_chunks = chunk_spec(spec_text)
-    source_text = "\n\n".join(f"# {chunk.get('title')}\n{chunk.get('text')}" for chunk in source_chunks)
+    source_text = "\n\n".join(
+        f"# {chunk.get('title')}\n{chunk.get('text')}" for chunk in source_chunks
+    )
     normalized = normalize_spec_text(source_text)
     normalized = re.sub(r"<\/?w:[^>]+>", " ", normalized, flags=re.IGNORECASE)
     normalized = re.sub(r"<\/?[^>]+>", " ", normalized)
@@ -116,6 +119,13 @@ def extract_requirements(spec_text: str) -> list[dict[str, str]]:
 
     # Bullets / numbered items.
     bullet_re = re.compile(r"^(\-|\*|•|\d+[\.\)])\s+(.*)$")
+    # Normalize list markers before sentence-based modal extraction so a
+    # bullet such as "- The system shall ..." is not retained a second time
+    # with its marker still attached.
+    content_for_sentences = "\n".join(
+        match.group(2) if (match := bullet_re.match(line)) else line
+        for line in content_for_sentences.splitlines()
+    )
     for ln in lines:
         m = bullet_re.match(ln)
         if m:

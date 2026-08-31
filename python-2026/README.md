@@ -81,5 +81,16 @@ cache afin d'éviter un téléchargement Hugging Face pendant une requête.
 ## Vérification
 
 ```powershell
-python -m pytest tests -q -p no:cacheprovider
+python -m pip install -r requirements-dev.txt
+python -m ruff check .
+python -m ruff format --check .
+python -m pytest
+python -m pytest --cov --cov-report=term-missing
+```
+
+Pour appliquer les corrections automatiques sûres de Ruff :
+
+```powershell
+python -m ruff check . --fix
+python -m ruff format .
 ```

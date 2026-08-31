@@ -22,7 +22,6 @@ import type {
   RoleLabel,
   RoleReviewQueueResponse,
   ResolveRoleReviewResponse,
-  SpecItem,
   SpecItemsResponse,
 } from '@/app/interfaces/testlab.interface'
 
@@ -197,7 +196,7 @@ generateTestCases(
     )
   }
 
-  dismissRoleReview(testSuiteId: string, itemId: string, _reason?: string): Observable<void> {
+  dismissRoleReview(testSuiteId: string, itemId: string): Observable<void> {
     return this.api.delete<void>(`/api/testsuites/${testSuiteId}/role-reviews/${itemId}`)
   }
 

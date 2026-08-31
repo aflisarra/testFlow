@@ -1,0 +1,126 @@
+# =============================================================
+# docker-compose.yml — TestFlow multi-container stack
+# =============================================================
+#
+# Services
+#   mongo         MongoDB 7
+#   backend       Node/Express API  (backend-2026, port 3000)
+#   python        FastAPI service   (python-2026,  port 8000)
+#   reback-front  Angular dev app   (Reback-Angular_v1.0/Admin, port 4200)
+#
+# Named volumes
+#   mongo-data    Persistent MongoDB storage
+#   hf-cache      Hugging Face / sentence-transformers model cache
+#                 Prevents re-downloading the model on every container restart.
+#
+# Usage
+#   docker compose up --build          # first run (builds all images)
+#   docker compose up -d               # detached
+#   docker compose down                # stop & remove containers
+#   docker compose down -v             # also wipe volumes
+#   docker compose logs -f python      # follow a specific service
+#
+# For live-reload dev overrides see docker-compose.override.yml
+# =============================================================
+
+services:
+
+  # ── MongoDB ─────────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: pfe1-2026
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - testflow-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ── Express backend (Node) ───────────────────────────────────
+  backend:
+    build:
+      context: ./backend-2026
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./backend-2026/.env
+    environment:
+      # Override localhost URLs with Docker service names
+      MONGODB_URI: mongodb://mongo:27017/pfe1-2026
+      FASTAPI_BASE_URL: http://python:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - testflow-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health 2>/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── FastAPI + sentence-transformers (Python) ─────────────────
+  python:
+    build:
+      context: ./python-2026
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./python-2026/.env
+    environment:
+      # Override localhost URLs with Docker service names
+      BACKEND_API_BASE_URL: http://backend:3000
+      APP_HOST: 0.0.0.0
+      APP_PORT: "8000"
+      # Point HF cache to the named volume
+      HF_HOME: /cache/huggingface
+    volumes:
+      - hf-cache:/cache/huggingface
+    ports:
+      - "8000:8000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - testflow-net
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s   # sentence-transformers first-run download can be slow
+
+  # ── Angular frontend ─────────────────────────────────────────
+  reback-front:
+    build:
+      context: ./Reback-Angular_v1.0/Admin
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "4200:4200"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - testflow-net
+
+# ── Named volumes ─────────────────────────────────────────────
+volumes:
+  mongo-data:
+    driver: local
+  hf-cache:
+    driver: local
+
+# ── Networks ──────────────────────────────────────────────────
+networks:
+  testflow-net:
+    driver: bridge

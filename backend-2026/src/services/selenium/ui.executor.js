@@ -329,15 +329,11 @@ console.log(
     })
 
     const screenshots = []
-    const indexedElementsSelector = 'input, button, a, textarea, select, [role="button"], [role="link"]'
-    const optionSelector = '[role="option"]'
-    const indexedElements = await driver.findElements(By.css(indexedElementsSelector))
     const domElementsByIndex = new Map()
 
 for (const item of elements) {
   domElementsByIndex.set(item.index, item)
 }
-    const editableElements = await driver.findElements(By.css('input, textarea, select'))
     const highlightedSelectors = new Set()
     const executedActionKeys = new Set()
     const editableMetadata = elements.filter((el) => {
@@ -537,10 +533,6 @@ for (const item of elements) {
 
   const ariaHaspopup = String(
     await el.getAttribute('aria-haspopup').catch(() => '')
-  ).toLowerCase()
-
-  const ariaExpanded = String(
-    await el.getAttribute('aria-expanded').catch(() => '')
   ).toLowerCase()
 
   const insideForm = await driver.executeScript(
@@ -756,22 +748,6 @@ const openDropdown = async (preferredEl, label) => {
   return null
 }
 
-    const getSearchInputInOpenDropdown = async () => {
-      const selector = [
-        'input[type="search"]',
-        'input[role="searchbox"]',
-        'input[placeholder*="Search" i]',
-        'input[placeholder*="Filter" i]',
-        'input[placeholder*="Type" i]',
-        'input[placeholder*="Find" i]'
-      ].join(', ')
-      const inputs = await driver.findElements(By.css(selector))
-      for (const input of inputs) {
-        if (await isVisibleElement(input)) return input
-      }
-      return null
-    }
-
     const getVisibleOptions = async () => {
   const selectors = [
     '[role="option"]',
@@ -962,68 +938,6 @@ console.log(
           }
         }
         await sleep(250)
-      }
-      return null
-    }
-
-    const typeIntoSearchInput = async (searchInput, value) => {
-      if (!searchInput) return false
-      try {
-        await driver.executeScript((element) => element.focus(), searchInput)
-      } catch (_) {}
-      try {
-        await searchInput.clear()
-      } catch (_) {
-        try {
-          await searchInput.sendKeys('\uE003')
-        } catch (_) {}
-      }
-      await searchInput.sendKeys(value)
-      return true
-    }
-
-    const getOptionElements = async () => {
-      const options = await driver.findElements(By.css(optionSelector))
-      const visibleOptions = []
-      for (const option of options) {
-        if (await isVisibleElement(option)) {
-          visibleOptions.push(option)
-        }
-      }
-      return visibleOptions
-    }
-
-    const findVisibleDropdownTrigger = async (preferred = null) => {
-      if (preferred && await isVisibleElement(preferred)) {
-        const tag = String(await preferred.getTagName().catch(() => '') || '').toLowerCase()
-        const role = String(await preferred.getAttribute('role').catch(() => '') || '').toLowerCase()
-        if (tag === 'button' || tag === 'input' || role === 'combobox' || role === 'button') {
-          return preferred
-        }
-      }
-
-      const triggers = [
-        '[role="combobox"]',
-        'button',
-        'input',
-        '[aria-haspopup="listbox"]'
-      ]
-      for (const triggerSelector of triggers) {
-        const triggersFound = await driver.findElements(By.css(triggerSelector))
-        for (const trigger of triggersFound) {
-          if (await isVisibleElement(trigger)) {
-            return trigger
-          }
-        }
-      }
-      return null
-    }
-
-    const openDropdownForValue = async (preferred = null) => {
-      const trigger = await findVisibleDropdownTrigger(preferred)
-      if (trigger) {
-        await safeClick(trigger)
-        return trigger
       }
       return null
     }
@@ -1357,24 +1271,27 @@ if (info.isSubmit) {
         wanted
       )
 
-    if (!option)
+    if (!option) {
       option =
         await findOptionByText(
           wanted
         )
+    }
 
-    if (!option)
+    if (!option) {
       option =
         await findGenericDropdownOptionByText(
           wanted
         )
+    }
 
-    if (!option)
+    if (!option) {
       option =
         await waitForOptionText(
           wanted,
           5000
         )
+    }
 
     if (!option) {
       throw new Error(

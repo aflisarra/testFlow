@@ -46,19 +46,22 @@ _SENTENCE_END_RE = re.compile(r"(?<=[.!?])\s+")
 # Item data model
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Item:
-    id: str                     # "ITEM-00042"
-    source_chunk_id: str        # "CHUNK-007"
-    heading_path: list[str]     # inherited from SpecChunk
+    id: str  # "ITEM-00042"
+    source_chunk_id: str  # "CHUNK-007"
+    heading_path: list[str]  # inherited from SpecChunk
     text: str
-    role: str = "UNTAGGED"      # one of ROLE_LABELS or "UNTAGGED"
-    module: str = "UNTAGGED"    # e.g. "Authentication"
+    role: str = "UNTAGGED"  # one of ROLE_LABELS or "UNTAGGED"
+    module: str = "UNTAGGED"  # e.g. "Authentication"
     module_ids: list[str] = field(default_factory=list)
     primary_module_id: str | None = None
     module_method: Literal["source", "heading", "hybrid", "human", "none"] = "none"
     module_margin: float | None = None
-    module_disposition: Literal["assigned", "unassigned", "cross_cutting", "excluded"] = "unassigned"
+    module_disposition: Literal["assigned", "unassigned", "cross_cutting", "excluded"] = (
+        "unassigned"
+    )
     module_algorithm_version: str | None = None
     role_score: float | None = None  # keeping this but it's not used at this time
     role_method: Literal["regex", "heading", "human", "none"] = "none"
@@ -73,15 +76,18 @@ class Item:
 # Durable store facade (implemented by Node/Mongo through store_client)
 # ---------------------------------------------------------------------------
 
+
 def store_ingestion(spec_hash: str, items: list[Item], modules: list[dict]) -> None:
     """Persist one complete item/module snapshot in the Node-owned store."""
     from services.ingestion.store_client import store_ingestion as _store_ingestion
+
     _store_ingestion(spec_hash, items, modules)
 
 
 def get_items(hash_: str) -> list[Item]:
     """Return persisted items for *hash_*, or [] if the hash is unknown."""
     from services.ingestion.store_client import get_items as _get_items
+
     return _get_items(hash_)
 
 
@@ -90,6 +96,7 @@ def get_items_with_status(hash_: str) -> tuple[list[Item], bool]:
     from services.ingestion.store_client import (
         get_items_with_status as _get_items_with_status,
     )
+
     return _get_items_with_status(hash_)
 
 
@@ -107,6 +114,7 @@ def requirement_id_from_item_id(item_id: str) -> str:
 # ---------------------------------------------------------------------------
 # Core itemisation logic
 # ---------------------------------------------------------------------------
+
 
 def expand_section_to_items(
     chunk: SpecChunk,
@@ -134,23 +142,25 @@ def expand_section_to_items(
 
     candidates: list[str] = []
 
-    # ── Pass 1: extract bullet lines ────────────────────────────────────────
-    bullet_texts: set[int] = set()  # character offsets already consumed
-    for m in _BULLET_RE.finditer(raw_text):
-        item_text = m.group(1).strip()
+    # ── Pass 1: extract prose and bullets in source order ───────────────────
+    def append_prose(segment: str) -> None:
+        for sentence in _SENTENCE_END_RE.split(segment.strip()):
+            text = sentence.strip()
+            if len(text) >= 20:
+                candidates.append(text)
+
+    # Process prose and bullet matches together to retain source order.
+    cursor = 0
+    for match in _BULLET_RE.finditer(raw_text):
+        append_prose(raw_text[cursor : match.start()])
+        item_text = match.group(1).strip()
         if item_text:
             candidates.append(item_text)
-            # Mark the span so we can subtract it in pass 2
-            bullet_texts.add(m.start())
+        cursor = match.end()
 
-    # ── Pass 2: sentence-split the non-bullet remainder ─────────────────────
-    # Remove bullet lines from raw_text to get the prose remainder
-    prose = _BULLET_RE.sub("", raw_text).strip()
-    if prose:
-        for sentence in _SENTENCE_END_RE.split(prose):
-            s = sentence.strip()
-            if len(s) >= 20:
-                candidates.append(s)
+    # ── Pass 2: append the final prose remainder ─────────────────────────────
+    # Append any prose after the final bullet.
+    append_prose(raw_text[cursor:])
 
     # ── Pass 3: filter short items and build Item objects ───────────────────
     items: list[Item] = []

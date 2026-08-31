@@ -33,6 +33,8 @@ def tag_role(items: list[Item]) -> list[Item]:
                 item.role_method = "none"
                 item.role_score = None
 
-        item.requirement_id = requirement_id_from_item_id(item.id) if item.role == "REQUIREMENT" else None
+        item.requirement_id = (
+            requirement_id_from_item_id(item.id) if item.role == "REQUIREMENT" else None
+        )
 
     return items

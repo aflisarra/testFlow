@@ -138,11 +138,7 @@ def _unique_labels(labels: list[str]) -> list[str]:
 
 
 def _render_pairs(labels: list[str], values: list[str]) -> str:
-    parts = [
-        f"{label}: {value}"
-        for label, value in zip(labels, values)
-        if value.strip()
-    ]
+    parts = [f"{label}: {value}" for label, value in zip(labels, values) if value.strip()]
     return " | ".join(parts)
 
 
@@ -229,9 +225,7 @@ def flatten_table_records(table: Any) -> list[str]:
         records = []
         for row in matrix[1:]:
             # Repeated headers are common when a table spans Word pages.
-            if [_label_key(value) for value in row] == [
-                _label_key(value) for value in matrix[0]
-            ]:
+            if [_label_key(value) for value in row] == [_label_key(value) for value in matrix[0]]:
                 continue
             rendered = _render_pairs(headers, row)
             if rendered:
@@ -245,11 +239,7 @@ def flatten_table_records(table: Any) -> list[str]:
 
     if _horizontal_header(table, matrix):
         headers = _unique_labels(matrix[0])
-        return [
-            rendered
-            for row in matrix[1:]
-            if (rendered := _render_pairs(headers, row))
-        ]
+        return [rendered for row in matrix[1:] if (rendered := _render_pairs(headers, row))]
 
     width = len(matrix[0])
     if width == 1:

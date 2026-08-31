@@ -12,8 +12,6 @@ from core.constants import (
     TEST_CASE_TYPES,
 )
 from prompts.test_case_prompt import build_test_case_prompt
-from utils.logger import get_logger, log_error, log_event
-
 from services.ai_service import get_ai_service
 from services.ingestion.items import Item
 from services.spec_service import (
@@ -22,6 +20,7 @@ from services.spec_service import (
     get_filtered_items_for_task,
     get_srs_sections,
 )
+from utils.logger import get_logger, log_error, log_event
 
 logger = get_logger("services.case_service")
 
@@ -94,16 +93,21 @@ def _format_requirement(req: dict[str, Any]) -> dict[str, str]:
     return {
         "id": str(req.get("id") or req.get("requirementId") or req.get("reqId") or "").strip(),
         "title": str(req.get("title") or req.get("module") or "").strip(),
-        "description": str(req.get("description") or req.get("text") or req.get("requirement") or "").strip(),
+        "description": str(
+            req.get("description") or req.get("text") or req.get("requirement") or ""
+        ).strip(),
         "source": str(req.get("source") or req.get("module") or "").strip(),
-        "priority": _normalize_priority(str(req.get("priority") or "")) if req.get("priority") else "",
+        "priority": _normalize_priority(str(req.get("priority") or ""))
+        if req.get("priority")
+        else "",
     }
 
 
 def _validated_requirements(raw: Any, requirements: list[dict[str, str]]) -> list[dict[str, str]]:
     valid_requirement_ids = {
         str(req.get("id")).strip().lower(): _format_requirement(req)
-        for req in requirements if req.get("id")
+        for req in requirements
+        if req.get("id")
     }
     values = raw if isinstance(raw, list) else ([raw] if raw else [])
     linked: list[dict[str, str]] = []
@@ -117,13 +121,19 @@ def _validated_requirements(raw: Any, requirements: list[dict[str, str]]) -> lis
     return linked
 
 
-def _normalize_step_details(steps: list[str], step_details: Any, fallback_expected: str = "") -> list[dict[str, Any]]:
+def _normalize_step_details(
+    steps: list[str], step_details: Any, fallback_expected: str = ""
+) -> list[dict[str, Any]]:
     normalized: list[dict[str, Any]] = []
     raw_details = step_details if isinstance(step_details, list) else []
 
     if raw_details:
         for idx, step in enumerate(steps, start=0):
-            detail = raw_details[idx] if idx < len(raw_details) and isinstance(raw_details[idx], dict) else {}
+            detail = (
+                raw_details[idx]
+                if idx < len(raw_details) and isinstance(raw_details[idx], dict)
+                else {}
+            )
             normalized.append(
                 {
                     "step": str(detail.get("step") or step or f"Step {idx + 1}").strip(),
@@ -278,7 +288,9 @@ def generate_test_cases(
             {
                 "id": str(item.get("id") or f"{prefix}.{i}").strip() or f"{prefix}.{i}",
                 "title": str(item.get("title") or f"Test Case {i}").strip(),
-                "objective": str(item.get("objective") or f"Verify {item.get('title') or f'Test Case {i}'}").strip(),
+                "objective": str(
+                    item.get("objective") or f"Verify {item.get('title') or f'Test Case {i}'}"
+                ).strip(),
                 "preconditions": _string_list(item.get("preconditions")),
                 "test_data": test_data,
                 "steps": clean_steps,

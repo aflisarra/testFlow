@@ -44,9 +44,7 @@ class AiService:
             raise
         t_inference_ms = int((time.monotonic() - t_inference_start) * 1000)
 
-        log_event(logger, "⏱ STAGE inference",
-                  inference_ms=t_inference_ms,
-                  reply_chars=len(reply))
+        log_event(logger, "⏱ STAGE inference", inference_ms=t_inference_ms, reply_chars=len(reply))
 
         # ── STAGE 2: JSON parse ────────────────────────────────────────────
         t_parse_start = time.monotonic()
@@ -58,8 +56,7 @@ class AiService:
         except Exception as e:
             t_parse_ms = int((time.monotonic() - t_parse_start) * 1000)
             print("JSON PARSE ERROR:", repr(e))
-            log_event(logger, "⏱ STAGE parse_failed",
-                      parse_ms=t_parse_ms, error=repr(e))
+            log_event(logger, "⏱ STAGE parse_failed", parse_ms=t_parse_ms, error=repr(e))
 
             # ── STAGE 3: Repair call ───────────────────────────────────────
             repair_prompt = (
@@ -77,15 +74,17 @@ class AiService:
             repaired_reply = run_openrouter(repair_prompt, **repair_options)
             t_repair_ms = int((time.monotonic() - t_repair_start) * 1000)
 
-            log_event(logger, "⏱ STAGE repair_inference",
-                      repair_ms=t_repair_ms,
-                      repair_chars=len(repaired_reply))
+            log_event(
+                logger,
+                "⏱ STAGE repair_inference",
+                repair_ms=t_repair_ms,
+                repair_chars=len(repaired_reply),
+            )
 
             t_reparse_start = time.monotonic()
             data = safe_json_loads(repaired_reply)
             t_reparse_ms = int((time.monotonic() - t_reparse_start) * 1000)
-            log_event(logger, "⏱ STAGE reparse",
-                      reparse_ms=t_reparse_ms, repaired=True)
+            log_event(logger, "⏱ STAGE reparse", reparse_ms=t_reparse_ms, repaired=True)
 
         total_ms = int((time.monotonic() - started) * 1000)
         log_event(

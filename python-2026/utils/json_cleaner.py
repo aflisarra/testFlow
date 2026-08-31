@@ -40,7 +40,11 @@ def extract_first_json(text: str) -> str | None:
     array_candidate = _extract_first_balanced(cleaned, "[", "]")
     obj_candidate = _extract_first_balanced(cleaned, "{", "}")
     if array_candidate and obj_candidate:
-        return array_candidate if cleaned.find(array_candidate) < cleaned.find(obj_candidate) else obj_candidate
+        return (
+            array_candidate
+            if cleaned.find(array_candidate) < cleaned.find(obj_candidate)
+            else obj_candidate
+        )
     return array_candidate or obj_candidate
 
 
@@ -86,4 +90,3 @@ def safe_json_loads(text: str) -> Any:
     # repair whole string and retry
     repaired = repair_common_json_issues(stripped or raw)
     return json.loads(repaired)
-

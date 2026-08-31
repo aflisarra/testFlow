@@ -27,6 +27,7 @@ def get_pending_review(spec_hash: str) -> list[Item]:
     from services.ingestion.store_client import (
         get_pending_review as _get_pending_review,
     )
+
     return _get_pending_review(spec_hash)
 
 
@@ -41,6 +42,7 @@ def resolve_review(
     if role not in ROLE_LABELS:
         raise ValueError(f"Invalid role {role!r}; expected one of: {', '.join(ROLE_LABELS)}")
     from services.ingestion.store_client import resolve_review as _resolve_review
+
     # Node marks an existing module snapshot stale when this role can change
     # module evidence. The next POST /generate-plan owns regeneration and
     # assignment; review resolution must not invoke embeddings or rewrite the
