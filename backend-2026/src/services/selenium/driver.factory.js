@@ -1,5 +1,8 @@
 const { Builder } = require('selenium-webdriver')
 const chrome = require('selenium-webdriver/chrome')
+const fs = require('fs')
+const os = require('os')
+const path = require('path')
 
 function tryRegisterChromeDriver() {
   try {
@@ -12,7 +15,7 @@ function tryRegisterChromeDriver() {
   }
 }
 
-async function createDriver() {
+async function createDriver({ profileKey = '' } = {}) {
   tryRegisterChromeDriver()
 
   const options = new chrome.Options()
@@ -28,6 +31,17 @@ async function createDriver() {
   // Keep navigation from blocking the whole execution when the target page
   // is slow to finish rendering. We still verify the DOM manually after load.
   options.setPageLoadStrategy('eager')
+
+  // Keep authentication cookies between dependent test executions. Each
+  // suite gets its own profile so one suite cannot reuse another suite's login.
+  const safeProfileKey = String(profileKey || 'default')
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .slice(0, 120)
+  const profileRoot = process.env.SELENIUM_PROFILE_DIR || path.join(os.tmpdir(), 'pfe-selenium-profiles')
+  const profilePath = path.join(profileRoot, safeProfileKey)
+  fs.mkdirSync(profilePath, { recursive: true })
+  options.addArguments(`--user-data-dir=${profilePath}`)
+  console.log(`[SELENIUM] Chrome profile: ${profilePath}`)
 
   const driver = await new Builder()
     .forBrowser('chrome')

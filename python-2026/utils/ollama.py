@@ -177,7 +177,9 @@ def run_ollama(prompt: str, timeout: int | None = None, *, json_mode: bool = Fal
     options: dict[str, object] = {
         "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "4096")),
     "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.7")),
-    "num_predict": int(os.getenv("OLLAMA_NUM_PREDICT", "800")),
+    # Case generation includes detailed steps and stepDetails. 800 tokens
+    # frequently truncates the JSON before the closing braces.
+    "num_predict": int(os.getenv("OLLAMA_NUM_PREDICT", "2400")),
     }
     num_predict = os.getenv("OLLAMA_NUM_PREDICT", "").strip()
     if num_predict:

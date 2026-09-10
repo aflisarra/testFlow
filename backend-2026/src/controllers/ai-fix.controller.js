@@ -32,6 +32,22 @@ async function detectFailure(req, res) {
       screenshot_url,
       executionId,
       execution_id,
+      testPlanTitles,
+      test_plan_titles,
+      currentTestCase,
+      current_test_case,
+      finalDom,
+      final_dom,
+      finalFieldValues,
+      final_field_values,
+      validationMessages,
+      validation_messages,
+      finalToast,
+      final_toast,
+      finalUrl,
+      final_url,
+      executionResult,
+      execution_result,
     } = req.body
 
     // Normalize payload for Python API
@@ -46,6 +62,14 @@ async function detectFailure(req, res) {
       domState: domState || dom_state,
       screenshotUrl: screenshotUrl || screenshot_url,
       executionId: executionId || execution_id,
+      testPlanTitles: testPlanTitles || test_plan_titles || [],
+      currentTestCase: currentTestCase || current_test_case || testCase || test_case || {},
+      finalDom: finalDom || final_dom || domState || dom_state || {},
+      finalFieldValues: finalFieldValues || final_field_values || {},
+      validationMessages: validationMessages || validation_messages || [],
+      finalToast: finalToast || final_toast || null,
+      finalUrl: finalUrl || final_url || '',
+      executionResult: executionResult || execution_result || null,
     }
 
     // Validate minimum required data
@@ -99,6 +123,22 @@ async function getFixSuggestion(req, res) {
       screenshot_url,
       executionId,
       execution_id,
+      testPlanTitles,
+      test_plan_titles,
+      currentTestCase,
+      current_test_case,
+      finalDom,
+      final_dom,
+      finalFieldValues,
+      final_field_values,
+      validationMessages,
+      validation_messages,
+      finalToast,
+      final_toast,
+      finalUrl,
+      final_url,
+      executionResult,
+      execution_result,
     } = req.body
 
     // Normalize payload for Python API
@@ -113,6 +153,14 @@ async function getFixSuggestion(req, res) {
       domState: domState || dom_state,
       screenshotUrl: screenshotUrl || screenshot_url,
       executionId: executionId || execution_id,
+      testPlanTitles: testPlanTitles || test_plan_titles || [],
+      currentTestCase: currentTestCase || current_test_case || testCase || test_case || {},
+      finalDom: finalDom || final_dom || domState || dom_state || {},
+      finalFieldValues: finalFieldValues || final_field_values || {},
+      validationMessages: validationMessages || validation_messages || [],
+      finalToast: finalToast || final_toast || null,
+      finalUrl: finalUrl || final_url || '',
+      executionResult: executionResult || execution_result || null,
     }
 
     // Validate minimum required data

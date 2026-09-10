@@ -119,6 +119,32 @@ async function runTestCaseHandler(req, res) {
       return res.status(400).json({ status: MESSAGES.STATUSTEST.ERROR, message: MESSAGES.TESTCASES.STEPS_REQUIRED })
     }
 
+    if (testCase?.testSuiteId && mongoose.Types.ObjectId.isValid(String(testCase.testSuiteId))) {
+      const suite = await TestSuite.findById(testCase.testSuiteId).lean()
+      if (suite && suite.urlCible) {
+        testCase.urlCible = suite.urlCible
+        // The test case may still contain the original login URL. The suite's
+        // latest URL is the source of truth for dependent executions.
+        testCase.url = suite.urlCible
+      }
+
+      const dependencyCheck = await testCaseService.validateExecutionDependencies({
+        testSuiteId: testCase.testSuiteId,
+        selectedCaseIds: [testCase._id || testCase.id],
+        // A single test may depend on a prerequisite that was executed in a
+        // previous run. Do not treat that prerequisite as part of this run;
+        // validate its persisted latest status instead.
+        includeDependencies: false,
+      })
+      if (!dependencyCheck.allowed) {
+        return res.status(409).json({
+          status: 'blocked',
+          message: dependencyCheck.message || 'Test case dependencies have not passed yet.',
+          dependencies: dependencyCheck,
+        })
+      }
+    }
+
     // ─── Passe l'executionId au service ────────────────────────────────────
     const result = await runTestCase({ ...testCase, executionId: generatedExecutionId })
 
@@ -127,6 +153,19 @@ async function runTestCaseHandler(req, res) {
     const duration = Math.round((Date.now() - startedAt) / 1000)
     const suiteId = testCase?.testSuiteId || null
     const isValidSuite = suiteId && mongoose.Types.ObjectId.isValid(suiteId)
+    const finalUrl = String(safeResult.finalUrl || '').trim()
+    console.log(`[SELENIUM] Final URL received for ${testCase.title || testCase.id || 'test'}: ${finalUrl || '(empty)'}`)
+
+    if (isValidSuite && finalUrl) {
+      await TestSuite.findByIdAndUpdate(
+        suiteId,
+        { $set: { urlCible: finalUrl } },
+        { new: false }
+      ).catch((dbErr) => console.error('Failed to persist final Selenium URL:', dbErr))
+      console.log(`[SELENIUM] Final URL saved in suite ${suiteId}: ${finalUrl}`)
+    } else if (isValidSuite) {
+      console.warn(`[SELENIUM] Final URL was empty; suite ${suiteId} was not updated`)
+    }
 
     const executionData = {
       executionId: generatedExecutionId,   // ← même ID
@@ -142,6 +181,7 @@ async function runTestCaseHandler(req, res) {
       finishedAt,
       logs: safeResult.logs || [],
       stepsResults: safeResult.stepResults || [],
+      finalUrl,
     }
 
     if (executedBy) {
@@ -149,6 +189,7 @@ async function runTestCaseHandler(req, res) {
       executionData.createdBy = executedBy
     }
     if (testCase.id) executionData.testCaseKey = String(testCase.id)
+    if (testCase._id) executionData.testCaseId = new mongoose.Types.ObjectId(testCase._id)
 
     if (isValidSuite) {
       executionData.testSuiteId = new mongoose.Types.ObjectId(suiteId)

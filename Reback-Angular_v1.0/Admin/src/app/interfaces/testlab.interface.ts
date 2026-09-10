@@ -102,6 +102,7 @@ export interface TestCaseStepDetailDto {
 
 export interface TestCaseDto {
   id: string
+  _id?: string
   title: string
   steps: string[]
   expected_result: string
@@ -127,6 +128,7 @@ export interface TestCaseDto {
 
   executionModel?: ExecutionModelDto | null
   execution_model?: ExecutionModelDto | null
+  dependsOn?: (string | { id?: string; _id?: string; title?: string })[]
   createdBy?: CreatedBy
 }
 

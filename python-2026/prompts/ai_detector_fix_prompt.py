@@ -1,10 +1,10 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 from typing import Any
 
 
-def _compact(value: Any, limit: int = 12000) -> str:
+def _safe(value: Any, limit: int = 8000) -> str:
     try:
         text = json.dumps(value, ensure_ascii=False, default=str)
     except Exception:
@@ -12,363 +12,294 @@ def _compact(value: Any, limit: int = 12000) -> str:
     return text[:limit]
 
 
-def _compact_logs(logs: Any, limit: int = 4500) -> str:
-    if not isinstance(logs, list):
-        return _compact(logs, limit)
+def _test_plan_titles_block(titles: Any) -> str:
+    items: list[str] = []
+    if isinstance(titles, list):
+        for t in titles:
+            label = str(t.get("title") or t) if isinstance(t, dict) else str(t)
+            if label.strip():
+                items.append(f"  * {label.strip()}")
+    return "\n".join(items) if items else "  (no test plan titles provided)"
 
-    important = []
-    for item in logs:
-        text = _compact(item, 900)
-        lowered = text.lower()
-        if any(token in lowered for token in (
-            "fail",
-            "error",
-            "warn",
-            "assert",
-            "expected",
-            "actual",
-            "not available",
-            "not found",
-            "dropdown",
-            "country",
-            "region",
-            "timeout",
-            "exception",
-            "ai actions",
-        )):
-            important.append(text)
 
-    return "\n".join(important[-12:])[:limit]
+def _current_test_case_block(test_case: dict[str, Any]) -> str:
+    if not isinstance(test_case, dict):
+        return "(no test case details)"
+    title = str(test_case.get("title") or "").strip()
+    steps = test_case.get("steps") or test_case.get("stepDetails") or []
+    lines: list[str] = []
+    if title:
+        lines.append(f"Title: {title}")
+    if isinstance(steps, list):
+        for i, step in enumerate(steps):
+            if isinstance(step, dict):
+                name = str(step.get("name") or step.get("title") or f"Step {i+1}").strip()
+                expected = str(step.get("expectedResult") or step.get("expected_result") or "").strip()
+                lines.append(f"  Step {i+1}: {name}")
+                if expected:
+                    lines.append(f"    -> Expected: {expected}")
+            else:
+                lines.append(f"  Step {i+1}: {step}")
+    return "\n".join(lines) if lines else "(no steps found)"
+
+
+def _failed_step_block(failed_step: dict[str, Any], step_index: int) -> str:
+    if not isinstance(failed_step, dict):
+        return f"Step index: {step_index}"
+    name = str(failed_step.get("name") or "").strip()
+    subtitle = str(failed_step.get("subtitle") or "").strip()
+    expected = str(
+        failed_step.get("expectedResult") or failed_step.get("expected_result") or ""
+    ).strip()
+    parts = [f"Step index: {step_index}"]
+    if name:
+        parts.append(f"Step name: {name}")
+    if subtitle:
+        parts.append(f"Result message: {subtitle}")
+    if expected:
+        parts.append(f"Expected result: {expected}")
+    return "\n".join(parts)
+
+
+def _field_values_block(field_values: Any) -> str:
+    if not field_values:
+        return "(not provided)"
+    if isinstance(field_values, dict):
+        lines = [f"  {k}: {v}" for k, v in field_values.items() if v is not None]
+        return "\n".join(lines) if lines else "(empty)"
+    return str(field_values)[:1500]
+
+
+def _messages_block(validation_messages: Any, toast: Any) -> str:
+    lines: list[str] = []
+    if isinstance(validation_messages, list):
+        for msg in validation_messages:
+            text = str(msg.get("text") or msg) if isinstance(msg, dict) else str(msg)
+            if text.strip():
+                lines.append(f"  * {text.strip()}")
+    elif validation_messages:
+        lines.append(f"  * {str(validation_messages)[:400]}")
+    if toast is not None:
+        toast_text = str(toast.get("text") or toast) if isinstance(toast, dict) else str(toast)
+        if toast_text.strip():
+            lines.append(f"  * Toast: {toast_text.strip()}")
+    return "\n".join(lines) if lines else "  (none)"
+
+
+def _final_dom_block(final_dom: Any) -> str:
+    if not final_dom:
+        return "(not provided)"
+    if isinstance(final_dom, dict):
+        elements = final_dom.get("elements") or []
+        url = str(final_dom.get("sourceUrl") or final_dom.get("url") or "").strip()
+        lines: list[str] = []
+        if url:
+            lines.append(f"Page URL: {url}")
+        if isinstance(elements, list) and elements:
+            lines.append(f"DOM elements captured: {len(elements)}")
+            for el in elements[:60]:
+                if not isinstance(el, dict):
+                    continue
+                tag = str(el.get("tag") or "").lower()
+                val = str(el.get("value") or "").strip()
+                placeholder = str(el.get("placeholder") or "").strip()
+                text = str(el.get("text") or "").strip()
+                aria_label = str(el.get("ariaLabel") or "").strip()
+                name = str(el.get("name") or el.get("id") or "").strip()
+                if tag in ("input", "select", "textarea") and (val or placeholder):
+                    field_name = aria_label or placeholder or name or tag
+                    lines.append(f"  Field '{field_name}': value='{val}'")
+                elif text and len(text) < 120:
+                    lines.append(f"  [{tag}] {text[:120]}")
+        if lines:
+            return "\n".join(lines)
+        return _safe(final_dom, 3000)
+    return str(final_dom)[:3000]
+
+
+def _ai_actions_block(ai_actions: Any) -> str:
+    if not isinstance(ai_actions, list) or not ai_actions:
+        return "  (no AI actions recorded)"
+    lines: list[str] = []
+    for action in ai_actions[-8:]:
+        if not isinstance(action, dict):
+            continue
+        t = str(action.get("type") or action.get("action") or "?")
+        selector = str(action.get("selector") or "").strip()
+        value = str(action.get("value") or "").strip()
+        status = str(action.get("status") or action.get("result") or "").strip()
+        line = f"  {t}"
+        if selector:
+            line += f" on {selector[:60]}"
+        if value:
+            line += f" -> value: '{value[:40]}'"
+        if status:
+            line += f" [{status}]"
+        lines.append(line)
+    return "\n".join(lines) if lines else "  (no AI actions recorded)"
 
 
 def build_ai_detector_fix_prompt(payload: dict[str, Any]) -> str:
-    failed_step = payload.get("failed_step") or payload.get("failedStep") or {}
-    logs = payload.get("logs") or []
-    ai_actions = payload.get("ai_actions") or payload.get("aiActions") or []
-    test_case = payload.get("test_case") or payload.get("testCase") or {}
-    error_message = payload.get("error_message") or payload.get("errorMessage") or ""
-    error_type = payload.get("error_type") or payload.get("errorType") or ""
-    step_index = payload.get("step_index") or payload.get("stepIndex") or 0
-    dom_state = payload.get("dom_state") or payload.get("domState") or {}
-    screenshot = payload.get("screenshot_url") or payload.get("screenshotUrl") or ""
+    failed_step: dict = payload.get("failed_step") or {}
+    ai_actions: list = payload.get("ai_actions") or []
+    test_case: dict = payload.get("test_case") or {}
+    step_index: int = int(payload.get("step_index") or 0)
+    execution_result: Any = payload.get("execution_result")
+    test_plan_titles: list = payload.get("test_plan_titles") or []
+    current_test_case: dict = payload.get("current_test_case") or test_case
+    final_dom: Any = payload.get("final_dom") or payload.get("dom_state") or {}
+    final_field_values: Any = payload.get("final_field_values") or {}
+    validation_messages: Any = payload.get("validation_messages") or []
+    final_toast: Any = payload.get("final_toast")
+    final_url: str = str(payload.get("final_url") or "").strip()
 
-    return f"""
-You are an expert senior QA automation failure analyzer for the TARGET
-APPLICATION that this Selenium execution was testing.
+    plan_titles = _test_plan_titles_block(test_plan_titles)
+    tc_block = _current_test_case_block(current_test_case)
+    fs_block = _failed_step_block(failed_step, step_index)
+    ai_block = _ai_actions_block(ai_actions)
+    dom_block = _final_dom_block(final_dom)
+    fv_block = _field_values_block(final_field_values)
+    msg_block = _messages_block(validation_messages, final_toast)
+    url_line = f"Final URL: {final_url}" if final_url else "(not provided)"
+    exec_result = str(execution_result or "").strip()[:600] if execution_result else "(not provided)"
 
-Your task: Analyze the failed test execution context and provide:
-1. Root cause analysis of why the test failed
-2. The most likely reason the AI action failed or made an incorrect decision
-3. Concrete, actionable recommendations a senior tester can apply immediately for every distinct error found in the logs
-4. Confidence level based on available evidence
+    # Use triple-quoted template. The curly braces for JSON schema are doubled.
+    template = """You are a senior QA engineer and software debugging expert.
 
-Scope boundary:
-- Analyse the target application, its test case, the AI decision, and the
-  automation execution only from the supplied evidence.
-- Do not diagnose, recommend, or invent changes to this QA platform, its
-  dashboard, its database, or its internal services unless a log explicitly
-  proves that one of them caused the failure.
-- Every recommendation must name its owner: Application, Test case/Test data,
-  or Automation/AI decision. Application recommendations must describe an
-  observable behavior of the application under test, not a generic framework
-  change.
+====================================================
+YOUR TASK
+====================================================
 
-Context Information:
-- Error Type: {error_type or 'Not specified'}
-- Error Message: {error_message or 'Not available'}
-- Failed Step Index: {step_index}
+Analyze ONLY the FAILED STEP below. Do NOT analyze any other step.
 
-Return ONLY valid JSON with this exact shape:
+Evidence priority:
+1. FINAL DOM (field values, visible text, error messages)
+2. FINAL FIELD VALUES
+3. VALIDATION MESSAGES AND TOASTS
+4. OTHER TEST CASE TITLES (context only — understand the page features, do NOT analyze these steps)
+
+====================================================
+ALL TEST CASE TITLES (context only)
+====================================================
+{plan_titles}
+
+====================================================
+CURRENT TEST CASE (steps + expected results)
+====================================================
+{tc_block}
+
+====================================================
+FAILED STEP DETAILS
+====================================================
+{fs_block}
+
+====================================================
+AI ACTIONS EXECUTED
+====================================================
+{ai_block}
+
+====================================================
+FINAL URL
+====================================================
+{url_line}
+
+====================================================
+FINAL DOM (field values, visible text, errors)
+====================================================
+{dom_block}
+
+====================================================
+FINAL FIELD VALUES
+====================================================
+{fv_block}
+
+====================================================
+VALIDATION / ERROR / HELPER MESSAGES AND TOASTS
+====================================================
+{msg_block}
+
+====================================================
+EXECUTION RESULT
+====================================================
+{exec_result}
+
+====================================================
+ANALYSIS INSTRUCTIONS
+====================================================
+
+Step 1 - ACTION RESULT
+Was the Selenium action (click/type/select) executed successfully?
+If NO -> root cause is AI_ACTION.
+
+Step 2 - STEP RESULT
+Did the application reach the expected result stated in the FAILED STEP?
+
+Step 3 - ROOT CAUSE
+Choose exactly ONE:
+  APPLICATION  - Action succeeded but app did not update correctly.
+  TEST_DATA    - Input data was invalid or caused rejection.
+  ASSERTION    - The expected result was incorrectly defined.
+  ENVIRONMENT  - Session expired or unexpected redirect.
+  TIMING       - Async/DOM loading issue.
+  AI_ACTION    - Wrong element targeted or action not executed.
+  UNKNOWN      - Only when evidence is truly insufficient.
+
+Confidence: HIGH / MEDIUM / LOW
+
+Step 4 - DEVELOPER RECOMMENDATION (max 3 items)
+* Focus on different technical areas: handler logic, component state, DOM binding, validation.
+* When APPLICATION is the cause and a pattern is clear, provide a SHORT illustrative code snippet.
+* LABEL it clearly as example code - do NOT invent real project method or variable names.
+
+Step 5 - TESTER RECOMMENDATION (max 3 items)
+* Use the OTHER TEST CASE TITLES to understand all available fields/features on the page.
+* Propose diagnostic scenarios that isolate, reproduce or confirm the bug.
+* Do NOT suggest: rerun the test, check the test data, verify the result.
+* Must differ from developer recommendations.
+
+====================================================
+REQUIRED OUTPUT (STRICT JSON - no other text)
+====================================================
+
+Return ONLY this JSON object. No markdown. No explanation. No text before or after the JSON:
 
 {{
-  "title": "",
-  "description": "",
-  "summary": "",
-  "whatHappened": "",
-  "simpleExplanation": "",
-  "example": "",
-  "expectedBehavior": "",
-  "actualBehavior": "",
-  "whyItFailed": "",
-  "rootCause": "",
-  "severity": "Low|Medium|High|Critical",
-  "confidence": 0.0,
-
-  "failedStepIndex": 0,
-  "failedStepName": "",
-
-  "aiActionSummary": "",
-
-  "timeline": [
-    {{
-      "step": 0,
-      "action": "",
-      "result": ""
-    }}
-  ],
-
-  "evidence": [],
-
+  "title": "TEST ANALYSIS",
+  "failedStepName": "[human-readable step name, max 1 sentence]",
+  "description": "[Problem: one short paragraph explaining what went wrong]",
+  "expectedBehavior": "[What the step should have achieved, short and specific]",
+  "actualBehavior": "[What actually happened based on DOM/messages, short and specific]",
+  "rootCause": "[CATEGORY] - [HIGH|MEDIUM|LOW]",
+  "whyItFailed": "[Technical reason in 1-2 sentences]",
   "developerFix": [
-    ""
+    "[Technical recommendation #1]",
+    "[Technical recommendation #2]",
+    "[Technical recommendation #3 - optional]"
   ],
-
+  "developerCodeExample": "[Short illustrative code snippet, or empty string if not applicable]",
   "testerFix": [
-    ""
-  ],
-
-  "actionLabel": "Recommended Fix",
-  "actionText": "",
-
-  "recommendations": [
-    {{
-      "error": "",
-      "rootCause": "",
-      "whatHappened": "",
-      "example": "",
-      "fix": ""
-    }}
-  ],
-
-  "diagnosticTips": [],
-  "suggestedSelectors": []
+    "[Diagnostic test scenario #1]",
+    "[Diagnostic test scenario #2]",
+    "[Diagnostic test scenario #3 - optional]"
+  ]
 }}
 
-Analysis Rules:
-1. Root Cause Categories:
-   - selector_not_found: Element cannot be located using the current CSS/XPath selector
-   - element_not_interactable: Element exists but is blocked, covered, or disabled
-   - timing_timeout: Action took too long or element appeared after timeout
-   - assertion_failed: Expected value doesn't match actual value
-   - navigation_failed: Page didn't navigate as expected
-   - data_mismatch: Input data doesn't match field requirements
-   - ai_logic_error: AI made wrong decision about element interaction
-   - element_intercepted: Another element is blocking the target
-   - application_error: Server/application returned an error
-   - unknown: Cannot determine cause from logs
+STRICT RULES:
+- Simple language, short sentences.
+- No raw JSON in text fields.
+- No stack traces, no Selenium error messages, no file paths, no log indexes.
+- developerFix and testerFix must have different content.
+- rootCause format: CATEGORY - CONFIDENCE (example: APPLICATION - HIGH).
+- developerCodeExample is an example only, clearly an illustration, not the real code."""
 
-2. For Selector Issues:
-   - Suggest alternative selectors (data-testid, aria-label, more specific XPath)
-   - Recommend adding wait strategies (wait for element, wait for visibility)
-   - Consider page state changes
-
-3. For Timing Issues:
-   - Recommend explicit waits (WebDriverWait, element visibility)
-   - Consider page load states or AJAX requests
-   - Suggest scroll-into-view before interaction
-
-4. For Data Issues:
-   - Check field requirements (length, format, type)
-   - Verify test data matches application expectations
-   - Look for validation errors in logs
-
-5. For AI Logic Issues:
-   - Explain what decision the AI made incorrectly
-   - Suggest what should have been done instead
-   - Recommend adding more context to AI instructions
-
-6. Quality Rules:
-   - Use logs and DOM state as source of truth
-   - Do NOT invent errors not present in context
-   - Do NOT recommend changes that contradict logs
-   - Keep actionText practical and implementable
-   - Mention whether the failing action came from the AI decision, backend execution, test data, or application response when evidence allows it
-   - Keep the recommendation inside the proven owner scope. For example, wrong
-     credentials supplied by a test case are Test data, an unchanged login URL
-     with an "Invalid credentials" message is Application response, and a
-     selector that clicked a different visible button is Automation/AI decision.
-   - A successful click or type action is not proof of a successful business
-     outcome. For login, registration, save, or checkout, verify a concrete
-     target-application signal such as the expected URL, heading, confirmation,
-     or visible error message before claiming success.
-   - Do not label a valid action as an AI Decision Error merely because the
-     business outcome failed. If the action clicked the intended Login button
-     and the page shows invalid credentials, attribute the primary cause to
-     Test data or Application response according to the evidence. Call it an
-     AI Decision Error only when the action itself targeted the wrong element,
-     used the wrong supplied value, or contradicted the current test step.
-   - If a dropdown failed, explicitly check this sequence: trigger opened, search input detected, test data typed, matching option found, option clicked
-   - If there are duplicated/partial actions in logs, distinguish planned AI actions from execution trace logs
-   - diagnosticTips: Provide 2-3 debugging tips
-   - suggestedSelectors: List 1-3 alternative selectors if applicable
-   - recommendations: include one item for EACH distinct FAIL/ERROR/WARN/exception/timeout/assertion log entry that represents a separate failure cause. Do not collapse two different errors into one recommendation.
-   - actionText can summarize the first/highest priority recommendation, but recommendations must preserve all distinct fixes.
-   - whatHappened (top-level and per-recommendation): write in plain, simple English suitable for both a developer AND a non-technical tester. Avoid jargon like "assertion", "selector", "DOM" when possible — describe what the user would actually SEE happen (e.g. "the test tried to click Save, but the page had not finished loading, so nothing happened").
-   - example (top-level and per-recommendation): always ground the example in the REAL data from this failure (real selector, real URL, real field name, real expected vs actual value) — never a generic placeholder example. If the exact real value isn't available in the logs, say so instead of inventing one.
-
-7. Additional Reporting Rules
-
-You must explain failures in VERY SIMPLE ENGLISH.
-
-Assume the reader is:
-
-- Junior QA Engineer
-- Manual Tester
-- Developer unfamiliar with the application
-
-For every failure explain:
-
-1. What the test wanted to do.
-2. What actually happened.
-3. What the AI clicked or typed.
-4. What page was expected.
-5. What page was opened.
-6. Why the failure occurred.
-7. How a developer should fix it.
-8. How a tester should fix it.
-
-Always use real values from the logs.
-
-Good:
-
-Expected URL:
-/dashboard/index
-
-Actual URL:
-/admin/saveSystemUser
-
-Bad:
-
-Expected page
-Actual page
-
-Never give generic explanations.
-
-Always mention when available:
-
-- selector names
-- URLs
-- page titles
-- button names
-- field names
-- expected values
-- actual values
-
-If the failure is caused by AI behavior:
-
-Explain exactly:
-
-- what decision the AI made
-- why that decision was wrong
-- what action should have been executed instead
-
-Determine whether the failure is:
-
-- AI Decision Error
-- Test Data Error
-- Assertion Error
-- Selector Error
-- Application Bug
-- Timing Issue
-
-Always identify the most likely owner:
-
-- Automation
-- Test Data
-- AI
-- Application
-
-Example:
-
-The login succeeded.
-
-The AI clicked "Admin".
-
-The AI clicked "Add".
-
-The browser navigated to:
-
-/web/index.php/admin/saveSystemUser
-
-The expected page was:
-
-/web/index.php/dashboard/index
-
-Because of these unexpected clicks, the test left the expected flow and the verification failed.
-
-simpleExplanation must be understandable by a non-technical tester.
-
-Avoid technical jargon whenever possible.
-
-7. Timeline Rules
-
-timeline must contain the chronological sequence of important actions
-that led to the failure.
-
-Use real actions from logs whenever available.
-
-Example:
-
-"timeline": [
-  {{
-    "step": 1,
-    "action": "Enter Username",
-    "result": "Success"
-  }},
-  {{
-    "step": 2,
-    "action": "Enter Password",
-    "result": "Success"
-  }},
-  {{
-    "step": 3,
-    "action": "Click Login",
-    "result": "Success"
-  }},
-  {{
-    "step": 4,
-    "action": "Click Admin",
-    "result": "Unexpected Action"
-  }}
-]
-
-Rules:
-- Preserve chronological order.
-- Include only important actions.
-- Mention failed or unexpected actions.
-- Use actual action names from logs.
-- Do not invent actions that are not present in the logs.
-
-9. Evidence Rules
-
-Evidence must contain exact log fragments proving the failure.
-
-Example:
-
-"evidence": [
-  "Expected URL: /dashboard/index",
-  "Actual URL: /admin/saveSystemUser",
-  "AI Action: click Admin",
-  "AI Action: click Add"
-]
-
-Rules:
-- Use exact text from logs whenever possible.
-- Include URLs, selectors, button names, field names and error messages.
-- Never invent evidence.
-- Always prefer real values over summaries.
-
-Use simple English.
-Avoid technical jargon whenever possible.
-
-====================================================
-FAILURE CONTEXT
-====================================================
-
-FAILED STEP DETAILS:
-{_compact(failed_step, 4000)}
-
-AI ACTIONS & DECISIONS:
-{_compact(ai_actions, 1800)}
-
-EXECUTION LOGS (most recent first):
-{_compact_logs(logs, 4500)}
-
-TEST CASE DEFINITION:
-{_compact(test_case, 1800)}
-
-DOM STATE AT FAILURE:
-{_compact(dom_state, 1800)}
-
-SCREENSHOT: {screenshot}
-""".strip()
+    return template.format(
+        plan_titles=plan_titles,
+        tc_block=tc_block,
+        fs_block=fs_block,
+        ai_block=ai_block,
+        url_line=url_line,
+        dom_block=dom_block,
+        fv_block=fv_block,
+        msg_block=msg_block,
+        exec_result=exec_result,
+    ).strip()

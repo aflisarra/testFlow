@@ -1,9 +1,9 @@
-import { LogoBoxComponent } from 'src/app/components/logo-box.component'
-import { Component, inject, OnInit } from '@angular/core'
-import { RouterLink, ActivatedRoute, Router } from '@angular/router'
-import { AuthenticationService } from '../../../../app/core/services/auth.service'
-import { FormsModule } from '@angular/forms'
 import { CommonModule } from '@angular/common'
+import { Component, inject, OnInit } from '@angular/core'
+import { FormsModule } from '@angular/forms'
+import { ActivatedRoute, Router, RouterLink } from '@angular/router'
+import { LogoBoxComponent } from 'src/app/components/logo-box.component'
+import { AuthenticationService } from '../../../core/services/auth.service'
 
 type Step = 'email' | 'otp' | 'new-password' | 'done'
 

@@ -7,7 +7,6 @@ This module intentionally contains no business logic.
 
 from __future__ import annotations
 
-import subprocess
 from typing import Optional
 
 from fastapi import APIRouter
@@ -16,7 +15,7 @@ from fastapi.responses import JSONResponse
 from core.config import get_settings
 from schemas.test_case_schema import GenerateTestCasesRequest, TestCasesResponse
 from services.cancellation_service import is_cancelled
-from services.case_service import generate_test_cases
+from services.case_service import SrsExtractionError, generate_test_cases
 from utils.logger import get_logger, log_error
 
 
@@ -77,14 +76,28 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
         ):
             return JSONResponse(status_code=409, content={"error": "Generation cancelled by user."})
         return TestCasesResponse(plan_id=plan_id, plan_title=plan_title, test_cases=cases)
+    except SrsExtractionError as exc:
+        # A genuine SRS-data problem (no usable "4. UI Components" section,
+        # no matching subsection, or zero components in it). This is not an
+        # AI/timeout failure — generate_test_cases already tried AI, retry,
+        # and the deterministic fallback before raising this, so returning
+        # 502/503/504 here would be misleading. 422 = the request/document
+        # itself cannot be processed as given.
+        message = str(exc)
+        log_error(logger, "generate_cases_srs_extraction_error", error=message)
+        return JSONResponse(status_code=422, content=_error_payload("Unable to extract UI Components from the SRS.", message))
     except FileNotFoundError:
+        # Ollama binary/infra missing entirely — an environment problem,
+        # not a transient AI failure, so it is not retried inside
+        # generate_test_cases and still surfaces here.
         return JSONResponse(status_code=500, content=_error_payload("Ollama not found. Install from https://ollama.com"))
-    except subprocess.TimeoutExpired:
-        return JSONResponse(status_code=504, content=_error_payload("Ollama took too long."))
-    except ValueError as exc:
-        return JSONResponse(status_code=502, content=_error_payload("AI returned invalid JSON.", str(exc)))
-    except RuntimeError as exc:
-        return JSONResponse(status_code=502, content=_error_payload("Ollama error.", str(exc)))
     except Exception as exc:
+        # generate_test_cases already retries the AI once and falls back to
+        # a deterministic generator internally, so an AI timeout, a
+        # malformed/incomplete JSON response, or a connection error never
+        # reaches here as an exception — they are caught, logged, and
+        # replaced by a fallback response inside the service. Anything that
+        # still lands here is a genuine, unexpected server-side bug, so it
+        # is reported as 500, never as 502/503/504.
         log_error(logger, "generate_cases_unexpected_error", error=str(exc), exc_type=type(exc).__name__)
         return JSONResponse(status_code=500, content=_error_payload("Internal error.", str(exc)))

@@ -90,19 +90,20 @@ def is_cancelled(
     if not tsid and not rid:
         return False
 
-    keys = [
-        _build_key(test_suite_id=tsid, plan_id=pid, scope=scp),
-        _build_key(test_suite_id=tsid, plan_id="", scope=scp),
-        _build_key(test_suite_id=tsid, plan_id=pid, scope="all"),
-        _build_key(test_suite_id=tsid, plan_id="", scope="all"),
-    ]
     if rid:
-        keys.extend(
-            [
-                _build_request_key(request_id=rid, scope=scp),
-                _build_request_key(request_id=rid, scope="all"),
-            ]
-        )
+        # A fresh request must not inherit a stale suite/plan cancellation.
+        # Cancellation requests with an id are stored under these same keys.
+        keys = [
+            _build_request_key(request_id=rid, scope=scp),
+            _build_request_key(request_id=rid, scope="all"),
+        ]
+    else:
+        keys = [
+            _build_key(test_suite_id=tsid, plan_id=pid, scope=scp),
+            _build_key(test_suite_id=tsid, plan_id="", scope=scp),
+            _build_key(test_suite_id=tsid, plan_id=pid, scope="all"),
+            _build_key(test_suite_id=tsid, plan_id="", scope="all"),
+        ]
 
     with _LOCK:
         _cleanup_expired(now)

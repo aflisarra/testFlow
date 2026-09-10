@@ -16,6 +16,7 @@ class AIDecisionPayload(BaseModel):
     step: str = ""
     dom: object | None = None
     test_case: object | None = None
+    test_data: object | None = None
 
 
 # ✅ detect fill step (IMPORTANT)
@@ -390,6 +391,7 @@ def _get_field_type(el):
     classes = _normalize_text(
         el.get("class") or el.get("classes")
     )
+    field_context = _normalize_text(el.get("fieldContext"))
 
     haystack = " ".join([
         field_id,
@@ -400,11 +402,19 @@ def _get_field_type(el):
         text,
         role,
         classes,
+        field_context,
     ])
 
     # ✅ dropdowns
     if tag == "select":
         return "select"
+
+    # ✅ confirm password — must be checked before the generic "password"
+    # rule below, since a Confirm Password input is also type="password".
+    # Only fieldContext reliably distinguishes it (OrangeHRM's Confirm
+    # Password input carries no other hint in id/name/placeholder).
+    if input_type == "password" and "confirm" in field_context:
+        return "confirmpassword"
 
     # ✅ password
     if input_type == "password" or "password" in haystack:
@@ -446,6 +456,11 @@ def _get_field_type(el):
         )
     ):
         return "lastname"
+
+    # ✅ employee name — must be checked before the generic username rule
+    # below, since "employee name" would also loosely match on "name".
+    if "employee" in haystack:
+        return "employeename"
 
     # ✅ username
     if any(
@@ -544,7 +559,13 @@ def _make_default_values():
 
 FIELD_SYNONYMS = {
     "email": ("email", "e-mail", "mail"),
+    # Checked before "password" in _step_requested_fields — "confirm
+    # password" also contains the substring "password", so without this
+    # distinct, higher-priority entry every "Confirm Password" step would
+    # canonicalize to the same "password" field as the real password step.
+    "confirmpassword": ("confirm password", "re-enter password", "retype password", "verify password"),
     "password": ("password", "passwd", "pass word"),
+    "employeename": ("employee name", "employee"),
     "username": ("username", "user name", "login", "user"),
     "phone": ("phone", "mobile", "telephone", "tel"),
     "country": ("country", "region", "nationality"),
@@ -553,6 +574,12 @@ FIELD_SYNONYMS = {
     "address": ("address", "street", "adresse"),
     "city": ("city", "town", "ville"),
     "postal_code": ("postalcode", "postal_code", "postal code", "zip", "zipcode", "zip code"),
+    "fromdate": ("from date", "fromdate", "date from", "date debut"),
+    "todate": ("to date", "todate", "date to", "date fin"),
+    "date": ("date",),
+    "leavetype": ("leave type", "leavetype", "type of leave"),
+    "subunit": ("sub unit", "subunit"),
+    "status": ("status", "show leave with status"),
 }
 
 TEST_DATA_KEY_ALIASES = {
@@ -579,6 +606,20 @@ TEST_DATA_KEY_ALIASES = {
     "user_name": "username",
     "userName": "username",
     "passwd": "password",
+    "from_date": "fromdate",
+    "fromDate": "fromdate",
+    "from date": "fromdate",
+    "to_date": "todate",
+    "toDate": "todate",
+    "to date": "todate",
+    "leave_type": "leavetype",
+    "leaveType": "leavetype",
+    "leave type": "leavetype",
+    "sub_unit": "subunit",
+    "subUnit": "subunit",
+    "sub unit": "subunit",
+    "show_leave_with_status": "status",
+    "show leave with status": "status",
 }
 
 
@@ -605,6 +646,7 @@ def extract_test_data(test_case):
     - [{"name": "email", "value": "john@test.com"}]
     - {"email": "john@test.com", "password": "123456"}
     - [{"email": "john@test.com", "password": "123456"}]
+    - Legacy array: ["Admin", "admin123456"]
     """
     source = _extract_test_data_source(test_case)
     normalized = {}
@@ -635,11 +677,31 @@ def extract_test_data(test_case):
                 consume(item)
             return
         if isinstance(value, str):
-            # Do not heuristically classify raw strings into the map.
-            # They will be processed sequentially by the fallback cursor instead.
+            for line in value.replace("\r", "\n").split("\n"):
+                match = re.match(r"^\s*([A-Za-z0-9 _\-/]{1,60}?)\s*[:=]\s*(.+?)\s*$", line)
+                if match:
+                    put(match.group(1), match.group(2))
             return
 
     consume(source)
+
+    # Legacy array compatibility: if normalized is empty and source is a list of bare values,
+    # inspect test_case steps to associate values with fields semantically!
+    if not normalized and isinstance(source, list) and isinstance(test_case, dict):
+        steps = test_case.get("steps") or []
+        step_fields = []
+        for s in steps:
+            for f in _step_requested_fields(s):
+                if f not in step_fields:
+                    step_fields.append(f)
+        for idx, item in enumerate(source):
+            val = str(item if item is not None else "").strip()
+            if not val:
+                continue
+            if idx < len(step_fields):
+                field = step_fields[idx]
+                normalized[_canonical_key(field)] = val
+
     return normalized
 
 
@@ -649,6 +711,14 @@ def _step_requested_fields(step):
     for field, synonyms in FIELD_SYNONYMS.items():
         if any(_normalize_text(synonym) in text for synonym in synonyms):
             fields.append(field)
+    if "confirmpassword" in fields and "password" in fields:
+        # "Enter Confirm Password" contains the substring "password" too,
+        # so the generic "password" synonym always matches alongside the
+        # more specific "confirmpassword" one. They're mutually exclusive
+        # fields on the page — keep only the more specific match.
+        fields.remove("password")
+    if any(k in fields for k in ("fromdate", "todate")) and "date" in fields:
+        fields.remove("date")
     return fields
 
 
@@ -689,7 +759,30 @@ def _score_dom_element_for_field(el, field):
         if _canonical_key(value) == field:
             score += weight
 
-    if field == "password" and input_type == "password":
+    # The captured DOM carries canonical identity hints that are far more
+    # reliable than name/placeholder guessing: businessRole is set to the
+    # canonical role ("username", "password") and fieldContext to the
+    # visible label ("Username", "Password"). Score them highest so a
+    # keyed test_data entry lands on the right element.
+    for key, weight in (("businessRole", 60), ("fieldContext", 50)):
+        value = _normalize_text(el.get(key))
+        if not value:
+            continue
+        if _canonical_key(value) == field:
+            score += weight
+        else:
+            for synonym in synonyms:
+                if _normalize_text(synonym) == value:
+                    score += weight
+                    break
+
+    field_context = _normalize_text(el.get("fieldContext"))
+    placeholder_text = _normalize_text(el.get("placeholder"))
+    name_text = _normalize_text(el.get("name"))
+
+    if field == "confirmpassword" and input_type == "password" and "confirm" in field_context:
+        score += 100
+    if field == "password" and input_type == "password" and "confirm" not in field_context:
         score += 100
     if field == "email" and input_type == "email":
         score += 90
@@ -697,6 +790,18 @@ def _score_dom_element_for_field(el, field):
         score += 70
     if field == "country" and (tag == "select" or str(el.get("role") or "").lower() in {"combobox", "listbox"}):
         score += 55
+    if field == "fromdate" and ("from" in field_context or "from" in placeholder_text or "from" in name_text):
+        score += 100
+    if field == "todate" and ("to" in field_context or "to" in placeholder_text or "to" in name_text):
+        score += 100
+    if field in ("fromdate", "todate", "date") and (input_type == "date" or "date" in field_context or "date" in placeholder_text):
+        score += 60
+    if field == "leavetype" and ("leave" in field_context or "type" in field_context):
+        score += 80
+    if field == "subunit" and ("unit" in field_context or "subunit" in field_context):
+        score += 80
+    if field == "status" and "status" in field_context:
+        score += 80
 
     return score
 
@@ -716,6 +821,10 @@ def _deterministic_actions_for_step(step, dom, test_case):
     if not isinstance(dom, list):
         return []
 
+    # Deterministic field typing only applies to fill/entry steps, not pure click steps
+    if not _is_fill_step(step) and not _is_dropdown_step(step):
+        return []
+
     test_data = extract_test_data(test_case)
     requested_fields = _step_requested_fields(step)
     if not requested_fields:
@@ -725,6 +834,14 @@ def _deterministic_actions_for_step(step, dom, test_case):
     used_selectors = set()
     logger.info("STEP=%s", step)
     logger.info("TEST DATA=%s", test_data)
+    if not test_data:
+        # Name the stage that produced the empty map so this is traceable
+        # rather than silently degrading into a click-only decision.
+        logger.warning(
+            "TEST DATA IS EMPTY at ai_decision.extract_test_data — no field->value mapping "
+            "could be recovered from the payload. Raw source=%s",
+            _extract_test_data_source(test_case),
+        )
 
     for field in requested_fields:
         value = test_data.get(field)
@@ -760,12 +877,75 @@ def _deterministic_actions_for_step(step, dom, test_case):
         actions.append(action)
         used_selectors.add(selector)
 
+        logger.info("RESOLVED FIELD=%s", field)
+        logger.info("RESOLVED TEST VALUE=%s", value)
         logger.info("MATCHED FIELD=%s", field)
         logger.info("SELECTOR=%s", selector)
         logger.info("VALUE=%s", value)
 
     logger.info("GENERATED ACTIONS=%s", actions)
     return actions
+
+
+def _deterministic_navigation_action(step, dom):
+    """Resolve navigation labels without allowing a search input match."""
+    step_text = _normalize_text(step)
+    if not isinstance(dom, list) or not step_text:
+        return None
+
+    target = None
+    if "admin" in step_text and ("sidebar" in step_text or "side bar" in step_text):
+        target = "admin"
+    elif "leave" in step_text and ("sidebar" in step_text or "side bar" in step_text):
+        target = "leave"
+    elif re.search(r"\badd\b", step_text) and "button" in step_text:
+        target = "add"
+    if not target:
+        return None
+
+    best = None
+    best_score = -1
+    for element in dom:
+        if not isinstance(element, dict) or element.get("disabled") or element.get("visible") is False:
+            continue
+        tag = str(element.get("tag") or "").lower().strip()
+        role = str(element.get("role") or "").lower().strip()
+        if tag not in {"a", "button"} and role not in {"link", "button"}:
+            continue
+
+        label = _normalize_text(
+            element.get("text") or element.get("ariaLabel") or element.get("title")
+        )
+        if not label:
+            continue
+
+        score = 0
+        if label == target:
+            score += 200
+        elif target in label:
+            score += 80
+        href = _normalize_text(element.get("href"))
+        if target == "admin" and "admin" in href:
+            score += 60
+        if target == "admin" and "sidebar" in _normalize_text(element.get("classes")):
+            score += 30
+        if target == "leave" and "sidebar" in _normalize_text(element.get("classes")):
+            score += 30
+
+        if score > best_score:
+            best = element
+            best_score = score
+
+    if not best or best_score <= 0:
+        logger.warning("Navigation target not found: %s", target)
+        return None
+
+    selector = _selector_for_dom_element(best)
+    if not selector:
+        return None
+    action = {"type": "click", "selector": selector, "value": "", "label": target}
+    logger.info("Returning deterministic navigation action: %s", action)
+    return action
 
 
 def _first_dom_option_value(dom):
@@ -812,15 +992,23 @@ def _infer_actions_when_empty(step, dom, test_case):
         action = _dom_click_action_for_step(step, dom)
         return [action] if action else []
     if _is_fill_step(step):
-        # No longer refuses when test_data is empty: _dom_to_fill_actions
-        # generates plausible placeholder values from the DOM itself so the
-        # step can still run instead of being permanently blocked.
+        # A fill step names one field ("Enter Employee Name"); filling every
+        # empty input on the page for it means a later, unrelated step
+        # ("Enter Confirm Password") retypes into fields a previous step
+        # already filled. Prefer the step-scoped fill and only fall back to
+        # the unrestricted DOM-wide fill (which also generates placeholder
+        # values when test_data is empty) if nothing field-specific matched.
+        targeted = _targeted_dom_fill_actions(step, dom, test_case)
+        if targeted:
+            return targeted
         return _dom_to_fill_actions(dom, test_case, step=step)
     if _is_dropdown_step(step):
         value = _extract_next_unused_test_data_value(test_case, _extract_execution_memory(test_case))
-        if not value:
-            # No test_data left for this dropdown: pick a plausible option
-            # straight from the DOM so the step still executes.
+        if not value or not _looks_like_plausible_dropdown_value(value):
+            # No test_data left for this dropdown (or the next unused value
+            # is clearly a username/password/email meant for another field):
+            # pick a plausible option straight from the DOM so the step
+            # still executes instead of stealing an unrelated value.
             value = _first_dom_option_value(dom)
         action = _dom_dropdown_action(dom, value)
         return [action] if action else []
@@ -1042,6 +1230,22 @@ def _dom_to_fill_actions(dom, test_case, step=""):
         placeholder = str(el.get("placeholder") or "").strip()
         if placeholder:
             return f'[placeholder="{placeholder}"]'
+        # __index ties the action to this one DOM snapshot's element order;
+        # the next capture can shift every index (e.g. a validation message
+        # appearing/disappearing adds/removes a node), silently pointing
+        # the same selector at a different field later. Prefer a selector
+        # based on the field's identity (re-derived the same way at
+        # execution time), and only fall back to the index as a last resort.
+        # Only fields the JS executor's field:<key> resolver actually knows
+        # how to re-identify (see FIELD_MATCHERS in ui.executor.js) — a key
+        # it doesn't recognize (e.g. the generic "text"/"select"/"country"
+        # _get_field_type can return) would fail to resolve at all.
+        field_key = _get_field_type(el)
+        if field_key in {
+            "password", "confirmpassword", "employeename",
+            "username", "email", "firstname", "lastname", "phone",
+        }:
+            return f"field:{field_key}"
         if role != "option" and isinstance(el.get("index"), int):
             return f"__index:{el['index']}"
         return ""
@@ -1051,7 +1255,12 @@ def _dom_to_fill_actions(dom, test_case, step=""):
     used_buckets = set()
     choice_selected = False
     value_cursor = 0
-    used_values = set()  # ✅ prevent the same test_data value being assigned twice
+    # ✅ prevent the same test_data value being assigned twice — seeded with
+    # whatever earlier steps already consumed (per execution_memory) so a
+    # value used for e.g. the dropdown in a previous step (User Role) is
+    # never handed again to a later free-text field (Employee Name) in this
+    # step just because the cursor still points at it.
+    used_values = set(_get_used_test_data_values(_extract_execution_memory(test_case)))
 
     def field_bucket(el):
         tag = str(el.get("tag") or "").lower()
@@ -1152,12 +1361,20 @@ def _dom_to_fill_actions(dom, test_case, step=""):
         actions.append({
     "type": "type",
     "selector": selector,
+    # field_type (username/password/confirmpassword/employeename/...) comes
+    # before the generic "Field" fallback: a field like OrangeHRM's Username
+    # input has no id/name/placeholder/ariaLabel at all — only fieldContext
+    # identifies it — so without this, the label falls straight to "Field",
+    # and _targeted_dom_fill_actions' step-scoped filter (which matches on
+    # the canonical field name) silently drops the action even though this
+    # very function correctly picked the right element for the step.
     "label": (
         el.get("businessRole")
         or el.get("placeholder")
         or el.get("ariaLabel")
         or el.get("name")
         or el.get("id")
+        or field_type
         or "Field"
     ),
     "value": value
@@ -1175,8 +1392,23 @@ def _targeted_dom_fill_actions(step, dom, test_case):
     if not requested_fields:
         return []
 
+    # _dom_to_fill_actions walks every editable field it finds and hands out
+    # test_data values in DOM order, one cursor slot per field — including
+    # fields this step never asked about (e.g. Employee Name, already
+    # correctly filled by an earlier step). Filtering its output by label
+    # afterwards doesn't undo the damage: those unrelated fields already
+    # "spent" cursor slots, shifting every value meant for a later field.
+    # Restrict what it's allowed to see to just the field(s) this step
+    # actually names, so cursor slots are never spent on the wrong field.
+    scoped_dom = [
+        el for el in (dom or [])
+        if not isinstance(el, dict)
+        or str(el.get("tag") or "").lower() not in {"input", "textarea", "select"}
+        or _canonical_key(_get_field_type(el)) in requested_fields
+    ]
+
     return [
-        action for action in _dom_to_fill_actions(dom, test_case, step=step)
+        action for action in _dom_to_fill_actions(scoped_dom, test_case, step=step)
         if _canonical_key(action.get("label")) in requested_fields
     ]
 
@@ -1350,7 +1582,15 @@ def _dom_dropdown_action(dom, target_value):
     selector = _selector_for_dom_element(best)
     if not selector:
         return None
-    return {"type": "click", "selector": selector, "value": target_value or ""}
+
+    # Never emit a select action with an empty value: the JS executor would
+    # open the dropdown and leave it without picking anything. If no explicit
+    # test_data value survived, fall back to a real option straight from the
+    # DOM so the step still results in an actual selection.
+    resolved_value = target_value or _first_dom_option_value(dom)
+    if not resolved_value:
+        return None
+    return {"type": "select", "selector": selector, "value": resolved_value}
 
 
 def _dropdown_actions_are_specific(actions):
@@ -1404,9 +1644,38 @@ def _extract_next_unused_test_data_value(test_case, execution_memory):
     return None
 
 
+def _looks_like_plausible_dropdown_value(value):
+    """
+    Dropdown options (status, role, country...) are essentially always
+    short words/phrases with no digits or "@". A username, password, or
+    email left over in test_data (e.g. "sarra123", "sarra28574977@") will
+    never legitimately be the value of a Status/Role dropdown — if the
+    "next unused test_data value" heuristic lands on one of those, that
+    means the real dropdown value was never in test_data to begin with
+    (or was already consumed elsewhere), not that this value belongs here.
+    Forcing it in anyway just steals a value another field still needs.
+    """
+    text = str(value or "").strip()
+    if not text:
+        return False
+    if "@" in text:
+        return False
+    if any(ch.isdigit() for ch in text):
+        return False
+    return True
+
+
 def _apply_target_dropdown_value(actions, test_case, execution_memory):
     target_value = _extract_next_unused_test_data_value(test_case, execution_memory)
     if not target_value or not isinstance(actions, list):
+        return actions
+
+    if not _looks_like_plausible_dropdown_value(target_value):
+        logger.info(
+            "🚫 Not using next unused test_data value for dropdown — looks like a "
+            "username/password/email, not an option: %s",
+            target_value,
+        )
         return actions
 
     for action in actions:
@@ -1436,6 +1705,9 @@ def decide(payload: AIDecisionPayload):
     logger.info("STEP=%s", step)
 
     resolved_test_case = test_case if isinstance(test_case, dict) else {}
+    if payload.test_data and isinstance(payload.test_data, dict):
+        resolved_test_case = dict(resolved_test_case)
+        resolved_test_case["test_data"] = payload.test_data
     execution_memory = _extract_execution_memory(resolved_test_case)
 
     # Test data belongs to the test case. An explicit value always wins —
@@ -1445,6 +1717,17 @@ def decide(payload: AIDecisionPayload):
     if execution_memory:
         resolved_test_case = dict(resolved_test_case)
         resolved_test_case["execution_memory"] = execution_memory
+
+    navigation_action = _deterministic_navigation_action(step, dom)
+    if navigation_action:
+        return _decision_response([navigation_action], dom)
+
+    if _is_click_step(step) and not _is_fill_step(step):
+        click_action = _dom_click_action_for_step(step, dom)
+        if click_action:
+            actions = _dedupe_actions([click_action], execution_memory)
+            logger.info("Returning deterministic click action before LLM: %s", actions)
+            return _decision_response(actions, dom)
 
     deterministic_actions = _deterministic_actions_for_step(step, dom, resolved_test_case)
     if deterministic_actions:
@@ -1461,7 +1744,19 @@ def decide(payload: AIDecisionPayload):
             logger.info("✅ ADD BUTTON FOUND IN DOM=%s", el)
 
     try:
-        prompt = build_ai_decision_prompt(step, dom, resolved_test_case)
+        # Render the CANONICAL field -> value map in the prompt's TEST DATA
+        # block rather than the raw payload shape. The prompt module reads
+        # test_case["test_data"] verbatim, so without this a legacy list
+        # (["Admin", "admin123456"]) or a "Username: Admin" line list would
+        # be shown to the model with no field names attached — the same
+        # missing-mapping problem the deterministic path already solves.
+        prompt_test_case = resolved_test_case
+        normalized_test_data = extract_test_data(resolved_test_case)
+        if normalized_test_data and isinstance(resolved_test_case, dict):
+            prompt_test_case = {**resolved_test_case, "test_data": normalized_test_data}
+            logger.info("PROMPT TEST DATA=%s", normalized_test_data)
+
+        prompt = build_ai_decision_prompt(step, dom, prompt_test_case)
         logger.debug("PROMPT: %s", prompt[:1500])
 
         client = get_ai_service()
@@ -1474,6 +1769,33 @@ def decide(payload: AIDecisionPayload):
         extracted = _extract_actions(result)
         ai_actions = extracted.get("data", []) if isinstance(extracted, dict) else []
         logger.info("AI actions=%s", ai_actions)
+
+        # The AI is only allowed to act on what the current STEP actually
+        # names. When the step explicitly names one or more fields (e.g.
+        # "Enter the email address"), drop any typed/selected action the
+        # model invented for a different, unmentioned field so it can't
+        # silently perform extra actions beyond the step's intent.
+        requested_fields = set(_step_requested_fields(step))
+        if requested_fields:
+            scoped_actions = []
+            for action in ai_actions:
+                if not isinstance(action, dict):
+                    continue
+                action_type = str(action.get("type") or "").lower()
+                if action_type in {"type", "select"}:
+                    label = _canonical_key(
+                        action.get("label")
+                        or _action_label_from_selector(str(action.get("selector") or ""), dom)
+                    )
+                    if label and label not in requested_fields:
+                        logger.info(
+                            "🚫 Dropping AI action for unmentioned field: %s (step only requests %s)",
+                            label,
+                            requested_fields,
+                        )
+                        continue
+                scoped_actions.append(action)
+            ai_actions = scoped_actions
 
         if _is_click_step(step) and (
             "sign-up" in step.lower()
@@ -1495,9 +1817,20 @@ def decide(payload: AIDecisionPayload):
             dropdown_actions = _apply_target_dropdown_value(
                 dropdown_actions, resolved_test_case, execution_memory
             )
+            dropdown_actions = [
+                {**action, "type": "select"}
+                for action in dropdown_actions
+                if isinstance(action, dict)
+            ]
             target_value = _extract_next_unused_test_data_value(resolved_test_case, execution_memory)
+            if target_value and not _looks_like_plausible_dropdown_value(target_value):
+                # A leftover username/password/email is not a real option
+                # for this dropdown — don't steal it from the field it was
+                # actually meant for; let the DOM-option fallback pick a
+                # sensible default instead.
+                target_value = None
             if not _dropdown_actions_are_specific(dropdown_actions):
-                fallback_action = _dom_dropdown_action(dom, target_value)
+                fallback_action = _dom_dropdown_action(dom, target_value or _first_dom_option_value(dom))
                 if fallback_action:
                     dropdown_actions = [fallback_action]
             actions = _dedupe_actions(dropdown_actions, execution_memory)
@@ -1516,6 +1849,26 @@ def decide(payload: AIDecisionPayload):
             return _decision_response([], dom)
 
         if ai_actions:
+            # We've already established this step is neither a dropdown step
+            # nor a fill step (both branches above return early). A "select"
+            # or "type" action reaching this point is therefore never
+            # something the step actually asked for — it's the LLM
+            # hallucinating an action from a field it noticed in the DOM
+            # (e.g. selecting a Status dropdown to "Enabled" on a step that
+            # never mentions status at all). Drop those; only click/press/
+            # wait/scroll style actions belong in this generic fallback.
+            unscoped_actions = [
+                a for a in ai_actions
+                if isinstance(a, dict) and str(a.get("type") or "").lower() not in {"select", "type"}
+            ]
+            if len(unscoped_actions) != len(ai_actions):
+                logger.info(
+                    "🚫 Dropping select/type action(s) the step never asked for "
+                    "(step is neither a dropdown nor a fill step): %s",
+                    [a for a in ai_actions if a not in unscoped_actions],
+                )
+            ai_actions = unscoped_actions
+
             only_clicks = all(isinstance(a, dict) and a.get("type") == "click" for a in ai_actions)
             has_inputs = any(
                 isinstance(el, dict) and el.get("tag") in ["input", "textarea", "select"]

@@ -1,7 +1,9 @@
 const mongoose = require('mongoose')
 const TestExecution = require('../models/TestExecution.model')
+const TestSuite = require('../models/testsuite')
 const User = require('../models/user.model')
 const testSuiteService = require('../services/testsuite.service')
+const { buildExecutionOrderFromCases } = require('../services/testcase-dependency.service')
 const MESSAGES = require('../constants/messages.js')
 function getUserId(req) {
   return String(req.user?.userId || req.user?.id || req.user?._id || '').trim()
@@ -196,14 +198,123 @@ exports.execute = async (req, res) => {
             const suiteId = String(req.params.id || '').trim()
             if (!suiteId) return
             console.log(MESSAGES.TESTSUITE.START_EXECUTION, suiteId)
-            const cases = await TestCase.find({ testSuiteId: suiteId }).sort({ createdAt: 1 }).lean()
-            for (const tc of cases) {
+            let currentUrl = String(
+              (await TestSuite.findById(suiteId).select('urlCible').lean())?.urlCible || ''
+            ).trim()
+            const cases = await TestCase.find({ testSuiteId: suiteId })
+              .populate('dependsOn', 'id title')
+              .sort({ createdAt: 1 })
+              .lean()
+
+            let orderedCases = cases
+            try {
+              orderedCases = buildExecutionOrderFromCases(
+                cases,
+                cases.map((tc) => tc._id || tc.id),
+                { includeDependencies: true }
+              )
+            } catch (orderError) {
+              console.warn('[EXECUTE] Falling back to creation order:', orderError.message)
+            }
+
+            const actor = await resolveActor(req)
+            const executionStatuses = new Map()
+
+            const registerStatus = (tc, status) => {
+              const normalizedStatus = String(status || '').trim().toLowerCase() || 'not_executed'
+              for (const key of [tc?._id, tc?.id]) {
+                const id = String(key || '').trim()
+                if (id) executionStatuses.set(id, normalizedStatus)
+              }
+            }
+
+            const findBlockingDependency = (tc) => {
+              const dependencies = Array.isArray(tc?.dependsOn) ? tc.dependsOn : []
+              for (const dependency of dependencies) {
+                const dependencyId = String(dependency?._id || dependency?.id || dependency || '').trim()
+                if (!dependencyId) continue
+                const dependencyStatus = executionStatuses.get(dependencyId) || 'not_executed'
+                if (dependencyStatus !== MESSAGES.STATUSTEST.PASSED) {
+                  return {
+                    dependencyId,
+                    dependencyTitle: String(dependency?.title || dependency?.testCaseTitle || dependencyId).trim(),
+                    dependencyStatus,
+                  }
+                }
+              }
+              return null
+            }
+
+            const normalizeExecutionStatus = (status) => {
+              const raw = String(status || '').trim().toLowerCase()
+              if (raw === MESSAGES.STATUSTEST.PASSED) return MESSAGES.STATUSTEST.PASSED
+              if (raw === MESSAGES.STATUSTEST.FAILED_ASSERTION) return MESSAGES.STATUSTEST.FAILED_ASSERTION
+              if (raw === MESSAGES.STATUSTEST.FAILED_EXECUTION) return MESSAGES.STATUSTEST.FAILED_EXECUTION
+              if (raw === 'blocked' || raw === 'aborted' || raw === 'skipped' || raw === 'failed') return raw
+              return MESSAGES.STATUSTEST.FAILED_EXECUTION
+            }
+
+            for (const tc of orderedCases) {
+              const executionId = `EX-${Date.now()}-${String(tc.id || tc._id || '').slice(-6)}`
+              const blockingDependency = findBlockingDependency(tc)
+
+              if (blockingDependency) {
+                await TestExecution.create({
+                  executionId,
+                  testSuiteId: new mongoose.Types.ObjectId(suiteId),
+                  planId: mongoose.Types.ObjectId.isValid(String(tc.planId || ''))
+                    ? new mongoose.Types.ObjectId(String(tc.planId))
+                    : null,
+                  testCaseId: mongoose.Types.ObjectId.isValid(String(tc._id || ''))
+                    ? new mongoose.Types.ObjectId(String(tc._id))
+                    : null,
+                  planKey: String(tc.planId || ''),
+                  testCaseKey: String(tc.id || ''),
+                  planTitle: String(tc.planTitle || ''),
+                  testCaseTitle: String(tc.title || ''),
+                  executionModel: tc.executionModel || null,
+                  executedBy: actor,
+                  createdBy: actor,
+                  status: 'blocked',
+                  duration: 0,
+                  startedAt: new Date(),
+                  finishedAt: new Date(),
+                  logs: [{
+                    level: 'WARN',
+                    message: `Blocked by dependency ${blockingDependency.dependencyTitle}`,
+                    dependencyId: blockingDependency.dependencyId,
+                    dependencyStatus: blockingDependency.dependencyStatus,
+                  }],
+                  screenshots: [],
+                  stepsResults: [],
+                  stepResults: [],
+                })
+                registerStatus(tc, 'blocked')
+                continue
+              }
+
               try {
                 console.log(MESSAGES.TESTCASES.EXECUTE, tc._id || tc.id || tc.title)
-                const result = await runTestCase(tc)
-                const actor = await resolveActor(req)
+                const result = await runTestCase({
+                  ...tc,
+                  ...(currentUrl ? { urlCible: currentUrl } : {}),
+                  executionId,
+                })
+                const finalUrl = String(result?.finalUrl || '').trim()
+                if (finalUrl) {
+                  await TestSuite.findByIdAndUpdate(
+                    suiteId,
+                    { $set: { urlCible: finalUrl } },
+                    { new: false }
+                  )
+                  currentUrl = finalUrl
+                  // The next dependent test must start from the page reached
+                  // by this test, not from the original suite URL.
+                  console.log('[EXECUTE] Persisted final URL:', finalUrl)
+                } else {
+                  console.warn('[EXECUTE] Selenium returned an empty final URL for:', tc.title || tc.id)
+                }
                 // persist execution similar to selenium.controller.runTestCaseHandler
-                const executionId = `EX-${Date.now()}-${String(tc.id || tc._id || '').slice(-6)}`
                 const stepsResults = Array.isArray(result.stepResults)
                   ? result.stepResults.map((step) => ({
                       index: step.index || 0,
@@ -228,7 +339,9 @@ exports.execute = async (req, res) => {
                   executionId,
                   testSuiteId: new mongoose.Types.ObjectId(suiteId),
                   planId: mongoose.Types.ObjectId.isValid(String(tc.planId || '')) ? new mongoose.Types.ObjectId(String(tc.planId)) : null,
-                  testCaseId: null,
+                  testCaseId: mongoose.Types.ObjectId.isValid(String(tc._id || ''))
+                    ? new mongoose.Types.ObjectId(String(tc._id))
+                    : null,
                   planKey: String(tc.planId || ''),
                   testCaseKey: String(tc.id || ''),
                   planTitle: String(tc.planTitle || ''),
@@ -236,12 +349,7 @@ exports.execute = async (req, res) => {
                   executionModel: tc.executionModel || null,
                   executedBy: actor,
                   createdBy: actor,
-                  status:
-  result.status === MESSAGES.STATUSTEST.PASSED
-    ? MESSAGES.STATUSTEST.PASSED
-    : result.status === MESSAGES.STATUSTEST.FAILED_ASSERTION
-      ? MESSAGES.STATUSTEST.FAILED_ASSERTION
-      : MESSAGES.STATUSTEST.FAILED_EXECUTION,
+                  status: normalizeExecutionStatus(result.status),
                   duration: Array.isArray(result.stepResults) ? result.stepResults.length : 0,
                   startedAt: new Date(),
                   finishedAt: new Date(),
@@ -251,8 +359,10 @@ exports.execute = async (req, res) => {
                   stepResults: stepsResults,
                 })
                 console.log(MESSAGES.TESTCASES.SAVED, executionId)
+                registerStatus(tc, normalizeExecutionStatus(result.status))
               } catch (tcErr) {
                 console.error(MESSAGES.TESTCASES.EXECUTION_ERROR, tcErr)
+                registerStatus(tc, 'failed_execution')
               }
             }
             console.log(MESSAGES.TESTCASES.FINISHED, suiteId)

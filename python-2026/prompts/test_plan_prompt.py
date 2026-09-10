@@ -59,11 +59,11 @@ def build_test_plan_prompt(
         "Use the SRS structure. Do not use keyword heuristics.\n\n"
 
         "### TASK\n"
-        "Generate test plans from the SRS sections: Features, Project Description, and Objectives.\n"
-        "Do NOT generate test plans from UI Components, Business Rules, Validation Rules, Pass Criteria, or Fail Criteria.\n\n"
+        "Generate test plans from the SRS sections: Features, Project Description, Objectives, UI Components, Business Rules, Validation Rules, Pass Criteria.\n"
+        "Include UI Components, Business Rules, Validation Rules, and Pass Criteria when generating test plans.\n"
 
         "### REQUIREMENTS RULE\n"
-        "The provided REQUIREMENTS are extracted only from Features, Project Description, and Objectives.\n"
+        "The provided REQUIREMENTS are extracted from Features, Project Description, Objectives, UI Components, Business Rules, Validation Rules, and Pass Criteria.\n"
         "Generate test plans ONLY from functionality represented in those REQUIREMENTS.\n"
         "Every test plan MUST be supported by at least one requirement.\n"
         "Every test plan MUST contain a non-empty requirements array.\n"
@@ -136,7 +136,9 @@ def build_test_plan_prompt(
 "Do not write paragraphs.\n"
 "Use short business-oriented wording.\n\n"
 
-"Generate between 10 and 10 test plans maximum.\n\n"
+"Generate between 10 and 1000 test plans maximum.\n"
+"The requested number is a minimum for the current generation batch.\n"
+"When several distinct workflows, roles, states, or risk scenarios belong to the same requirement, create separate plans for them.\n\n"
 
         "### EXAMPLE\n"
         f"{example}\n\n"

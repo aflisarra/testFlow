@@ -101,6 +101,7 @@ def build_ai_decision_prompt(step: str, dom, test_case) -> str:
     "ariaInvalid",
     "required",
     "validity",
+    "fieldContext",
 
 
 }
@@ -151,9 +152,27 @@ def build_ai_decision_prompt(step: str, dom, test_case) -> str:
         )
 
     test_data_text = safe(test_data)
-    
-        
+
+
     memory_text = safe(execution_memory) if execution_memory else "{}"
+
+    # DOM analysis context must include: CURRENT STEP + AI ACTION +
+    # PREVIOUS DOM + CURRENT DOM + DOM CHANGES + VALIDATION ERRORS +
+    # SNACKBAR/TOAST + URL. This lets the model reach a structured
+    # SUCCESS | ERROR | NEED_RETRY conclusion without manual review.
+    validation_errors = []
+    snackbar = None
+    dom_changes = None
+    if isinstance(test_case, dict):
+        validation_errors = test_case.get("validation_errors") or []
+        snackbar = test_case.get("snackbar")
+        dom_changes = test_case.get("dom_changes")
+
+    validation_errors_text = safe(validation_errors) if validation_errors else "[]"
+    snackbar_text = safe(snackbar) if snackbar else "null"
+    dom_changes_text = safe(dom_changes) if dom_changes else "null"
+    previous_dom_text = safe(execution_memory.get("previous_dom")) if isinstance(execution_memory, dict) and execution_memory.get("previous_dom") else "null"
+    current_url_text = safe(test_case.get("current_dom_url") or test_case.get("url") or "") if isinstance(test_case, dict) else "null"
 
     return f"""
 You are the AI Decision engine for a Selenium test of the TARGET APPLICATION
@@ -166,7 +185,7 @@ changes. Return actions only.
 
 OUTPUT FORMAT (STRICT JSON ONLY):
 
-{{"data":[{{"type":"type|click","selector":"CSS selector","value":"text"}}]}}
+{{"data":[{{"type":"type|click|select","selector":"CSS selector","value":"text"}}]}}
 
 RULES:
 
@@ -175,6 +194,12 @@ RULES:
 - No markdown.
 - Use ONLY elements existing in DOM.
 - Never invent selectors.
+- Execute one CURRENT STEP at a time, strictly in order.
+- Never add an action that belongs to another step.
+- If the action does not match the CURRENT STEP, reject it.
+- For dropdown/calendar flows, follow OPEN -> SELECT -> VERIFY ->
+  CLOSE/WAIT -> NEXT STEP.
+- Do not reuse the previous dropdown/calendar context for a later step.
 - Plan actions only for the application represented by the current DOM. Never
   navigate to, interact with, or infer controls from another application.
 - Use the exact TEST DATA supplied by the test case. Never replace, transform,
@@ -182,6 +207,8 @@ RULES:
   business data.
 - If a required value is absent, return {{"data":[]}} rather than guessing. The
   test must be corrected by its author; a guessed value invalidates the test.
+- Never map a value to a different field just because it is nearby in the DOM.
+- Never associate a value with a field by position in an old table.
 - The step text and its expected result define intent. A click such as Login is
   only a click; it must not be treated as proof that login or navigation worked.
 
@@ -324,6 +351,11 @@ Planner memory rules:
   do not click it again.
 - Only generate actions for the current step.
 - Never repeat actions from previous steps.
+- STRICT SCOPE: never add an action for a field, checkbox, dropdown, or
+  button that the current STEP text does not name or clearly imply. If the
+  step says "Enter the email", do not also fill password, tick a checkbox,
+  or select a dropdown in the same response — even if you can see them in
+  the DOM and they look unfilled. One step = actions for that step only.
 ================================================
 TYPE ACTION RULES
 ================================================
@@ -420,6 +452,17 @@ Rules:
 ================================================
 DROPDOWN HANDLING RULES
 ================================================
+Reading or inspecting dropdown options does not mean that an option was
+selected. If the step requires a value, return exactly one explicit action:
+
+{{"type":"select","selector":"dropdown trigger selector","value":"exact option text"}}
+
+Never return `type` for a dropdown value. Never replace `select` with a
+`click` action carrying a value. The executor opens the trigger, reads the
+visible options, compares their text exactly, clicks the matching option, and
+verifies the trigger value. Do not add Search, Employee Name, Username,
+Password, Save, or any other unrelated action.
+
 If STEP is about dropdown:
 
 - NEVER click checkbox
@@ -436,17 +479,18 @@ Select Tunisia country
 Do this sequence:
 
 1. Find dropdown trigger:
-
-- button
-- role=combobox
-- role=listbox
-- aria-haspopup
-- aria-haspopup="listbox"
-- aria-haspopup="dialog"
-- aria-haspopup="menu"
-- aria-expanded
-- input dropdown trigger
-- any visible custom dropdown trigger
+   - VERY IMPORTANT: Use the `fieldContext` property to map the requested field to the correct dropdown trigger! (e.g., if step asks for "User Role", look for a trigger with fieldContext="User Role").
+   - button
+   - role=combobox
+   - role=listbox
+   - aria-haspopup
+   - aria-haspopup="listbox"
+   - aria-haspopup="dialog"
+   - aria-haspopup="menu"
+   - aria-expanded
+   - input dropdown trigger
+   - elements with classes containing "select", "dropdown", "oxd-select-text", "oxd-select-wrapper"
+   - any visible custom dropdown trigger
 
 
 2. Click dropdown trigger.
@@ -458,16 +502,14 @@ Do this sequence:
 3. Wait for the popup/listbox/options to be visible.
    If the DOM changes after opening, use the updated DOM.
 
-4. If a search input exists inside the opened dropdown:
+4. Click directly on the option whose visible text matches the requested value.
+   The dropdown is never considered done until an option has actually been
+   clicked — opening/expanding the trigger alone is NOT a completed
+   selection and must never be the whole action. If no specific value is
+   given by TEST DATA or the STEP, still select the first available,
+   visible, enabled option so the field ends up with an actual value.
 
-- focus it
-- clear it
-- type the requested value
-
-
-5. Find the option whose visible text exactly matches the requested value.
-
-6. If it is not immediately visible:
+5. If the option is not immediately visible:
 
 - scroll the dropdown container, not the page
 - continue until found or end reached
@@ -476,7 +518,7 @@ Do this sequence:
 
 8. If the dropdown refuses to open:
 
-- type the requested value into the trigger if it is an input/combobox
+- do not type into it
 - do not choose an arbitrary option
 
 If an element contains:
@@ -492,7 +534,7 @@ For options:
 
 ONLY click if:
 
-- role="option"
+- role="option" OR class contains "option", "oxd-select-option", "dropdown-item"
 - text matches
 - visible=true
 
@@ -510,9 +552,12 @@ __index:N
 
 for dropdown options.
 
-If the dropdown does not open after clicking the trigger,
-type the requested value into the dropdown input or combobox
-instead of choosing an arbitrary option.
+If the dropdown does not open after clicking the trigger, do NOT type the requested value into the dropdown input or combobox. Wait or assume it's broken.
+If the requested value from test data is missing, choose one other visible,
+enabled, non-placeholder option only as an explicit fallback. The fallback
+must be logged with requestedValue, fallbackValue, and selector; never present
+it as if it were the requested value. If no such option exists, fail the step.
+Do not click a random button from the page.
 Do not click a random button from the page.
 Use the trigger related to the dropdown value when available.
 Support React, Vue, Angular, Svelte, Next.js, GitHub Primer, Material UI,
@@ -638,10 +683,28 @@ ACTION CONSISTENCY
 - Minimum required actions.
 - All selectors must exist.
 - Do not repeat actions from previous steps.
-- If the current step is a dropdown selection, return only the
-  dropdown trigger click and the final option click/value handling.
+- If the current step is a dropdown selection, return only that step's
+  dropdown flow. Do not add the next step.
 - Do not re-emit completed email/password/checkbox actions when the
   current step is about another field or dropdown.
+
+================================================
+CURRENT STEP IS THE ONLY STEP
+================================================
+
+You act ONLY on the CURRENT STEP below. VALIDATION ERRORS and SNACKBAR are
+evidence about what already happened on screen — they are never an
+instruction to perform a future step, and they never change WHICH step you
+are executing.
+
+If VALIDATION ERRORS is non-empty and it concerns the field the CURRENT
+STEP is about, treat the field as already invalid: do not click a submit
+button in this response, and do not repeat an action already reflected in
+EXECUTION MEMORY — the caller resolves this validation error itself.
+
+If SNACKBAR reports an error, do not attempt to interact with the page as
+if the previous action succeeded; return no action ({{"data": []}}) if the
+CURRENT STEP has nothing left to do here.
 
 ---
 
@@ -656,6 +719,26 @@ TEST DATA:
 EXECUTION MEMORY:
 
 {memory_text}
+
+VALIDATION ERRORS (currently visible on screen):
+
+{validation_errors_text}
+
+SNACKBAR / TOAST (currently visible on screen):
+
+{snackbar_text}
+
+DOM CHANGES (since the previous step):
+
+{dom_changes_text}
+
+PREVIOUS DOM:
+
+{previous_dom_text}
+
+CURRENT URL:
+
+{current_url_text}
 
 DOM:
 

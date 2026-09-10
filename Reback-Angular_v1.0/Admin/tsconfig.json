@@ -3,7 +3,7 @@
   "compilerOptions": {
     "outDir": "./dist/out-tsc",
      "types": ["jasmine"],
-
+    "skipLibCheck": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
 

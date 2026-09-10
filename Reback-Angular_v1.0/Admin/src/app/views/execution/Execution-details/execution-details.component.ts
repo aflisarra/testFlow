@@ -427,9 +427,45 @@ getStepStatusIcon(status: string): string {
     URL.revokeObjectURL(url);
   }*/
 
-  copyAllLogs(): void {
+  copyAllLabel = 'Copy All';
+
+  async copyAllLogs(): Promise<void> {
     const text = this.logs.map((l) => `[${l.timestamp}] [${l.level}] ${l.message}`).join('\n');
-    navigator.clipboard?.writeText(text);
+    if (!text) {
+      this.copyAllLabel = 'No logs';
+      window.setTimeout(() => (this.copyAllLabel = 'Copy All'), 1800);
+      return;
+    }
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        this.copyWithLegacyFallback(text);
+      }
+      this.copyAllLabel = 'Copied';
+    } catch {
+      try {
+        this.copyWithLegacyFallback(text);
+        this.copyAllLabel = 'Copied';
+      } catch {
+        this.copyAllLabel = 'Copy failed';
+      }
+    }
+    window.setTimeout(() => (this.copyAllLabel = 'Copy All'), 1800);
+  }
+
+  private copyWithLegacyFallback(text: string): void {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand('copy');
+    textarea.remove();
+    if (!copied) throw new Error('Clipboard copy was rejected');
   }
 
   trackByStep(_: number, step: ExecutionDetailStep): number {

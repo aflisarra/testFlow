@@ -31,6 +31,9 @@ router.post('/plans/:testPlanId/cases', (req, res) => {
   return controllerTestCase.create(req, res);
 });
 router.get('/plans/:testPlanId/cases', controllerTestCase.getByPlan);
+router.post('/cases/validate-dependencies', controllerTestCase.validateDependencies);
+router.get('/cases/:id/dependencies', controllerTestCase.getDependencies);
+router.put('/cases/:id/dependencies', controllerTestCase.updateDependencies);
 router.put('/cases/:id', controllerTestCase.update);
 router.delete('/cases/:id', controllerTestCase.delete);
 

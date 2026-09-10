@@ -2,6 +2,7 @@
 const { createDriver } = require('./driver.factory')
 const { runStructuredUiStep } = require('./ui.executor')
 const { addLog } = require('../../utils/logger')
+const { captureStepScreenshot } = require('../../utils/screenshot')
 
 /*const {
   createExecutionController,
@@ -14,6 +15,10 @@ const { addLog } = require('../../utils/logger')
 // imported, which is what triggered the "not defined" errors.
 const TestExecution = require('../../models/TestExecution.model')
 const TestCase = require('../../models/testcase.model')
+
+// Keep one live browser session per suite so dependent tests share the
+// authenticated cookies created by the prerequisite test.
+const suiteDrivers = new Map()
 
 function normalizeText(value) {
   return String(value || '')
@@ -159,6 +164,19 @@ function getStepDefinitions(testCase) {
 }
 
 function compareExpectedResult(actual, expected, stepResults = []) {
+  // Treat generic/placeholder expected strings as "no assertion defined"
+  // to avoid false failed_assertion at the test-case level.
+  if (isGenericActionExpected(expected)) {
+    // Still fail if any step had a UI error.
+    const hasStepFailure = stepResults.some(s =>
+      s.status === 'failed_assertion' || s.status === 'failed_execution'
+    )
+    if (hasStepFailure) {
+      return { status: 'failed_assertion', matched: false, reason: 'One or more steps failed' }
+    }
+    return { status: 'passed', matched: true, reason: 'No explicit test-level assertion defined' }
+  }
+
   const actualText = normalizeText([
     actual?.url,
     actual?.title,
@@ -191,6 +209,37 @@ function compareExpectedResult(actual, expected, stepResults = []) {
   }
 }
 
+// ─── Helpers: detect action-step type and generic placeholder assertions ─────
+
+/**
+ * Returns true when `stepText` is a pure action step (click/submit/toggle…)
+ * that does not need a semantic text assertion — its success is determined by
+ * the Selenium execution outcome and by navigation, not by text comparison.
+ */
+function isActionStep(stepText) {
+  return /^\s*(click|submit|press|tap|toggle|check|uncheck|select|open|close|dismiss|confirm|cancel|save|next|back|go|search|reset|verify|validate|assert)\b/i.test(stepText)
+}
+
+/**
+ * Returns true when `expected` is a generic/auto-generated placeholder string
+ * that should NOT be used as a real assertion.  Examples:
+ *   "The action is triggered"   (from _step_for fallback)
+ *   "The Login action is triggered"
+ *   "The action is submitted"
+ *   "The action is performed"
+ *   "Click action is submitted"
+ */
+function isGenericActionExpected(expected) {
+  if (!expected) return true
+  const e = normalizeText(expected)
+  return (
+    /^the .+ action is (triggered|submitted|performed|executed|completed|done|initiated|clicked|activated|selected|fired)$/.test(e) ||
+    /^the action is (triggered|submitted|performed|executed|completed|done|initiated|clicked|activated|selected|fired)$/.test(e) ||
+    /^(click|submit|press|toggle|select|search|reset|save|confirm|cancel|dismiss) action is (triggered|submitted|performed|executed|completed|done|initiated|clicked)$/.test(e) ||
+    /^action (is|was) (triggered|submitted|performed|executed|completed)$/.test(e)
+  )
+}
+
 // ─── FIX 1 : compareStepExpectedResult ───────────────────────────────────────
 // Avant : comparaison fuzzy sur url+title+text seulement → rate les erreurs UI
 // Après : détecte l'intention sémantique de l'expected (erreur vs succès vs URL)
@@ -198,7 +247,28 @@ function compareExpectedResult(actual, expected, stepResults = []) {
 // ─────────────────────────────────────────────────────────────────────────────
 function compareStepExpectedResult(actual, expected, stepText = '') {
 
-  
+  // ── GUARD: Generic / placeholder expected string means NO real assertion ──
+  // The test-case generator sometimes produces "The X action is triggered" as a
+  // fallback label.  This MUST NOT be used as a fuzzy-text assertion against the
+  // actual page state — it will never match and will always produce a false
+  // failed_assertion.  Treat it identically to "no expected result provided".
+  if (isGenericActionExpected(expected)) {
+    // For action steps: if there is no execution error, the step passed.
+    // Navigation to a different URL is a strong positive success signal.
+    if (actual?.errorMessage) {
+      return {
+        status: 'failed_assertion',
+        matched: false,
+        reason: `UI error detected: "${actual.errorMessage}"`,
+      }
+    }
+    return {
+      status: 'passed',
+      matched: true,
+      reason: 'No explicit assertion defined — action executed successfully',
+    }
+  }
+
 const inputStepPatterns =
   /enter|fill|provide|type|insert|set|select|choose/i
 
@@ -221,12 +291,41 @@ if (inputStepPatterns.test(expected || '')) {
     }
   }
 
+  const exp = normalizeText(expected)
 
-  if (!expected || normalizeText(expected) === '') {
+  if (!expected || exp === '') {
     return { status: 'passed', matched: true, reason: 'No expected result defined' }
   }
 
-  const exp = normalizeText(expected)
+  const currentUrl = String(actual?.url || '')
+  const staysOnLoginPage = /\/auth\/login|login/i.test(currentUrl) || /login/i.test(stepText || '')
+  const invalidLoginExpectation = /invalid username|invalid user|invalid credentials|not submit|not submitted|not navigate.*dashboard|stay.*login|remain.*login|reject.*login|login failed/i.test(exp)
+  if (invalidLoginExpectation && staysOnLoginPage) {
+    return {
+      status: 'passed',
+      matched: true,
+      reason: actual?.errorMessage
+        ? `Invalid login was rejected while staying on the login page: "${actual.errorMessage}"`
+        : `Invalid login was rejected (stayed on login page as expected).`,
+    }
+  }
+
+  const errorKeywords = [
+    'error', 'invalid', 'failed', 'incorrect',
+    'unauthorized', 'wrong', 'erreur', 'échec'
+  ]
+  const expectsError = errorKeywords.some(k => exp.includes(k))
+
+  // Never let fuzzy matching turn a real UI error into a successful step.
+  // Negative login data is only successful when the expected result explicitly
+  // asks for an authentication error.
+  if (actual?.errorMessage && !expectsError) {
+    return {
+      status: 'failed_assertion',
+      matched: false,
+      reason: `UI error detected: "${actual.errorMessage}"`,
+    }
+  }
 
   const actualText = normalizeText([
     actual?.url,
@@ -239,13 +338,6 @@ if (inputStepPatterns.test(expected || '')) {
   // ─────────────────────────────────────
   // ✅ 1. Détection erreur attendue
   // ─────────────────────────────────────
-  const errorKeywords = [
-    'error', 'invalid', 'failed', 'incorrect',
-    'unauthorized', 'wrong', 'erreur', 'échec'
-  ]
-
-  const expectsError = errorKeywords.some(k => exp.includes(k))
-
   if (expectsError) {
 
     if (actual?.errorMessage) {
@@ -303,6 +395,25 @@ if (inputStepPatterns.test(expected || '')) {
         status: 'failed_assertion',
         matched: false,
         reason: `Got error instead: "${actual.errorMessage}"`
+      }
+    }
+
+    // A dashboard expectation is a navigation assertion, not a text-only
+    // fuzzy match. The login page may contain words such as "dashboard" in
+    // hidden labels or instructions, so require the actual URL to leave the
+    // authentication route and contain a dashboard/home destination.
+    const expectsDashboard = /\b(dashboard|admin area|home page)\b/.test(exp)
+    if (expectsDashboard) {
+      const actualUrl = String(actual?.url || '').toLowerCase()
+      const reachedDashboard =
+        !actualUrl.includes('/auth/login') &&
+        /dashboard|\/web\/index\.php\/pim|\/home(?:[/?#]|$)/.test(actualUrl)
+      if (!reachedDashboard) {
+        return {
+          status: 'failed_assertion',
+          matched: false,
+          reason: `Expected dashboard navigation but current URL is ${actual?.url || 'unknown'}`,
+        }
       }
     }
 
@@ -413,6 +524,38 @@ async function buildActualResultForStep(driver, stepText, stepIndex, stepRunResu
       }
     }
 
+    // ── FIX: capture des messages de validation PAR CHAMP (texte rouge
+    // sous un input précis, ex: "Your password must contain minimum 1
+    // number", "Passwords do not match") — jusqu'ici seuls les bandeaux
+    // globaux de page (role="alert", toast...) étaient captés, donc ces
+    // messages n'atteignaient jamais l'analyse IA de l'échec.
+    const fieldErrorSelectors = [
+      '.oxd-input-field-error-message',
+      '[class*="input-field-error"]',
+      '[class*="field-error-message"]',
+      '.invalid-feedback',
+      '.help-block--error',
+      '[class*="error-message"]',
+      '[class*="validation-message"]',
+    ]
+    const isVisible = (el) => {
+      const style = window.getComputedStyle(el)
+      const rect = el.getBoundingClientRect()
+      return Boolean(
+        style && style.display !== 'none' && style.visibility !== 'hidden' &&
+        style.opacity !== '0' && rect.width > 0 && rect.height > 0
+      )
+    }
+    const fieldValidationErrors = []
+    for (const sel of fieldErrorSelectors) {
+      document.querySelectorAll(sel).forEach((el) => {
+        const msg = (el.textContent || '').trim()
+        if (msg && isVisible(el) && !fieldValidationErrors.includes(msg)) {
+          fieldValidationErrors.push(msg)
+        }
+      })
+    }
+
     return {
       url: window.location.href,
       title: document.title,
@@ -420,6 +563,7 @@ async function buildActualResultForStep(driver, stepText, stepIndex, stepRunResu
       values,
       errorMessage,
       successMessage,
+      fieldValidationErrors,
     }
   })
 
@@ -436,6 +580,27 @@ async function buildActualResultForStep(driver, stepText, stepIndex, stepRunResu
     pageState.successMessage = null
   }
 
+  // Same "was this already there before the step ran" filter as above,
+  // applied per message so a validation error already visible on page
+  // load doesn't get misattributed to this step.
+  const baselineFieldErrors = new Set(
+    Array.isArray(ctx.baselineFieldValidationErrors) ? ctx.baselineFieldValidationErrors : []
+  )
+  const fieldValidationErrors = Array.isArray(pageState.fieldValidationErrors)
+    ? pageState.fieldValidationErrors.filter((msg) => !baselineFieldErrors.has(msg))
+    : []
+
+  // Field-level validation messages ("Passwords do not match", "Your
+  // password must contain minimum 1 number"...) are exactly the kind of
+  // evidence the failure analysis needs but a page-level banner selector
+  // will never see. Fold them into errorMessage whenever there isn't
+  // already a page-level banner, so every consumer that only ever checks
+  // `actual.errorMessage` (assertion checks, AI failure analysis) reliably
+  // gets them too — not just the dedicated fieldValidationErrors array.
+  if (!pageState.errorMessage && fieldValidationErrors.length) {
+    pageState.errorMessage = fieldValidationErrors.join(' | ')
+  }
+
   const valuesText = Array.isArray(pageState.values)
     ? pageState.values
         .map((item) => {
@@ -447,16 +612,6 @@ async function buildActualResultForStep(driver, stepText, stepIndex, stepRunResu
         .join(' | ')
     : ''
 
-  if (stepIndex === 1) {
-    return {
-      url: pageState.url,
-      title: pageState.title,
-      text: pageState.text,
-      errorMessage: pageState.errorMessage,
-      successMessage: pageState.successMessage,
-    }
-  }
-
   if (/enter|fill|provide|type|insert|set/i.test(stepLower)) {
     return {
       url: pageState.url,
@@ -464,6 +619,7 @@ async function buildActualResultForStep(driver, stepText, stepIndex, stepRunResu
       text: valuesText || pageState.text,
       errorMessage: pageState.errorMessage,
       successMessage: pageState.successMessage,
+      fieldValidationErrors,
     }
   }
 
@@ -474,6 +630,7 @@ async function buildActualResultForStep(driver, stepText, stepIndex, stepRunResu
       text: pageState.text,
       errorMessage: pageState.errorMessage,
       successMessage: pageState.successMessage,
+      fieldValidationErrors,
     }
   }
 
@@ -483,6 +640,7 @@ async function buildActualResultForStep(driver, stepText, stepIndex, stepRunResu
     text: pageState.text,
     errorMessage: pageState.errorMessage,
     successMessage: pageState.successMessage,
+    fieldValidationErrors,
   }
 }
 
@@ -518,7 +676,35 @@ async function waitForPageReactionWithAbort(driver, executionId, timeoutMs = 500
   }
 }
 
-async function runTestCase(testCase) {
+// Give the browser a short settling period after the last action so SPA
+// redirects and delayed authentication responses are reflected in finalUrl.
+async function waitForStableFinalUrl(driver, waitMs = 6000) {
+  let previousUrl = ''
+  let stableReads = 0
+  const deadline = Date.now() + waitMs
+
+  while (Date.now() < deadline) {
+    const currentUrl = await driver.getCurrentUrl().catch(() => '')
+    console.log(`[SELENIUM] Current URL detected: ${currentUrl || '(empty)'}`)
+    if (currentUrl && currentUrl === previousUrl) {
+      stableReads += 1
+      if (stableReads >= 3) {
+        console.log(`[SELENIUM] Final URL stabilized: ${currentUrl}`)
+        return currentUrl
+      }
+    } else {
+      previousUrl = currentUrl
+      stableReads = 0
+    }
+    await driver.sleep(250).catch(() => {})
+  }
+
+  const finalUrl = await driver.getCurrentUrl().catch(() => previousUrl)
+  console.log(`[SELENIUM] Final URL after timeout: ${finalUrl || '(empty)'}`)
+  return finalUrl
+}
+
+async function runTestCase(testCase, options = {}) {
 
  const {
     createExecutionController,
@@ -528,12 +714,52 @@ async function runTestCase(testCase) {
     registerDriver,  // ← ajoute
   } = require('./cancellation.manager')
 
- const executionId = testCase.executionId || `EX-${Date.now()}`
-  createExecutionController(executionId)
+  const executionId = testCase.executionId || `EX-${Date.now()}`
+   createExecutionController(executionId)
 
-  const driver = await createDriver()
+  const logs = []
+  const stepResults = []
+  const suiteKey = String(testCase?.testSuiteId || testCase?.suiteId || '').trim()
+  const persistentSuiteSession = Boolean(suiteKey)
+  let driver = options.driver
+  let reusedSuiteSession = false
 
-  registerDriver(executionId, driver)
+  if (!driver && persistentSuiteSession) {
+    driver = suiteDrivers.get(suiteKey)
+    reusedSuiteSession = Boolean(driver)
+
+    // A user may close the Chrome window manually. Do not keep a dead
+    // WebDriver in the suite session map and send every action to it.
+    if (driver) {
+      try {
+        await driver.getWindowHandle()
+      } catch (sessionError) {
+        console.warn(
+          `[SELENIUM] Stored browser session is closed for suite ${suiteKey}; creating a new one`
+        )
+        suiteDrivers.delete(suiteKey)
+        driver = undefined
+        reusedSuiteSession = false
+      }
+    }
+  }
+
+  if (!driver) {
+    driver = await createDriver({
+      profileKey: suiteKey || 'default',
+    })
+    if (persistentSuiteSession) suiteDrivers.set(suiteKey, driver)
+  }
+
+  const ownsDriver = !options.driver && !persistentSuiteSession
+  console.log(
+    `[SELENIUM] ${reusedSuiteSession ? 'Reusing' : 'Creating'} browser session for suite: ${suiteKey || 'standalone'}`
+  )
+  console.log(
+    `[SELENIUM] Browser URL before test: ${await driver.getCurrentUrl().catch(() => '(empty)')}`
+  )
+
+   registerDriver(executionId, driver)
 
   registerAbortCallback(executionId, async () => {
     console.log(`🛑 Abort callback fired for ${executionId}`)
@@ -543,23 +769,24 @@ async function runTestCase(testCase) {
       addLog(logs, 0, 'WARN', 'Driver already closed during abort', { message: quitErr.message })
     }
   })
-  const logs = []
-  const stepResults = []
-
   addLog(logs, 0, 'INFO', 'Execution started')
 
   const baseUrl =
-    testCase?.url ||
     testCase?.urlCible ||
+    testCase?.url ||
     testCase?.targetUrl ||
     testCase?.baseUrl ||
     ''
+
+  console.log(`[SELENIUM] Starting test on URL: ${baseUrl || '(empty)'}`)
 
   const ctx = {
     baseUrl,
     testCase: {
       ...testCase,
-      test_data: Array.isArray(testCase?.test_data) ? testCase.test_data : [],
+      // Keep the payload shape sent by the frontend. The executor accepts
+      // arrays, multiline strings, and keyed objects and normalizes them.
+      test_data: testCase?.test_data ?? testCase?.testData ?? [],
     },
     actionOverrides: normalizeActionOverrides(testCase?.actionOverrides || testCase?.aiActionOverrides),
     logs,
@@ -567,10 +794,12 @@ async function runTestCase(testCase) {
 
   if (!ctx.baseUrl) {
     addLog(logs, 0, 'ERROR', 'Missing target URL.')
-    try {
-      await driver.quit()
-    } catch (quitErr) {
-      addLog(logs, 0, 'WARN', 'Driver already closed', { message: quitErr.message })
+    if (ownsDriver) {
+      try {
+        await driver.quit()
+      } catch (quitErr) {
+        addLog(logs, 0, 'WARN', 'Driver already closed', { message: quitErr.message })
+      }
     }
     cleanupExecution(executionId)
     return {
@@ -609,6 +838,7 @@ async function runTestCase(testCase) {
           status: 'aborted',
           logs,
           stepResults,
+          finalUrl: await driver.getCurrentUrl().catch(() => ''),
         }
       }
 
@@ -621,6 +851,23 @@ async function runTestCase(testCase) {
       try {
         const result = await runStructuredUiStep(driver, stepText, ctx, i + 1)
 
+        const sessionError = String(result?.error || '')
+        if (/no such window|web view not found|invalid session id|target window already closed/i.test(sessionError)) {
+          if (suiteKey && suiteDrivers.get(suiteKey) === driver) {
+            suiteDrivers.delete(suiteKey)
+          }
+          addLog(logs, i + 1, 'ERROR', 'Selenium browser session closed', {
+            error: sessionError,
+          })
+          console.error(`[SELENIUM] Browser session closed for suite ${suiteKey || 'standalone'}; it will be recreated on the next run`)
+          return {
+            status: 'failed_execution',
+            logs,
+            stepResults,
+            finalUrl: '',
+          }
+        }
+
         // ─── CHECK ABORT après chaque step ────────────────────────────────
         if (isExecutionCancelled(executionId)) {
           addLog(logs, i + 1, 'WARN', `Aborted after step ${i + 1}`)
@@ -630,7 +877,12 @@ async function runTestCase(testCase) {
             status: 'aborted',
             error: 'Execution aborted by user',
           })
-          return { status: 'aborted', logs, stepResults }
+          return {
+            status: 'aborted',
+            logs,
+            stepResults,
+            finalUrl: await driver.getCurrentUrl().catch(() => ''),
+          }
         }
 
         const isInteractiveStep = /click|submit|login|sign.?in/i.test(stepText)
@@ -657,6 +909,7 @@ async function runTestCase(testCase) {
           const baseline = await buildActualResultForStep(driver, stepText, i + 1, result, {})
           ctx.baselineErrorMessage = baseline.errorMessage
           ctx.baselineSuccessMessage = baseline.successMessage
+          ctx.baselineFieldValidationErrors = baseline.fieldValidationErrors || []
           ctx.baselineCaptured = true
         }
 
@@ -677,27 +930,89 @@ if (actualResultObject.successMessage) {
         const actualResult = JSON.stringify(actualResultObject || {})
         let comparison
 
-const isInputStep =
-  /enter|fill|provide|type|insert|set|select|choose/i.test(stepText.toLowerCase())
+        // ── Classify step type ──────────────────────────────────────────────
+        const isInputStep =
+          /enter|fill|provide|type|insert|set/i.test(stepText.toLowerCase()) &&
+          !/select|choose|pick|dropdown|calendar/i.test(stepText.toLowerCase())
+        const isClickStep = isActionStep(stepText)
+        const hasGenericExpected = isGenericActionExpected(stepExpectedResult)
+        const hasExplicitExpected = Boolean(stepExpectedResult) && !hasGenericExpected
 
-if (isInputStep) {
-  comparison = {
-    status: 'passed',
-    matched: true,
-    reason: 'Input step executed'
-  }
-} else {
-  comparison = compareStepExpectedResult(
-    actualResultObject || {},
-    stepExpectedResult,
-    stepText
-  )
-}
-       
-        
+        // ── Detect whether navigation occurred ─────────────────────────────
+        const currentUrlAfterStep = String(actualResultObject?.url || '')
+        const navigationDetected =
+          Boolean(currentUrlAfterStep) &&
+          !currentUrlAfterStep.includes('about:blank')
+
+        // ── Debug logs ─────────────────────────────────────────────────────
+        console.log(`STEP TYPE = ${isInputStep ? 'INPUT' : isClickStep ? 'ACTION' : 'GENERIC'}`)
+        console.log(`ACTION RESULT = ${result.status || 'unknown'}`)
+        console.log(`EXECUTION ERROR = ${result.error || 'null'}`)
+        console.log(`NAVIGATION DETECTED = ${navigationDetected}`)
+        console.log(`FINAL URL = ${currentUrlAfterStep || '(none)'}`)
+        console.log(`EXPLICIT ASSERTION = ${hasExplicitExpected ? stepExpectedResult : 'NONE'}`)
+
+        // ── Determine comparison ───────────────────────────────────────────
+        if (isInputStep) {
+          const verifiedInput = result?.verifiedFieldValue
+          const hasVerifiedValue = Boolean(String(verifiedInput?.value || '').trim())
+          if (result?.status !== 'passed' || actualResultObject?.errorMessage || !hasVerifiedValue) {
+            comparison = {
+              status: 'failed_assertion',
+              matched: false,
+              reason: actualResultObject?.errorMessage
+                ? `Input validation error: "${actualResultObject.errorMessage}"`
+                : 'Input step did not expose a verified value in the DOM after typing.',
+            }
+          } else {
+            comparison = {
+              status: 'passed',
+              matched: true,
+              reason: `Input value verified in DOM: ${verifiedInput.value}`,
+            }
+          }
+        } else if (isClickStep && !hasExplicitExpected) {
+          // ACTION step with no real assertion:
+          // Success is determined purely by execution outcome + absence of UI errors.
+          // Navigation to a new URL is treated as a strong success signal.
+          if (actualResultObject?.errorMessage) {
+            comparison = {
+              status: 'failed_assertion',
+              matched: false,
+              reason: `UI error detected: "${actualResultObject.errorMessage}"`,
+            }
+          } else {
+            comparison = {
+              status: 'passed',
+              matched: true,
+              reason: navigationDetected
+                ? `Action executed successfully — navigated to ${currentUrlAfterStep}`
+                : 'Action executed successfully — no explicit assertion defined',
+            }
+          }
+        } else {
+          // Generic or explicitly asserted step:
+          comparison = compareStepExpectedResult(
+            actualResultObject || {},
+            stepExpectedResult,
+            stepText
+          )
+        }
+
+        console.log(`ASSERTION RESULT = ${hasExplicitExpected ? comparison.status : 'NOT_APPLICABLE'}`)
+        console.log(`FAILURE DETECTION RESULT = ${actualResultObject?.errorMessage ? 'UI_ERROR' : result.error ? 'EXECUTION_ERROR' : 'NO_FAILURE'}`)
+        console.log(`FINAL STEP STATUS = ${result.status !== 'passed' ? result.status : comparison.status}`)
+
         const finalStepStatus = result.status !== 'passed' ? result.status : comparison.status
 
         if (finalStepStatus !== 'passed') encounteredFailure = true
+
+        // Let the executor know whether every preceding step really passed,
+        // so a final submit (Save/Submit) is not fired on top of a broken
+        // sequence — e.g. saving a form whose fields were never filled
+        // because an earlier step silently failed.
+        ctx.failedStepCount = (ctx.failedStepCount || 0) + (finalStepStatus === 'passed' ? 0 : 1)
+        ctx.lastFailedStep = finalStepStatus === 'passed' ? ctx.lastFailedStep : stepText
 
         addLog(logs, i + 1, finalStepStatus === 'passed' ? 'SUCCESS' : 'ERROR',
   `Step ${i + 1} ${finalStepStatus}: ${comparison.reason}`,
@@ -759,6 +1074,70 @@ if (isInputStep) {
       expectedResult,
       stepResults
     )
+    const finalUrl = await waitForStableFinalUrl(driver)
+    console.log(`[SELENIUM] URL returned to controller: ${finalUrl || '(empty)'}`)
+    addLog(logs, steps.length + 1, 'INFO', 'Final URL detected', {
+      url: finalUrl || '',
+    })
+
+    // Always preserve the terminal page evidence. This is used to decide
+    // whether a real field validation error remains after all actions, and
+    // gives the failure analysis a final screenshot when the DOM is ambiguous.
+    const finalDom = await driver.executeScript(() => {
+      const visible = (node) => {
+        if (!node) return false
+        const style = window.getComputedStyle(node)
+        const rect = node.getBoundingClientRect()
+        return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' && rect.width > 0 && rect.height > 0
+      }
+      const validationErrors = []
+      const selectors = [
+        'mat-error',
+        '.oxd-input-field-error-message',
+        '[class*="input-field-error"]',
+        '[class*="field-error-message"]',
+        '[class*="fieldValidationErrors"]',
+        '.invalid-feedback',
+        '[class*="validation-message"]',
+        '[role="alert"]',
+      ]
+      for (const selector of selectors) {
+        document.querySelectorAll(selector).forEach((node) => {
+          const text = (node.textContent || '').trim()
+          if (text && visible(node) && !validationErrors.includes(text)) validationErrors.push(text)
+        })
+      }
+      document.querySelectorAll('[aria-describedby]').forEach((field) => {
+        String(field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean).forEach((id) => {
+          const node = document.getElementById(id)
+          const text = (node?.textContent || '').trim()
+          if (text && visible(node) && !validationErrors.includes(text)) validationErrors.push(text)
+        })
+      })
+      return {
+        url: window.location.href,
+        title: document.title,
+        text: document.body.innerText.slice(0, 4000),
+        validationErrors,
+      }
+    }).catch(() => ({ url: finalUrl || '', validationErrors: [] }))
+    const finalScreenshot = await captureStepScreenshot(
+      driver,
+      steps.length + 1,
+      finalDom.validationErrors?.length ? 'failed-final' : 'final'
+    ).catch(() => null)
+    addLog(logs, steps.length + 1, 'INFO', 'Final DOM captured for failure analysis', {
+      finalDom,
+      finalScreenshot,
+      hasFieldValidationError: Boolean(finalDom.validationErrors?.length),
+    })
+
+    const terminalActual = stepResults.length
+      ? JSON.parse(stepResults[stepResults.length - 1].actualResult || '{}')
+      : {}
+    terminalActual.finalDom = finalDom
+    terminalActual.finalScreenshot = finalScreenshot
+    terminalActual.fieldValidationErrors = finalDom.validationErrors || []
 
     return {
       status: hasExecutionFailure
@@ -768,9 +1147,12 @@ if (isInputStep) {
           : 'passed',
       logs,
       stepResults,
-      actualResult: stepResults.length ? stepResults[stepResults.length - 1].actualResult : '',
+      finalUrl,
+      actualResult: JSON.stringify(terminalActual),
       expectedResult,
       comparison: finalComparison,
+      finalDom,
+      finalScreenshot,
     }
 
   } catch (err) {
@@ -782,7 +1164,7 @@ if (isInputStep) {
 
   } finally {
     cleanupExecution(executionId)
-    await driver.quit()
+    if (ownsDriver) await driver.quit()
   }
 }
 // Renvoie, pour chaque jour des N derniers jours, le nombre de passed/failed
@@ -850,4 +1232,6 @@ module.exports = {
   runTestCase,
   getExecutionTrend,
   getTypeBreakdown,
+  compareStepExpectedResult,
+  buildActualResultForStep,
 }

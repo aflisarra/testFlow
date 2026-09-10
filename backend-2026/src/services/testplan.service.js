@@ -1,5 +1,6 @@
 const TestPlan = require('../models/testplan.model')
 const TestCase = require('../models/testcase.model')
+const TestSuite = require('../models/testsuite')
 
 const FormData = require('form-data')
 const {
@@ -9,10 +10,24 @@ const {
   validatePriority,
 } = require('../utils/test-artifact-fields')
 
+const MIN_TEST_PLAN_COUNT = 10
+const MAX_TEST_PLAN_COUNT = 1000
+
 function getFastApiBaseUrl() {
   const raw = String(process.env.FASTAPI_BASE_URL || process.env.PYTHON_API_URL || '').trim()
   if (!raw) throw new Error('FASTAPI_BASE_URL is not set')
   return raw.replace(/\/+$/, '')
+}
+
+function httpError(statusCode, message) {
+  const err = new Error(message || 'Error')
+  err.statusCode = Number(statusCode) || 500
+  return err
+}
+
+function getFastApiHeaders() {
+  const secret = String(process.env.FASTAPI_SECRET || '').trim()
+  return secret ? { 'X-Internal-Token': secret } : {}
 }
 
 function getFastApiTimeoutMs(fallbackMs = 185_000) {
@@ -21,6 +36,30 @@ function getFastApiTimeoutMs(fallbackMs = 185_000) {
 
   const parsed = Number(raw)
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallbackMs
+}
+
+function validateRequestedPlanCount(value, source = 'test_plan_count') {
+  const raw = String(value ?? '').trim()
+  if (!raw) return null
+
+  const parsed = Number(raw)
+  if (!Number.isInteger(parsed) || parsed < MIN_TEST_PLAN_COUNT || parsed > MAX_TEST_PLAN_COUNT) {
+    throw httpError(400, `${source} must be an integer between 10 and 1000`)
+  }
+
+  return Math.floor(parsed)
+}
+
+function getPreviewPlanCount(requestedCount) {
+  const explicitCount = validateRequestedPlanCount(requestedCount)
+  if (explicitCount !== null) return explicitCount
+
+  const envCount = String(process.env.TEST_PLAN_PREVIEW_COUNT || '').trim()
+  return envCount ? validateRequestedPlanCount(envCount, 'TEST_PLAN_PREVIEW_COUNT') : null
+}
+
+function isTimeoutError(error) {
+  return error?.code === 'ECONNABORTED' || /timeout/i.test(String(error?.message || ''))
 }
 
 function normalizeTestPlanMetadata(data = {}, { includeDefaults = false } = {}) {
@@ -163,9 +202,17 @@ async function deleteTestPlan(planId) {
 const axios = require('axios')
 const { readSpecTextFromUpload } = require('../services/ollama.service')
 
-async function generateTestPlansPreview({ file, styleConfig, applicationUrl }) {
+async function generateTestPlansPreview({
+  file,
+  styleConfig,
+  applicationUrl,
+  testPlanCount,
+  testSuiteId,
+  regenerate,
+}) {
   try {
     let specText = ''
+    let promptStyleConfig = String(styleConfig || '')
 
     // ✅ 1. EXTRACTION
     if (file) {
@@ -188,15 +235,48 @@ async function generateTestPlansPreview({ file, styleConfig, applicationUrl }) {
 
     // ✅ 2. ENVOI TEXTE À FASTAPI
 
+    if (!file && testSuiteId) {
+      const suite = await TestSuite.findById(testSuiteId).select('specText styleConfig urlCible').lean()
+      specText = String(suite?.specText || '').trim()
+      if (!promptStyleConfig.trim()) promptStyleConfig = String(suite?.styleConfig || '')
+      if (!applicationUrl) applicationUrl = String(suite?.urlCible || '')
+    }
+
+    if (!specText) {
+      throw httpError(400, 'spec_text or file is required')
+    }
+
+    if (regenerate && testSuiteId) {
+      const existingPlans = await TestPlan.find({ testSuiteId }).select('id title').sort({ createdAt: 1 }).lean()
+      if (existingPlans.length) {
+        const existingTitles = existingPlans
+          .map((plan) => `- ${String(plan?.id || '').trim()} ${String(plan?.title || '').trim()}`.trim())
+          .filter(Boolean)
+          .join('\n')
+
+        promptStyleConfig = [
+          promptStyleConfig,
+          '',
+          'Regeneration request: create a fresh set of distinct test plans for the same specification.',
+          'Avoid repeating these existing test plan titles when the requirements allow it:',
+          existingTitles,
+        ].filter(Boolean).join('\n')
+      }
+    }
+
     console.log("PAYLOAD SENT:", {
       specText: specText.slice(0, 100)
     })
 
     const formData = new FormData()
+    const previewPlanCount = getPreviewPlanCount(testPlanCount)
 
     formData.append('spec_text', specText)   // ✅ NOM CORRECT
-    formData.append('style_config', styleConfig || '')
+    formData.append('style_config', promptStyleConfig || '')
     formData.append('url_cible', applicationUrl || '')
+    if (previewPlanCount !== null) {
+      formData.append('test_plan_count', String(previewPlanCount))
+    }
 
     const response = await axios.post(
       `${getFastApiBaseUrl()}/generate-plan`,
@@ -204,8 +284,9 @@ async function generateTestPlansPreview({ file, styleConfig, applicationUrl }) {
       {
         headers: {
           ...formData.getHeaders(), // ✅ IMPORTANT
+          ...getFastApiHeaders(),
         },
-        timeout: getFastApiTimeoutMs(),
+        timeout: getFastApiTimeoutMs(420_000),
       }
     )
 
@@ -226,11 +307,17 @@ async function generateTestPlansPreview({ file, styleConfig, applicationUrl }) {
   } catch (error) {
     console.error('🔥 ERROR:', error.response?.data || error.stack || error.message)
 
-    const err = new Error(
+    if (isTimeoutError(error)) {
+      throw httpError(
+        504,
+        'FastAPI request timed out while generating the test plan preview. Try a smaller spec or increase FASTAPI_TIMEOUT_MS.'
+      )
+    }
+
+    throw httpError(
+      error.response?.status || error.statusCode || 500,
       error.response?.data?.error || error.message || 'AI generation failed'
     )
-    err.statusCode = error.response?.status || 500
-    throw err
   }
 }
 

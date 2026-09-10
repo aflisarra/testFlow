@@ -42,6 +42,7 @@ export interface TestScenario {
   projectName: string
   suiteName: string
   planName: string
+  testPlanTitles?: string[]
   caseName: string
   executionId: string
   environment: string
@@ -77,6 +78,7 @@ export interface ExecutionCredentials {
 
 export interface LoadedExecutionTestCase {
   id: string
+  databaseId?: string
   title: string
   steps: string[]
   stepDetails?: TestCaseStepDetail[]
@@ -84,6 +86,8 @@ export interface LoadedExecutionTestCase {
   executionModel?: ExecutionModelDto | null
   test_data?: unknown
   credentials?: ExecutionCredentials
+  dependsOn?: (string | { id?: string; _id?: string; title?: string })[]
+  testPlanTitles?: string[]
 }
 
 export type RawExecutionLogData = Record<string, unknown>
@@ -179,14 +183,17 @@ export interface DOMElement {
   ariaLabel?: string
   classes?: string
   disabled?: boolean
+  fieldContext?: string
+  ariaInvalid?: string | boolean
+  required?: boolean
   form?: string
   href?: string
   id?: string
   index?: number
   name?: string
   placeholder?: string
-  /*rect?: DOMElementRect*/
   rect?: { x: number; y: number; width: number; height: number };
+  position?: { x: number; y: number; width: number; height: number };
   role?: string
   tag: string
   testId?: string
@@ -203,11 +210,9 @@ export interface EditableAiAction {
   type: string;
   selector: string;
   value: string;
-  position?: { x: number; y: number; width: number; height: number } | null;
   originalType: string;
   originalSelector: string;
   originalValue: string;
-  originalPosition?: { x: number; y: number; width: number; height: number } | null;
   isEdited: boolean;
 }
 

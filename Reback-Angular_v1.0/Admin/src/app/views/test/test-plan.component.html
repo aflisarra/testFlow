@@ -235,7 +235,9 @@
 
     @if (generatingPlans || testPlans.length) {
     <div #plansResult id="plansResult" class="testlab-card p-4 mt-5">
-      <div class="test-plan-toast-host" toastContainer></div>
+      <div class="test-plan-toast-zone" aria-live="polite">
+        <div class="test-plan-toast-host" toastContainer></div>
+      </div>
       @if (generatingPlans) {
       <div class="d-flex align-items-start justify-content-between gap-3 mb-4">
         <div>

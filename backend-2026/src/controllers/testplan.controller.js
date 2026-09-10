@@ -70,6 +70,12 @@ exports.delete = async (req, res) => {
 exports.generatePreview = async (req, res) => {
   try {
     const { styleConfig, applicationUrl } = req.body
+    const testPlanCount =
+      req.body?.testPlanCount ||
+      req.body?.test_plan_count ||
+      req.body?.target_count
+    const testSuiteId = String(req.body?.testSuiteId || req.body?.test_suite_id || '').trim()
+    const regenerate = String(req.body?.regenerate || '').toLowerCase() === 'true'
     const file = req.file
 
     const testPlans = await require('../services/testplan.service')
@@ -77,6 +83,9 @@ exports.generatePreview = async (req, res) => {
         file,
         styleConfig,
         applicationUrl,
+        testPlanCount,
+        testSuiteId,
+        regenerate,
       })
 
     return res.status(200).json({

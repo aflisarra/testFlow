@@ -972,20 +972,38 @@
     font-weight: 400;
 }
 
-.testlab-card:has(> .test-plan-toast-host) {
+.test-plan-toast-zone {
     position: relative;
+    min-block-size: 0;
+    margin-block: 0 1rem;
 }
 
 .test-plan-toast-host {
-    position: absolute !important;
-    inset-block-start: 1rem !important;
-    inset-inline: 1rem !important;
-    inline-size: auto !important;
+    position: relative !important;
+    inset: auto !important;
+    inline-size: min(620px, 100%) !important;
+    margin-inline: auto;
     z-index: 1080;
 }
 
-.test-plan-toast-host.toast-bottom-center {
-    inset-block-end: auto !important;
+:host ::ng-deep .test-plan-toast-host .toast-container {
+    position: static !important;
+    inset: auto !important;
+    inline-size: 100% !important;
+    max-inline-size: 100% !important;
+    transform: none !important;
+}
+
+:host ::ng-deep .test-plan-toast-host .toast-container.toast-bottom-center,
+:host ::ng-deep .test-plan-toast-host .toast-container.toast-top-center {
+    inset: auto !important;
+    margin-inline: 0 !important;
+}
+
+.test-plan-toast-host .ngx-toastr,
+.test-plan-toast-host .toast {
+    inline-size: 100% !important;
+    margin-inline: 0 !important;
 }
 
 @keyframes testlab-skeleton-shimmer {
@@ -2256,43 +2274,4 @@
     transform: none !important;
 }
 
-.testlab-input-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
 
-/*.testlab-input-wrapper .testlab-select-icon {
-  position: absolute;
-  inset-inline-start: 12px;
-  inset-block-start: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--testlab-icon-color, #6b7280);
-  font-size: 1.1rem;
-  pointer-events: none;
-  z-index: 10;
-}*/
-
-.testlab-select-icon {
-    position: absolute;
-    inset-inline-start: 1rem;
-    inset-block-start: 50%;
-    transform: translateY(-50%);
-    font-size: 1.1rem;
-    color: var(--pm-brand-primary);
-    pointer-events: none;
-    z-index: 10;
-}
-
-.testlab-input--with-icon {
-  padding-inline-start: 2.75rem; /* même espace que Test Name original */
-}
-
-.testlab-input-icon-check {
-  position: absolute;
-  inset-inline-end: 12px;
-  color: var(--testlab-success-color, #22c55e);
-}

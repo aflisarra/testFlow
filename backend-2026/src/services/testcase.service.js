@@ -12,6 +12,11 @@ const {
   validateSeverity,
   validateTestCaseType,
 } = require('../utils/test-artifact-fields')
+const {
+  getDependsOnRefs,
+  normalizeDependsOnForPersistence,
+  validateExecutionDependencies,
+} = require('./testcase-dependency.service')
 
 function pickFirst(data, keys) {
   for (const key of keys) {
@@ -39,6 +44,7 @@ async function resolvePlanId(planId) {
 
 function normalizeTestCaseMetadata(data = {}, { includeDefaults = false } = {}) {
   const payload = {}
+
 
   if (includeDefaults || hasOwn(data, 'objective')) {
     payload.objective = normalizeString(data.objective)
@@ -210,6 +216,16 @@ async function createTestCase(data) {
     test_data: normalizedTestData
   })
 
+  const dependsOnRefs = getDependsOnRefs(data)
+  if (dependsOnRefs) {
+    saved.dependsOn = await normalizeDependsOnForPersistence({
+      testSuiteId: resolvedTestSuiteId,
+      currentCase: saved,
+      dependsOn: dependsOnRefs,
+    })
+    await saved.save()
+  }
+
   console.log('[TestCase:create] saved document', {
     _id: String(saved?._id || ''),
     id: String(saved?.id || ''),
@@ -233,6 +249,7 @@ async function getByPlan(planId) {
   }
 
   const cases = await TestCase.find({ planId: resolvedPlan._id })
+  .populate('dependsOn', 'id title')
   .sort({ createdAt: 1 })
   .lean()
 
@@ -245,12 +262,16 @@ async function getByPlan(planId) {
   return cases.map(tc => ({
   ...tc,
 
-  // ✅ FIX CRITIQUE
-  test_data: Array.isArray(tc.test_data)
-    ? tc.test_data
-    : tc.test_data
-      ? [tc.test_data]
-      : []
+  // Pass the stored shape through untouched. A keyed map
+  // ({"Username": "Admin"}) must stay a keyed map — wrapping it in an
+  // array here used to hide the field names from the executor's
+  // normalization and force positional guessing.
+  test_data:
+    tc.test_data && typeof tc.test_data === 'object'
+      ? tc.test_data
+      : tc.test_data
+        ? [tc.test_data]
+        : []
 }))
 }
 
@@ -271,6 +292,21 @@ async function updateTestCase(testCaseId, data) {
 
   if (hasOwn(data, 'executionModel') || hasOwn(data, 'execution_model')) {
     update.executionModel = data.executionModel || data.execution_model || null
+  }
+
+  const dependsOnRefs = getDependsOnRefs(data)
+  if (dependsOnRefs) {
+    const current = await TestCase.findById(testCaseId)
+    if (!current) {
+      const error = new Error('TestCase not found')
+      error.statusCode = 404
+      throw error
+    }
+    update.dependsOn = await normalizeDependsOnForPersistence({
+      testSuiteId: current.testSuiteId,
+      currentCase: current,
+      dependsOn: dependsOnRefs,
+    })
   }
 
   if (hasOwn(data, 'test_data') || hasOwn(data, 'testData')) {
@@ -397,6 +433,7 @@ function extractValue(text) {
 async function getTestCasesForSelenium(testSuiteId) {
   const cases = await TestCase.find({ testSuiteId })
     .populate('planId', 'id title')
+    .populate('dependsOn', 'id title')
     .sort({ createdAt: 1 })
     .lean()
 
@@ -415,6 +452,7 @@ async function getTestCasesForSelenium(testSuiteId) {
     },
     objective: tc.objective || '',
     preconditions: tc.preconditions || [],
+    dependsOn: Array.isArray(tc.dependsOn) ? tc.dependsOn : [],
     test_data: normalizeAutomationTestData(tc.test_data || []),
     stepDetails: Array.isArray(tc.stepDetails) ? tc.stepDetails : [],
     priority: tc.priority || 'medium',
@@ -456,5 +494,6 @@ module.exports = {
   deleteTestCase,
   getTestCasesForSelenium,
   getTypeBreakdown,
+  validateExecutionDependencies,
   mapStepToSelenium,
 }

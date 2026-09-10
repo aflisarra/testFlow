@@ -1122,9 +1122,18 @@ get canGenerateTestPlan(): boolean {
     // ✅ Remplace uniquement ce plan → aucun doublon
     this.testPlans = this.testPlans.map((p, i) => (i === index ? updated : p))
 
+    try {
+      const saved = await firstValueFrom(this.testLabService.getTestPlans(this.currentTestSuiteId))
+      const savedPlans = Array.isArray(saved?.testPlans) ? saved.testPlans : []
+      if (savedPlans.length) this.testPlans = savedPlans
+    } catch {
+      // Keep the regenerated response already shown above if refresh fails.
+    }
+
     this.planStatuses[updated.id] = 'pending'
     this.sessionSaved = false
     this.plansValidated = false
+    this.toastr.success(`Plan ${updated.id} regenerated successfully.`, 'Regenerate')
 
   } catch (err: unknown) {
     const status = getErrorStatus(err)
@@ -1301,7 +1310,9 @@ get canGenerateTestPlan(): boolean {
       return
     }
 
-    if (!this.selectedFile) {
+    const canUseStoredSpec = Boolean(regenerate && this.currentTestSuiteId && String(this.specText || '').trim())
+
+    if (!this.selectedFile && !canUseStoredSpec) {
       this.errorMessage = 'Veuillez uploader un fichier (.docx / .md / .txt)'
       this.toastr.warning(this.errorMessage, 'Test Plan')
       return
@@ -1335,7 +1346,9 @@ get canGenerateTestPlan(): boolean {
     this.sessionSaved = false
 
     const formData = new FormData()
-    formData.append('file', this.selectedFile)
+    if (this.selectedFile) {
+      formData.append('file', this.selectedFile)
+    }
     formData.append('styleConfig', this.styleConfig.trim())
 
     const applicationUrl = String(rawForm.applicationUrl || '').trim()
@@ -1353,8 +1366,11 @@ get canGenerateTestPlan(): boolean {
       formData.append('nametest', this.nameTest.trim())
     }
 
-    // ✅ IMPORTANT: PAS de testSuiteId
+    // New previews do not need a suite id; regeneration uses it to reuse the stored spec.
     formData.append('projectId', String(rawForm.projectId || '').trim())
+    if (regenerate && this.currentTestSuiteId) {
+      formData.append('testSuiteId', this.currentTestSuiteId)
+    }
     formData.append('regenerate', regenerate ? 'true' : 'false')
     formData.append('generationRequestId', requestId)
 

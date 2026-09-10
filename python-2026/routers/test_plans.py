@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 from core.config import get_settings
 from schemas.test_plan_schema import GeneratePlanRequest, GeneratePlanResponse
 from services.cancellation_service import is_cancelled
-from services.plan_service import generate_test_plans
+from services.plan_service import generate_test_plans, rephrase_test_plan
 from services.spec_service import extract_spec_text_from_docx_bytes
 
 
@@ -72,8 +72,15 @@ async def generate_plan(request: Request):
     generation_scope = "plans"
     project_title = None
     plan_id = ""
+    existing_plan = None
     regenerate = False
-    
+    # None = not explicitly requested by the caller → derive the count from
+    # how many requirements the spec document actually contains (clamped to
+    # 10..1000), instead of always generating a fixed number regardless of
+    # the spec's size. An explicit value from the caller is still honored
+    # and validated against the same 10..1000 range.
+    requested_count = None
+
     try:
         if "multipart/form-data" in content_type:
             # ✅ MULTIPART FORM DATA (file upload)
@@ -94,7 +101,14 @@ async def generate_plan(request: Request):
             generation_scope = (form_data.get("generation_scope") or "plans").strip()
             project_title = (form_data.get("project_title") or "").strip()
             plan_id = (form_data.get("plan_id") or form_data.get("planId") or "").strip()
+            existing_plan_raw = form_data.get("existing_plan") or form_data.get("existingPlan") or ""
+            if existing_plan_raw:
+                try:
+                    existing_plan = json_module.loads(str(existing_plan_raw))
+                except (TypeError, ValueError):
+                    existing_plan = None
             regenerate = str(form_data.get("regenerate") or "").lower() == "true"
+            requested_count = form_data.get("test_plan_count") or form_data.get("target_count") or None
             
         elif "application/json" in content_type:
             # ✅ JSON BODY (from Node.js axios.post)
@@ -108,7 +122,9 @@ async def generate_plan(request: Request):
             generation_scope = (body.get("generation_scope") or "plans").strip()
             project_title = (body.get("project_title") or "").strip()
             plan_id = (body.get("plan_id") or body.get("planId") or "").strip()
+            existing_plan = body.get("existing_plan") or body.get("existingPlan")
             regenerate = bool(body.get("regenerate"))
+            requested_count = body.get("test_plan_count") or body.get("target_count") or None
             
         else:
             return JSONResponse(
@@ -117,6 +133,11 @@ async def generate_plan(request: Request):
             )
         
         # ✅ Validate spec_text is not empty
+        if plan_id and regenerate and isinstance(existing_plan, dict):
+            rewritten = rephrase_test_plan(existing_plan)
+            rewritten["id"] = plan_id
+            return {"test_plans": [rewritten], "rephrased": True}
+
         if not spec_text_final or not spec_text_final.strip():
             return JSONResponse(
                 status_code=400,
@@ -135,12 +156,32 @@ async def generate_plan(request: Request):
                 content={"error": "Generation cancelled by user"}
             )
 
+        # A complete plan generation must contain 10..1000 plans.
+        # Single-plan regeneration is intentionally kept as a special case.
+        # When the caller didn't explicitly ask for a specific count,
+        # requested_count stays None here and generate_test_plans() derives
+        # it from how many requirements the spec actually contains (still
+        # clamped to 10..1000) — only an explicit value is validated here.
+        if not (plan_id and regenerate) and requested_count is not None:
+            try:
+                requested_count = int(requested_count)
+            except (TypeError, ValueError):
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "test_plan_count must be an integer between 10 and 1000"},
+                )
+            if requested_count < 10 or requested_count > 1000:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "test_plan_count must be between 10 and 1000"},
+                )
+
         # ✅ Call AI service to generate plans
         plans = generate_test_plans(
             spec_text=spec_text_final,
             style_config=style_config,
             project_title=project_title or url_cible,
-            target_count=1 if plan_id and regenerate else 10,
+            target_count=1 if plan_id and regenerate else requested_count,
         )
         if plan_id and regenerate and plans:
             plans[0]["id"] = plan_id

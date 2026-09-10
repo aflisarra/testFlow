@@ -70,10 +70,25 @@ const testCaseSchema = new mongoose.Schema(
       default: [],
       set: normalizeStringList,
     },
+    dependsOn: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'TestCase',
+        },
+      ],
+      default: [],
+    },
     
+// Mixed, not [String]: the generator produces a keyed map
+// ({"Username": "Admin", "Password": "admin123456"}) and casting that to
+// an array of strings silently discarded the keys, leaving the executor
+// with bare values it could only assign to fields by position. Mixed keeps
+// the mapping intact while still accepting the legacy array-of-strings
+// documents already stored.
 test_data: {
-  type: [String],
-  default: [],
+  type: mongoose.Schema.Types.Mixed,
+  default: () => ({}),
 },
 
     priority: {

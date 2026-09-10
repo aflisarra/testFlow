@@ -342,134 +342,130 @@
         </div>
       </div>
 
-      <!-- AI Insights Card (shown when available or failure occurred) -->
+      <!-- AI Insights Card -->
       @if (detectorInsight || scenario.status === 'failed' || scenario.status === 'aborted') {
         <div class="card card--ai-insights">
           <div class="card__head">
             <div class="card__head-left">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 16v-4m0-4v.01"/>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
               </svg>
-              <span class="card__head-title">AI Analysis</span>
+              <span class="card__head-title">Failure Diagnostics</span>
             </div>
             @if (detectorInsight) {
-              <span class="card__head-status card__head-status--info">
-                ✨ Insights Available
+              <span class="card__head-status card__head-status--ready">
+                Analysis Ready
               </span>
             }
           </div>
 
           @if (detectorInsight) {
             <div class="card__body card--ai-insights__body">
-              <!-- Insight Title -->
-              <div class="ai-insight__title">{{ detectorInsight.title }}</div>
-
-              <!-- Insight Description -->
-              <p class="ai-insight__description">
-                {{ detectorInsight.description }}
-              </p>
-
-              @if (detectorInsight.severity || detectorInsight.rootCause) {
-                <div class="ai-insight__meta">
-                  @if (detectorInsight.severity) { <span>Severity: {{ detectorInsight.severity }}</span> }
-                  @if (detectorInsight.rootCause) { <span>Cause: {{ detectorInsight.rootCause }}</span> }
+              <div class="incident-report">
+                
+                <!-- Header -->
+                <div class="incident-report__header">
+                  <div class="incident-report__title">{{ detectorInsight.title }}</div>
+                  @if (detectorInsight.failedStepName) {
+                    <div class="incident-report__step">Failed Step: <strong>{{ detectorInsight.failedStepName }}</strong></div>
+                  }
                 </div>
-              }
 
-              @if (detectorInsight.whatHappened || detectorInsight.expectedBehavior || detectorInsight.actualBehavior || detectorInsight.whyItFailed) {
-                <div class="ai-insight__details">
-                  @if (detectorInsight.whatHappened) { <p><strong>What happened:</strong> {{ detectorInsight.whatHappened }}</p> }
-                  @if (detectorInsight.expectedBehavior) { <p><strong>Expected:</strong> {{ detectorInsight.expectedBehavior }}</p> }
-                  @if (detectorInsight.actualBehavior) { <p><strong>Actual:</strong> {{ detectorInsight.actualBehavior }}</p> }
-                  @if (detectorInsight.whyItFailed) { <p><strong>Why it failed:</strong> {{ detectorInsight.whyItFailed }}</p> }
-                </div>
-              }
+                <!-- Problem Description -->
+                @if (detectorInsight.description) {
+                  <div class="incident-report__section incident-report__section--critical">
+                    <h4 class="incident-section-title">Problem Description</h4>
+                    <p class="incident-section-text">{{ detectorInsight.description }}</p>
+                  </div>
+                }
 
-              <!-- Recommendations -->
-              <div class="ai-insight__recommendations">
-                @for (recommendation of detectorInsight.recommendations; track recommendation.error + recommendation.fix; let idx = $index) {
-                  <div class="ai-insight__action">
-                    <div class="ai-insight__action-label">
-                      {{ detectorInsight.recommendations.length > 1 ? ('Recommendation ' + (idx + 1)) : detectorInsight.actionLabel }}
-                    </div>
-                    @if (recommendation.error) {
-                      <div class="ai-insight__error">{{ recommendation.error }}</div>
+                <!-- Expected vs Actual Comparison -->
+                @if (detectorInsight.expectedBehavior || detectorInsight.actualBehavior) {
+                  <div class="incident-report__comparison">
+                    @if (detectorInsight.expectedBehavior) {
+                      <div class="incident-compare-box incident-compare-box--expected">
+                        <span class="incident-compare-label">Expected Behavior</span>
+                        <div class="incident-compare-text">{{ detectorInsight.expectedBehavior }}</div>
+                      </div>
                     }
-                    @if (recommendation.whatHappened) {
-                      <div class="ai-insight__detail-text">{{ recommendation.whatHappened }}</div>
+                    @if (detectorInsight.actualBehavior) {
+                      <div class="incident-compare-box incident-compare-box--actual">
+                        <span class="incident-compare-label">Actual Behavior</span>
+                        <div class="incident-compare-text">{{ detectorInsight.actualBehavior }}</div>
+                      </div>
                     }
-                    @if (recommendation.example) {
-                      <div class="ai-insight__example">Example: {{ recommendation.example }}</div>
-                    }
-                    <div class="ai-insight__action-text">
-                      {{ recommendation.fix }}
+                  </div>
+                }
+
+                <!-- Root Cause Analysis -->
+                @if (detectorInsight.rootCause || detectorInsight.whyItFailed) {
+                  <div class="incident-report__section">
+                    <h4 class="incident-section-title">Root Cause Analysis</h4>
+                    <div class="incident-cause-banner">
+                      @if (detectorInsight.rootCause) {
+                        <span class="incident-cause-badge" [attr.data-cause]="detectorInsight.rootCause">{{ detectorInsight.rootCause }}</span>
+                      }
+                      @if (detectorInsight.whyItFailed) {
+                        <span class="incident-cause-text">{{ detectorInsight.whyItFailed }}</span>
+                      }
                     </div>
                   </div>
                 }
-                @if (!detectorInsight.recommendations.length) {
-                  <div class="ai-insight__action">
-                    <div class="ai-insight__action-label">{{ detectorInsight.actionLabel }}</div>
-                    <div class="ai-insight__action-text">
-                      {{ detectorInsight.actionText }}
-                    </div>
+
+                <!-- Action Plan -->
+                @if (detectorInsight.developerFix?.length || detectorInsight.testerFix?.length) {
+                  <div class="incident-report__action-plan">
+                    @if (detectorInsight.developerFix?.length) {
+                      <div class="action-plan-box action-plan-box--dev">
+                        <h4 class="action-plan-title">👨‍💻 Developer Fix</h4>
+                        <ul class="action-plan-list">
+                          @for (fix of detectorInsight.developerFix; track fix) { <li>{{ fix }}</li> }
+                        </ul>
+                      </div>
+                    }
+                    @if (detectorInsight.testerFix?.length) {
+                      <div class="action-plan-box action-plan-box--qa">
+                        <h4 class="action-plan-title">🧪 QA / Tester Action</h4>
+                        <ul class="action-plan-list">
+                          @for (fix of detectorInsight.testerFix; track fix) { <li>{{ fix }}</li> }
+                        </ul>
+                      </div>
+                    }
                   </div>
                 }
+
+                <!-- Copy Button -->
+                <button class="ai-insight__copy-btn" (click)="copySnippet(detectorInsight.actionText)" type="button">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <rect x="9" y="9" width="13" height="13" rx="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  Copy Report
+                </button>
               </div>
-
-              @if (detectorInsight.developerFix?.length || detectorInsight.testerFix?.length) {
-                <div class="ai-insight__fix-groups">
-                  @if (detectorInsight.developerFix?.length) {
-                    <div><strong>Developer fix</strong><ul>@for (fix of detectorInsight.developerFix; track fix) { <li>{{ fix }}</li> }</ul></div>
-                  }
-                  @if (detectorInsight.testerFix?.length) {
-                    <div><strong>Tester fix</strong><ul>@for (fix of detectorInsight.testerFix; track fix) { <li>{{ fix }}</li> }</ul></div>
-                  }
-                </div>
-              }
-
-              @if (detectorInsight.evidence?.length) {
-                <div class="ai-insight__evidence"><strong>Evidence</strong><ul>@for (item of detectorInsight.evidence; track item) { <li>{{ item }}</li> }</ul></div>
-              }
-
-              @if (detectorInsight.diagnosticTips?.length) {
-                <div class="ai-insight__tips">
-                  @for (tip of detectorInsight.diagnosticTips; track tip) {
-                    <div class="ai-insight__tip">{{ tip }}</div>
-                  }
-                </div>
-              }
-
-              <!-- Copy Button -->
-              <button class="ai-insight__copy-btn" (click)="copySnippet(detectorInsight.actionText)" type="button">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <rect x="9" y="9" width="13" height="13" rx="2"/>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                </svg>
-                Copy Suggestion
-              </button>
             </div>
           } @else {
             <div class="card__body card--ai-insights__empty">
               @if (isAnalyzingFailure) {
-  <div class="ai-analyzing">
-    <svg class="ai-gear-spinner" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
-    </svg>
-    <div class="ai-analyzing__text">Analyzing test failure...</div>
-  </div>
-} @else if (scenario.status === 'failed' || scenario.status === 'aborted') {
+                <div class="ai-analyzing">
+                  <svg class="ai-gear-spinner" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+                  </svg>
+                  <div class="ai-analyzing__text">Analyzing test failure...</div>
+                </div>
+              } @else if (scenario.status === 'failed' || scenario.status === 'aborted') {
                 <div class="ai-analyzing">
                   <div class="ai-analyzing__title">Test Error Detected</div>
-                  <p class="ai-insight__placeholder">AI analysis is generated automatically when failure logs arrive.</p>
+                  <p class="ai-insight__placeholder">Failure diagnostics are generated automatically when logs arrive.</p>
                 </div>
               } @else {
-                <p class="ai-insight__placeholder">AI analysis appears after test failure</p>
+                <p class="ai-insight__placeholder">Failure diagnostics appear after test failure</p>
               }
             </div>
           }
-
         </div>
       }
 
@@ -709,6 +705,8 @@
                     }
                     @if (element.rect) {
                       <div class="dom-element-row"><span class="dom-label">Position:</span><span class="dom-value">x:{{ element.rect.x }} y:{{ element.rect.y }} w:{{ element.rect.width }} h:{{ element.rect.height }}</span></div>
+                    } @else if (element.position) {
+                      <div class="dom-element-row"><span class="dom-label">Position:</span><span class="dom-value">x:{{ element.position.x }} y:{{ element.position.y }} w:{{ element.position.width }} h:{{ element.position.height }}</span></div>
                     }
                   </div>
                   @if (idx < domElements.length - 1) {
@@ -781,6 +779,15 @@
                     <option value="press">press</option>
                     <option value="wait">wait</option>
                     <option value="scroll">scroll</option>
+                    <option value="select">select</option>
+                    <option value="hover">hover</option>
+                    <option value="drag">drag</option>
+                    <option value="drop">drop</option>
+                    <option value="check">check</option>
+                    <option value="uncheck">uncheck</option>
+                    <option value="radio">radio</option>
+                    <option value="dropdown">dropdown</option>
+                    <option value="link">link</option>
 
                   </select>
                 </label>
@@ -796,6 +803,7 @@
                     [ngModel]="action.selector"
                     (ngModelChange)="updateAction(action, 'selector', $event)" />
                 </label>
+
 
                 <label class="ai-action-field" style="flex: 2; min-width: 160px; margin-bottom: 0;">
                   <span class="ai-action-field__label">

@@ -320,7 +320,6 @@
       @for (step of tc.steps; track $index) {
   <li class="tc-case-step-item">
     <div class="tc-step-action">
-      <span class="tc-step-num">{{ $index + 1 }}</span>
       <span class="tc-step-text">{{ step }}</span>
     </div>
     @if (getStepExpectedResult(tc, $index)) {
@@ -507,6 +506,27 @@
         (input)="onEditCaseTestData(tc.id, ($any($event.target).value || ''))"
         placeholder="email: valid@test.com&#10;password: Valid123!"
       ></textarea>
+    </div>
+
+    <div class="tc-case-meta">
+      <span class="tc-case-label">Depends On</span>
+      @if (getDependencyCandidates(tc).length) {
+        <input class="form-control mt-2" [value]="dependencyInputValue(tc)" readonly
+          placeholder="AI dependency suggestion or none" />
+        <select class="form-select mt-2"
+          [value]="selectedDependencyReference(tc)"
+          (change)="onDependencyDropdownChange(tc, $event)">
+          <option value="">No dependency</option>
+          @for (candidate of getDependencyCandidates(tc); track candidate.id) {
+            <option [value]="candidate._id || candidate.id">
+              {{ dependencyPlanTitle(candidate) }} / {{ candidate.id }} - {{ candidate.title }}
+            </option>
+          }
+        </select>
+        <small class="text-muted">Select a required test case.</small>
+      } @else {
+        <small class="text-muted">No other test case is available in this plan.</small>
+      }
     </div>
 
   } @else {

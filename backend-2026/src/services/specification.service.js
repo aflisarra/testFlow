@@ -102,7 +102,12 @@ async function updateSpecificationContent(testSuiteId, htmlContent) {
   suite.specHtml = content
   suite.specHtmlUpdatedAt = new Date()
   suite.specHtmlPath = absolutePath.replace(/\.docx$/i, '.html')
-  suite.specText = content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  suite.specText = content
+    .replace(/<\/(?:p|div|h[1-6]|li|tr|table|section|article|br)>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
   suite.specFileName = newFileName
 
   await fs.writeFile(suite.specHtmlPath, content, 'utf8')

@@ -42,7 +42,9 @@ status: {
     'passed',
     'failed_execution',
     'failed_assertion',
-    'skipped'
+    'skipped',
+    'blocked',
+    'aborted'
   ],
   default: 'passed'
 },
@@ -208,12 +210,15 @@ const testExecutionSchema = new mongoose.Schema({
   status: {
     type: String,
    enum: [
+  'not_executed',
   'running',
   'passed',
   'failed',
   'failed_execution',
   'failed_assertion',
-  'aborted'
+  'aborted',
+  'skipped',
+  'blocked'
 ]
 ,
     default: 'running'

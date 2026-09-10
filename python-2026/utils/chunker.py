@@ -5,7 +5,7 @@ from typing import Iterable, List, Dict
 
 
 _HEADING_RE = re.compile(
-    r"^\s*(?:#{1,6}\s+.+|[A-Z][A-Z0-9 _-]{5,}|(?:\d+\.)+\s+\S.+|.+:\s*)\s*$"
+    r"^\s*(?:#{1,6}\s+.+|[A-Z][A-Z0-9 _-]{5,}|\d+(?:\.\d+)*\.?\s+\S.+|.+:\s*)\s*$"
 )
 
 
@@ -66,4 +66,3 @@ def split_by_headings(text: str, max_chunk_chars: int = 2200) -> List[Dict[str, 
 
 def detect_modules_from_chunks(chunks):
     return ["Core Functionality"]
-

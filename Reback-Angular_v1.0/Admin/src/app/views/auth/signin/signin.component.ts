@@ -1,16 +1,16 @@
-import { LogoBoxComponent } from '@/app/components/logo-box.component'
-import { login } from '@/app/store/authentication/authentication.actions'
-import { Component, inject, type OnInit } from '@angular/core'
-import { AuthenticationService } from '../../../../app/core/services/auth.service';
+import { LogoBoxComponent } from '@/app/components/logo-box.component';
+import { login } from '@/app/store/authentication/authentication.actions';
+import { Component, inject, type OnInit } from '@angular/core';
 import {
-  FormsModule,
-  ReactiveFormsModule,
-  UntypedFormBuilder,
-  Validators,
-  type UntypedFormGroup,
-} from '@angular/forms'
-import { Router, RouterModule } from '@angular/router'
-import { Store } from '@ngrx/store'
+    FormsModule,
+    ReactiveFormsModule,
+    UntypedFormBuilder,
+    Validators,
+    type UntypedFormGroup,
+} from '@angular/forms';
+import { Router, RouterModule } from '@angular/router';
+import { Store } from '@ngrx/store';
+import { AuthenticationService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-signin',

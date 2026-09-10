@@ -12,6 +12,7 @@ import type {
   GenerateTestCasesResponse,
   GetTestPlansResponse,
   PlanTestDto,
+  TestCaseDto,
   TestCasesByPlanDto,
   TestPlanDto,
   TestSuiteDto,
@@ -39,7 +40,7 @@ export interface TestExecutionDto {
   testCaseId: string
   testCaseKey?: string
   testCaseTitle?: string
-  status: 'running' | 'passed' | 'failed' | 'aborted'
+  status: 'running' | 'passed' | 'failed' | 'failed_execution' | 'failed_assertion' | 'blocked' | 'skipped' | 'aborted'
   duration: number
   startedAt?: string
   finishedAt?: string | null
@@ -84,7 +85,7 @@ generateTestCases(
     planTitle: payload.planTitle || '',
     planDescription: payload.planDescription || '',
     specText: payload.specText || '',
-    spec_text: payload.specText || payload.planDescription || '',
+    spec_text: payload.specText || '',
     regenerate: payload.regenerate ?? false,
     generationRequestId: payload.generationRequestId || '',
   }
@@ -155,8 +156,25 @@ generateTestCases(
     return this.api.get<GetTestPlansResponse>(`/api/testsuites/${testSuiteId}/plans`)
   }
 
-  getTestExecutions(testSuiteId: string): Observable<TestExecutionDto[]> {
-    return this.api.get<TestExecutionDto[]>(`/api/testsuites/${testSuiteId}/executions`)
+  getTestExecutions(testSuiteId: string, limit = 1000): Observable<TestExecutionDto[]> {
+    return this.api.get<TestExecutionDto[] | { data?: TestExecutionDto[] }>(`/api/testsuites/${testSuiteId}/executions?limit=${limit}`)
+      .pipe(map((response) => Array.isArray(response) ? response : (response?.data || [])))
+  }
+
+  getTestCaseDependencies(testCaseId: string): Observable<{ dependsOn: TestCaseDto[] }> {
+    return this.api.get<{ dependsOn: TestCaseDto[] }>(
+      `/api/testsuites/cases/${testCaseId}/dependencies`
+    )
+  }
+
+  updateTestCaseDependencies(
+    testCaseId: string,
+    dependsOn: string[]
+  ): Observable<{ testCase: TestCaseDto }> {
+    return this.api.put<{ testCase: TestCaseDto }>(
+      `/api/testsuites/cases/${testCaseId}/dependencies`,
+      { dependsOn }
+    )
   }
   
 generatePlanPreview(formData: FormData): Observable<{ testPlans: TestPlanDto[] }> {

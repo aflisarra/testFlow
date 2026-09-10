@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -47,8 +47,17 @@ class Requirement(BaseModel):
 
 
 class StepDetail(BaseModel):
-    step: str
-    expected_result: str
+    step: str = ""
+    expected_result: str = ""
+    component: Optional[str] = None
+    action: Optional[str] = None
+    value: Optional[str] = None
+
+    if _MODEL_CONFIG is not None:  # type: ignore[truthy-bool]
+        model_config = ConfigDict(populate_by_name=True, extra="allow")
+    else:  # pragma: no cover
+        class Config:
+            extra = "allow"
 
 
 class TestCase(BaseModel):
@@ -56,7 +65,7 @@ class TestCase(BaseModel):
     title: str
     objective: str = ""
     preconditions: List[str] = Field(default_factory=list)
-    test_data: Any = None
+    test_data: Dict[str, Any] = Field(default_factory=dict)
     steps: List[str]
 
     # ✅ AJOUT CRITIQUE
@@ -67,6 +76,7 @@ class TestCase(BaseModel):
     severity: str = "Major"
     type: str
     requirements: List[Requirement] = Field(default_factory=list)
+    dependsOn: List[str] = Field(default_factory=list)
 
 
 class TestCasesResponse(BaseModel):

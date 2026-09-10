@@ -7,13 +7,43 @@ from utils.chunker import split_by_headings, detect_modules_from_chunks, normali
 from utils.docx_reader import extract_text_from_docx
 
 
-SRS_PLAN_SECTIONS = {"project description", "objectives", "features"}
+SRS_PLAN_SECTIONS = {"project description", "objectives", "features", "ui components", "business rules", "validation rules", "pass criteria"}
 SRS_CASE_SECTIONS = {
     "ui components",
+    "ui component",
+    "user interface",
+    "interface utilisateur",
+    "composants ui",
+    "composant ui",
+    "composants interface",
+    "ecrans",
+    "screens",
+    "features",
+    "feature",
+    "forms",
+    "formulaires",
+    "page",
+    "pages",
+    "login",
+    "connexion",
+    "authentication",
+    "authentification",
     "business rules",
+    "business rule",
+    "regles metier",
+    "regle metier",
     "validation rules",
+    "validation rule",
+    "regles de validation",
+    "regle de validation",
     "pass criteria",
+    "success criteria",
+    "criteres de succes",
+    "critere de succes",
     "fail criteria",
+    "failure criteria",
+    "criteres d echec",
+    "critere d echec",
 }
 
 
@@ -39,11 +69,33 @@ def _section_key(title: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()
 
 
+def _section_matches(title: str, allowed_sections: set[str]) -> bool:
+    key = _section_key(title)
+    if key in allowed_sections:
+        return True
+    return any(section in key or key in section for section in allowed_sections)
+
+
 def get_srs_sections(spec_text: str, allowed_sections: set[str] | None = None) -> List[Dict[str, str]]:
     chunks = chunk_spec(spec_text)
     if not allowed_sections:
         return chunks
-    return [chunk for chunk in chunks if _section_key(str(chunk.get("title") or "")) in allowed_sections]
+    selected: List[Dict[str, str]] = []
+    active_parent_prefix = ""
+    for chunk in chunks:
+        title = str(chunk.get("title") or "")
+        title_prefix_match = re.match(r"^\s*((?:\d+\.)*\d+)", title)
+        title_prefix = title_prefix_match.group(1) if title_prefix_match else ""
+        if _section_matches(title, allowed_sections):
+            selected.append(chunk)
+            active_parent_prefix = title_prefix
+            continue
+        if active_parent_prefix and title_prefix.startswith(f"{active_parent_prefix}."):
+            selected.append(chunk)
+            continue
+        if title_prefix and active_parent_prefix and not title_prefix.startswith(f"{active_parent_prefix}."):
+            active_parent_prefix = ""
+    return selected
 
 
 def extract_requirements(spec_text: str) -> List[Dict[str, str]]:

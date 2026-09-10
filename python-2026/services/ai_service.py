@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from typing import Any, Optional
 
 from core.config import get_settings
@@ -75,6 +76,19 @@ class AiService:
 
             return data
 
+        except subprocess.TimeoutExpired as exc:
+            # Logged distinctly so the caller (case_service) and operators
+            # can tell a timeout apart from a malformed response. The
+            # caller catches this and falls back to deterministic
+            # generation instead of letting it become a 504.
+            log_error(
+                logger,
+                "ai_generation_timeout",
+                error=str(exc),
+                timeout=timeout,
+                elapsed_ms=int((time.monotonic() - started) * 1000),
+            )
+            raise
         except Exception as exc:
             log_error(
                 logger,

@@ -877,6 +877,84 @@ if (this.pendingNewCase) {
     this.updateModalCase(caseId, (tc) => ({ ...tc, test_data }))
   }
 
+  getDependencyCandidates(testCase: TestCaseDto): TestCaseDto[] {
+    const currentId = this.caseReference(testCase)
+    const unique = new Map<string, TestCaseDto>()
+    for (const cases of Object.values(this.testCasesByPlan || {})) {
+      for (const candidate of cases || []) {
+        const id = this.caseReference(candidate)
+        if (id && id !== currentId) unique.set(id, candidate)
+      }
+    }
+    return Array.from(unique.values())
+  }
+
+  hasDependency(testCase: TestCaseDto, dependency: TestCaseDto): boolean {
+    const dependencyId = this.caseReference(dependency)
+    return (testCase.dependsOn || []).some((item) => {
+      const value = typeof item === 'string' ? item : (item?._id || item?.id)
+      return String(value || '').trim() === dependencyId
+    })
+  }
+
+  dependencyInputValue(testCase: TestCaseDto): string {
+    return (testCase.dependsOn || []).map((item) => {
+      if (typeof item === 'string') {
+        const candidate = this.getDependencyCandidates(testCase).find((entry) =>
+          this.caseReference(entry) === item
+        )
+        return candidate ? `${candidate.id} - ${candidate.title}` : item
+      }
+      return [item.id, item.title].filter(Boolean).join(' - ')
+    }).filter(Boolean).join(', ')
+  }
+
+  selectedDependencyReferences(testCase: TestCaseDto): string[] {
+    return (testCase.dependsOn || []).map((item) =>
+      typeof item === 'string' ? item : String(item?._id || item?.id || '').trim()
+    ).filter(Boolean)
+  }
+
+  selectedDependencyReference(testCase: TestCaseDto): string {
+    return this.selectedDependencyReferences(testCase)[0] || ''
+  }
+
+  dependencyPlanTitle(testCase: TestCaseDto): string {
+    const reference = this.caseReference(testCase)
+    const plan = (this.allPlans || []).find((candidate) =>
+      (this.testCasesByPlan[candidate.id] || []).some((item) => this.caseReference(item) === reference)
+    )
+    return String(plan?.title || '').trim()
+  }
+
+  onDependencyDropdownChange(testCase: TestCaseDto, event: Event): void {
+    const select = event.target as HTMLSelectElement
+    const selected = String(select.value || '').trim()
+    this.updateModalCase(testCase.id, (current) => ({
+      ...current,
+      dependsOn: selected ? [selected] : [],
+    }))
+  }
+
+  toggleDependency(testCase: TestCaseDto, dependency: TestCaseDto): void {
+    const dependencyId = this.caseReference(dependency)
+    if (!dependencyId) return
+
+    this.updateModalCase(testCase.id, (current) => {
+      const currentDependencies = (current.dependsOn || []).map((item) =>
+        typeof item === 'string' ? item : String(item?._id || item?.id || '').trim()
+      ).filter(Boolean)
+      const nextDependencies = this.hasDependency(current, dependency)
+        ? currentDependencies.filter((item) => item !== dependencyId)
+        : [...currentDependencies, dependencyId]
+      return { ...current, dependsOn: nextDependencies }
+    })
+  }
+
+  private caseReference(testCase: TestCaseDto | null | undefined): string {
+    return String(testCase?._id || testCase?.id || '').trim()
+  }
+
   onEditCaseSteps(caseId: string, value: string) {
     const steps = String(value || '')
       .split(/\r?\n/)

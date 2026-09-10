@@ -15,6 +15,7 @@ const {
   validateSeverity,
   validateTestCaseType,
 } = require('../utils/test-artifact-fields')
+const { applyGeneratedDependencies } = require('./testcase-dependency.service')
 
 const TEST_STATUS_VALUES = new Set(['Draft', 'Generating', 'Incomplete', 'Ready', 'Passed', 'Failed'])
 const PLAN_STATUS_VALUES = new Set(['pending', 'generating', 'reviewing', 'confirmed', 'completed', 'incomplete'])
@@ -274,7 +275,10 @@ function formatSuiteSummary(
 
 async function getSuitePlansAndCases(testSuiteId) {
   const plans = await TestPlan.find({ testSuiteId }).sort({ createdAt: 1 }).lean()
-  const cases = await TestCase.find({ testSuiteId }).sort({ createdAt: 1 }).lean()
+  const cases = await TestCase.find({ testSuiteId })
+    .populate('dependsOn', 'id title')
+    .sort({ createdAt: 1 })
+    .lean()
   const casesByMongoPlanId = new Map()
 
   for (const testCase of cases) {
@@ -523,6 +527,8 @@ async function upsertPlans(testSuiteId, testPlans = []) {
 }
 
 async function upsertCasesByPlan(testSuiteId, testCasesByPlan = []) {
+  const dependencyRows = []
+
   for (const block of testCasesByPlan) {
     const stablePlanId = String(block?.planId || '').trim()
     if (!stablePlanId) continue
@@ -541,7 +547,10 @@ async function upsertCasesByPlan(testSuiteId, testCasesByPlan = []) {
       })
     }
 
-    const ops = (Array.isArray(block?.testCases) ? block.testCases : [])
+    const sourceCases = Array.isArray(block?.testCases) ? block.testCases : []
+    dependencyRows.push(...sourceCases)
+
+    const ops = sourceCases
       .map((testCase, index) => {
         const id = String(testCase?.id || `TC-${index + 1}`).trim()
         const title = String(testCase?.title || `Test Case ${index + 1}`).trim()
@@ -583,6 +592,10 @@ async function upsertCasesByPlan(testSuiteId, testCasesByPlan = []) {
       .filter(Boolean)
 
     if (ops.length) await TestCase.bulkWrite(ops, { ordered: false })
+  }
+
+  if (dependencyRows.length) {
+    await applyGeneratedDependencies({ testSuiteId, generatedCases: dependencyRows })
   }
 }
 
@@ -755,7 +768,9 @@ exports.getTestPlansByTestSuiteId = async (suiteId) => {
   const plans = await TestPlan.find({ testSuiteId: suiteId }).lean()
 
   // ✅ get test cases of all plans
-  const cases = await TestCase.find({ testSuiteId: suiteId }).lean()
+  const cases = await TestCase.find({ testSuiteId: suiteId })
+    .populate('dependsOn', 'id title')
+    .lean()
 
   // ✅ mapping CORRECT (IMPORTANT 🔥)
   const testCasesByPlan = plans.map(plan => {

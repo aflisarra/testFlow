@@ -215,7 +215,93 @@ function normalizeTestData(value) {
   return value // objet, array, number → garde tel quel
 }
 
+// Parse a "Key: value" / "Key = value" line into [key, value].
+// The test-case edit modal serializes the keyed map back into one line per
+// entry, so this is how a user-edited test case round-trips without losing
+// which value belongs to which field.
+function parseKeyedTestDataLine(text) {
+  const raw = String(text || '').trim()
+  if (!raw) return null
+  const match = raw.match(/^\s*([A-Za-z][A-Za-z0-9 _\-/]{0,60}?)\s*[:=]\s*(.+)\s*$/)
+  if (!match) return null
+  const key = match[1].trim()
+  const value = match[2].trim()
+  if (!key || !value) return null
+  return [key, value]
+}
+
+/**
+ * Build a field -> value map from any supported test_data shape, WITHOUT
+ * losing which value belongs to which field.
+ *
+ * Returns null when the input carries no recoverable keys (e.g. a legacy
+ * ["Admin", "admin123456"] array of bare values), so callers can tell
+ * "no mapping available" apart from "empty mapping".
+ *
+ * Supported:
+ *   {Username: "Admin", Password: "admin123456"}
+ *   [{field: "Username", value: "Admin"}, ...]  / {name|key: ...}
+ *   ["Username: Admin", "Password: admin123456"]
+ */
+function normalizeKeyedTestData(value) {
+  const map = {}
+
+  const put = (key, val) => {
+    const k = String(key || '').trim()
+    if (!k) return
+    if (val === undefined || val === null) return
+    if (typeof val === 'object') return
+    const v = String(val).trim()
+    if (!v) return
+    map[k] = v
+  }
+
+  const walk = (input) => {
+    if (input === undefined || input === null || input === '') return
+
+    if (typeof input === 'string') {
+      // A single string may carry several "Key: value" lines.
+      for (const line of input.replace(/\r/g, '\n').split('\n')) {
+        const parsed = parseKeyedTestDataLine(line)
+        if (parsed) put(parsed[0], parsed[1])
+      }
+      return
+    }
+
+    if (Array.isArray(input)) {
+      for (const item of input) walk(item)
+      return
+    }
+
+    if (typeof input === 'object') {
+      const fieldName = input.field || input.name || input.key || input.label
+      if (fieldName && Object.prototype.hasOwnProperty.call(input, 'value')) {
+        put(fieldName, input.value)
+        return
+      }
+      for (const [key, item] of Object.entries(input)) {
+        if (item && typeof item === 'object') {
+          walk(item)
+          continue
+        }
+        put(key, item)
+      }
+    }
+  }
+
+  walk(value)
+  return Object.keys(map).length ? map : null
+}
+
 function normalizeAutomationTestData(value) {
+  // Preserve the field -> value mapping whenever the payload carries one.
+  // Flattening a keyed object down to its bare values (the previous
+  // behaviour) destroyed which value belonged to which field, which is why
+  // {"Username":"Admin","Password":"admin123456"} was persisted as
+  // ["Admin","admin123456"] and the executor could only guess by position.
+  const keyed = normalizeKeyedTestData(value)
+  if (keyed) return keyed
+
   const flatten = (input) => {
     const items = []
     if (input === undefined || input === null) return items
@@ -298,5 +384,7 @@ module.exports = {
   normalizeRequirements,
   normalizeTestData,
   normalizeAutomationTestData,
+  normalizeKeyedTestData,
+  parseKeyedTestDataLine,
   hasOwn,
 }

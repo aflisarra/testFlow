@@ -25,6 +25,11 @@ const {
   validateSeverity,
   validateTestCaseType,
 } = require('../utils/test-artifact-fields')
+const {
+  applyGeneratedDependencies,
+  getDependsOnRefs,
+  normalizeDependsOnInput,
+} = require('./testcase-dependency.service')
 
 function httpError(statusCode, message) {
   const err = new Error(message || 'Error')
@@ -66,6 +71,18 @@ function parseBoolean(value) {
   return ['1', 'true', 'yes', 'y', 'on'].includes(value.trim().toLowerCase())
 }
 
+function validateRequestedPlanCount(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return undefined
+
+  const parsed = Number(raw)
+  if (!Number.isInteger(parsed) || parsed < 10 || parsed > 1000) {
+    throw httpError(400, 'test_plan_count must be an integer between 10 and 1000')
+  }
+
+  return Math.floor(parsed)
+}
+
 function normalizeUniqueTestPlans(rawPlans) {
   const list = Array.isArray(rawPlans) ? rawPlans : []
   const used = new Set()
@@ -92,7 +109,7 @@ function normalizeUniqueTestPlans(rawPlans) {
         requirements: normalizeRequirements(p?.requirements),
       }
     })
-    .slice(0, 20)
+    .slice(0, 1000)
 }
 
 function normalizeTestCaseMetadata(testCase = {}) {
@@ -320,6 +337,7 @@ async function dualWriteTestCases({ testSuiteId, planKey, planTitle, planData, t
                 : [],
               expected_result: String(tc?.expected_result || tc?.expectedResult || '').trim(),
               stepDetails: normalizedStepDetails,
+              dependsOn: [],
               executionModel: tc?.executionModel || tc?.execution_model || null,
               createdBy: tc?.createdBy
                 ? {
@@ -347,6 +365,7 @@ async function dualWriteTestCases({ testSuiteId, planKey, planTitle, planData, t
     modifiedCount: result?.modifiedCount || 0,
     upsertedCount: result?.upsertedCount || 0,
   })
+  await applyGeneratedDependencies({ testSuiteId, generatedCases: list })
   return result
 }
 
@@ -630,6 +649,9 @@ async function generatePlan({ req, body, file }) {
   ).trim()
   const regenerate = parseBoolean(body?.regenerate)
   const generationRequestId = String(body?.generationRequestId || body?.generation_request_id || '').trim()
+  const requestedPlanCount = validateRequestedPlanCount(
+    body?.testPlanCount || body?.test_plan_count || body?.target_count
+  )
 
   const userId = userIdBody || getUserIdFromAuthHeader(req)
   let specText
@@ -638,11 +660,25 @@ async function generatePlan({ req, body, file }) {
   let projectTitle = ''
   let previousTestStatus = 'Draft'
   let newSuitePayload = null
+  let existingPlanForRephrase = null
 
   if (providedTestSuiteId) {
     suite = await TestSuite.findById(providedTestSuiteId)
     if (!suite) throw httpError(404, 'TestSuite not found')
     previousTestStatus = String(suite.testStatus || 'Draft')
+
+    if (regenerate) {
+      const requestedPlanId = String(body?.planId || body?.plan_id || '').trim()
+      if (requestedPlanId) {
+        existingPlanForRephrase = await TestPlan.findOne({
+          testSuiteId: String(suite._id),
+          id: requestedPlanId,
+        }).lean()
+        if (!existingPlanForRephrase) {
+          throw httpError(404, `Test plan ${requestedPlanId} not found`)
+        }
+      }
+    }
 
     if (file) {
       try {
@@ -782,9 +818,21 @@ async function generatePlan({ req, body, file }) {
         test_suite_id: testSuiteId,
         generation_scope: 'plans',
         generation_request_id: generationRequestId || undefined,
+        test_plan_count: regenerate ? undefined : requestedPlanCount,
         // ✅ Pour la régénération d'un seul plan
         plan_id: planId || undefined,
         regenerate: regenerate || undefined,
+        existing_plan: regenerate && existingPlanForRephrase
+          ? {
+              id: existingPlanForRephrase.id,
+              title: existingPlanForRephrase.title,
+              description: existingPlanForRephrase.description,
+              objective: existingPlanForRephrase.objective,
+              scope: existingPlanForRephrase.scope,
+              priority: existingPlanForRephrase.priority,
+              requirements: existingPlanForRephrase.requirements,
+            }
+          : undefined,
       },
       { timeout: getFastApiTimeoutMs(420_000), headers: getFastApiHeaders() }
     )
@@ -845,11 +893,19 @@ async function generatePlan({ req, body, file }) {
   suite.savedAt = null
   await suite.save()
 
-  await dualWriteTestPlans({ testSuiteId: suite._id, testPlans: normalizedPlansList }).catch(() => {})
+  const writeResult = await dualWriteTestPlans({ testSuiteId: suite._id, testPlans: normalizedPlansList })
 
   return {
     testSuiteId: String(suite._id),
     testPlans: normalizedPlansList,
+    persisted: true,
+    writeResult: writeResult
+      ? {
+          matchedCount: writeResult.matchedCount || 0,
+          modifiedCount: writeResult.modifiedCount || 0,
+          upsertedCount: writeResult.upsertedCount || 0,
+        }
+      : null,
     projectId: String(suite.projectId || projectId || ''),
     reused: false,
   }
@@ -912,13 +968,19 @@ async function generateTestCases({ req, body }) {
   let fastApiResponse
   try {
     const specTextToSend = String(body?.spec_text || '').trim() || String(suite.specText || '').trim()
+    console.log('generateTestCases SPEC:', {
+      bodySpecChars: String(body?.spec_text || '').trim().length,
+      storedSpecChars: String(suite.specText || '').trim().length,
+      sentSpecChars: specTextToSend.length,
+      hasUiComponents: /ui\s+components?/i.test(specTextToSend),
+    })
     fastApiResponse = await axios.post(
       `${baseUrl}/generate-test-cases`,
       {
         plan_id: planId,
         plan_title: planTitle || planId,
         plan_description: planDescription || '',
-        spec_text: truncateSpecText(specTextToSend, 800),
+        spec_text: truncateSpecText(specTextToSend, 50_000),
         style_config: String(suite.styleConfig || ''),
         project_id: project ? String(project._id) : undefined,
         project_title: project ? String(project.title || '') : undefined,
@@ -970,6 +1032,7 @@ const normalized = testCases
         : [],
 
       expected_result: String(tc?.expected_result || tc?.expectedResult || '').trim(),
+      dependsOn: normalizeDependsOnInput(getDependsOnRefs(tc) || []),
 
       stepDetails: normalizeStepDetails(
         tc.stepDetails || tc.step_details || [],

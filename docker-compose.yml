@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     container_name: pfe-frontend
     ports:
-      - "4200:4200"
+      - "4300:4200"
     volumes:
       - ./Reback-Angular_v1.0/Admin:/app
       - /app/node_modules
@@ -20,7 +20,7 @@ services:
       dockerfile: Dockerfile
     container_name: pfe-backend
     ports:
-      - "3000:3000"
+      - "3100:3000"
     environment:
       NODE_ENV: development
       FASTAPI_BASE_URL: http://python-service:8000
@@ -42,7 +42,7 @@ services:
       dockerfile: Dockerfile
     container_name: pfe-python
     ports:
-      - "8000:8000"
+      - "8100:8000"
     environment:
       OLLAMA_HOST: http://ollama:11434
       OLLAMA_MODEL: qwen2.5:3b-instruct
@@ -59,7 +59,7 @@ services:
     image: ollama/ollama:latest
     container_name: pfe-ollama
     ports:
-      - "11434:11434"
+      - "12434:11434"
     volumes:
       - ollama_data:/root/.ollama
     deploy:
@@ -75,7 +75,7 @@ services:
     image: mongo:7
     container_name: pfe-mongodb
     ports:
-      - "27017:27017"
+      - "28017:27017"
     volumes:
       - mongodb_data:/data/db
     restart: unless-stopped
