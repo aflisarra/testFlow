@@ -569,8 +569,8 @@
 <!-- ─── Screenshot modal ──────────────────────────────────────────────────── -->
 @if (selectedScreenshotUrl) {
   <div #screenshotModalRoot>
-    <button class="screenshot-modal" (click)="closeScreenshot()" role="dialog" aria-modal="true" aria-label="Screenshot preview">
-      <button class="screenshot-modal__panel" (click)="$event.stopPropagation()">
+    <div class="screenshot-modal" (click)="closeScreenshot()" role="dialog" aria-modal="true" aria-label="Screenshot preview">
+      <div class="screenshot-modal__panel" (click)="$event.stopPropagation()">
         <button class="screenshot-modal__close" type="button" aria-label="Close" (click)="closeScreenshot()">×</button>
 
         @if (currentScreenshots.length > 1) {
@@ -593,8 +593,8 @@
             {{ currentScreenshotIndex + 1 }} / {{ currentScreenshots.length }}
           </div>
         }
-      </button>
-    </button>
+      </div>
+    </div>
   </div>
 }
 

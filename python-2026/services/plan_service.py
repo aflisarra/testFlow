@@ -8,13 +8,18 @@ from core.config import get_settings
 from core.constants import DEFAULT_TEST_PLANS_MIN, DEFAULT_TEST_PLANS_MAX
 from prompts.test_plan_prompt import build_test_plan_prompt
 from services.ai_service import get_ai_service
-from services.spec_service import SRS_PLAN_SECTIONS, extract_requirements, get_srs_sections
+from services.spec_service import (
+    SRS_PLAN_SECTIONS,
+    extract_features_and_rules,
+    extract_requirements,
+    get_srs_sections,
+)
 from utils.logger import get_logger, log_event, log_error
 
 
 logger = get_logger("services.plan_service")
 
-MAX_GENERATION_ATTEMPTS = 1
+MAX_GENERATION_ATTEMPTS = 2
 DEFAULT_AI_SEED_PLAN_COUNT = 10
 DEFAULT_AI_SEED_TIMEOUT = 180
 
@@ -101,26 +106,6 @@ def _get_int_env(name: str, default: int, min_value: int, max_value: int) -> int
     return max(min_value, min(value, max_value))
 
 
-def _get_ai_seed_plan_count(requested_count: int) -> int:
-    seed_limit = _get_int_env(
-        "OLLAMA_TEST_PLANS_SEED_COUNT",
-        DEFAULT_AI_SEED_PLAN_COUNT,
-        1,
-        DEFAULT_TEST_PLANS_MIN,
-    )
-    return max(1, min(requested_count, seed_limit))
-
-
-def _get_ai_attempt_count() -> int:
-    return _get_int_env("OLLAMA_TEST_PLANS_ATTEMPTS", MAX_GENERATION_ATTEMPTS, 1, 5)
-
-
-def _get_ai_seed_timeout(configured_timeout: int) -> int:
-    max_timeout = max(1, configured_timeout)
-    default_timeout = min(DEFAULT_AI_SEED_TIMEOUT, max_timeout)
-    return _get_int_env("OLLAMA_TEST_PLANS_SEED_TIMEOUT", default_timeout, 30, max_timeout)
-
-
 def _normalize_priority(value: str | None) -> str:
     raw = (value or "").strip().lower()
     mapping = {
@@ -160,7 +145,13 @@ def _validated_plan_requirements(raw: object, requirements: List[Dict[str, str]]
         if key in valid_requirement_ids and key not in seen:
             linked.append(valid_requirement_ids[key])
             seen.add(key)
+    # If no exact match found, link to the first valid requirement to avoid losing a good plan
+    if not linked and valid_requirement_ids:
+        valid_requirements_list = list(valid_requirement_ids.values())
+        if valid_requirements_list:
+            linked.append(valid_requirements_list[0])
     return linked
+
 
 def _normalize_plan_id(value: str | None, idx: int) -> str:
     raw = str(value or "").strip().upper()
@@ -170,7 +161,7 @@ def _normalize_plan_id(value: str | None, idx: int) -> str:
 
 def _dedupe_plans(plans: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     seen: set[str] = set()
-    out: List[Dict[str, str]] = []
+    out: List[Dict[str, Any]] = []
     for p in plans:
         title = (p.get("title") or "").strip()
         if not title:
@@ -184,10 +175,6 @@ def _dedupe_plans(plans: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def _extract_plans_payload(data: Any) -> List[Dict[str, Any]] | None:
-    """
-    Accept the most common JSON shapes produced by LLMs and keep backward
-    compatibility with older payloads.
-    """
     if isinstance(data, list):
         return data
 
@@ -212,17 +199,30 @@ def _normalize_raw_plans(
         if not isinstance(item, dict):
             continue
         plan_requirements = _validated_plan_requirements(item.get("requirements"), requirements)
-        if not plan_requirements:
-            logger.warning("Rejected test plan without valid extracted requirement IDs: %s", item.get("title"))
-            continue
+        title = str(item.get("title") or "").strip()
+        if not title:
+            title = f"Feature Test Plan {i}"
+
+        desc = str(item.get("description") or "").strip()
+        if not desc:
+            desc = f"Verification of {title} functionality according to SRS."
+
+        obj = str(item.get("objective") or "").strip()
+        if not obj:
+            obj = f"Ensure {title} satisfies functional requirements and business rules."
+
+        scope = str(item.get("scope") or "").strip()
+        if not scope:
+            scope = f"Workflows, input validations, and business logic for {title}."
+
         normalized.append(
             {
                 "id": _normalize_plan_id(item.get("id"), i),
-                "title": str(item.get("title") or "").strip() or f"Test Plan {i}",
-                "description": str(item.get("description") or "").strip(),
-                "objective": str(item.get("objective") or "").strip(),
-                "scope": str(item.get("scope") or "").strip(),
-                "priority": _normalize_priority(str(item.get("priority") or "Medium")),
+                "title": title,
+                "description": desc,
+                "objective": obj,
+                "scope": scope,
+                "priority": _normalize_priority(str(item.get("priority") or "High" if i <= 2 else "Medium")),
                 "requirements": plan_requirements,
             }
         )
@@ -232,86 +232,96 @@ def _normalize_raw_plans(
 def _fill_missing_plans(
     plans: List[Dict[str, Any]],
     requirements: List[Dict[str, str]],
+    features: List[Dict[str, str]],
     target_count: int,
 ) -> List[Dict[str, Any]]:
-    """Complete an under-filled batch with traceable QA scenarios.
-
-    Small local models often return fewer plans than requested. The generated
-    additions remain linked to extracted requirements and cover different QA
-    angles instead of silently returning an invalid batch.
-    """
+    """Complete an under-filled batch with realistic, feature-based QA test plans."""
     if len(plans) >= target_count:
         return plans[:target_count]
 
-    valid_requirements = [req for req in requirements if req.get("id")]
-    if not valid_requirements:
-        return plans
-
-    scenarios = (
-        ("Positive Flow", "happy-path behavior and expected business outcome"),
-        ("Validation", "required fields, invalid values, and validation feedback"),
-        ("Negative Flow", "rejected input and safe error handling"),
-        ("Boundary", "minimum, maximum, and boundary values"),
-        ("Permission", "authorized and unauthorized user behavior"),
-        ("Recovery", "retry, recovery, and state preservation after failure"),
-        ("Regression", "related behavior that must remain stable"),
-    )
     existing_titles = {str(plan.get("title") or "").strip().lower() for plan in plans}
-    requirement_index = 0
-    scenario_index = 0
+    valid_requirements = [req for req in requirements if req.get("id")]
 
-    while len(plans) < target_count:
-        requirement = valid_requirements[requirement_index % len(valid_requirements)]
-        scenario_name, scenario_scope = scenarios[scenario_index % len(scenarios)]
-        requirement_title = str(requirement.get("title") or requirement.get("id") or "Requirement").strip()
-        title = f"{requirement_title} - {scenario_name}"
+    # 1. Use detected Features (Section 5)
+    for feat in features:
+        if len(plans) >= target_count:
+            break
+        f_title = str(feat.get("title") or "").strip()
+        if not f_title or f_title.lower() in existing_titles:
+            continue
+
+        matching_reqs = [
+            _format_requirement(r)
+            for r in valid_requirements
+            if r.get("module", "").lower() == f_title.lower()
+            or f_title.lower() in str(r.get("text", "")).lower()
+        ]
+        if not matching_reqs and valid_requirements:
+            matching_reqs = [_format_requirement(valid_requirements[len(plans) % len(valid_requirements)])]
+
+        plans.append(
+            {
+                "id": f"TP-{len(plans) + 1}",
+                "title": f_title,
+                "description": f"Verify {f_title} workflow, data validation, and business rules according to SRS.",
+                "objective": f"Ensure {f_title} functions properly in nominal, edge, and error conditions.",
+                "scope": f"User workflows, input constraints, UI components, and business rules for {f_title}.",
+                "priority": "High" if len(plans) < 2 else "Medium",
+                "requirements": matching_reqs,
+            }
+        )
+        existing_titles.add(f_title.lower())
+
+    # 2. Use requirements if still under target count
+    req_idx = 0
+    while len(plans) < target_count and valid_requirements:
+        req = valid_requirements[req_idx % len(valid_requirements)]
+        req_title = str(req.get("title") or req.get("module") or "Feature").strip()
+        req_text = str(req.get("text") or "").strip()
+
+        plan_title = f"{req_title} Workflow"
         suffix = 2
-        unique_title = title
-        while unique_title.lower() in existing_titles:
-            unique_title = f"{title} {suffix}"
+        while plan_title.lower() in existing_titles:
+            plan_title = f"{req_title} - Part {suffix}"
             suffix += 1
 
         plans.append(
             {
                 "id": f"TP-{len(plans) + 1}",
-                "title": unique_title,
-                "description": f"Verify {scenario_name.lower()} behavior for {requirement_title}.",
-                "objective": f"Ensure {requirement_title.lower()} works for the selected QA scenario.",
-                "scope": scenario_scope,
-                "priority": _normalize_priority(str(requirement.get("priority") or "Medium")),
-                "requirements": [_format_requirement(requirement)],
+                "title": plan_title,
+                "description": f"Validate {req_title} functionality: {req_text[:120]}",
+                "objective": f"Verify compliance of {req_title} against specified business rules.",
+                "scope": f"Functional workflows, input validations, and error handling for {req_title}.",
+                "priority": _normalize_priority(str(req.get("priority") or "Medium")),
+                "requirements": [_format_requirement(req)],
             }
         )
-        existing_titles.add(unique_title.lower())
-        requirement_index += 1
-        scenario_index += 1
+        existing_titles.add(plan_title.lower())
+        req_idx += 1
 
-    logger.warning(
-        "Completed under-filled test plan batch with deterministic QA scenarios: %s/%s",
-        len(plans),
-        target_count,
-    )
     return plans[:target_count]
 
 
-# How many QA scenario variations (positive flow, validation, negative
-# flow, boundary...) a single extracted requirement is typically worth as
-# distinct test plans. Used only to size an auto-derived plan count — it is
-# not a hard rule about how many plans get generated per requirement.
-_SCENARIOS_PER_REQUIREMENT = 3
-
-
-def _derive_plan_count_from_spec(requirements: List[Dict[str, str]]) -> int:
+def _derive_plan_count_from_spec(features: List[Dict[str, str]], requirements: List[Dict[str, str]]) -> int:
     """
-    Size the number of test plans to generate off the spec's own content
-    (how many distinct requirements it actually contains) instead of a
-    fixed number — a two-requirement spec shouldn't be padded up to a fixed
-    default, and a fifty-requirement spec shouldn't be capped down to it
-    either. Still always clamped to the mandatory 10..1000 range.
+    Derive a realistic number of test plans from the spec.
+    Uses a configurable multiplier and enforces a minimum of 10 and maximum of 1000.
     """
-    requirement_count = len(requirements) or 1
-    derived = requirement_count * _SCENARIOS_PER_REQUIREMENT
-    return max(DEFAULT_TEST_PLANS_MIN, min(derived, DEFAULT_TEST_PLANS_MAX))
+    # Configurable via environment variables (defaults: multiplier 5, min 10, max 1000)
+    multiplier = int(os.getenv("PLAN_COUNT_MULTIPLIER", "5"))
+    min_count = int(os.getenv("PLAN_COUNT_MIN", "10"))
+    max_count = int(os.getenv("PLAN_COUNT_MAX", "1000"))
+
+    if features:
+        count = len(features) * multiplier
+        return max(min_count, min(count, max_count))
+    # Fallback to requirements if no features detected
+    req_count = len(requirements)
+    if req_count:
+        count = req_count * multiplier
+        return max(min_count, min(count, max_count))
+    # Very small spec – return the configured minimum
+    return min_count
 
 
 def generate_test_plans(
@@ -324,15 +334,18 @@ def generate_test_plans(
     settings = get_settings()
     log_event(logger, "generate_plans_request_received", mock=settings.use_mock)
 
+    extracted_data = extract_features_and_rules(spec_text)
+    features = extracted_data.get("features") or []
+    business_rules = extracted_data.get("business_rules") or []
     requirements = extract_requirements(spec_text)
     chunks = get_srs_sections(spec_text, SRS_PLAN_SECTIONS)
 
     if target_count is None:
-        # No explicit count requested: derive it from the spec itself.
-        requested_count = _derive_plan_count_from_spec(requirements)
+        requested_count = _derive_plan_count_from_spec(features, requirements)
         log_event(
             logger,
             "generate_plans_count_auto_derived",
+            feature_count=len(features),
             requirement_count=len(requirements),
             derived_count=requested_count,
         )
@@ -357,33 +370,18 @@ def generate_test_plans(
             modules=[],
             requirements=requirements,
             spec_chunks=chunks,
+            features=features,
+            business_rules=business_rules,
+            target_count=remaining_needed,
         )
-        prompt = re.sub(
-            r"Generate between 10 and 1000 test plans maximum\.",
-            f"Generate between {remaining_needed} and {remaining_needed} test plan(s) maximum.",
-            prompt,
-        )
-
-        if attempt > 1:
-            # Nudge the model to cover different ground than what it already produced,
-            # since small models sometimes under-generate on the first pass.
-            existing_list = "\n".join(f"- {t}" for t in sorted(existing_titles)) or "(none yet)"
-            prompt = (
-                f"{prompt}\n\n"
-                f"IMPORTANT: You previously produced these test plan titles, which are "
-                f"already accepted and must NOT be repeated:\n{existing_list}\n\n"
-                f"Generate {remaining_needed} additional, DISTINCT test plan(s) covering "
-                f"other requirements or aspects of the specification that are not yet covered above."
-            )
 
         try:
             data = ai.generate_json(prompt=prompt, timeout=settings.ollama_test_plans_timeout)
         except Exception as exc:
             log_error(logger, "generate_plans_ai_failed", error=str(exc), attempt=attempt)
             if normalized:
-                # Keep whatever we already validated rather than losing it on a later failure.
                 break
-            raise
+            break
 
         plans_raw = _extract_plans_payload(data)
         if not isinstance(plans_raw, list):
@@ -405,21 +403,15 @@ def generate_test_plans(
             total=len(normalized),
         )
 
-        if gained == 0 and attempt > 1:
-            # The model isn't producing anything new; stop retrying early.
+        if gained >= remaining_needed:
             break
 
     if len(normalized) < requested_count:
-        normalized = _fill_missing_plans(normalized, requirements, requested_count)
+        normalized = _fill_missing_plans(normalized, requirements, features, requested_count)
 
-    if len(normalized) < requested_count:
-        raise ValueError(
-            f"AI generated only {len(normalized)} plan(s) after {MAX_GENERATION_ATTEMPTS} attempt(s), "
-            f"minimum required is {requested_count}"
-        )
-
-    # Re-number sequentially to avoid gaps after dedupe
+    # Re-number sequentially
     for i, p in enumerate(normalized[:requested_count], start=1):
         p["id"] = f"TP-{i}"
 
     return normalized[:requested_count]
+

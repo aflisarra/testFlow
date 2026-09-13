@@ -16,11 +16,36 @@ function tryRegisterChromeDriver() {
 }
 
 async function createDriver({ profileKey = '' } = {}) {
-  tryRegisterChromeDriver()
+  const remoteUrl = (process.env.SELENIUM_REMOTE_URL || '').trim().replace(/\/+$/, '')
+  const isRemote = Boolean(remoteUrl)
 
   const options = new chrome.Options()
 
+  if (!isRemote) {
+    tryRegisterChromeDriver()
+
+    if (fs.existsSync('/usr/bin/chromium-browser')) {
+      options.setChromeBinaryPath('/usr/bin/chromium-browser')
+    } else if (fs.existsSync('/usr/bin/chromium')) {
+      options.setChromeBinaryPath('/usr/bin/chromium')
+    }
+
+    if (process.env.SELENIUM_HEADLESS !== 'false') {
+      options.addArguments('--headless')
+    }
+
+    const safeProfileKey = String(profileKey || 'default')
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .slice(0, 120)
+    const profileRoot = process.env.SELENIUM_PROFILE_DIR || path.join(os.tmpdir(), 'pfe-selenium-profiles')
+    const profilePath = path.join(profileRoot, safeProfileKey)
+    fs.mkdirSync(profilePath, { recursive: true })
+    options.addArguments(`--user-data-dir=${profilePath}`)
+    console.log(`[SELENIUM] Chrome profile: ${profilePath}`)
+  }
+
   options.addArguments(
+    '--disable-gpu',
     '--start-maximized',
     '--disable-infobars',
     '--disable-notifications',
@@ -28,25 +53,19 @@ async function createDriver({ profileKey = '' } = {}) {
     '--no-sandbox'
   )
 
-  // Keep navigation from blocking the whole execution when the target page
-  // is slow to finish rendering. We still verify the DOM manually after load.
   options.setPageLoadStrategy('eager')
 
-  // Keep authentication cookies between dependent test executions. Each
-  // suite gets its own profile so one suite cannot reuse another suite's login.
-  const safeProfileKey = String(profileKey || 'default')
-    .replace(/[^a-zA-Z0-9_-]/g, '_')
-    .slice(0, 120)
-  const profileRoot = process.env.SELENIUM_PROFILE_DIR || path.join(os.tmpdir(), 'pfe-selenium-profiles')
-  const profilePath = path.join(profileRoot, safeProfileKey)
-  fs.mkdirSync(profilePath, { recursive: true })
-  options.addArguments(`--user-data-dir=${profilePath}`)
-  console.log(`[SELENIUM] Chrome profile: ${profilePath}`)
-
-  const driver = await new Builder()
+  let builder = new Builder()
     .forBrowser('chrome')
     .setChromeOptions(options)
-    .build()
+
+  if (isRemote) {
+    const normalizedRemoteUrl = remoteUrl.endsWith('/wd/hub') ? remoteUrl.replace(/\/wd\/hub$/, '') : remoteUrl
+    console.log(`[SELENIUM] Connecting to standalone Chrome at: ${normalizedRemoteUrl}`)
+    builder = builder.usingServer(normalizedRemoteUrl)
+  }
+
+  const driver = await builder.build()
 
   await driver.manage().setTimeouts({
     implicit: 10000,

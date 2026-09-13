@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, List
+from typing import Any, Dict, List
 
 
 def build_test_plan_prompt(
@@ -11,38 +11,61 @@ def build_test_plan_prompt(
     modules: List[str],
     requirements: List[Dict[str, str]],
     spec_chunks: List[Dict[str, str]],
+    features: List[Dict[str, str]] | None = None,
+    business_rules: List[Dict[str, str]] | None = None,
+    target_count: int = 5,
 ) -> str:
 
-    project_block = project_title.strip() or "(not provided)"
-    style_block = style_config.strip() or "(none)"
+    project_block = project_title.strip() or "Software System"
+    style_block = style_config.strip() or "(standard)"
 
-    chunk_lines = []
+    features_list = features or []
+    rules_list = business_rules or []
 
-    for ch in spec_chunks[:5]:
-        chunk_lines.append(
-            f"## {ch.get('title')}\n{ch.get('text')[:500]}"
+    # Format Features block
+    features_text = ""
+    if features_list:
+        features_text = "\n".join(
+            f"- Feature: {f.get('title')}\n  Details: {f.get('text')}"
+            for f in features_list[:20]
         )
+    else:
+        # If no explicit features passed, format from spec_chunks
+        features_text = "\n\n".join(
+            f"## {ch.get('title')}\n{ch.get('text')}"
+            for ch in spec_chunks[:10]
+        )
+
+    # Format Business Rules block
+    rules_text = ""
+    if rules_list:
+        rules_text = "\n".join(
+            f"- [{r.get('title')}]: {r.get('rule')}"
+            for r in rules_list[:25]
+        )
+    else:
+        rules_text = "(Apply standard validation and business logic constraints from the specification)"
 
     example = """
 {
   "test_plans": [
     {
       "id": "TP-1",
-      "title": "Account Creation",
-      "description": "Verification of the account creation feature described in the SRS",
-      "objective": "Ensure the feature satisfies its SRS objectives and requirements",
-      "scope": "Feature behavior, supported workflow, and related business outcomes",
-      "priority": "High",
-      "requirements": ["REQ-001"]
+      "title": "User Authentication & Access Control",
+      "description": "Verify user login, credential validation, session handling, and password recovery according to Section 5 Features and Section 6 Business Rules.",
+      "objective": "Ensure secure authentication and role-based access restrictions operate as specified.",
+      "scope": "Login form, credentials verification, password reset, session timeout, authentication error handling.",
+      "priority": "Critical",
+      "requirements": ["REQ-001", "REQ-002"]
     },
     {
       "id": "TP-2",
-      "title": "User Login",
-      "description": "Verification of the login feature described in the SRS",
-      "objective": "Ensure users can access the application according to SRS objectives",
-      "scope": "Login feature behavior and expected business outcome",
-      "priority": "Medium",
-      "requirements": ["REQ-002"]
+      "title": "User Account Registration & Profile Setup",
+      "description": "Verify complete registration workflow, email verification, input constraints, and profile creation.",
+      "objective": "Ensure new users can register accurately with valid data and mandatory validation rules are enforced.",
+      "scope": "Registration form, mandatory fields validation, duplicate email check, activation flow.",
+      "priority": "High",
+      "requirements": ["REQ-003", "REQ-004"]
     }
   ]
 }
@@ -50,111 +73,52 @@ def build_test_plan_prompt(
 
     return (
         "<s>[INST]\n"
+        "You are a Lead QA Engineer specialized in Software Test Planning according to ISTQB standards.\n\n"
 
-        "You are a Senior QA Engineer specialized in test analysis.\n"
-        "Apply ISTQB principles.\n\n"
+        "### OBJECTIVE\n"
+        "Generate a complete, professional suite of QA Test Plans based directly on the **Features (Section 5)** and **Business Rules (Section 6)** extracted from the SRS document.\n\n"
 
-        "### PIPELINE\n"
-        "SRS -> Text Extraction -> Chunking -> Test Plan Generation -> Test Case Generation.\n"
-        "Use the SRS structure. Do not use keyword heuristics.\n\n"
+        "### CORE RULES\n"
+        "1. **Feature-Driven Plans**: Each Test Plan MUST correspond to a major functional Feature/Module described in the specification.\n"
+        "2. **Business Rules Verification**: Each Test Plan MUST integrate the validation rules and business constraints from Section 6.\n"
+        "3. **Clear Functional Titles**: Use real, descriptive business titles (e.g. 'User Authentication & Login', 'Task Creation & Assignment', 'Leave Request Management'). NEVER use robotic placeholders like 'REQ-005 - Permission'.\n"
+        "4. **Traceability**: Link each test plan to its relevant requirement IDs from the provided REQUIREMENTS list.\n"
+        "5. **Priority**: Assign realistic priorities: 'Critical', 'High', 'Medium', or 'Low'.\n\n"
 
-        "### TASK\n"
-        "Generate test plans from the SRS sections: Features, Project Description, Objectives, UI Components, Business Rules, Validation Rules, Pass Criteria.\n"
-        "Include UI Components, Business Rules, Validation Rules, and Pass Criteria when generating test plans.\n"
-
-        "### REQUIREMENTS RULE\n"
-        "The provided REQUIREMENTS are extracted from Features, Project Description, Objectives, UI Components, Business Rules, Validation Rules, and Pass Criteria.\n"
-        "Generate test plans ONLY from functionality represented in those REQUIREMENTS.\n"
-        "Every test plan MUST be supported by at least one requirement.\n"
-        "Every test plan MUST contain a non-empty requirements array.\n"
-        "Use ONLY requirement IDs that exist in the provided REQUIREMENTS.\n"
-        "Never invent requirement IDs.\n"
-        "If no valid requirement supports a test plan, do not generate it.\n"
-        "Do not independently discover features from UI components or validation details.\n\n"
-
-        "### COVERAGE RULE\n"
-        "Cover the different Features, Project Description goals, and Objectives represented by the REQUIREMENTS.\n"
-        "Do not stop after covering only the first requirements.\n"
-        "Group closely related requirements only when the resulting plan still clearly covers them.\n\n"
-
-        "### REALISTIC FLOW RULE\n"
-        "A test plan may focus on one requirement, but its description, objective, and scope must remain executable in the real workflow.\n"
-        "If the feature depends on fields, prerequisites, account state, verification state, or navigation context described in the SRS, include those dependencies in the plan scope.\n"
-        "Do not describe isolated field testing that leaves the rest of a required form or workflow empty.\n\n"
-
-        "### TRACEABILITY RULE\n"
-        "Every generated test plan must be traceable to at least one provided requirement ID.\n"
-        "If a plan cannot be linked to a valid requirement ID, do not generate it.\n\n"
-
-        "### REDUNDANCY RULE\n"
-        "Do not generate duplicate plans.\n"
-        "Merge related functionality into a single business-oriented plan.\n\n"
-        
-        "### PRIORITY RULE\n"
-        "Priority values:\n"
-        "- Critical\n"
-        "- High\n"
-        "- Medium\n"
-        "- Low\n\n"
+        f"Generate {target_count} comprehensive test plan(s) covering the key features.\n\n"
 
         "### OUTPUT FORMAT\n"
-        "Return ONLY valid JSON.\n"
-        "No markdown.\n"
-        "No explanations.\n\n"
-
-        "Root object MUST be:\n"
-        "{ \"test_plans\": [] }\n\n"
-
-        "Each plan MUST contain:\n"
-"- id\n"
-"- title\n"
-"- description\n"
-"- objective\n"
-"- scope\n"
-"- priority\n"
-"- requirements\n\n"
-
-"### WRITING STYLE RULE\n"
-"Keep all generated text concise.\n"
-"\n"
-"title:\n"
-"- maximum 5 words\n"
-"\n"
-"description:\n"
-"- maximum 15 words\n"
-"- one short sentence\n"
-"\n"
-"objective:\n"
-"- maximum 15 words\n"
-"- one short sentence\n"
-"\n"
-"scope:\n"
-"- maximum 20 words\n"
-"- list only the key functionality covered\n"
-"\n"
-"Do not write long explanations.\n"
-"Do not write paragraphs.\n"
-"Use short business-oriented wording.\n\n"
-
-"Generate between 10 and 1000 test plans maximum.\n"
-"The requested number is a minimum for the current generation batch.\n"
-"When several distinct workflows, roles, states, or risk scenarios belong to the same requirement, create separate plans for them.\n\n"
+        "Return ONLY valid JSON without markdown formatting or introductory text.\n"
+        "JSON Schema:\n"
+        "{\n"
+        '  "test_plans": [\n'
+        "    {\n"
+        '      "id": "TP-1",\n'
+        '      "title": "Clear Feature Title",\n'
+        '      "description": "Functional description of what is tested",\n'
+        '      "objective": "QA goal for this feature",\n'
+        '      "scope": "Components and business rules covered",\n'
+        '      "priority": "Critical | High | Medium | Low",\n'
+        '      "requirements": ["REQ-001", "REQ-002"]\n'
+        "    }\n"
+        "  ]\n"
+        "}\n\n"
 
         "### EXAMPLE\n"
         f"{example}\n\n"
 
-        "### PROJECT\n"
-        f"{project_block}\n\n"
+        "### PROJECT CONTEXT\n"
+        f"Project: {project_block}\n"
+        f"Style: {style_block}\n\n"
 
-        "### UI STYLE\n"
-        f"{style_block}\n\n"
+        "### 5. FEATURES & FUNCTIONAL MODULES (SPECIFICATION)\n"
+        f"{features_text}\n\n"
 
-        "### REQUIREMENTS\n"
-        f"{json.dumps(requirements, indent=2, ensure_ascii=False)}\n\n"
+        "### 6. BUSINESS RULES & VALIDATION CONSTRAINTS (SPECIFICATION)\n"
+        f"{rules_text}\n\n"
 
-        "### SPECIFICATION\n"
-        + "\n\n".join(chunk_lines)
-        + "\n\n"
+        "### EXTRACTED REQUIREMENTS (FOR TRACEABILITY)\n"
+        f"{json.dumps(requirements[:40], indent=2, ensure_ascii=False)}\n\n"
 
         "[/INST]"
     )

@@ -1,21 +1,50 @@
 {
-  "title": "🔴 TEST ANALYSIS",
-  "failedStepName": "Click Reset",
-  "description": "The Reset button does not clear the From Date and To Date fields as expected.",
-  "expectedBehavior": "The From Date and To Date fields should be cleared and restored to their default values.",
-  "actualBehavior": "The From Date and To Date fields remain unchanged.",
-  "rootCause": "APPLICATION",
-  "whyItFailed": "The Reset button does not correctly clear the From Date and To Date fields.",
-  "developerFix": [
-    "Verify the logic in the Reset button handler to ensure it correctly resets the From Date and To Date fields.",
-    "Check if the fields are bound to the DOM and if the Reset button is correctly interacting with these fields.",
-    "Ensure the Reset button is correctly interacting with the From Date and To Date fields in the DOM."
-  ],
-  "developerCodeExample": "```javascript\n// Example of resetting fields in a hypothetical form\nform.reset();\ncomponent.fromDate = null;\ncomponent.toDate = null;\n```",
-  "testerFix": [
-    "Fill all available search filters (e.g., Employee Name, Leave Type, Status) and click Reset.",
-    "Verify each field separately after clicking Reset.",
-    "If some fields are cleared but the From Date and To Date fields remain unchanged, isolate the issue to date management."
-  ],
-  "evidence": []
+  "test_cases": [
+    {
+      "id": "TC-1.1",
+      "title": "Add button User Management using User Role dropdown and Employee Name field",
+      "objective": "Verify that User Management can be filtered by User Role dropdown and Employee Name field using Add button.",
+      "preconditions": [
+        "The User Management screen is displayed with search filters in their initial/default state"
+      ],
+      "test_data": {
+        "User Role dropdown": "a valid User Role dropdown",
+        "Employee Name field": "a valid Employee Name field"
+      },
+      "steps": [
+        "Enter a valid User Role dropdown in User Role dropdown",
+        "Enter a valid Employee Name field in Employee Name field",
+        "Click Add button"
+      ],
+      "stepDetails": [
+        {
+          "component": "User Role dropdown",
+          "action": "enter",
+          "value": "a valid User Role dropdown",
+          "step": "Enter a valid User Role dropdown in User Role dropdown",
+          "expected_result": "User Role dropdown accepts and retains the entered value"
+        },
+        {
+          "component": "Employee Name field",
+          "action": "enter",
+          "value": "a valid Employee Name field",
+          "step": "Enter a valid Employee Name field in Employee Name field",
+          "expected_result": "Employee Name field accepts and retains the entered value"
+        },
+        {
+          "component": "Add button",
+          "action": "click",
+          "value": "",
+          "step": "Click Add button",
+          "expected_result": "User Management displays results matching the applied filters"
+        }
+      ],
+      "expected_result": "User Management displays results matching the selected User Role dropdown and Employee Name field.",
+      "priority": "High",
+      "severity": "Major",
+      "type": "positive",
+      "requirements": [],
+      "dependsOn": []
+    }
+  ]
 }

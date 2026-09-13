@@ -1,1 +1,148 @@
-{"index":50,"level":"ERROR","message":"Step 8 failed_execution: Input step executed → actual:{\"url\":\"https://opensource-demo.orangehrmlive.com/web/index.php/leave/viewLeaveList\",\"title\":\"OrangeHRM\",\"text\":\"Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\u2014 Pending Approval Cancelled Leave Type \\u2014 Employee Name Invalid Sub Unit \\u2014 Include Past Employees \\* Required Reset Search No Records Found Date Employee Name Leave Type Leave Balance (Days) Number of Days Status Comments Actions OrangeHRM OS 5.9 \\u2014 © 2005 - 2026 OrangeHRM, Inc. All rights reserved. Admin PIM Leave Time Recruitment My Info Performance Dashboard Directory Maintenance Claim Buzz Leave Upgrade Justin Sierreño Apply My Leave Entitlements Reports Configure Leave List Assign Leave Leave List From Date To Date Show Leave with Status \\u2014 Select \\
+{
+  "test_plans": [
+    {
+      "id": "TP-1",
+      "title": "User Authentication & Access Control",
+      "description": "Verify user login, credential validation, session handling, and password recovery according to Section 5 Features and Section 6 Business Rules.",
+      "objective": "Ensure secure authentication and role-based access restrictions operate as specified.",
+      "scope": "Login form, credentials verification, password reset, session timeout, authentication error handling.",
+      "priority": "Critical",
+      "requirements": ["REQ-001", "REQ-002"]
+    },
+    {
+      "id": "TP-2",
+      "title": "User Account Registration & Profile Setup",
+      "description": "Verify complete registration workflow, email verification, input constraints, and profile creation.",
+      "objective": "Ensure new users can register accurately with valid data and mandatory validation rules are enforced.",
+      "scope": "Registration form, mandatory fields validation, duplicate email check, activation flow.",
+      "priority": "High",
+      "requirements": ["REQ-003", "REQ-004"]
+    },
+    {
+      "id": "TP-3",
+      "title": "Password Recovery & Reset",
+      "description": "Verify password recovery functionality and reset process according to Section 5 Features and Section 6 Business Rules.",
+      "objective": "Ensure users can recover their passwords securely and access the system.",
+      "scope": "Forgot Password feature, email verification, password reset form validation.",
+      "priority": "High",
+      "requirements": ["REQ-002", "REQ-014"]
+    },
+    {
+      "id": "TP-4",
+      "title": "Leave Request Management",
+      "description": "Verify leave request creation, assignment to managers, status updates, and inclusion of past employees according to Section 5 Features and Section 6 Business Rules.",
+      "objective": "Ensure users can create, assign, update the status of their leave requests as specified.",
+      "scope": "Leave Request form, manager assignment, status changes, past employee inclusion feature.",
+      "priority": "High",
+      "requirements": ["REQ-018", "REQ-025"]
+    },
+    {
+      "id": "TP-5",
+      "title": "User Profile Management",
+      "description": "Verify user profile creation, modification, and deletion according to Section 5 Features and Section 6 Business Rules.",
+      "objective": "Ensure users can create, modify, and delete their own profiles as specified.",
+      "scope": "Add User feature, Edit User page with password change option, and Delete User functionality.",
+      "priority": "High",
+      "requirements": ["REQ-007", "REQ-016"]
+    },
+    {
+      "id": "TP-6",
+      "title": "User Role Management (Admin)",
+      "description": "Verify user role creation, modification, and deletion for users with Admin role according to Section 5 Features and Section 6 Business Rules.",
+      "objective": "Ensure Admins can create, modify, and delete user roles as specified.",
+      "scope": "Add User feature, Edit User page with password change option, and Delete User functionality.",
+      "priority": "High",
+      "requirements": ["REQ-017"]
+    },
+    {
+      "id": "TP-7",
+      "title": "User Profile Status Management (Admin)",
+      "description": "Verify user profile status update for users with Admin role according to Section 5 Features and Section 6 Business Rules.",
+      "objective": "Ensure Admins can update the status of user profiles as specified.",
+      "scope": "Status update feature on Edit User page.",
+      "priority": "High",
+      "requirements": ["REQ-021"]
+    },
+    {
+      "id": "TP-8",
+      "title": "User Profile Inclusion Management (Admin)",
+      "description": "Verify user profile inclusion for past employees according to Section 5 Features and Section 6 Business Rules.",
+      "objective": "Ensure Admins can include past employee profiles as specified.",
+      "scope": "Past Employee feature on Edit User page.",
+      "priority": "High",
+      "requirements": ["REQ-024"]
+    },
+    {
+      "id": "TP-9",
+      "title": "User Profile Inclusion Management (User)",
+      "description": "Verify user profile inclusion for past employees according to Section 5 Features and Section 6 Business Rules.",
+      "objective": "Ensure users can include their own profiles as specified.",
+      "scope": "Past Employee feature on Edit User page.",
+      "priority": "High",
+      "requirements": ["REQ-024"]
+    },
+    {
+      "id": "TP-10",
+      "title": "User Profile Status Management (User)",
+      "description": "Verify user profile status update for users with Admin role according to Section 5 Features and Section 6 Business Rules.",
+      "objective": "Ensure users can update their own profile status as specified.",
+      "scope": "Status update feature on Edit User page.",
+      "priority": "High",
+      "requirements": ["REQ-021"]
+    },
+    {
+      "id": "TP-11",
+      "title": "User Profile Password Management (Admin)",
+      "description": "Verify user profile password change for users with Admin role according to Section 5 Features and Section 6 Business Rules.",
+      "objective": "Ensure Admins can change the passwords of user profiles as specified.",
+      "scope": "Password change feature on Edit User page.",
+      "priority": "High",
+      "requirements": ["REQ-019"]
+    },
+    {
+      "id": "TP-12",
+      "title": "User Profile Password Management (User)",
+      "description": "Verify user profile password change for users with Admin role according to Section 5 Features and Section 6 Business Rules.",
+      "objective": "Ensure users can change their own passwords as specified.",
+      "scope": "Password change feature on Edit User page.",
+      "priority": "High",
+      "requirements": ["REQ-019"]
+    },
+    {
+      "id": "TP-13",
+      "title": "User Profile Password Management (User)",
+      "description": "Verify user profile password change for users with Admin role according to Section 5 Features and Section 6 Business Rules.",
+      "objective": "Ensure users can change their own passwords as specified.",
+      "scope": "Password change feature on Edit User page.",
+      "priority": "High",
+      "requirements": ["REQ-019"]
+    },
+    {
+      "id": "TP-14",
+      "title": "User Profile Password Management (Admin)",
+      "description": "Verify user profile password change for users with Admin role according to Section 5 Features and Section 6 Business Rules.",
+      "objective": "Ensure Admins can change the passwords of user profiles as specified.",
+      "scope": "Password change feature on Edit User page.",
+      "priority": "High",
+      "requirements": ["REQ-019"]
+    },
+    {
+      "id": "TP-15",
+      "title": "User Profile Password Management (User)",
+      "description": "Verify user profile password change for users with Admin role according to Section 5 Features and Section 6 Business Rules.",
+      "objective": "Ensure users can change their own passwords as specified.",
+      "scope": "Password change feature on Edit User page.",
+      "priority": "High",
+      "requirements": ["REQ-019"]
+    },
+    {
+      "id": "TP-16",
+      "title": "User Profile Password Management (Admin)",
+      "description": "Verify user profile password change for users with Admin role according to Section 5 Features and Section 6 Business Rules.",
+      "objective": "Ensure Admins can change the passwords of user profiles as specified.",
+      "scope": "Password change feature on Edit User page.",
+      "priority": "High",
+      "requirements": ["REQ-019"]
+    }
+  ]
+}

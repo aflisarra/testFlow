@@ -175,7 +175,7 @@ if (this.selectedFile) {
 
 ### Test 1: Upload spec to new suite
 ```bash
-curl -X POST http://localhost:3000/api/ollama/generate-plan \
+curl -X POST http://localhost:3100/api/ollama/generate-plan \
   -H "Authorization: Bearer TOKEN" \
   -F "file=@spec.docx" \
   -F "userId=USER_ID" \
@@ -186,7 +186,7 @@ Expected: 200 OK with generated plan
 
 ### Test 2: Regenerate existing plan
 ```bash
-curl -X POST http://localhost:3000/api/ollama/generate-plan \
+curl -X POST http://localhost:3100/api/ollama/generate-plan \
   -H "Authorization: Bearer TOKEN" \
   -F "file=@spec.docx" \
   -F "testSuiteId=SUITE_ID" \

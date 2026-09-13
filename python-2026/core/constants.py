@@ -25,7 +25,7 @@ TEST_CASE_TYPES: Final[tuple[str, ...]] = (
     "Error handling",
 )
 
-DEFAULT_TEST_PLANS_MIN: Final[int] = 10
+DEFAULT_TEST_PLANS_MIN: Final[int] = 1
 DEFAULT_TEST_PLANS_MAX: Final[int] = 1000
 
 DEFAULT_TEST_CASES_MIN: Final[int] = 3

@@ -1,4 +1,5 @@
 import { SeleniumRunnerService } from '@/app/core/services/selenium-runner.service';
+import { ApiService } from '@/app/core/services/api.service';
 import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -126,7 +127,9 @@ export class ExecutionDetailModalComponent implements OnChanges, OnInit, OnDestr
 
   private cdr = inject(ChangeDetectorRef);
   private seleniumRunner = inject(SeleniumRunnerService);
+  private api = inject(ApiService);
   private el = inject(ElementRef);
+  private screenshotObjectUrls = new Set<string>();
 
   activeTab: 'screenshots' | 'logs' = 'screenshots';
   selectedStepIndex = 0;
@@ -140,6 +143,8 @@ export class ExecutionDetailModalComponent implements OnChanges, OnInit, OnDestr
   }
 
   ngOnDestroy(): void {
+    this.screenshotObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+    this.screenshotObjectUrls.clear();
     if (this.el.nativeElement && document.body.contains(this.el.nativeElement)) {
       document.body.removeChild(this.el.nativeElement);
     }
@@ -179,6 +184,8 @@ export class ExecutionDetailModalComponent implements OnChanges, OnInit, OnDestr
 private async fetchExecutionDetail(): Promise<void> {
   if (!this.execution?.executionId) return
 
+  this.screenshotObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+  this.screenshotObjectUrls.clear();
   this.isLoadingDetail = true
   this.cdr.markForCheck()
 
@@ -217,7 +224,7 @@ private async fetchExecutionDetail(): Promise<void> {
 
     console.log('✅ RAW DETAIL STEPS:', rawSteps)
 
-    this.steps = this.mapSteps(rawSteps)
+    this.steps = await this.mapSteps(rawSteps)
     this.logs = this.mapLogs(rawLogs)
 
     console.log('✅ MAPPED DETAIL STEPS:', this.steps)
@@ -238,8 +245,8 @@ private async fetchExecutionDetail(): Promise<void> {
   }
 }
 
-private mapSteps(raw: RawStepResult[]): ExecutionDetailStep[] {
-  return raw.map((r, i) => {
+private async mapSteps(raw: RawStepResult[]): Promise<ExecutionDetailStep[]> {
+  return Promise.all(raw.map(async (r, i) => {
 
       const screenshotPath =
         typeof r.screenshotPath === 'string'
@@ -274,9 +281,7 @@ private mapSteps(raw: RawStepResult[]): ExecutionDetailStep[] {
                   ? 'skipped'
                   : 'failed',
 
-      screenshotUrl: screenshotPath
-        ? this.resolveUrl(String(screenshotPath))
-        : null,
+      screenshotUrl: await this.loadAuthenticatedScreenshot(String(screenshotPath)),
 
       message: r.message ?? r.error ?? '',
 
@@ -284,7 +289,7 @@ private mapSteps(raw: RawStepResult[]): ExecutionDetailStep[] {
 
       expectedResult: r.expectedResult ?? r.expected ?? '',
     }
-  })
+  }))
 }
 
   private mapLogs(raw: RawLogEntry[]): ExecutionDetailLog[] {
@@ -302,8 +307,27 @@ private mapSteps(raw: RawStepResult[]): ExecutionDetailStep[] {
 
   private resolveUrl(path: string): string {
     if (!path) return '';
-    if (path.startsWith('http')) return path;
-    return 'http://localhost:3000' + path;
+    if (path.startsWith('http') || path.startsWith('data:image')) return path;
+    path = path.replace(/\\/g, '/');
+    const uploadsIndex = path.toLowerCase().indexOf('uploads/');
+    if (uploadsIndex !== -1) path = '/' + path.slice(uploadsIndex);
+    if (!path.startsWith('/')) path = '/' + path;
+    return 'http://localhost:3100' + path;
+  }
+
+  private async loadAuthenticatedScreenshot(path: string): Promise<string | null> {
+    const url = this.resolveUrl(path);
+    if (!url || url.startsWith('data:image')) return url || null;
+
+    try {
+      const blob = await firstValueFrom(this.api.getBlob(url));
+      const objectUrl = URL.createObjectURL(blob);
+      this.screenshotObjectUrls.add(objectUrl);
+      return objectUrl;
+    } catch (error) {
+      console.warn('[Screenshot] Unable to load protected screenshot:', error);
+      return null;
+    }
   }
 
   // ─── UI helpers ─────────────────────────────────────────────────

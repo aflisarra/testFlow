@@ -42,8 +42,10 @@ html[data-bs-theme='dark'],
     --#{$prefix}logo-sm-height: 24px;
 }
 
-/* Main Menu Light */
-html[data-menu-color='light'] {
+/* Main Menu (Forced Light) */
+html[data-menu-color='light'],
+html[data-menu-color='dark'],
+html[data-bs-theme='dark'] {
     --#{$prefix}main-nav-bg: #fff;
     --#{$prefix}main-nav-item-color: #8486a7;
     --#{$prefix}main-nav-item-hover-bg: #f3f1fa;
@@ -51,27 +53,11 @@ html[data-menu-color='light'] {
     --#{$prefix}main-nav-border-color: #eaedf1;
 }
 
-/* Main Menu Dark */
-html[data-menu-color='dark'],
-html[data-bs-theme='dark'][data-menu-color='light'] {
-    --#{$prefix}main-nav-bg: #262d34;
-    --#{$prefix}main-nav-item-color: #9097a7;
-    --#{$prefix}main-nav-item-hover-bg: #{shade-color(#36404a, 8%)};
-    --#{$prefix}main-nav-item-hover-color: #{$white};
-    --#{$prefix}main-nav-border-color: #2f3944;
-}
-
-/* Topbar Light */
-html[data-topbar-color='light'] {
+/* Topbar (Forced Light) */
+html[data-topbar-color='light'],
+html[data-topbar-color='dark'],
+html[data-bs-theme='dark'] {
     --#{$prefix}topbar-bg: #{$white};
     --#{$prefix}topbar-item-color: #707793;
     --#{$prefix}topbar-search-bg: #f3f3f9;
-}
-
-/* Topbar Dark */
-html[data-topbar-color='dark'],
-html[data-bs-theme='dark'][data-topbar-color='light'] {
-    --#{$prefix}topbar-bg: #22282e;
-    --#{$prefix}topbar-item-color: #dee2e6;
-    --#{$prefix}topbar-search-bg: #2c3238;
 }

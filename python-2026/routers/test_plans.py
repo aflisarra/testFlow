@@ -156,24 +156,19 @@ async def generate_plan(request: Request):
                 content={"error": "Generation cancelled by user"}
             )
 
-        # A complete plan generation must contain 10..1000 plans.
-        # Single-plan regeneration is intentionally kept as a special case.
-        # When the caller didn't explicitly ask for a specific count,
-        # requested_count stays None here and generate_test_plans() derives
-        # it from how many requirements the spec actually contains (still
-        # clamped to 10..1000) — only an explicit value is validated here.
+        # Plan generation count validation (1..1000)
         if not (plan_id and regenerate) and requested_count is not None:
             try:
                 requested_count = int(requested_count)
             except (TypeError, ValueError):
                 return JSONResponse(
                     status_code=400,
-                    content={"error": "test_plan_count must be an integer between 10 and 1000"},
+                    content={"error": "test_plan_count must be an integer between 1 and 1000"},
                 )
-            if requested_count < 10 or requested_count > 1000:
+            if requested_count < 1 or requested_count > 1000:
                 return JSONResponse(
                     status_code=400,
-                    content={"error": "test_plan_count must be between 10 and 1000"},
+                    content={"error": "test_plan_count must be between 1 and 1000"},
                 )
 
         # ✅ Call AI service to generate plans

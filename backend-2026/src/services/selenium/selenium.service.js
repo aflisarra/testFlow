@@ -1034,6 +1034,8 @@ if (actualResultObject.successMessage) {
           expectedResult: stepExpectedResult,
           comparison: { matched: comparison.matched, reason: comparison.reason },
           screenshot: (result.screenshots && result.screenshots[0]) || null,
+          screenshotPath: (result.screenshots && (result.screenshots[0]?.publicUrl || result.screenshots[0]?.path)) || '',
+          screenshots: result.screenshots || [],
           allScreenshots: result.screenshots || [],
           error: result.error || '',
           startedAt: new Date(),

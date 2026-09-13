@@ -39,47 +39,7 @@ app-root,
   background: transparent !important;
 }
 
-html[data-bs-theme='dark'],
-[data-bs-theme='dark'] {
-  --bs-body-bg: #191f2f;
-  --bs-body-bg-rgb: 25, 31, 47;
-  --bs-body-color: #fff;
-}
 
-html[data-bs-theme='dark'] body {
-  background:
-    radial-gradient(1200px 500px at 88% -12%, rgb(59 130 246 / 15%), transparent 55%),
-    radial-gradient(900px 380px at -12% 8%, rgb(236 138 0 / 10%), transparent 65%),
-    linear-gradient(180deg, #0b1220 0%, #0f1622 100%);
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-}
-
-html[data-bs-theme='dark'] .page-content {
-  background-color: #191f2f;
-}
-
-html[data-bs-theme='dark'] .form-control,
-html[data-bs-theme='dark'] .form-select,
-html[data-bs-theme='dark'] textarea.form-control {
-  background-color: #020c22;
-  color: #e2e8f0;
-  border-color: #1e293b;
-}
-
-html[data-bs-theme='dark'] .form-control::placeholder,
-html[data-bs-theme='dark'] textarea.form-control::placeholder {
-  color: #64748b;
-}
-
-html[data-bs-theme='dark'] .form-control:focus,
-html[data-bs-theme='dark'] .form-select:focus,
-html[data-bs-theme='dark'] textarea.form-control:focus {
-  background-color: #020c22;
-  color: #3a82e0;
-  border-color: rgb(236 138 0 / 70%);
-  box-shadow: 0 0 0 4px rgb(236 138 0 / 15%);
-}
 
 .brand-title {
   color: var(--brand-blue);

@@ -10,7 +10,7 @@ const {
   validatePriority,
 } = require('../utils/test-artifact-fields')
 
-const MIN_TEST_PLAN_COUNT = 10
+const MIN_TEST_PLAN_COUNT = 1
 const MAX_TEST_PLAN_COUNT = 1000
 
 function getFastApiBaseUrl() {
@@ -44,7 +44,7 @@ function validateRequestedPlanCount(value, source = 'test_plan_count') {
 
   const parsed = Number(raw)
   if (!Number.isInteger(parsed) || parsed < MIN_TEST_PLAN_COUNT || parsed > MAX_TEST_PLAN_COUNT) {
-    throw httpError(400, `${source} must be an integer between 10 and 1000`)
+    throw httpError(400, `${source} must be an integer between 1 and 1000`)
   }
 
   return Math.floor(parsed)

@@ -17,14 +17,12 @@ export class PrivateLayoutComponent implements OnInit {
 
   ngOnInit(): void {
     this.store.select('layout').pipe(takeUntilDestroyed(this.destroyRef)).subscribe((data: LayoutState) => {
-      document.documentElement.setAttribute('data-bs-theme', data.LAYOUT_THEME)
+      const menuSize = data?.MENU_SIZE || 'default'
 
-      document.documentElement.setAttribute('data-menu-color', data.MENU_COLOR)
-      document.documentElement.setAttribute(
-        'data-topbar-color',
-        data.TOPBAR_COLOR
-      )
-      document.documentElement.setAttribute('data-menu-size', data.MENU_SIZE)
+      document.documentElement.setAttribute('data-bs-theme', 'light')
+      document.documentElement.setAttribute('data-menu-color', 'light')
+      document.documentElement.setAttribute('data-topbar-color', 'light')
+      document.documentElement.setAttribute('data-menu-size', menuSize)
     })
   }
 }

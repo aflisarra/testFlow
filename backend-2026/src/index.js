@@ -42,6 +42,7 @@ const mongoUri = process.env.MONGODB_URI || process.env.MONGODB_URL
 
 const corsOptions = {
   origin: [
+    'http://localhost:4300',
     'http://localhost:61358',
     'http://localhost:4200'
   ],
@@ -53,7 +54,15 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 
-app.use(express.json()); ///parser les données au format JSON
+app.use(express.json()); // parser les données au format JSON
+// Global error handler for malformed JSON bodies
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    console.error('❌ Invalid JSON payload received');
+    return res.status(400).json({ message: 'Invalid JSON payload' });
+  }
+  next(err);
+});
 // Configuration CORS dynamique avec gestion des credentials
 /*app.use(cors({
   origin: function(origin, callback) {
@@ -79,8 +88,8 @@ app.use(express.json()); ///parser les données au format JSON
 }));*/
 
 
-//app.use('/api', userRoutes);
 app.use('/api/uploads', express.static(path.resolve(__dirname, '..', 'uploads')));
+app.use('/uploads', express.static(path.resolve(__dirname, '..', 'uploads')));
 
 // Middleware global pour rafraîchir le token si valide
 app.use((req, res, next) => {
@@ -118,12 +127,12 @@ app.use("/auth", authMagic);
 app.use('/api', specificationRoutes);
 
 
-app.use(
+/*app.use(
   '/api/uploads',
   express.static(
     path.join(__dirname, '../uploads')
   )
-)
+)*/
 
 
 
@@ -131,9 +140,9 @@ app.use(
 
 
 // ✅ UNE SEULE FOIS !
-app.use('/api/uploads', express.static(
+/*app.use('/api/uploads', express.static(
   path.join(__dirname, '..', 'uploads')
-))
+))*/
 
 
 
@@ -158,5 +167,5 @@ mongoose.connect(mongoUri, {
   .catch(err => {
     console.error('❌ Erreur connexion MongoDB:', err);
   });
-
+module.exports = app;
 //////////////////////////////////////////////////////////////////////////:

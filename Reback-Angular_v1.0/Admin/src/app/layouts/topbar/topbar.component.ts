@@ -171,17 +171,10 @@ export class TopbarComponent implements OnInit {
     this.mobileMenuButtonClicked.emit()
   }
 
-  // Change Theme
+  // Force Light Theme
   changeTheme() {
-    const color = document.documentElement.getAttribute('data-bs-theme')
-    if (color == 'light') {
-      this.store.dispatch(changetheme({ color: 'dark' }))
-    } else {
-      this.store.dispatch(changetheme({ color: 'light' }))
-    }
-    this.store.select(getLayoutColor).subscribe((color) => {
-      document.documentElement.setAttribute('data-bs-theme', color)
-    })
+    this.store.dispatch(changetheme({ color: 'light' }))
+    document.documentElement.setAttribute('data-bs-theme', 'light')
   }
 
   logout() {

@@ -76,8 +76,8 @@ function validateRequestedPlanCount(value) {
   if (!raw) return undefined
 
   const parsed = Number(raw)
-  if (!Number.isInteger(parsed) || parsed < 10 || parsed > 1000) {
-    throw httpError(400, 'test_plan_count must be an integer between 10 and 1000')
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 1000) {
+    throw httpError(400, 'test_plan_count must be an integer between 1 and 1000')
   }
 
   return Math.floor(parsed)

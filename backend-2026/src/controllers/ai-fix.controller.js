@@ -72,11 +72,13 @@ async function detectFailure(req, res) {
       executionResult: executionResult || execution_result || null,
     }
 
-    // Validate minimum required data
-    if (!payload.failedStep && !payload.logs) {
+    // Validate minimum required data – require at least a failed step or non‑empty logs
+    const hasFailedStep = !!payload.failedStep;
+    const hasLogs = Array.isArray(payload.logs) && payload.logs.length > 0;
+    if (!hasFailedStep && !hasLogs) {
       return res.status(400).json({
         message: MESSAGES.FASTAPI.FAILED,
-      })
+      });
     }
 
     console.log(`[Controller] Detecting failure for execution: ${payload.executionId || MESSAGES.FASTAPI.UNKNOWN}`)

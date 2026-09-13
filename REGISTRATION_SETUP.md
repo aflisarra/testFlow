@@ -9,7 +9,7 @@ User registration has been fully implemented in both the Angular frontend and No
 
 ### API Endpoint
 ```
-POST http://localhost:3000/api/auth/register
+POST http://localhost:3100/api/auth/register
 ```
 
 ### Request Body

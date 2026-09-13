@@ -392,23 +392,15 @@ def _fallback_analysis(payload: dict[str, Any], reason: str = "") -> dict[str, A
             f"Verify the expected outcome manually in the application: {expected_result[:120]}."
         )
 
+    tips = [t for t in (tester_fix + developer_fix) if t]
+
     return {
-    "timeline": [],
-
-    "actionLabel":
-        "Recommended Fix",
-
-    "actionText":
-        top["fix"],
-
-    "recommendations":
-        recommendations,
-
-    "diagnosticTips":
-        tips[:3],
-
-    "suggestedSelectors":
-        []
+        "timeline": [],
+        "actionLabel": "Recommended Fix",
+        "actionText": fix,
+        "recommendations": recommendations,
+        "diagnosticTips": tips[:3],
+        "suggestedSelectors": []
     }
 
 

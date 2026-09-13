@@ -70,6 +70,7 @@ export class ExecutionComponent implements OnInit, OnDestroy {
   private renderer = inject(Renderer2);
   private document = inject(DOCUMENT);
   private autoAnalysisRequestedForExecutionId: string | null = null;
+  private screenshotObjectUrls = new Set<string>();
 
   @ViewChild('domModalRoot') domModalRoot?: ElementRef<HTMLElement>;
   @ViewChild('screenshotModalRoot') screenshotModalRoot?: ElementRef<HTMLElement>;
@@ -192,6 +193,7 @@ export class ExecutionComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.revokeScreenshotObjectUrls();
     this.detachModalFromBody(this.domModalRoot);
     this.detachModalFromBody(this.screenshotModalRoot);
   }
@@ -546,7 +548,10 @@ export class ExecutionComponent implements OnInit, OnDestroy {
     this.currentScreenshots = this.stepsWithScreenshots
       .map(s => s.screenshotUrl!)
       .filter(Boolean);
-    this.currentScreenshotIndex = this.currentScreenshots.indexOf(url);
+    if (!this.currentScreenshots.includes(url)) {
+      this.currentScreenshots = [url, ...this.currentScreenshots];
+    }
+    this.currentScreenshotIndex = Math.max(0, this.currentScreenshots.indexOf(url));
     this.selectedScreenshotUrl = url;
     this.cdr.markForCheck();
 
@@ -1256,9 +1261,9 @@ export class ExecutionComponent implements OnInit, OnDestroy {
       });
   }
 
-  private mapStepResultsToScenarioSteps(stepResults: SeleniumStepResultDto[]): ExecutionStep[] {
+  private async mapStepResultsToScenarioSteps(stepResults: SeleniumStepResultDto[]): Promise<ExecutionStep[]> {
     const now = new Date().toLocaleTimeString();
-    return (stepResults || []).map(r => ({
+    return Promise.all((stepResults || []).map(async r => ({
       id: Number(r.index) || 0,
       name: String(r.name || `Step ${r.index}`),
       subtitle: r.status === 'passed' ? 'Passed' : (r.error || r.message || 'Failed'),
@@ -1266,12 +1271,12 @@ export class ExecutionComponent implements OnInit, OnDestroy {
         : r.status === 'failed_assertion' || r.status === 'failed_execution' ? 'fail'
         : 'waiting' as StepStatus,
       timestamp: now,
-      screenshotUrl: this.resolveScreenshotUrl(
+      screenshotUrl: await this.loadAuthenticatedScreenshot(
         r.screenshots?.[0]?.publicUrl || r.screenshots?.[0]?.path ||
         r.screenshot?.publicUrl || r.screenshot?.path ||
         r.screenshotPath || ''
       ),
-    }));
+    })));
   }
 
   private mapRunResponseToLogs(resp: unknown): LogLine[] {
@@ -1455,10 +1460,46 @@ export class ExecutionComponent implements OnInit, OnDestroy {
     return `Review the AI action${target} against the captured DOM and add a guard wait before retrying this step.`;
   }
 
-  private resolveScreenshotUrl(path: string): string | null {
+  private resolveScreenshotUrl(rawPath: string): string | null {
+    if (!rawPath) return null;
+    let path = String(rawPath).trim();
     if (!path) return null;
-    if (path.startsWith('http')) return path;
-    return 'http://localhost:3000' + path;
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    if (path.startsWith('data:image')) return path;
+
+    // Normalize Windows backslashes
+    path = path.replace(/\\/g, '/');
+
+    const uploadsIndex = path.toLowerCase().indexOf('uploads/');
+    if (uploadsIndex !== -1) {
+      path = '/' + path.slice(uploadsIndex);
+    }
+
+    if (!path.startsWith('/')) {
+      path = '/' + path;
+    }
+
+    return 'http://localhost:3100' + path;
+  }
+
+  private async loadAuthenticatedScreenshot(rawPath: string): Promise<string | null> {
+    const url = this.resolveScreenshotUrl(rawPath);
+    if (!url || url.startsWith('data:image')) return url;
+
+    try {
+      const blob = await firstValueFrom(this.api.getBlob(url));
+      const objectUrl = URL.createObjectURL(blob);
+      this.screenshotObjectUrls.add(objectUrl);
+      return objectUrl;
+    } catch (error) {
+      console.warn('[Screenshot] Unable to load protected screenshot:', error);
+      return null;
+    }
+  }
+
+  private revokeScreenshotObjectUrls(): void {
+    this.screenshotObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+    this.screenshotObjectUrls.clear();
   }
 
   private async executeLoadedTestCase(testCase: LoadedExecutionTestCase | null = this.loadedTestCase): Promise<void> {
@@ -1467,6 +1508,7 @@ export class ExecutionComponent implements OnInit, OnDestroy {
     this.currentExecutionId = `EX-${Date.now()}`; // ← génère ici
 
     this.stopAll();
+    this.revokeScreenshotObjectUrls();
     this.isStreaming = true;
     this.screenshotUrl = null;
     this.domElements = [];
@@ -1520,7 +1562,7 @@ export class ExecutionComponent implements OnInit, OnDestroy {
       .runSingleTestCase(payload)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (resp) => {
+        next: async (resp) => {
           if (this.isAborted) {
             this.cdr.markForCheck();
             return;
@@ -1559,7 +1601,7 @@ export class ExecutionComponent implements OnInit, OnDestroy {
           const stepResults = Array.isArray(innerData?.['stepResults']) ? innerData['stepResults'] as SeleniumStepResultDto[] : [];
           const rawLogs = this.getRawRunLogs(respPayload);
           const mappedSteps = stepResults.length
-            ? this.mapStepResultsToScenarioSteps(stepResults)
+            ? await this.mapStepResultsToScenarioSteps(stepResults)
             : this.scenario.steps;
 
           const failedStep = stepResults.find((s) =>
@@ -1576,7 +1618,7 @@ export class ExecutionComponent implements OnInit, OnDestroy {
             (innerData?.['screenshot'] as Record<string, unknown> | undefined)?.['publicUrl'] || innerData?.['screenshotPath'] || ''
           ).trim();
 
-          this.screenshotUrl = this.resolveScreenshotUrl(screenshotPath);
+          this.screenshotUrl = await this.loadAuthenticatedScreenshot(screenshotPath);
           this.isStreaming = false;
           this.fakeTimelineSubscription?.unsubscribe();
           this.stopDomExtraction();

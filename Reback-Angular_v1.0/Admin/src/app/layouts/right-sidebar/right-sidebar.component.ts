@@ -45,28 +45,19 @@ export class RightSidebarComponent implements OnInit {
     })
   }
 
-  changeLayoutColor(color: string): void {
-    this.store.dispatch(changetheme({ color }))
-
-    this.store.select(getLayoutColor).subscribe((value: string) => {
-      document.documentElement.setAttribute('data-bs-theme', value)
-    })
+  changeLayoutColor(_color: string): void {
+    this.store.dispatch(changetheme({ color: 'light' }))
+    document.documentElement.setAttribute('data-bs-theme', 'light')
   }
 
-  changeTopbar(topbar: string): void {
-    this.store.dispatch(changetopbarcolor({ topbar }))
-
-    this.store.select(getTopbarcolor).subscribe((value: string) => {
-      document.documentElement.setAttribute('data-topbar-color', value)
-    })
+  changeTopbar(_topbar: string): void {
+    this.store.dispatch(changetopbarcolor({ topbar: 'light' }))
+    document.documentElement.setAttribute('data-topbar-color', 'light')
   }
 
-  changeMenu(menu: string): void {
-    this.store.dispatch(changemenucolor({ menu }))
-
-    this.store.select(getMenucolor).subscribe((value: string) => {
-      document.documentElement.setAttribute('data-menu-color', value)
-    })
+  changeMenu(_menu: string): void {
+    this.store.dispatch(changemenucolor({ menu: 'light' }))
+    document.documentElement.setAttribute('data-menu-color', 'light')
   }
 
   changeSize(size: string): void {

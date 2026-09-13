@@ -184,7 +184,7 @@ await testLabService.generatePlanFromDocx(formData)
 ### Test Case 1: Upload Valid DOCX
 
 ```bash
-curl -X POST http://localhost:3000/api/ollama/generate-plan \
+curl -X POST http://localhost:3100/api/ollama/generate-plan \
   -H "Authorization: Bearer TOKEN" \
   -F "file=@valid-spec.docx" \
   -F "testSuiteId=SUITE_ID" \
@@ -196,7 +196,7 @@ curl -X POST http://localhost:3000/api/ollama/generate-plan \
 ### Test Case 2: Upload Corrupted DOCX (Existing Suite)
 
 ```bash
-curl -X POST http://localhost:3000/api/ollama/generate-plan \
+curl -X POST http://localhost:3100/api/ollama/generate-plan \
   -H "Authorization: Bearer TOKEN" \
   -F "file=@corrupted.docx" \
   -F "testSuiteId=SUITE_ID" \
@@ -208,7 +208,7 @@ curl -X POST http://localhost:3000/api/ollama/generate-plan \
 ### Test Case 3: Upload Corrupted DOCX (New Suite)
 
 ```bash
-curl -X POST http://localhost:3000/api/ollama/generate-plan \
+curl -X POST http://localhost:3100/api/ollama/generate-plan \
   -H "Authorization: Bearer TOKEN" \
   -F "file=@corrupted.docx" \
   -F "projectId=PROJECT_ID" \

@@ -551,23 +551,14 @@ html[data-menu-size='hidden'] {
     }
 }
 
-// Sidenav Dark and Brand
-html[data-bs-theme='dark'],
-html[data-menu-color='dark'],
-html[data-menu-color='brand'] {
-    .main-nav {
-        .logo-box {
-            .logo-light {
-                display: block;
-
-            }
-
-            .logo-dark {
-                display: none;
-
-            }
-
-            
+// Sidenav Logo Display (Forced Light)
+.main-nav {
+    .logo-box {
+        .logo-light {
+            display: none !important;
+        }
+        .logo-dark {
+            display: block !important;
         }
     }
 }

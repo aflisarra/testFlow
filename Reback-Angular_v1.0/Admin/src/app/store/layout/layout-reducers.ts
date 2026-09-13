@@ -2,6 +2,7 @@ import { Action, type ActionReducer, type MetaReducer, createReducer, on } from 
 import { localStorageSync } from 'ngrx-store-localstorage'
 import {
   LAYOUT_COLOR_TYPES,
+  MENU_COLOR_TYPES,
   SIDEBAR_SIZE_TYPES,
   TOPBAR_COLOR_TYPES,
 } from './layout'
@@ -22,26 +23,26 @@ export interface LayoutState {
 
 // IntialState
 export const initialState: LayoutState = {
-  LAYOUT_THEME: LAYOUT_COLOR_TYPES.DARKMODE,
+  LAYOUT_THEME: LAYOUT_COLOR_TYPES.LIGHTMODE,
   TOPBAR_COLOR: TOPBAR_COLOR_TYPES.LIGHT,
-  MENU_COLOR: TOPBAR_COLOR_TYPES.LIGHT,
+  MENU_COLOR: MENU_COLOR_TYPES.LIGHT,
   MENU_SIZE: SIDEBAR_SIZE_TYPES.DEFAULT,
 }
 
 // Reducer
 export const layoutReducer = createReducer(
   initialState,
-  on(changetheme, (state, action) => ({
+  on(changetheme, (state) => ({
     ...state,
-    LAYOUT_THEME: action.color,
+    LAYOUT_THEME: 'light',
   })),
-  on(changetopbarcolor, (state, action) => ({
+  on(changetopbarcolor, (state) => ({
     ...state,
-    TOPBAR_COLOR: action.topbar,
+    TOPBAR_COLOR: 'light',
   })),
-  on(changemenucolor, (state, action) => ({
+  on(changemenucolor, (state) => ({
     ...state,
-    MENU_COLOR: action.menu,
+    MENU_COLOR: 'light',
   })),
   on(changesidebarsize, (state, action) => ({
     ...state,

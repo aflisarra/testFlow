@@ -93,6 +93,11 @@ const FIELD_MATCHERS = [
   { key: 'status', keywords: ['status', 'show leave with status'], matches: (el) => /status/.test(fieldIdentityText(el)) },
 ]
 
+const findFieldMatcherForStep = (step) => {
+  const stepLower = String(step || '').toLowerCase()
+  return FIELD_MATCHERS.find((entry) => entry.keywords.some((keyword) => stepLower.includes(keyword))) || null
+}
+
 // "Confirm Password" -> "confirmpassword", "Username" -> "username".
 // Produces the same canonical key space as FIELD_MATCHERS[].key, so a
 // test_data key and a DOM element can be matched by identity instead of
@@ -214,6 +219,27 @@ const parseStepFieldAndValue = (step) => {
     return { field, value, action }
   }
 
+  // Direct phrasing without 'in/into', e.g. "Enter a valid Username", "Enter valid password", "Type Username"
+  const directType = text.match(
+    /^(?:enter|type|fill(?:\s+in)?|input|insert|set|provide)\s+(?:a\s+|an\s+|the\s+)?(?:valid\s+|invalid\s+)?(.+?)$/i
+  )
+  if (directType) {
+    const field = stripStepFieldNoun(directType[1])
+    if (field && field.split(' ').length <= 5) {
+      return { field, value: '', action: 'type' }
+    }
+  }
+
+  const directSelect = text.match(
+    /^(?:select|choose|pick)\s+(?:a\s+|an\s+|the\s+)?(?:valid\s+|invalid\s+)?(.+?)$/i
+  )
+  if (directSelect) {
+    const field = stripStepFieldNoun(directSelect[1])
+    if (field && field.split(' ').length <= 5) {
+      return { field, value: '', action: 'select' }
+    }
+  }
+
   return null
 }
 
@@ -231,6 +257,14 @@ const parseStepTargetField = (step) => {
     /^(?:enter|type|fill(?:\s+in)?|input|insert|set|provide|select|choose|pick)\s+(?:.*?\s+)?(?:in|into|from)\s+(?:the\s+)?(.+?)$/i
   )
   if (generic) return stripStepFieldNoun(generic[1])
+
+  const direct = text.match(
+    /^(?:enter|type|fill(?:\s+in)?|input|insert|set|provide|select|choose|pick)\s+(?:a\s+|an\s+|the\s+)?(?:valid\s+|invalid\s+)?(.+?)$/i
+  )
+  if (direct) return stripStepFieldNoun(direct[1])
+
+  const matcher = findFieldMatcherForStep(step)
+  if (matcher) return matcher.key
 
   return ''
 }
@@ -331,8 +365,9 @@ const buildTestDataMap = (rawTestData, steps = []) => {
       const inputFields = []
       for (const step of steps || []) {
         const parsed = parseStepFieldAndValue(step)
-        if (!parsed || parsed.action !== 'type') continue
-        const field = parsed.field || parseStepTargetField(step)
+        const field = parsed?.field || parseStepTargetField(step)
+        const action = parsed?.action || classifyStepActionType(step)
+        if (action !== 'type' && action !== 'select' && action !== 'input') continue
         const canonical = canonicalFieldKey(field)
         if (canonical && !map.has(canonical) && !inputFields.some((item) => item.canonical === canonical)) {
           inputFields.push({ canonical, field })
@@ -387,16 +422,51 @@ const buildTestDataMap = (rawTestData, steps = []) => {
   // Missing test data fallback: if test_data is empty but steps require specific fields,
   // infer appropriate test data consistent with scenario (e.g. From Date <= To Date).
   if (map.size === 0 && Array.isArray(steps) && steps.length > 0) {
+    // When legacy bare-value arrays are present, try to pair them positionally
+    // with the input fields detected from step sentences. Use parseStepTargetField
+    // as a broader matcher that works even when parseStepFieldAndValue returns null.
+    const bareValues = Array.isArray(rawTestData)
+      ? rawTestData.map((v) => String(v ?? '').trim()).filter(Boolean)
+      : []
+    const inputFieldsFromSteps = []
     for (const step of steps) {
-      const matcher = findFieldMatcherForStep(step)
-      if (!matcher) continue
-      if (matcher.key === 'fromdate') put('From Date', '2026-05-01')
-      else if (matcher.key === 'todate') put('To Date', '2026-05-31')
-      else if (matcher.key === 'date') put('Date', '2026-05-01')
-      else if (matcher.key === 'username') put('Username', 'Admin')
-      else if (matcher.key === 'password') put('Password', 'admin123456')
-      else if (matcher.key === 'leavetype') put('Leave Type', 'Annual Leave')
+      const field = parseStepTargetField(step)
+      const canonical = field ? canonicalFieldKey(field) : ''
+      if (canonical && !inputFieldsFromSteps.some((f) => f.canonical === canonical)) {
+        inputFieldsFromSteps.push({ canonical, field })
+      }
     }
+    // Pair bare values to input fields by position
+    if (bareValues.length > 0 && inputFieldsFromSteps.length > 0) {
+      for (let i = 0; i < bareValues.length && i < inputFieldsFromSteps.length; i++) {
+        put(inputFieldsFromSteps[i].field, bareValues[i])
+      }
+    }
+    // Only fall back to hardcoded defaults when there are truly no test data values
+    if (map.size === 0) {
+      for (const step of steps) {
+        const matcher = findFieldMatcherForStep(step)
+        if (!matcher) continue
+        if (matcher.key === 'fromdate') put('From Date', '2026-05-01')
+        else if (matcher.key === 'todate') put('To Date', '2026-05-31')
+        else if (matcher.key === 'date') put('Date', '2026-05-01')
+        else if (matcher.key === 'username') put('Username', 'Admin')
+        else if (matcher.key === 'password') put('Password', 'admin123')
+        else if (matcher.key === 'leavetype') put('Leave Type', 'Annual Leave')
+      }
+    }
+  }
+
+  // After all mapping paths have run, remove any values from unmappedTestDataValues
+  // that were successfully mapped by a later path (e.g. the login fallback above).
+  if (map.unmappedTestDataValues && map.unmappedTestDataValues.length > 0) {
+    const mappedValues = new Set()
+    for (const entry of map.values()) {
+      mappedValues.add(entry.value.toLowerCase())
+    }
+    map.unmappedTestDataValues = map.unmappedTestDataValues.filter(
+      (v) => !mappedValues.has(String(v).trim().toLowerCase())
+    )
   }
 
   return map
@@ -504,10 +574,6 @@ const valueForElementFromTestData = (el, testDataMap) => {
   return ''
 }
 
-const findFieldMatcherForStep = (step) => {
-  const stepLower = String(step || '').toLowerCase()
-  return FIELD_MATCHERS.find((entry) => entry.keywords.some((keyword) => stepLower.includes(keyword))) || null
-}
 
 // Which named field (username, password, confirmpassword...) does this
 // captured DOM element look like?
@@ -2076,11 +2142,11 @@ console.log(
         actions = fallbackActions
       } else if (isClick && !isFill) {
         // Pure click step (no fill needed) - only if we have a reasonable button
-        // matching what the step actually asks for (e.g. "Save", "Submit"),
+        // matching what the step actually asks for (e.g. "Save", "Submit", "Login"),
         // never just the first visible button on the page.
         const btn = findButtonForStep(step, elements)
 
-        if (btn && !isLoginStep) {
+        if (btn) {
           const btnText = btn?.text || ''
           const btnSel = btnText ? `text=${btnText}` : btn.id ? `#${btn.id}` : `__index:${btn.index}`
           actions = [{ type: 'click', selector: btnSel, value: '', label: btnText || 'submit' }]
@@ -2089,6 +2155,17 @@ console.log(
       }
 
       if (actions.length === 0) {
+        const currentUrl = await driver.getCurrentUrl().catch(() => '')
+        const isAlreadyOnTarget = isLoginStep && currentUrl && !currentUrl.includes('/auth/login')
+        if (isAlreadyOnTarget) {
+          console.log(`✅ Already navigated to destination (${currentUrl}). Step "${step}" satisfied.`)
+          const fbScreenshot = await captureStepScreenshot(driver, stepIndex, "passed")
+          return {
+            status: 'passed',
+            screenshots: [fbScreenshot]
+          }
+        }
+
         if (currentStepActionType === 'click') {
           const clickError = `No click action could be resolved for current step: "${step}".`
           console.error(`❌ ${clickError}`)

@@ -26,25 +26,11 @@
                 name="data-bs-theme"
                 id="layout-color-light"
                 value="light"
-                [checked]="color === 'light'"
+                checked
                 (change)="changeLayoutColor('light')"
               />
               <label class="form-check-label" for="layout-color-light">
                 Light
-              </label>
-            </div>
-            <div class="form-check mb-2">
-              <input
-                class="form-check-input"
-                type="radio"
-                name="data-bs-theme"
-                id="layout-color-dark"
-                value="dark"
-                [checked]="color === 'dark'"
-                (change)="changeLayoutColor('dark')"
-              />
-              <label class="form-check-label" for="layout-color-dark"
-                >Dark
               </label>
             </div>
           </div>
@@ -59,26 +45,11 @@
                 name="data-topbar-color"
                 id="topbar-color-light"
                 value="light"
-                [checked]="topbar === 'light'"
+                checked
                 (change)="changeTopbar('light')"
               />
-              <label class="form-check-label" for="layout-color-light">
-  Light
-</label>
-            </div>
-
-            <div class="form-check mb-2">
-              <input
-                class="form-check-input"
-                type="radio"
-                name="data-topbar-color"
-                id="topbar-color-dark"
-                value="dark"
-                [checked]="topbar === 'dark'"
-                (change)="changeTopbar('dark')"
-              />
-              <label class="form-check-label" for="topbar-color-dark">
-                Dark
+              <label class="form-check-label" for="topbar-color-light">
+                Light
               </label>
             </div>
           </div>
@@ -93,26 +64,11 @@
                 name="data-menu-color"
                 id="leftbar-color-light"
                 value="light"
-                [checked]="menucolor === 'light'"
+                checked
                 (change)="changeMenu('light')"
               />
               <label class="form-check-label" for="leftbar-color-light">
                 Light
-              </label>
-            </div>
-
-            <div class="form-check mb-2">
-              <input
-                class="form-check-input"
-                type="radio"
-                name="data-menu-color"
-                id="leftbar-color-dark"
-                value="dark"
-                [checked]="menucolor === 'dark'"
-                (change)="changeMenu('dark')"
-              />
-              <label class="form-check-label" for="leftbar-color-dark">
-                Dark
               </label>
             </div>
           </div>
