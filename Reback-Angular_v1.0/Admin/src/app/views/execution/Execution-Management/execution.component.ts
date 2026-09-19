@@ -912,52 +912,6 @@ export class ExecutionComponent implements OnInit, OnDestroy {
 
   // ─── Execution simulation ──────────────────────────────────────────────────
 
-  private startPassExecution(): void {
-    this.scenario = this.buildPassScenario();
-    this.streamedLogs = [];
-    this.streamIndex = 0;
-    this.isStreaming = true;
-    this.cdr.markForCheck();
-
-    const steps = [
-      { delay: 800, progress: 40, label: '40% — 2 / 5 steps completed', active: '● Navigating to Login Page' },
-      { delay: 2400, progress: 60, label: '60% — 3 / 5 steps completed', active: '● Navigating to Login Page' },
-      { delay: 4000, progress: 80, label: '80% — 4 / 5 steps completed', active: '● Submitting credentials' },
-      { delay: 6000, progress: 100, label: '100% — 5 / 5 steps completed', active: '✓ All steps passed' },
-    ];
-
-    steps.forEach(({ delay, progress, label, active }) => {
-      setTimeout(() => {
-        if (!this.isStreaming) return;
-        this.scenario = { ...this.scenario, progressPercent: progress, progressLabel: label, activeStepLabel: active };
-        if (progress === 80) {
-          this.scenario.steps[3] = { ...this.scenario.steps[3], status: 'running', subtitle: 'In progress...', timestamp: '14:29:08' };
-        }
-        if (progress === 100) this.finalizePassScenario();
-        this.cdr.markForCheck();
-      }, delay);
-    });
-
-    this.startLogStream(this.PASS_LOGS);
-  }
-
-  private finalizePassScenario(): void {
-    this.isStreaming = false;
-    this.scenario = {
-      ...this.scenario,
-      status: 'passed',
-      executionTime: '18s',
-      steps: [
-        { id: 1, name: 'Initialize WebDriver Session', subtitle: 'Completed in 1.4s', status: 'pass', timestamp: '14:29:01' },
-        { id: 2, name: 'Set Viewport Dimensions (1920×1080)', subtitle: 'Completed in 0.7s', status: 'pass', timestamp: '14:29:02' },
-        { id: 3, name: 'Navigate to Login Page', subtitle: 'Completed in 2.1s', status: 'pass', timestamp: '14:29:06' },
-        { id: 4, name: 'Submit Credentials', subtitle: 'Completed in 1.5s', status: 'pass', timestamp: '14:29:08' },
-        { id: 5, name: 'Assert Dashboard Loaded', subtitle: 'Completed in 0.9s', status: 'pass', timestamp: '14:29:09' },
-      ],
-    };
-    this.cdr.markForCheck();
-  }
-
   private startLogStream(logs: LogLine[]): void {
     this.streamedLogs = [];
     let i = 0;
@@ -1244,7 +1198,8 @@ export class ExecutionComponent implements OnInit, OnDestroy {
         const steps = [...this.scenario.steps];
         for (let i = 0; i < steps.length; i++) {
           if (steps[i].status === 'pass' || steps[i].status === 'fail') continue;
-          steps[i] = { ...steps[i], status: i === idx ? 'running' : 'waiting' };
+          const status: StepStatus = i < idx ? 'pass' : i === idx ? 'running' : 'waiting';
+          steps[i] = { ...steps[i], status, subtitle: status === 'pass' ? 'Completed' : steps[i].subtitle };
         }
         const progress = Math.min(95, Math.round(((idx + 1) / totalSteps) * 95));
         this.scenario = {

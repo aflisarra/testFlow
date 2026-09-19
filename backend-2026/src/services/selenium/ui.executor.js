@@ -44,18 +44,239 @@ const extractRequestedButtonLabel = (step) => {
 const findButtonForStep = (step, elements) => {
   const isButtonLike = (el) => el && (el.tag === 'button' || el.type === 'submit' || el.type === 'button') && el.visible && !el.disabled
 
+  // <input type="submit" value="Login"> has an empty text: its label lives
+  // in `value` (SauceDemo, many classic forms), or aria-label/title.
+  const labelOf = (el) => normalizeDropdownValue(el?.text || el?.value || el?.ariaLabel || el?.title)
+
   const requestedLabel = normalizeDropdownValue(extractRequestedButtonLabel(step))
   if (requestedLabel) {
-    const exact = (elements || []).find((el) => isButtonLike(el) && normalizeDropdownValue(el?.text) === requestedLabel)
+    const exact = (elements || []).find((el) => isButtonLike(el) && labelOf(el) === requestedLabel)
     if (exact) return exact
-    const partial = (elements || []).find((el) => isButtonLike(el) && normalizeDropdownValue(el?.text).includes(requestedLabel))
+    const partial = (elements || []).find((el) => isButtonLike(el) && labelOf(el).includes(requestedLabel))
     if (partial) return partial
     // A named button was requested but not found: do not silently click an
     // unrelated button (e.g. "Upgrade") instead.
     return null
   }
 
+  // No known action keyword (submit/save/...): the step names an icon or
+  // control by noun, e.g. "Click the cart icon (top right corner)". Never
+  // fall back to "the first button on the page" (that clicked the burger
+  // menu instead of the cart): find the element whose own identity —
+  // text, value, aria-label, title, id, name, data-test, class or href —
+  // contains that noun, whatever its tag (the cart is an <a>, not a <button>).
+  const noun = String(step || '')
+    .replace(/\([^)]*\)/g, ' ')
+    .match(/^\s*(?:click|press|tap|hit|open)\s+(?:on\s+)?(?:the\s+)?(.+?)\s+(?:icon|button|link|badge|tab|item|option)\b/i)?.[1]
+  const nounKey = String(noun || '').toLowerCase().replace(/[^a-z0-9]+/g, '')
+  if (nounKey) {
+    const clickable = (el) =>
+      el && el.visible && !el.disabled &&
+      (['a', 'button'].includes(el.tag) || el.type === 'submit' || el.type === 'button' ||
+        ['button', 'link'].includes(String(el.role || '').toLowerCase()))
+    const identity = (el) =>
+      [el.text, el.value, el.ariaLabel, el.title, el.id, el.name, el.testId, el.classes, el.href]
+        .filter(Boolean).join(' ').toLowerCase().replace(/[^a-z0-9]+/g, '')
+    return (elements || []).find((el) => clickable(el) && identity(el).includes(nounKey)) || null
+  }
+
   return (elements || []).find(isButtonLike) || null
+}
+
+// ─── Deterministic click resolution for simple "Click X" steps ────────────
+// A left-nav / sidebar item (OrangeHRM's "Leave", "PIM", "Admin", ...) is an
+// <a> wrapping an icon + <span>text</span>, never a <button> — so a
+// button-only search never finds it, and the step used to fall through to
+// "the URL already changed, treat it as passed", which proves nothing about
+// whether the element was actually located and clicked. This searches the
+// LIVE DOM (not the earlier captured snapshot) with several independent
+// strategies, requires a real visible+enabled element, and clicks it for
+// real with Selenium. It never calls the AI service and never accepts a URL
+// change alone as proof of success — call sites only treat this as success
+// when the click itself was performed.
+const resolveAndClickNavElement = async (driver, step, ctx, stepIndex) => {
+  const stepStr = String(step || '')
+  // "Click Leave button in sidebar" -> "Leave". extractRequestedButtonLabel
+  // only knows a fixed action-verb list (submit/save/login/...) and misses
+  // arbitrary nav names like "Leave" or "PIM", so try the noun right before
+  // button/link/icon/... first, then fall back to stripping the leading
+  // "Click" and trailing "in (the) sidebar" clause.
+  const label =
+    extractRequestedButtonLabel(step) ||
+    stepStr.match(/^\s*click\s+(?:on\s+)?(?:the\s+)?(.+?)\s+(?:button|link|icon|option|item|tab)\b/i)?.[1]?.trim() ||
+    stripStepFieldNoun(
+      stepStr
+        .replace(/^\s*click\s+(?:on\s+)?(?:the\s+)?/i, '')
+        .replace(/\s+in\s+(?:the\s+)?(?:side\s*bar|sidebar|side\s*panel|menu|nav(?:igation)?)\s*$/i, '')
+        .trim()
+    )
+
+  console.log(`[CLICK] Current step: ${step}`)
+  addLog(ctx.logs, stepIndex, 'INFO', `[CLICK] Current step: ${step}`)
+
+  if (!label) return null
+
+  console.log(`[CLICK] Searching for ${label} in sidebar...`)
+  addLog(ctx.logs, stepIndex, 'INFO', `[CLICK] Searching for ${label} in sidebar...`)
+
+  const MARK_ATTR = 'data-click-target-tmp'
+
+  const found = await driver.executeScript((wantedLabel, markAttr) => {
+    const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase()
+    const wanted = norm(wantedLabel)
+    const wantedSlug = wanted.replace(/\s+/g, '')
+
+    const isVisible = (node) => {
+      if (!node) return false
+      const style = window.getComputedStyle(node)
+      const rect = node.getBoundingClientRect()
+      return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' &&
+        rect.width > 0 && rect.height > 0
+    }
+
+    const describe = (el) => ({
+      tag: el.tagName.toLowerCase(),
+      text: (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+      href: el.getAttribute('href') || '',
+      ariaLabel: el.getAttribute('aria-label') || '',
+      title: el.getAttribute('title') || '',
+      classes: el.className && typeof el.className === 'string' ? el.className : '',
+    })
+
+    const candidates = Array.from(
+      document.querySelectorAll('a, button, span, li, [role="button"], [role="link"], [href]')
+    ).filter(isVisible)
+
+    const strategies = [
+      // 1. Exact visible text on a link/button.
+      (el) => (el.tagName === 'A' || el.tagName === 'BUTTON') && norm(el.textContent) === wanted,
+      // 2. Link/button whose text contains the label (icon + span layouts).
+      (el) => (el.tagName === 'A' || el.tagName === 'BUTTON') && norm(el.textContent).includes(wanted),
+      // 3. A <span> carrying the label text (the real click target is its
+      //    clickable ancestor, resolved below).
+      (el) => el.tagName === 'SPAN' && (norm(el.textContent) === wanted || norm(el.textContent).includes(wanted)),
+      // 4. href containing the label as a path segment (e.g. "leave" -> "/leave/").
+      (el) => String(el.getAttribute('href') || '').toLowerCase().includes('/' + wantedSlug + '/'),
+      // 5. aria-label / title match.
+      (el) =>
+        norm(el.getAttribute('aria-label')).includes(wanted) && wanted.length > 0 ||
+        norm(el.getAttribute('title')).includes(wanted) && wanted.length > 0,
+      // 6. Any element inside a nav/sidebar container whose text matches —
+      //    broadest strategy, scoped to the sidebar to avoid false matches
+      //    from unrelated page content.
+      (el) => {
+        const sidebar = el.closest(
+          '.oxd-sidepanel, .oxd-main-menu, nav, [class*="sidebar"], [class*="side-panel"], [class*="main-menu"]'
+        )
+        return Boolean(sidebar) && (norm(el.textContent) === wanted || norm(el.textContent).includes(wanted))
+      },
+    ]
+
+    let match = null
+    let matchedStrategy = -1
+    for (let s = 0; s < strategies.length && !match; s++) {
+      match = candidates.find((el) => {
+        try { return strategies[s](el) } catch (e) { return false }
+      })
+      if (match) matchedStrategy = s
+    }
+
+    if (!match) {
+      const sidebarElements = Array.from(
+        document.querySelectorAll(
+          '.oxd-sidepanel a, .oxd-main-menu a, nav a, [class*="sidebar"] a, [class*="side-panel"] a, [class*="main-menu"] a'
+        )
+      ).filter(isVisible).map(describe)
+      return { found: false, sidebarElements }
+    }
+
+    // The real clickable target is the nearest link/button/role=button
+    // ancestor when the match is a <span>/icon nested inside it.
+    const clickTarget = match.closest('a, button, [role="button"]') || match
+    clickTarget.setAttribute(markAttr, '1')
+
+    const style = window.getComputedStyle(clickTarget)
+    const rect = clickTarget.getBoundingClientRect()
+    const visible = style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0
+    const enabled = !clickTarget.disabled && clickTarget.getAttribute('aria-disabled') !== 'true'
+
+    return { found: true, strategy: matchedStrategy, descriptor: describe(clickTarget), visible, enabled }
+  }, label, MARK_ATTR).catch((err) => ({ found: false, error: err.message }))
+
+  if (!found || !found.found) {
+    console.warn(`[CLICK] No candidate found for "${label}" in sidebar.`)
+    addLog(ctx.logs, stepIndex, 'WARN', `[CLICK] No candidate found for "${label}" in sidebar`, {
+      sidebarElements: found?.sidebarElements || [],
+    })
+    if (found?.sidebarElements?.length) {
+      console.log('[CLICK] Visible sidebar elements:')
+      for (const el of found.sidebarElements) {
+        console.log(
+          `[CLICK]   tag=${el.tag} text="${el.text}" href="${el.href}" aria-label="${el.ariaLabel}" title="${el.title}" class="${el.classes}"`
+        )
+      }
+    } else {
+      console.log('[CLICK] No visible sidebar elements were found on the page at all.')
+    }
+    return null
+  }
+
+  const d = found.descriptor
+  console.log(`[CLICK] Candidate found: ${d.tag} "${d.text}"`)
+  console.log(`[CLICK] Tag: ${d.tag}`)
+  console.log(`[CLICK] Text: ${d.text}`)
+  console.log(`[CLICK] Href: ${d.href}`)
+  console.log(`[CLICK] Visible: ${found.visible}`)
+  console.log(`[CLICK] Enabled: ${found.enabled}`)
+  addLog(ctx.logs, stepIndex, 'INFO', '[CLICK] Candidate found', { ...d, visible: found.visible, enabled: found.enabled })
+
+  if (!found.visible || !found.enabled) {
+    console.warn('[CLICK] Candidate is not visible/enabled — aborting deterministic click.')
+    await driver.executeScript((markAttr) => {
+      const el = document.querySelector(`[${markAttr}]`)
+      if (el) el.removeAttribute(markAttr)
+    }, MARK_ATTR).catch(() => {})
+    addLog(ctx.logs, stepIndex, 'WARN', '[CLICK] Candidate not visible/enabled', d)
+    return null
+  }
+
+  let target
+  try {
+    target = await driver.findElement(By.css(`[${MARK_ATTR}]`))
+  } catch (err) {
+    console.warn('[CLICK] Could not re-locate the marked candidate via Selenium:', err.message)
+    return null
+  }
+
+  await driver.executeScript((el) => el.scrollIntoView({ block: 'center' }), target).catch(() => {})
+  await driver.sleep(200)
+
+  console.log(`[CLICK] Clicking ${label}...`)
+  try {
+    await target.click()
+  } catch (err) {
+    console.warn('[CLICK] Native Selenium click failed, retrying with a JS click:', err.message)
+    await driver.executeScript((el) => el.click(), target)
+  }
+  console.log(`[CLICK] ${label} clicked successfully`)
+  addLog(ctx.logs, stepIndex, 'SUCCESS', `[CLICK] ${label} clicked successfully`, d)
+
+  await driver.executeScript((markAttr) => {
+    const el = document.querySelector(`[${markAttr}]`)
+    if (el) el.removeAttribute(markAttr)
+  }, MARK_ATTR).catch(() => {})
+
+  await driver.wait(async () => {
+    const ready = await driver.executeScript(() => document.readyState).catch(() => 'loading')
+    return ready === 'complete' || ready === 'interactive'
+  }, 10000).catch(() => {})
+  await driver.sleep(500)
+
+  const urlAfter = await driver.getCurrentUrl().catch(() => '')
+  console.log(`[CLICK] URL after click: ${urlAfter}`)
+  addLog(ctx.logs, stepIndex, 'INFO', `[CLICK] URL after click: ${urlAfter}`)
+
+  return { urlAfter, descriptor: d }
 }
 
 // A step like "Enter Employee Name" names ONE field. Filling every empty
@@ -188,13 +409,25 @@ const parseStepFieldAndValue = (step) => {
   if (!text) return null
 
   const patterns = [
+    // "to" is tried separately, and last: a field literally named "To Date"
+    // (or "To Time") contains the word "to" itself, so a combined
+    // in|into|to|inside connector matches the FIRST "to" it finds — inside
+    // the field's own name — and cuts the field/value split there instead
+    // of at the real connector. Preferring the unambiguous connectors first
+    // fixes "Enter a valid To Date dropdown in To Date dropdown" without
+    // guessing: it still resolves from the step's own wording, just via the
+    // connector that isn't also part of a field name.
     {
-      re: /^(?:enter|type|fill(?:\s+in)?|input|insert|set|provide)\s+["'«]?(.+?)["'»]?\s+(?:in|into|to|inside)\s+(?:the\s+)?(.+?)$/i,
+      re: /^(?:enter|type|fill(?:\s+in)?|input|insert|set|provide)\s+["'«]?(.+?)["'»]?\s+(?:in|into|inside)\s+(?:the\s+)?(.+?)$/i,
       action: 'type',
     },
     {
       re: /^(?:select|choose|pick)\s+["'«]?(.+?)["'»]?\s+(?:in|from|into|for|on)\s+(?:the\s+)?(.+?)$/i,
       action: 'select',
+    },
+    {
+      re: /^(?:enter|type|fill(?:\s+in)?|input|insert|set|provide)\s+["'«]?(.+?)["'»]?\s+to\s+(?:the\s+)?(.+?)$/i,
+      action: 'type',
     },
   ]
 
@@ -291,8 +524,15 @@ const buildTestDataMap = (rawTestData, steps = []) => {
     }
   }
 
+  // A "key: value" line requires an actual field NAME before the ":" — one
+  // that starts with a letter. Without this guard, a bare date value using
+  // ":" as its own separator (e.g. "2026:05:12", entered as raw test data)
+  // gets misread as key="2026", value="05:12", silently discarding the day
+  // and colliding two different dates onto the same numeric "key". A real
+  // field name never starts with a digit, so this alone tells the two apart
+  // without guessing which field the value belongs to.
   const parseLine = (line) => {
-    const match = String(line || '').match(/^\s*([A-Za-z0-9 _\-/]{1,60}?)\s*[:=]\s*(.+)\s*$/)
+    const match = String(line || '').match(/^\s*([A-Za-z][A-Za-z0-9 _\-/]{0,59})\s*[:=]\s*(.+)\s*$/)
     return match ? [match[1].trim(), match[2].trim()] : null
   }
 
@@ -313,6 +553,15 @@ const buildTestDataMap = (rawTestData, steps = []) => {
         (item) => item && typeof item === 'object' && (item.field || item.name || item.key || item.label)
       )
       if (hasKeyedItems) {
+        for (const item of input) walk(item)
+        return
+      }
+
+      // [{ "Username": "jdoe", "Password": "x" }] — plain objects whose KEYS
+      // are the field names. Without this they fell to the bare-value path
+      // and were stringified to "[object Object]".
+      const hasPlainObjects = input.some((item) => item && typeof item === 'object' && !Array.isArray(item))
+      if (hasPlainObjects) {
         for (const item of input) walk(item)
         return
       }
@@ -1158,7 +1407,9 @@ const conciseAnalysisLog = (analysis) => {
   const step = analysis.currentStep || analysis.context?.currentStep || ''
   const sessionText = [analysis.actual, analysis.evidence, analysis.currentDom?.text, analysis.currentDom?.url, analysis.context?.currentDom?.text, analysis.context?.currentDom?.url]
     .filter(Boolean).join(' ')
-  const sessionExpired = /session\s+expired|session\s+has\s+expired|your\s+session\s+has\s+expired|sign\s+in\s+again|log\s*in/i.test(sessionText) &&
+  const invalidCredentials = /invalid\s+credential|invalid\s+username\s+or\s+password|incorrect\s+password|authentication\s+failed|wrong\s+password|login\s+failed|access\s+denied/i.test(sessionText)
+  const sessionExpired = !invalidCredentials &&
+    /session\s+expired|session\s+has\s+expired|your\s+session\s+has\s+expired|sign\s+in\s+again/i.test(sessionText) &&
     (/login|sign[ -]?in|auth/i.test(sessionText) || /login|sign[ -]?in|auth/i.test(String(analysis.actual || '')))
   if (sessionExpired) {
     const resetStep = /\b(reset|clear)\b/i.test(step)
@@ -1614,6 +1865,28 @@ async function runStructuredUiStep(driver, step, ctx, stepIndex) {
       }
     }
 
+    // ✅ DETERMINISTIC CLICK — must not depend on the AI service. A pure
+    // "Click X" step (e.g. "Click Leave button in sidebar") is resolved and
+    // clicked directly against the live DOM here, before /ai/decide is ever
+    // called. If no real, visible, enabled element can be found and clicked,
+    // this returns null and the step falls through to the existing
+    // AI/JS-fallback pipeline unchanged — it never fabricates success from
+    // a URL change alone.
+    const isSidebarNavStep = /\bsidebar\b|\bside\s*panel\b|\bmenu\b|\bnav(?:igation)?\b/i.test(step)
+    if (currentStepActionType === 'click' && isSidebarNavStep) {
+      const navClickResult = await resolveAndClickNavElement(driver, step, ctx, stepIndex).catch((err) => {
+        console.warn('[CLICK] Deterministic click resolver threw:', err.message)
+        return null
+      })
+      if (navClickResult) {
+        const navScreenshot = await captureStepScreenshot(driver, stepIndex, 'passed').catch(() => null)
+        return {
+          status: 'passed',
+          screenshots: navScreenshot ? [navScreenshot] : [],
+        }
+      }
+    }
+
     const rawTestData =
       ctx.testCase?.test_data ||
       ctx.testCase?.testData ||
@@ -1939,7 +2212,9 @@ console.log(
 
 
       resp = await axios.post(
-        "http://localhost:8000/ai/decide",
+        // Inside Docker "localhost" is the backend container itself, not the
+        // Python service — always go through FASTAPI_BASE_URL when it is set.
+        `${String(process.env.FASTAPI_BASE_URL || "http://localhost:8000").replace(/\/+$/, "")}/ai/decide`,
         {
           step,
           test_data: testDataObject,
@@ -1976,11 +2251,17 @@ console.log(
         }
       }
 
-      if ((isClick || isFill) && !isDropdownStep) {
+      // Only attach a submit/button click when the step itself is a click
+      // step. A "fill" step ("Enter a valid username") must never click
+      // Login on its own — that belongs to the step that actually names the
+      // click, and clicking here triggers the premature-submit guard to
+      // inject OTHER fields' values (e.g. password) into this step's own
+      // action list, bypassing the per-step field scoping filter.
+      if (isClick && !isFill && !isDropdownStep) {
         const btn = findButtonForStep(step, elements)
         if (btn) {
           const btnText = btn?.text || ''
-          const btnSel = btnText ? `text=${btnText}` : btn.id ? `#${btn.id}` : `__index:${btn.index}`
+          const btnSel = btnText && !/^[0-9]+$/.test(btnText) ? `text=${btnText}` : btn.id ? `#${btn.id}` : `__index:${btn.index}`
           fallbackActions.push({ type: 'click', selector: btnSel, value: '', label: btnText || 'submit' })
         }
       }
@@ -2127,7 +2408,7 @@ console.log(
         const btn = findButtonForStep(step, elements)
         if (btn) {
           const btnText = btn?.text || ''
-          const btnSel = btnText ? `text=${btnText}` : btn.id ? `#${btn.id}` : `__index:${btn.index}`
+          const btnSel = btnText && !/^[0-9]+$/.test(btnText) ? `text=${btnText}` : btn.id ? `#${btn.id}` : `__index:${btn.index}`
           fallbackActions.push({ type: 'click', selector: btnSel, value: '', label: btnText || 'submit' })
         }
       }
@@ -2148,7 +2429,7 @@ console.log(
 
         if (btn) {
           const btnText = btn?.text || ''
-          const btnSel = btnText ? `text=${btnText}` : btn.id ? `#${btn.id}` : `__index:${btn.index}`
+          const btnSel = btnText && !/^[0-9]+$/.test(btnText) ? `text=${btnText}` : btn.id ? `#${btn.id}` : `__index:${btn.index}`
           actions = [{ type: 'click', selector: btnSel, value: '', label: btnText || 'submit' }]
           console.log("🔄 JS fallback click action:", actions)
         }
@@ -2156,7 +2437,17 @@ console.log(
 
       if (actions.length === 0) {
         const currentUrl = await driver.getCurrentUrl().catch(() => '')
-        const isAlreadyOnTarget = isLoginStep && currentUrl && !currentUrl.includes('/auth/login')
+        // "Not on /auth/login" is OrangeHRM-specific and proves nothing on
+        // other sites (SauceDemo's login page is "/"): only accept this
+        // shortcut when the browser has really left the page the test
+        // started on, otherwise the click never happened and the step must fail.
+        const stripUrl = (u) => String(u || '').replace(/[#?].*$/, '').replace(/\/+$/, '').toLowerCase()
+        const startUrl = stripUrl(/^https?:\/\//i.test(ctx.baseUrl || '') ? ctx.baseUrl : `https://${ctx.baseUrl || ''}`)
+        const isAlreadyOnTarget =
+          isLoginStep &&
+          currentUrl &&
+          !currentUrl.includes('/auth/login') &&
+          stripUrl(currentUrl) !== startUrl
         if (isAlreadyOnTarget) {
           console.log(`✅ Already navigated to destination (${currentUrl}). Step "${step}" satisfied.`)
           const fbScreenshot = await captureStepScreenshot(driver, stepIndex, "passed")

@@ -1046,9 +1046,15 @@ get canGenerateTestPlan(): boolean {
   }
 
   async onRegeneratePlan(plan: TestPlanDto, index: number) {
-  if (!plan?.id || !this.currentTestSuiteId) return
+  if (!plan?.id) return
   if (!this.isSelectedProjectAccepted) {
     this.toastr.warning('You must accept this project before editing/regenerating test plans.', 'Project Access')
+    return
+  }
+  // Plans not saved yet (preview mode): there is no suite in the database, so
+  // rewrite this one plan directly instead of silently doing nothing.
+  if (!this.currentTestSuiteId) {
+    await this.regeneratePreviewPlan(plan, index)
     return
   }
   this.errorMessage = ''
@@ -1147,6 +1153,41 @@ get canGenerateTestPlan(): boolean {
     this.activePlanGenerationRequestId = ''
   }
 }
+
+  private async regeneratePreviewPlan(plan: TestPlanDto, index: number) {
+    this.errorMessage = ''
+    this.regeneratingPlanId = plan.id
+    try {
+      const formData = new FormData()
+      formData.append('styleConfig', this.styleConfig.trim())
+      formData.append('applicationUrl', String(this.testPlanForm.getRawValue().applicationUrl || '').trim())
+      formData.append('regenerate', 'true')
+      formData.append('planId', plan.id)
+      formData.append('existingPlan', JSON.stringify(plan))
+
+      const result = await firstValueFrom(this.testLabService.generatePlanPreview(formData))
+      const next = Array.isArray(result?.testPlans) ? result.testPlans[0] : null
+      if (!next) {
+        this.toastr.warning('No regenerated plan returned by backend.', 'Regenerate')
+        return
+      }
+
+      const updated = { ...next, id: plan.id }
+      this.testPlans = this.testPlans.map((p, i) => (i === index ? updated : p))
+      this.planStatuses[plan.id] = 'pending'
+      this.sessionSaved = false
+      this.plansValidated = false
+      this.toastr.success(`Plan ${plan.id} regenerated successfully.`, 'Regenerate')
+    } catch (err: unknown) {
+      const status = getErrorStatus(err)
+      this.errorMessage =
+        status === 502 || status === 504
+          ? 'Regenerate failed. Please verify FastAPI/Ollama and retry.'
+          : getErrorMessage(err, 'Unable to regenerate this plan')
+    } finally {
+      this.regeneratingPlanId = null
+    }
+  }
 
   /**
    * RÃ©gÃ©nÃ¨re les test cases du plan courant sans avancer.

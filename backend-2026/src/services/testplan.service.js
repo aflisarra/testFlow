@@ -209,8 +209,43 @@ async function generateTestPlansPreview({
   testPlanCount,
   testSuiteId,
   regenerate,
+  planId,
+  existingPlan,
 }) {
   try {
+    // Single-plan regenerate of an unsaved (preview) plan: no suite exists yet,
+    // so rewrite just this plan from the plan itself — no spec file needed.
+    if (regenerate && planId && existingPlan && typeof existingPlan === 'object') {
+      const single = await axios.post(
+        `${getFastApiBaseUrl()}/generate-plan`,
+        {
+          spec_text: String(existingPlan.description || existingPlan.title || planId),
+          plan_id: planId,
+          regenerate: true,
+          existing_plan: {
+            id: planId,
+            title: existingPlan.title,
+            description: existingPlan.description,
+            objective: existingPlan.objective,
+            scope: existingPlan.scope,
+            priority: existingPlan.priority,
+            requirements: existingPlan.requirements,
+          },
+        },
+        { timeout: getFastApiTimeoutMs(420_000), headers: getFastApiHeaders() }
+      )
+      const rewritten = Array.isArray(single.data?.test_plans) ? single.data.test_plans : []
+      return rewritten.slice(0, 1).map((plan) => ({
+        id: planId,
+        title: normalizeString(plan.title) || String(existingPlan.title || planId),
+        description: normalizeString(plan.description),
+        objective: normalizeString(plan.objective),
+        scope: normalizeString(plan.scope),
+        priority: validatePriority(plan.priority),
+        requirements: normalizeRequirements(plan.requirements),
+      }))
+    }
+
     let specText = ''
     let promptStyleConfig = String(styleConfig || '')
 

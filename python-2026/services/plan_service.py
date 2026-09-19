@@ -62,7 +62,9 @@ Existing plan:
         "objective": str(candidate.get("objective") or source["objective"]).strip(),
         "scope": str(candidate.get("scope") or source["scope"]).strip(),
         "priority": str(candidate.get("priority") or source["priority"]).strip(),
-        "requirements": candidate.get("requirements") or source["requirements"],
+        # Requirements are traceability data, not wording: a small model
+        # rewrites/translates them, so always keep the originals untouched.
+        "requirements": source["requirements"],
     }
 
     comparable_fields = ("title", "description", "objective", "scope")

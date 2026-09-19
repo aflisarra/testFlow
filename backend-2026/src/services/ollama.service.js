@@ -987,6 +987,8 @@ async function generateTestCases({ req, body }) {
         test_suite_id: testSuiteId,
         generation_scope: 'cases',
         generation_request_id: generationRequestId || undefined,
+        regenerate: regenerate || undefined,
+        existing_case: regenerate && existingCases.length ? existingCases : undefined,
       },
       { timeout: getFastApiTimeoutMs(420_000), headers: getFastApiHeaders() }
     )

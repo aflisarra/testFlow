@@ -1,50 +1,14 @@
 {
-  "test_cases": [
-    {
-      "id": "TC-1.1",
-      "title": "Add button User Management using User Role dropdown and Employee Name field",
-      "objective": "Verify that User Management can be filtered by User Role dropdown and Employee Name field using Add button.",
-      "preconditions": [
-        "The User Management screen is displayed with search filters in their initial/default state"
-      ],
-      "test_data": {
-        "User Role dropdown": "a valid User Role dropdown",
-        "Employee Name field": "a valid Employee Name field"
-      },
-      "steps": [
-        "Enter a valid User Role dropdown in User Role dropdown",
-        "Enter a valid Employee Name field in Employee Name field",
-        "Click Add button"
-      ],
-      "stepDetails": [
-        {
-          "component": "User Role dropdown",
-          "action": "enter",
-          "value": "a valid User Role dropdown",
-          "step": "Enter a valid User Role dropdown in User Role dropdown",
-          "expected_result": "User Role dropdown accepts and retains the entered value"
-        },
-        {
-          "component": "Employee Name field",
-          "action": "enter",
-          "value": "a valid Employee Name field",
-          "step": "Enter a valid Employee Name field in Employee Name field",
-          "expected_result": "Employee Name field accepts and retains the entered value"
-        },
-        {
-          "component": "Add button",
-          "action": "click",
-          "value": "",
-          "step": "Click Add button",
-          "expected_result": "User Management displays results matching the applied filters"
-        }
-      ],
-      "expected_result": "User Management displays results matching the selected User Role dropdown and Employee Name field.",
-      "priority": "High",
-      "severity": "Major",
-      "type": "positive",
-      "requirements": [],
-      "dependsOn": []
-    }
-  ]
-}
+  "title": "TEST ANALYSIS",
+  "failedStepName": "Enter a valid Remove button in Remove",
+  "description": "The user attempted to click the Remove button but the button was not clickable.",
+  "expectedBehavior": "The user should be able to click the Remove button and remove the item from the cart.",
+  "actualBehavior": "The Remove button is not clickable and no action is taken when clicked.",
+  "rootCause": "AI_ACTION - HIGH",
+  "whyItFailed": "The AI action did not correctly identify or target the Remove button, resulting in the button being non-clickable.",
+  "developerFix": [
+    "Focus on the element selector for the Remove button to ensure it is correctly identified.",
+    "Verify that the button is not disabled or hidden by CSS or JavaScript.",
+    "Add a wait condition to ensure the button is fully loaded before attempting to click it."
+  ],
+  "developerCodeExample": "await page.waitForSelector('button:contains("            																																

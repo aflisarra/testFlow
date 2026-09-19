@@ -67,6 +67,8 @@ def generate_test_cases_route(payload: GenerateTestCasesRequest):
             spec_text=spec_text,
             style_config=style_config,
             project_title=project_title,
+            regenerate=bool(payload.regenerate),
+            existing_case=payload.existing_case,
         )
         if is_cancelled(
             test_suite_id=payload.test_suite_id,

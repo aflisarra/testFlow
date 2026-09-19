@@ -379,6 +379,45 @@ if (inputStepPatterns.test(expected || '')) {
     }
   }
   // ─────────────────────────────────────
+  // ✅ 1b. Navigation vers une destination nommée
+  // ─────────────────────────────────────
+  // 'The user is redirected to the "Your Cart" page (URL /cart.html)' names
+  // its destination. Judge it on the URL path and/or the page name — the
+  // generic success-keyword check below ("redirect" must appear in the
+  // page text) can never be satisfied by such a page and failed a correct
+  // navigation. An expectation without a URL path or quoted page name still
+  // goes through the existing logic unchanged.
+  const rawExpected = String(expected || '')
+  const destinationPath = rawExpected.match(/(?:^|[\s(])(\/[a-z0-9_\-./]{2,})/i)?.[1]
+  const destinationPage = rawExpected.match(/["“]([^"”]{2,60})["”]\s+page/i)?.[1]
+  if ((destinationPath || destinationPage) && /redirect|navigat|land|open|display|shown|taken to|go(?:es)? to/i.test(exp)) {
+    if (actual?.errorMessage) {
+      return { status: 'failed_assertion', matched: false, reason: `Got error instead: "${actual.errorMessage}"` }
+    }
+    const checks = []
+    if (destinationPath) {
+      const urlOk = String(actual?.url || '').toLowerCase().includes(destinationPath.toLowerCase())
+      checks.push({ ok: urlOk, label: `URL contains ${destinationPath}` })
+    }
+    if (destinationPage) {
+      const pageOk = actualText.includes(normalizeText(destinationPage))
+      checks.push({ ok: pageOk, label: `page shows "${destinationPage}"` })
+    }
+    const failedCheck = checks.find((c) => !c.ok)
+    return failedCheck
+      ? {
+          status: 'failed_assertion',
+          matched: false,
+          reason: `Expected navigation not reached (${failedCheck.label} was not satisfied) — actual: ${actual?.url || 'unknown'}`,
+        }
+      : {
+          status: 'passed',
+          matched: true,
+          reason: `Navigation verified: ${checks.map((c) => c.label).join(' and ')}`,
+        }
+  }
+
+  // ─────────────────────────────────────
   // ✅ 2. Détection succès / redirect
   // ─────────────────────────────────────
   const successKeywords = [
@@ -894,7 +933,14 @@ async function runTestCase(testCase, options = {}) {
           if (/login|sign.?in/i.test(stepText)) {
             await driver.wait(async () => {
               const url = await driver.getCurrentUrl().catch(() => '')
-              if (url.includes('/auth/login')) return false
+              // "/auth/validate" (OrangeHRM's login POST target) is a
+              // transient in-flight URL: the server redirects it back to
+              // "/auth/login" (invalid credentials) or to the dashboard once
+              // the request completes. Treat it the same as "/auth/login" —
+              // still not settled — or a credentials-error capture races the
+              // redirect and reads the DOM one step too early, missing the
+              // error banner and reporting the step as passed.
+              if (url.includes('/auth/login') || url.includes('/auth/validate')) return false
               const hasRenderedContent = await driver.executeScript(() => {
                 return document.querySelectorAll('body *:not(style):not(script):not(noscript)').length > 20
               }).catch(() => false)
@@ -931,9 +977,15 @@ if (actualResultObject.successMessage) {
         let comparison
 
         // ── Classify step type ──────────────────────────────────────────────
+        // Word-bounded: an unbounded /set/ matched the "set" inside "Reset",
+        // so "Click Reset button" was misclassified as an INPUT step instead
+        // of a CLICK/ACTION step. A step is INPUT only when it actually
+        // STARTS with a data-entry verb — a click step is never turned into
+        // an input step just because one of its words contains "set".
         const isInputStep =
-          /enter|fill|provide|type|insert|set/i.test(stepText.toLowerCase()) &&
-          !/select|choose|pick|dropdown|calendar/i.test(stepText.toLowerCase())
+          !isActionStep(stepText) &&
+          /^\s*(enter|fill|provide|type|insert|set)\b/i.test(stepText) &&
+          !/\b(select|choose|pick|dropdown|calendar)\b/i.test(stepText)
         const isClickStep = isActionStep(stepText)
         const hasGenericExpected = isGenericActionExpected(stepExpectedResult)
         const hasExplicitExpected = Boolean(stepExpectedResult) && !hasGenericExpected

@@ -76,6 +76,15 @@ exports.generatePreview = async (req, res) => {
       req.body?.target_count
     const testSuiteId = String(req.body?.testSuiteId || req.body?.test_suite_id || '').trim()
     const regenerate = String(req.body?.regenerate || '').toLowerCase() === 'true'
+    const planId = String(req.body?.planId || req.body?.plan_id || '').trim()
+    let existingPlan = req.body?.existingPlan || req.body?.existing_plan || null
+    if (typeof existingPlan === 'string') {
+      try {
+        existingPlan = JSON.parse(existingPlan)
+      } catch {
+        existingPlan = null
+      }
+    }
     const file = req.file
 
     const testPlans = await require('../services/testplan.service')
@@ -86,6 +95,8 @@ exports.generatePreview = async (req, res) => {
         testPlanCount,
         testSuiteId,
         regenerate,
+        planId,
+        existingPlan,
       })
 
     return res.status(200).json({

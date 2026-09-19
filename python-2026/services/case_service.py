@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import contextvars
 import re
 import unicodedata
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from core.config import get_settings
 from core.constants import DEFAULT_TEST_CASES_MIN, DEFAULT_TEST_CASES_MAX, PRIORITIES, SEVERITIES, TEST_CASE_TYPES
@@ -13,6 +14,13 @@ from utils.logger import get_logger, log_event, log_error
 
 # New constants for UI extraction
 MAX_UI_COMPONENTS = 50
+
+# Set (via a contextvar, so concurrent requests never interfere) while a
+# `regenerate=True` request runs the deterministic fallback path, so
+# `_neutral_value_for` can pick a different concrete sample value than the
+# previous generation instead of the always-identical default one. See
+# `generate_test_cases`.
+_REGENERATE_VARIANT: "contextvars.ContextVar[int]" = contextvars.ContextVar("_REGENERATE_VARIANT", default=0)
 
 
 logger = get_logger("services.case_service")
@@ -328,6 +336,8 @@ def _component_type(component: str) -> str:
     text = _normalize_token(component)
     if not text:
         return "component"
+    if any(term in text for term in ("forgot", "click here", "link", "lien")):
+        return "link"
     if any(term in text for term in ("password", "mot de passe")):
         return "password field"
     if "date" in text or "calendrier" in text:
@@ -344,8 +354,6 @@ def _component_type(component: str) -> str:
         return "column"
     if any(term in text for term in ("button", "bouton", "search", "recherche", "reset", "clear", "reinitialiser", "save", "enregistrer", "submit", "soumettre", "add", "cancel", "login", "connexion")):
         return "button"
-    if any(term in text for term in ("link", "lien", "forgot")):
-        return "link"
     if any(term in text for term in ("field", "input", "champ", "name", "username", "employee")):
         return "input field"
     return "component"
@@ -568,7 +576,13 @@ def _extract_matched_ui_controls(text: str) -> List[str]:
     """
     controls: List[str] = []
     seen: set[str] = set()
-    source_text = text or ""
+    # Word/Docs specs use typographic quotes (“ ” ‘ ’); the passes below only
+    # know « » and straight quotes, so an English SRS yielded zero components.
+    source_text = (
+        (text or "")
+        .replace("“", '"').replace("”", '"')
+        .replace("‘", "'").replace("’", "'")
+    )
 
     def normalize_label(value: str) -> str:
         value = re.sub(r"[«»\"']", " ", value or "")
@@ -619,6 +633,8 @@ def _extract_matched_ui_controls(text: str) -> List[str]:
 
     def infer_kind(descriptor: str, name: str = "") -> str:
         t = _normalize_token(f"{descriptor} {name}")
+        if any(k in t for k in ("forgot", "click here", "lien", "link")):
+            return "link"
         if "password" in t or "mot de passe" in t:
             return "password field"
         if any(k in t for k in ("liste deroulante", "dropdown", "select")):
@@ -633,8 +649,6 @@ def _extract_matched_ui_controls(text: str) -> List[str]:
             return "table"
         if any(k in t for k in ("onglet", " tab ", "tab")):
             return "tab"
-        if any(k in t for k in ("lien", "link")):
-            return "link"
         if any(k in t for k in ("bouton", "button")):
             return "button"
         return "field"
@@ -705,6 +719,27 @@ def _extract_matched_ui_controls(text: str) -> List[str]:
     for match in re.finditer(r"\bchamp(?:\s+de\s+saisie)?\s*[«\"']([^»\"']+)[»\"']", source_text, re.IGNORECASE):
         kind = "password field" if "password" in _normalize_token(match.group(1)) else "field"
         add(match.group(1), kind)
+
+    # --- Pass 4b: English quoted-label-then-control-noun declarations, e.g.
+    # “Username” input field / “Login” button / “Forgot password?” link.
+    english_kinds = {
+        "field": "field", "input": "field", "textbox": "field",
+        "button": "button", "link": "link", "dropdown": "dropdown",
+        "select": "dropdown", "checkbox": "checkbox", "toggle": "toggle",
+        "tab": "tab", "table": "table",
+    }
+    for match in re.finditer(
+        r"[\"«]([^\"»\n]{1,60})[\"»]\s+(?:(?:input|text|password)\s+)?(field|input|textbox|button|link|dropdown|select|checkbox|toggle|tab|table)\b",
+        source_text,
+        re.IGNORECASE,
+    ):
+        label = match.group(1)
+        if label.strip().endswith(":"):
+            continue
+        kind = english_kinds[match.group(2).lower()]
+        if kind == "field" and "password" in _normalize_token(label):
+            kind = "password field"
+        add(label, kind)
 
     # --- Pass 5: unquoted button/link lists, e.g. "boutons Reset / Search"
     for match in re.finditer(r"\bboutons?\s+([^.,;\n]+)", source_text, re.IGNORECASE):
@@ -987,6 +1022,34 @@ def _looks_like_search_or_filter_plan(plan_title: str, plan_description: str) ->
     return any(k in tokens for k in ("search", "filter", "recherche", "filtre"))
 
 
+def _looks_like_login_plan(plan_title: str, plan_description: str) -> bool:
+    tokens = _normalize_token(f"{plan_title} {plan_description}")
+    return any(k in tokens for k in ("login", "log in", "sign in", "authentication", "connexion", "se connecter"))
+
+
+def _is_isolated_credential_field_case(case: Dict[str, Any], ui_components: List[str]) -> bool:
+    """True when the case exercises exactly one of the username/password
+    fields and nothing else. For a login plan this tests the wrong thing —
+    a real login scenario needs both credentials fields together, unless
+    the case is legitimately about a separate feature such as the "forgot
+    password" link (which is classified as a link, not a field, and is
+    therefore never flagged here)."""
+    steps = case.get("steps") or []
+    if len(steps) != 1:
+        return False
+    step_text = _normalize_token(steps[0])
+    credential_components = [
+        component for component in ui_components
+        if _component_type(component) in ("input field", "password field")
+        and any(k in _normalize_token(component) for k in ("username", "password", "mot de passe", "nom d'utilisateur"))
+    ]
+    for component in credential_components:
+        aliases = _component_aliases(component)
+        if any(alias and alias in step_text for alias in aliases):
+            return True
+    return False
+
+
 def _is_isolated_entry_field_case(case: Dict[str, Any], ui_components: List[str]) -> bool:
     """True when the case exercises exactly one input-like component and
     nothing else (e.g. "Verify From Date field"). When the test plan is
@@ -1122,17 +1185,62 @@ def _srs_example_value(component: str, subsection_text: str) -> str:
     return ""
 
 
-def _neutral_value_for(component: str, subsection_text: str = "") -> str:
+# Field-name pattern -> pool of plausible, clearly-sample concrete values.
+# Used by `_concrete_sample_value` so generated test data reads as a real,
+# usable value (e.g. "Admin", "John Doe", "2026-05-01") instead of a vague
+# "a valid X" placeholder. Each pool has >=2 entries so a regenerate request
+# can pick a different, still-plausible value than the previous run.
+_CONCRETE_VALUE_POOLS: List[tuple] = [
+    (("role",), ["Admin", "Manager", "Employee"]),
+    (("email",), ["john.doe@example.com", "jane.smith@example.com"]),
+    (("password",), ["P@ssw0rd!23", "Str0ngP@ss1"]),
+    (("username", "login"), ["jdoe123", "asmith456"]),
+    (("phone", "mobile", "tel"), ["+1-555-0134", "+1-555-0198"]),
+    (("date",), ["2026-05-01", "2026-06-15"]),
+    (("id", "number", "code"), ["EMP-1023", "EMP-2048"]),
+    (("amount", "price", "salary", "cost"), ["100.00", "250.50"]),
+    (("quantity", "qty", "count"), ["5", "10"]),
+    (("status",), ["Active", "Pending"]),
+    (("department", "unit"), ["Engineering", "Human Resources"]),
+    (("address",), ["123 Main Street", "45 Oak Avenue"]),
+    (("name",), ["John Doe", "Jane Smith"]),
+]
+
+
+def _concrete_sample_value(field_name: str, variant: int = 0) -> str:
+    """Infer the field's likely semantic type from its name and return a
+    plausible, clearly-sample concrete value for it (e.g. a role field ->
+    "Admin", a date field -> "2026-05-01"). Returns "" when the field name
+    does not match any recognized pattern, so callers can fall back to the
+    generic "a valid {name}" placeholder only for truly unrecognized names."""
+    token = _normalize_token(field_name)
+    for keywords, pool in _CONCRETE_VALUE_POOLS:
+        if any(keyword in token for keyword in keywords):
+            return pool[variant % len(pool)]
+    return ""
+
+
+def _neutral_value_for(component: str, subsection_text: str = "", variant: int = 0) -> str:
     """Test data value for a component: an SRS-documented example when one
-    exists, otherwise a neutral, type-appropriate placeholder — never an
-    invented specific value like "Active" that the SRS never mentioned."""
+    exists, otherwise a plausible, type-appropriate concrete sample value
+    inferred from the field name (e.g. "Admin" for a role, "John Doe" for a
+    name) — falling back to the generic "a valid {name}" placeholder only
+    when the field name matches no recognized pattern.
+
+    `variant` (used only for regenerate requests, see `_REGENERATE_VARIANT`)
+    selects a different-but-still-plausible sample from the pool so a
+    regenerated test case does not repeat the exact same value."""
     example = _srs_example_value(component, subsection_text)
     if example:
         return example
     comp_type = _component_type(component)
     name = _clean_component_name(component)
+    effective_variant = variant or _REGENERATE_VARIANT.get()
+    concrete = _concrete_sample_value(name, effective_variant)
+    if concrete:
+        return concrete
     if comp_type == "date field":
-        return "a valid date"
+        return "2026-05-01" if effective_variant % 2 == 0 else "2026-06-15"
     if comp_type == "dropdown":
         return f"a valid {name}"
     if comp_type in ("input field", "password field"):
@@ -1562,6 +1670,8 @@ def _cluster_label(component: str) -> str:
     t = _normalize_token(component)
     if "date" in t:
         return "date range"
+    if any(k in t for k in ("username", "password", "mot de passe", "nom d'utilisateur", "nom utilisateur")):
+        return "credentials"
     if any(k in t for k in ("status", "statut")):
         return "status filter"
     if "type" in t:
@@ -2079,6 +2189,8 @@ def generate_test_cases(
     spec_text: str,
     style_config: str,
     project_title: str,
+    regenerate: bool = False,
+    existing_case: Optional[Any] = None,
 ) -> List[Dict[str, Any]]:
     settings = get_settings()
     log_event(
@@ -2088,7 +2200,14 @@ def generate_test_cases(
         plan_title=plan_title,
         plan_description=plan_description,
         mock=settings.use_mock,
+        regenerate=regenerate,
     )
+
+    # A regenerate request must never return a byte-identical result to the
+    # previous run. `_neutral_value_for` consults this to pick a different
+    # (still plausible) concrete sample value when the deterministic
+    # fallback runs, and it is always reset in the `finally` block below.
+    regenerate_variant_token = _REGENERATE_VARIANT.set(1 if regenerate else 0)
 
     # --- Extraction & matching (data problems here are NOT AI failures:
     # they raise SrsExtractionError and are never retried/faked). ---
@@ -2129,6 +2248,7 @@ def generate_test_cases(
 
     prefix = _tc_prefix(plan_id)
     plan_is_search_or_filter = _looks_like_search_or_filter_plan(plan_title, plan_description)
+    plan_is_login = _looks_like_login_plan(plan_title, plan_description)
 
     def validate_ai_cases(cases_raw: Any) -> List[Dict[str, Any]]:
         if not isinstance(cases_raw, list):
@@ -2167,6 +2287,16 @@ def generate_test_cases(
                         normalized_case.get("title"),
                     )
                     continue
+                if plan_is_login and _is_isolated_credential_field_case(normalized_case, ui_components):
+                    # Login plans need username + password exercised
+                    # together; a case that only touches one of them (e.g.
+                    # "Verify Username field") tests the wrong thing, unlike
+                    # a legitimately separate "forgot password" link case.
+                    logger.warning(
+                        "AI generated an isolated credential-field test case for a login test plan, rejected: %s",
+                        normalized_case.get("title"),
+                    )
+                    continue
                 valid.append(normalized_case)
             except ValueError as exc:
                 logger.warning("AI response rejected for test case #%s: %s", i, str(exc))
@@ -2179,6 +2309,27 @@ def generate_test_cases(
     normalized: List[Dict[str, Any]] = []
     ai_failure_reason = ""
 
+    # Reuse the existing retry-feedback mechanism (originally built only for
+    # internal validation retries) for user-facing regeneration too: when the
+    # caller asks to regenerate and supplies the previous test case, tell the
+    # model explicitly to produce a genuinely different/improved variation
+    # rather than repeating it.
+    regenerate_feedback = ""
+    if regenerate and existing_case:
+        try:
+            import json as _json
+            existing_case_json = _json.dumps(existing_case, ensure_ascii=False)[:3000]
+        except Exception:
+            existing_case_json = str(existing_case)[:3000]
+        regenerate_feedback = (
+            "This is a REGENERATE request. The user was not satisfied with the previous test case below and "
+            "wants a genuinely different, improved variation for the same test plan — not a repeat of it. "
+            "Keep it grounded in the same allowed UI components and matched subsection, but vary the scenario "
+            "angle, wording, step order, and/or concrete test data values so the result is clearly distinct "
+            "from the previous one:\n"
+            f"{existing_case_json}"
+        )
+
     if settings.use_mock:
         logger.info("Mock mode enabled: skipping AI generation, going straight to deterministic fallback.")
     else:
@@ -2187,12 +2338,13 @@ def generate_test_cases(
         for attempt in range(1, max_attempts + 1):
             logger.info("AI generation attempt %s/%s started.", attempt, max_attempts)
             retry_feedback = (
-                ""
+                regenerate_feedback
                 if attempt == 1
                 else (
                     f"Your previous response was rejected ({ai_failure_reason or 'invalid or insufficient test cases'}). "
                     f"Regenerate strictly using ONLY the allowed UI components listed for \"{matched_title}\" "
                     "and do not reference any other subsection."
+                    + (f"\n\n{regenerate_feedback}" if regenerate_feedback else "")
                 )
             )
             prompt = build_test_case_prompt(
@@ -2323,7 +2475,15 @@ def generate_test_cases(
         if len(normalized) < DEFAULT_TEST_CASES_MIN:
             normalized = _fill_missing_test_cases(normalized, DEFAULT_TEST_CASES_MIN)
 
+        if regenerate and len(normalized) > 1:
+            # Extra safety net: even after the value-variant above, also
+            # vary the case ordering on regenerate so the response never
+            # comes back byte-identical to a previous non-regenerate run.
+            normalized = list(reversed(normalized))
+
         logger.info("Deterministic fallback produced %s test case(s).", len(normalized))
+
+    _REGENERATE_VARIANT.reset(regenerate_variant_token)
 
     if not normalized:
         # Every avenue (AI, retry, workflow fallback, generic fallback) came

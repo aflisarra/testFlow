@@ -117,6 +117,11 @@ _RULES: list[tuple[re.Pattern, str, str]] = [
         "application_error",
         "This looks like a backend/application error rather than a UI/selector issue — check server-side logs for this request.",
     ),
+    (
+        re.compile(r"invalid credential|invalid username or password|incorrect password|authentication failed|wrong password|login failed|access denied", re.IGNORECASE),
+        "invalid_credentials",
+        "The application rejected the login with an invalid-credentials error. Verify that the username/password configured in the test data are correct and still valid.",
+    ),
 ]
 
 
@@ -282,12 +287,78 @@ def _extract_test_data_preview(test_case: dict[str, Any], limit: int = 6) -> lis
     return values[:limit]
 
 
+def _verify_test_data(payload: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """
+    Before asking the AI to guess a root cause, check whether a login/credential
+    failure is simply explained by missing or mismatched test data. Returns a
+    ready-made analysis dict when this shortcut applies, otherwise None so the
+    caller falls through to the normal AI analysis.
+    """
+    failed_step = payload.get("failed_step") or {}
+    step_text = str(failed_step.get("name") or failed_step.get("step") or "").lower()
+    error_message = str(payload.get("error_message") or "").lower()
+
+    is_login_step = bool(
+        re.search(r"login|sign.?in|log.?in|username|password|credential", step_text + " " + error_message)
+    )
+    if not is_login_step:
+        return None
+
+    test_case = payload.get("test_case") or {}
+    test_data_values = _extract_test_data_preview(test_case, limit=20)
+    final_field_values = payload.get("final_field_values") or {}
+
+    if not test_data_values:
+        return {
+            "title": "Missing test data",
+            "description": "The login step failed and no test data (username/password) is defined for this test case.",
+            "rootCause": "data_mismatch",
+            "confidence": 0.9,
+            "actionText": "Add valid login credentials to the test case's test data before re-running this test.",
+            "diagnosticTips": ["Check the test case's Test Data field for username/password values."],
+            "suggestedSelectors": [],
+            "recommendations": [{
+                "error": "No test data provided",
+                "rootCause": "data_mismatch",
+                "whatHappened": "The step requires login credentials but the test case has none configured.",
+                "example": "",
+                "fix": "Populate the test case's test data with a valid username and password.",
+            }],
+        }
+
+    if isinstance(final_field_values, dict) and final_field_values:
+        entered_values = {str(v).strip() for v in final_field_values.values() if str(v).strip()}
+        expected_values = {v.strip() for v in test_data_values if v.strip()}
+        if entered_values and expected_values and entered_values.isdisjoint(expected_values):
+            return {
+                "title": "Test data mismatch",
+                "description": "The values entered during execution do not match the test data configured for this test case.",
+                "rootCause": "data_mismatch",
+                "confidence": 0.85,
+                "actionText": "Verify that the username/password used in the test data are correct and up to date, then re-run the test.",
+                "diagnosticTips": [
+                    f"Entered: {', '.join(sorted(entered_values))}",
+                    f"Expected (test data): {', '.join(sorted(expected_values))}",
+                ],
+                "suggestedSelectors": [],
+                "recommendations": [{
+                    "error": "Login credentials mismatch",
+                    "rootCause": "data_mismatch",
+                    "whatHappened": "The values typed into the form do not correspond to the configured test data.",
+                    "example": f"Entered {', '.join(sorted(entered_values))} vs expected {', '.join(sorted(expected_values))}",
+                    "fix": "Update the test data or fix the step that fills the form so it uses the correct values.",
+                }],
+            }
+
+    return None
+
+
 def _fallback_analysis(payload: dict[str, Any], reason: str = "") -> dict[str, Any]:
     failed_step = payload.get("failed_step") or {}
     step_index = int(payload.get("step_index") or 0)
     failed_step_name = str(failed_step.get("name") or "")
     test_case = payload.get("test_case") or {}
-    dom_state = payload.get("dom_state") or {}
+    dom_state = payload.get("dom_state") or payload.get("final_dom") or {}
 
     step_detail = _find_step_detail(test_case, step_index, failed_step_name)
     expected_result = str(
@@ -318,10 +389,33 @@ def _fallback_analysis(payload: dict[str, Any], reason: str = "") -> dict[str, A
         re.search(r"session\s+(?:has\s+)?expired|sign\s+in\s+again", session_text, re.IGNORECASE)
         and re.search(r"login|sign[ -]?in|auth", session_text, re.IGNORECASE)
     )
+    _credentials_pattern = re.compile(
+        r"invalid credential|invalid username or password|incorrect password|authentication failed|wrong password|login failed|access denied",
+        re.IGNORECASE,
+    )
+    credentials_evidence = next(
+        (item for item in dom_evidence if _credentials_pattern.search(item)),
+        None,
+    )
+    if not credentials_evidence:
+        # The error may only be visible as raw page text (e.g. a banner/toast
+        # that didn't match one of the structured selectors above).
+        raw_text = str(dom_state.get("text") or "")
+        match = _credentials_pattern.search(raw_text)
+        if match:
+            start = max(0, match.start() - 40)
+            end = min(len(raw_text), match.end() + 40)
+            credentials_evidence = f"DOM: {raw_text[start:end].strip()}"
+
     if session_expired:
         root_cause = "ENVIRONMENT"
         fix = "The session expired during the test. Re-authenticate before running this step and verify the session stays valid throughout the test."
         report_type = "unknown"
+    elif credentials_evidence:
+        _rc, fix = _categorize(credentials_evidence)
+        root_cause = _rc.upper().replace("_", " ")
+        report_type = "unknown"
+        primary_text = credentials_evidence
     elif dom_evidence:
         if any(re.search(r"validation|mat-error|aria|error", item, re.IGNORECASE) for item in dom_evidence):
             root_cause = "APPLICATION"
@@ -357,15 +451,26 @@ def _fallback_analysis(payload: dict[str, Any], reason: str = "") -> dict[str, A
     recommendations = recommendations[:2]
 
     # Build a human-readable problem description
-    problem_desc = (
-        f'Step "{failed_step_name}" did not reach the expected result.'
-        if failed_step_name
-        else "The test step did not reach the expected result."
-    )
+    if credentials_evidence:
+        problem_desc = (
+            f'Step "{failed_step_name}" failed because the application rejected the login with '
+            f'"{credentials_evidence.replace("DOM: ", "").strip()}". You should verify the test data '
+            f"(username/password) configured for this test case."
+            if failed_step_name
+            else 'The application rejected the login. You should verify the test data (username/password) configured for this test case.'
+        )
+    else:
+        problem_desc = (
+            f'Step "{failed_step_name}" did not reach the expected result.'
+            if failed_step_name
+            else "The test step did not reach the expected result."
+        )
 
     # Build actual behavior
     if session_expired:
         actual_behavior = "The page was redirected to the login screen, indicating the session expired."
+    elif credentials_evidence:
+        actual_behavior = credentials_evidence.replace("DOM: ", "").strip()
     elif dom_evidence:
         actual_behavior = dom_evidence[0].replace("DOM: ", "").strip()
     else:
@@ -380,6 +485,11 @@ def _fallback_analysis(payload: dict[str, Any], reason: str = "") -> dict[str, A
 
     # Tester recommendations
     tester_fix: list[str] = []
+    if credentials_evidence:
+        tester_fix.append(
+            "You should verify the test data: confirm the username/password configured for this test "
+            "case are correct and still valid on the target application before re-running the test."
+        )
     if failed_step_name:
         tester_fix.append(
             f'Reproduce the failure by running only the "{failed_step_name}" step in isolation and observe the result.'
@@ -395,6 +505,10 @@ def _fallback_analysis(payload: dict[str, Any], reason: str = "") -> dict[str, A
     tips = [t for t in (tester_fix + developer_fix) if t]
 
     return {
+        "title": (primary_text[:120] if primary_text else problem_desc),
+        "description": problem_desc,
+        "rootCause": root_cause,
+        "actualBehavior": actual_behavior,
         "timeline": [],
         "actionLabel": "Recommended Fix",
         "actionText": fix,
@@ -513,6 +627,21 @@ async def detect_failure(payload: FailureDetectionPayload) -> dict[str, Any]:
             log_count=len(normalized_payload["logs"]),
             has_ai_actions=bool(normalized_payload["ai_actions"]),
         )
+
+        # Verify test data first: a login/credential failure is often just
+        # missing or mismatched test data, not something the AI needs to guess.
+        data_verification = _verify_test_data(normalized_payload)
+        if data_verification is not None:
+            log_event(
+                logger,
+                "failure_detection_data_mismatch",
+                execution_id=execution_id,
+            )
+            return {
+                **data_verification,
+                "recommendations": _normalize_recommendations(data_verification),
+                "source": "data_verification",
+            }
 
         # Build prompt for AI analysis
         prompt = build_ai_detector_fix_prompt(normalized_payload)
